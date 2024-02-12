@@ -22,6 +22,7 @@ class GridConstants:
     MedKit = "M"
     GreenVictim = "G"
     YellowVictim = "Y"
+    SoupPot = "P"
     RedVictim = "R"
     AgentUp = "^"
     AgentRight = ">"

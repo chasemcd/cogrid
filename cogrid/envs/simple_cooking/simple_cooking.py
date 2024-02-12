@@ -46,47 +46,8 @@ class SimpleCooking(gridworld_env.GridWorld):
             )
             self.agents[agent_id] = agent
 
-    def on_interact(self, actions: dict) -> None:
-        """
-        Mandate that agents must toggle a specific number of times (makes coordination easier since sequence is
-        more than a single step).
-        """
-        for agent_id, action in actions.items():
-            if action == self.env_actions.Toggle:
-                agent = self.agents[agent_id]
-                # Break out of the sequence if the agent was successful, otherwise continue it.
-                if (
-                    self.toggle_sequences[agent_id] < self.toggle_seq_len
-                    and not agent.cell_toggled
-                ):
-                    self.toggle_sequences[agent_id] += 1
-                else:
-                    self.toggle_sequences[agent_id] = 0
-
     def get_terminateds_truncateds(self) -> tuple:
-        """
-        returns dones only when all targets have been located.
-        """
-        green_targets_in_grid = any(
-            [isinstance(obj, GreenVictim) for obj in self.grid.grid]
-        )
-        yellow_targets_in_grid = any(
-            [isinstance(obj, YellowVictim) for obj in self.grid.grid]
-        )
-        red_targets_in_grid = any(
-            [isinstance(obj, RedVictim) for obj in self.grid.grid]
-        )
-
-        all_targets_reached = (
-            not green_targets_in_grid
-            and not yellow_targets_in_grid
-            and not red_targets_in_grid
-        )
-
-        if all_targets_reached:
-            for agent in self.agents.values():
-                agent.terminated = True
-
+        """ """
         return super().get_terminateds_truncateds()
 
     def get_action_mask(self, agent_id):
@@ -94,7 +55,7 @@ class SimpleCooking(gridworld_env.GridWorld):
             action_mask = np.zeros((self.action_space.n,))
             action_mask[self.env_actions.Toggle] = 1
             return action_mask
-        elif self.can_interact(agent_id):
+        elif self.can_toggle(agent_id):
             return np.ones((self.action_space.n))
         else:
             mask = np.ones((self.action_space.n,))

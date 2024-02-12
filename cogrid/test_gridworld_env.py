@@ -2,19 +2,20 @@
 Testing Copied from the SSD Repo:
 https://github.com/eugenevinitsky/sequential_social_dilemma_games/blob/master/tests/test_envs.py
 """
+
 import unittest
 
 import numpy as np
 from gymnasium.spaces import Dict
 
-from cogrid.gridworld_env import GridWorld
-from cogrid.core.agent import Agent
-from cogrid.core.actions import Actions
-from cogrid.core.directions import Directions
-from cogrid.constants import FIXED_GRIDS
-from cogrid.constants import GridConstants
-from cogrid.core import grid_object
-from cogrid.search_rescue.search_rescue import SearchRescue
+from gridworld.gridworld_env import GridWorld
+from gridworld.core.agent import Agent
+from gridworld.core.grid_actions import Actions
+from gridworld.core.directions import Directions
+from gridworld.constants import FIXED_GRIDS
+from gridworld.constants import GridConstants
+from gridworld.core import grid_object
+from gridworld.search_rescue.search_rescue import SearchRescue
 
 
 BASE_MAP = (
@@ -59,12 +60,16 @@ class DummyMapEnv(GridWorld):
             agent_id = f"agent-{i}"
             agent = Agent(
                 agent_id=agent_id,
-                start_position=self.start_positions.pop(0)
-                if self.start_positions
-                else self.select_spawn_point(),
-                start_direction=self.start_directions.pop(0)
-                if self.start_directions
-                else self.np_random.choice(Directions),
+                start_position=(
+                    self.start_positions.pop(0)
+                    if self.start_positions
+                    else self.select_spawn_point()
+                ),
+                start_direction=(
+                    self.start_directions.pop(0)
+                    if self.start_directions
+                    else self.np_random.choice(Directions)
+                ),
             )
             self.agents[agent_id] = agent
 

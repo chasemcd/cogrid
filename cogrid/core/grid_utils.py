@@ -1,6 +1,6 @@
 import numpy as np
 
-from envs.gridworld.constants import GridConstants
+from cogrid.constants import GridConstants
 
 
 def ascii_to_numpy(ascii_list):

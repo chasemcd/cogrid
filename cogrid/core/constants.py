@@ -13,12 +13,12 @@ class ObjectColors:
     Wall = "grey"
     Door = "dark_grey"
     Floor = "pale_blue"
-    Counter = "dark_brown"
     Rubble = "brown"
     Key = "yellow"
     MedKit = "light_pink"
     Pickaxe = "light_brown"
     GreenVictim = "green"
+    PurpleVictim = "purple"
     YellowVictim = "yellow"
     RedVictim = "red"
 
@@ -38,7 +38,6 @@ COLORS = {
     "grey": np.array([100, 100, 100]),
     "dark_grey": np.array([70, 70, 70]),
     "light_brown": np.array([181, 132, 0]),
-    "dark_brown": np.array([51, 25, 0]),
     "brown": np.array([143, 106, 35]),
     "cyan": np.array([0, 234, 255]),
     "lavender": np.array([220, 185, 237]),

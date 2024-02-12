@@ -1,4 +1,4 @@
-from envs.gridworld.core.agent import Agent
+from cogrid.core.agent import Agent
 
 
 class GoalSeekingAgent(Agent):

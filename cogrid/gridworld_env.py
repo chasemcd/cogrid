@@ -6,11 +6,10 @@ import numpy as np
 import pygame
 import pygame.freetype
 from gymnasium.spaces import Discrete, Dict
-from ray.rllib import env
+from gymnasium import Env
 
-from cogrid.feature_space import features
 from cogrid.constants import GridConstants, FIXED_GRIDS
-from cogrid.core.actions import Actions
+from cogrid.core import grid_actions
 from cogrid.core.constants import CoreConstants
 from cogrid.core.directions import Directions
 from cogrid.core.grid import Grid
@@ -19,19 +18,18 @@ from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
 
 
-class GridWorld(env.MultiAgentEnv):
+class GridWorld(Env):
     """
     The GridWorld class is a base environment for any other GridWorld environment that you may want to create.
     Any subclass should be sure to define rewards
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 24}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
 
     def __init__(
         self,
         config: dict,
         render_mode: str | None = None,
-        env_actions=Actions,
         num_roles: int | None = None,
         highlight: bool = False,
         agent_pov: str | None = None,
@@ -65,17 +63,30 @@ class GridWorld(env.MultiAgentEnv):
         # grid data is set by _gen_grid()
         self.grid: Grid | None = None
         self.spawn_points: list = []
-        self.load = self.config["grid_gen_kwargs"].get("load", None)  # load a specific env configuration
+        self.load = self.config["grid_gen_kwargs"].get(
+            "load", None
+        )  # load a specific env configuration
         self._gen_grid()
         self.shape = (self.grid.height, self.grid.width)
 
         self.agent_view_size = self.config.get("agent_view_size", 7)
 
-        self.agents = {f"agent-{i}": None for i in range(config["num_agents"])}  # will contain: {'agent_id': agent}
+        self.agents = {
+            f"agent-{i}": None for i in range(config["num_agents"])
+        }  # will contain: {'agent_id': agent}
 
         # Action space describes the set of actions available to agents.
-        self.env_actions = env_actions
-        self.action_space = Discrete(len(env_actions))
+        action_str = config.get("action_set")
+        if action_str == "rotation_actions":
+            action_set = grid_actions.ActionSets.RotationActions
+        elif action_str == "cardinal_actions":
+            action_set = grid_actions.ActionSets.CardinalActions
+        else:
+            raise ValueError(f"Invalid or None action set string: {action_str}.")
+        self.action_set = action_set
+
+        # Set the action space for the gym environment
+        self.action_space = Discrete(len(action_set))
 
         # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
         self.see_through_walls = self.config.get("see_through_walls", True)
@@ -83,9 +94,15 @@ class GridWorld(env.MultiAgentEnv):
         # Establish the observation space. This provides the general form of what an agent's observation
         # looks like so that they can be properly initialized.
         self.feature_spaces = {
-            a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id) for a_id in self.agent_ids
+            a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
+            for a_id in self.agent_ids
         }
-        self.observation_space = Dict({a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids})
+        self.observation_space = Dict(
+            {
+                a_id: self.feature_spaces[a_id].observation_space
+                for a_id in self.agent_ids
+            }
+        )
 
         self.prev_actions = None
         self.trajectories = collections.defaultdict(list)
@@ -93,7 +110,9 @@ class GridWorld(env.MultiAgentEnv):
     def _gen_grid(self):
         self.spawn_points = []
         grid, states = self._generate_encoded_grid_states()
-        grid = ascii_to_numpy(grid)  # if grid is a list of strings this will turn it into the correct np format
+        grid = ascii_to_numpy(
+            grid
+        )  # if grid is a list of strings this will turn it into the correct np format
         spawn_points = np.where(grid == GridConstants.Spawn)
         grid[spawn_points] = GridConstants.FreeSpace
         self.spawn_points = list(zip(*spawn_points))
@@ -116,12 +135,14 @@ class GridWorld(env.MultiAgentEnv):
 
         return grid, states
 
-    def reset(self, *, seed: int | None = 42, options: dict[str, Any] | None = None) -> tuple:
+    def reset(
+        self, *, seed: int | None = 42, options: dict[str, Any] | None = None
+    ) -> tuple:
         """
         Reset the map and return the initial observations. Must be implemented for each environment.
         """
-        # if self.frames:
-        #     self.create_gif_from_frames(self.frames)
+        if self.frames:
+            self.create_gif_from_frames(self.frames)
         self.frames = []
         super().reset(seed=seed)
         self._gen_grid()
@@ -131,7 +152,7 @@ class GridWorld(env.MultiAgentEnv):
         self.setup_agents()
 
         # Initialize previous actions as no-op
-        self.prev_actions = {a_id: self.env_actions.Noop for a_id in self.agent_ids}
+        self.prev_actions = {a_id: grid_actions.Actions.Noop for a_id in self.agent_ids}
 
         self.trajectories = collections.defaultdict(list)
 
@@ -149,6 +170,13 @@ class GridWorld(env.MultiAgentEnv):
 
         return obs, {}
 
+    def _try_action_idx_to_str(self, actions: dict[str, int or str]) -> dict[str, str]:
+        """If not already, convert the action from index to string representation"""
+        return {
+            a_id: self.action_set[action] if type(action) == int else action
+            for a_id, action in actions.items()
+        }
+
     def step(self, actions: dict) -> tuple:
         """
         :param actions: (dict) Dictionary of actions keyed by agent IDs. Actions are integers in self.action_space
@@ -159,8 +187,13 @@ class GridWorld(env.MultiAgentEnv):
         """
         self.t += 1
 
-        self.move_agents(actions)  # Agents who are moving have their positions updated (and conflicts resolved)
-        self.interact(actions)  # Given any new position(s), agents interact with the environment
+        actions = self._try_action_idx_to_str(actions)
+        self.move_agents(
+            actions
+        )  # Agents who are moving have their positions updated (and conflicts resolved)
+        self.interact(
+            actions
+        )  # Given any new position(s), agents interact with the environment
 
         self.on_step()  # Custom function if a subclass wants to make any updates
 
@@ -183,7 +216,9 @@ class GridWorld(env.MultiAgentEnv):
         return observations, rewards, terminateds, truncateds, info
 
     def update_grid_agents(self):
-        self.grid.grid_agents = {a_id: GridAgent(agent) for a_id, agent in self.agents.items()}
+        self.grid.grid_agents = {
+            a_id: GridAgent(agent) for a_id, agent in self.agents.items()
+        }
 
     def setup_agents(self):
         self._setup_agents()
@@ -191,14 +226,38 @@ class GridWorld(env.MultiAgentEnv):
     def _setup_agents(self):
         raise NotImplementedError
 
-    def move_agents(self, actions: dict[str, int]) -> None:
+    def move_agents(self, actions: dict[str, str]) -> None:
         """This function executes all agent movements"""
 
         # Take any terminated agents or those who we do not have an action for and keep them in the same position
         new_positions = {
-            a_id: agent.pos for a_id, agent in self.agents.items() if agent.terminated or a_id not in actions
+            a_id: agent.pos
+            for a_id, agent in self.agents.items()
+            if agent.terminated or a_id not in actions
         }
-        agents_to_move = [a_id for a_id in actions.keys() if not self.agents[a_id].terminated]
+        agents_to_move = [
+            a_id for a_id in actions.keys() if not self.agents[a_id].terminated
+        ]
+
+        # If we're using cardinal actions, change the agent direction if they aren't already facing the desired dir
+        # if they are, then they move in that direction.
+        if self.action_set == grid_actions.ActionSets.CardinalActions:
+            move_action_to_dir = {
+                grid_actions.Actions.MoveRight: Directions.Right,
+                grid_actions.Actions.MoveLeft: Directions.Left,
+                grid_actions.Actions.MoveUp: Directions.Up,
+                grid_actions.Actions.MoveDown: Directions.Down,
+            }
+            for a_id, action in actions.items():
+                if action in move_action_to_dir.keys():
+                    agent = self.agents[a_id]
+                    desired_direction = move_action_to_dir[action]
+
+                    # If already facing that direciton, move forward
+                    if agent.dir == desired_direction:
+                        actions[a_id] = grid_actions.Actions.Forward
+                    else:
+                        agent.dir = desired_direction
 
         # Determine the position each agent is attempting to move to
         attempted_positions = {}
@@ -217,17 +276,19 @@ class GridWorld(env.MultiAgentEnv):
         self.np_random.shuffle(agents_to_move)
         for a_id in agents_to_move:
             agent = self.agents[a_id]
-            attemped_pos = attempted_positions[a_id]
+            attempted_pos = attempted_positions[a_id]
             # If an agent is already moving to the desired position, keep them at the current position
-            if np.any(np.all(attemped_pos == list(new_positions.values()))):
+            if tuple(attempted_pos) in [tuple(npos) for npos in new_positions.values()]:
                 new_positions[a_id] = agent.pos
             else:
-                new_positions[a_id] = attemped_pos
+                new_positions[a_id] = attempted_pos
 
         # Make sure no two agents moved through each other
         for a_id1, a_id2 in combinations(self.agent_ids, r=2):
             agent1, agent2 = self.agents[a_id1], self.agents[a_id2]
-            if np.array_equal(new_positions[a_id1], agent2.pos) and np.array_equal(new_positions[a_id2], agent1.pos):
+            if np.array_equal(new_positions[a_id1], agent2.pos) and np.array_equal(
+                new_positions[a_id2], agent1.pos
+            ):
                 new_positions[a_id1] = agent1.pos
                 new_positions[a_id2] = agent2.pos
 
@@ -236,29 +297,20 @@ class GridWorld(env.MultiAgentEnv):
             agent.pos = new_positions[a_id]
             self.trajectories[a_id].append(agent.pos)
 
-        assert len(self.agent_pos) == len(set(self.agent_pos)), "Agents do not have unique positions!"
+        assert len(self.agent_pos) == len(
+            set(self.agent_pos)
+        ), "Agents do not have unique positions!"
 
     def determine_attempted_pos(self, agent_id, action) -> tuple[int, int]:
         agent = self.agents[agent_id]
         fwd_pos = agent.front_pos
         fwd_cell = self.grid.get(*fwd_pos)
 
-        if action in [
-            self.env_actions.Left,
-            self.env_actions.Right,
-            self.env_actions.Noop,
-            self.env_actions.Drop,
-            self.env_actions.Pickup,
-            self.env_actions.Toggle,
-        ]:
-            return agent.pos
-        elif action == self.env_actions.Forward:
+        if action == grid_actions.Actions.Forward:
             if fwd_cell is None or fwd_cell.can_overlap():
                 return fwd_pos
-            else:
-                return agent.pos
-        else:
-            raise ValueError(f"Invalid action passed. Got {action} but we don't know what to do with it.")
+
+        return agent.pos
 
     def interact(self, actions) -> None:
         for a_id, action in actions.items():
@@ -266,46 +318,41 @@ class GridWorld(env.MultiAgentEnv):
             agent.cell_toggled = None
             agent.cell_overlapped = self.grid.get(*agent.pos)
 
-            # Rotate right/left
-            if action == self.env_actions.Right:
+            if action == grid_actions.Actions.RotateRight:
                 agent.rotate_right()
-            elif action == self.env_actions.Left:
+            elif action == grid_actions.Actions.RotateLeft:
                 agent.rotate_left()
 
             # Attempt to pick up the object in front of the agent
-            elif action == self.env_actions.Pickup:
-                fwd_pos = agent.front_pos
-                fwd_cell = self.grid.get(*fwd_pos)
-                if not len(agent.inventory) < agent.inventory_capacity:
-                    return
-                if fwd_cell and fwd_cell.can_pickup():
-                    pos = fwd_cell.pos
-                    agent.inventory.append(fwd_cell)
-                    fwd_cell.pos = None
-                    self.grid.set(*pos, None)
-                elif fwd_cell and fwd_cell.can_pickup_from():
-                    pickup_cell = fwd_cell.pick_up_from()
-                    pickup_cell.pos = None
-                    agent.inventory.append(pickup_cell)
-
-            # Attempt to drop an object in inventory in front of the agent
-            elif action == self.env_actions.Drop:
-                if len(agent.inventory) == 0:
-                    continue
-                fwd_pos = agent.front_pos
-                fwd_cell = self.grid.get(*fwd_pos)
-                agent_ahead = tuple(fwd_pos) in self.agent_pos
-                if not agent_ahead and not fwd_cell:
+            elif action == grid_actions.Actions.PickupDrop:
+                if not agent.inventory:  # TODO(chase): this assumes inventory size == 1
+                    fwd_pos = agent.front_pos
+                    fwd_cell = self.grid.get(*fwd_pos)
+                    if not len(agent.inventory) < agent.inventory_capacity:
+                        return
+                    if fwd_cell and fwd_cell.can_pickup():
+                        pos = fwd_cell.pos
+                        agent.inventory.append(fwd_cell)
+                        fwd_cell.pos = None
+                        self.grid.set(*pos, None)
+                    elif fwd_cell and fwd_cell.can_pickup_from():
+                        pickup_cell = fwd_cell.pick_up_from()
+                        pickup_cell.pos = None
+                        agent.inventory.append(pickup_cell)
+                else:
+                    fwd_pos = agent.front_pos
+                    fwd_cell = self.grid.get(*fwd_pos)
+                    agent_ahead = tuple(fwd_pos) in self.agent_pos
                     drop_cell = agent.inventory.pop(0)
-                    drop_cell.pos = fwd_pos
-                    self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
-                elif fwd_cell and fwd_cell.can_place_on():
-                    drop_cell = agent.inventory.pop(0)
-                    drop_cell.pos = fwd_pos
-                    fwd_cell.place_on(drop_cell)
+                    if not agent_ahead and not fwd_cell:
+                        drop_cell.pos = fwd_pos
+                        self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
+                    elif fwd_cell and fwd_cell.can_place_on(drop_cell):
+                        drop_cell.pos = fwd_pos
+                        fwd_cell.place_on(drop_cell)
 
             # Attempt to toggle the object in front of the agent
-            elif action == self.env_actions.Toggle:
+            elif action == grid_actions.Actions.Toggle:
                 fwd_cell = self.grid.get(*agent.front_pos)
                 if fwd_cell:
                     toggle_success = fwd_cell.toggle(env=self, toggling_agent=agent)
@@ -337,10 +384,15 @@ class GridWorld(env.MultiAgentEnv):
         """
         Calculate each agent's reward at the current step
         """
-        per_agent_reward = {agent_id: agent.compute_and_reset_step_reward() for agent_id, agent in self.agents.items()}
+        per_agent_reward = {
+            agent_id: agent.compute_and_reset_step_reward()
+            for agent_id, agent in self.agents.items()
+        }
         if self.common_reward:
             collective_reward = sum([*per_agent_reward.values()])
-            per_agent_reward = {a_id: collective_reward for a_id in per_agent_reward.keys()}
+            per_agent_reward = {
+                a_id: collective_reward for a_id in per_agent_reward.keys()
+            }
 
             # TODO(chase): if we have a step penalty, it'll be step_penalty * num_agents for common_reward. Decide
             #   how to deal with it.
@@ -351,7 +403,9 @@ class GridWorld(env.MultiAgentEnv):
         """
         Determine the done status for each agent.
         """
-        terminateds = {agent_id: agent.terminated for agent_id, agent in self.agents.items()}
+        terminateds = {
+            agent_id: agent.terminated for agent_id, agent in self.agents.items()
+        }
         terminateds["__all__"] = all([*terminateds.values()])
 
         if self.t >= self.max_steps:
@@ -480,7 +534,9 @@ class GridWorld(env.MultiAgentEnv):
         """Return a render of the full environment"""
 
         if highlight:
-            highlight_mask = np.zeros(shape=(self.grid.height, self.grid.width), dtype=bool)
+            highlight_mask = np.zeros(
+                shape=(self.grid.height, self.grid.width), dtype=bool
+            )
             for a_id, agent in self.agents.items():
                 # Determine cell visibility for the agent
                 _, vis_mask = self.gen_obs_grid(a_id)
@@ -488,7 +544,11 @@ class GridWorld(env.MultiAgentEnv):
                 # compute the world coordinates of the bottom-left corner of the agent's view area
                 f_vec = agent.dir_vec
                 r_vec = agent.right_vec
-                top_left = agent.pos + f_vec * (self.agent_view_size - 1) - r_vec * (self.agent_view_size // 2)
+                top_left = (
+                    agent.pos
+                    + f_vec * (self.agent_view_size - 1)
+                    - r_vec * (self.agent_view_size // 2)
+                )
 
                 # identify the cells to highlight as visible in the render
                 for vis_row in range(self.agent_view_size):
@@ -497,7 +557,9 @@ class GridWorld(env.MultiAgentEnv):
                             continue
 
                         # compute world coordinates of agent view
-                        abs_row, abs_col = top_left - (f_vec * vis_row) + (r_vec * vis_col)
+                        abs_row, abs_col = (
+                            top_left - (f_vec * vis_row) + (r_vec * vis_col)
+                        )
 
                         if abs_row < 0 or abs_row >= self.grid.height:
                             continue
@@ -512,7 +574,10 @@ class GridWorld(env.MultiAgentEnv):
         return img
 
     def get_frame(
-        self, highlight: bool = True, tile_size: int = CoreConstants.TilePixels, agent_pov: str | None = None
+        self,
+        highlight: bool = True,
+        tile_size: int = CoreConstants.TilePixels,
+        agent_pov: str | None = None,
     ):
         """Return RGB image corresponding to the whole environment or an agent's POV"""
         if agent_pov:
@@ -524,7 +589,10 @@ class GridWorld(env.MultiAgentEnv):
 
     def render(self, mode="human") -> None | np.ndarray:
         if self.visualizer is not None:
-            orientations = {self.id_to_numeric(a_id): agent.orientation for a_id, agent in self.agents.items()}
+            orientations = {
+                self.id_to_numeric(a_id): agent.orientation
+                for a_id, agent in self.agents.items()
+            }
             inventories = {
                 self.id_to_numeric(a_id): agent.inventory
                 for a_id, agent in self.agents.items()
@@ -541,7 +609,7 @@ class GridWorld(env.MultiAgentEnv):
             return
 
         img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
-        # self.frames.append(img)
+        self.frames.append(img)
         if self.render_mode == "human":
             # if img.shape[0] == 3:  # move the channels last
             #     img = np.moveaxis(img, 0, -1)
@@ -550,7 +618,9 @@ class GridWorld(env.MultiAgentEnv):
             if self.window is None:
                 pygame.init()
                 pygame.display.init()
-                self.window = pygame.display.set_mode((self.screen_size, self.screen_size))
+                self.window = pygame.display.set_mode(
+                    (self.screen_size, self.screen_size)
+                )
                 pygame.display.set_caption(self.name)
             if self.clock is None:
                 self.clock = pygame.time.Clock()
@@ -563,7 +633,9 @@ class GridWorld(env.MultiAgentEnv):
 
             # Create background with mission description
             offset = surf.get_size()[0] * 0.1
-            bg = pygame.Surface((int(surf.get_size()[0] + offset), int(surf.get_size()[1] + offset)))
+            bg = pygame.Surface(
+                (int(surf.get_size()[0] + offset), int(surf.get_size()[1] + offset))
+            )
             bg.convert()
             bg.fill((255, 255, 255))
             bg.blit(surf, (offset / 2, 0))
