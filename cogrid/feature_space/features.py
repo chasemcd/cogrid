@@ -1,6 +1,7 @@
 """Observation generators takes the Gridworld object and turns it into the desired observation"""
+
 import numpy as np
-from gymnasium.spaces import Box, MultiBinary, Discrete
+from gymnasium import spaces
 import cv2  # TODO(chase): remove cv2 dependency
 from collections import deque
 
@@ -8,11 +9,21 @@ from cogrid.core.grid_object import OBJECT_NAMES
 
 
 class Feature:
-    def __init__(self, low, high, shape, name, space=None, **kwargs):
+    """Base class for"""
+
+    def __init__(
+        self,
+        low: float,
+        high: float,
+        shape: tuple | np.ndarray,
+        name: str,
+        space: spaces.Space | None = None,
+        **kwargs
+    ):
         self.low = low
         self.high = high
         self.shape = shape
-        self.space = Box(low, high, shape) if space is None else space
+        self.space = spaces.Box(low, high, shape) if space is None else space
         self.name = name
 
     def generate(self, gridworld, player_id, **kwargs):
@@ -111,7 +122,7 @@ class FullMapEncoding(Feature):
     def __init__(self, map_size, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
         super().__init__(
-            low=0, high=100, shape=(*map_size, 3), name="full_map_encoding", **kwargs
+            low=0, high=np.inf, shape=(*map_size, 3), name="full_map_encoding", **kwargs
         )
 
     def generate(self, gridworld, player_id, **kwargs):
@@ -204,7 +215,9 @@ class AgentPositions(Feature):
 
 class AgentDir(Feature):
     def __init__(self, **kwargs):
-        super().__init__(low=0, high=3, shape=(1,), space=Discrete(4), name="agent_dir")
+        super().__init__(
+            low=0, high=3, shape=(1,), space=spaces.Discrete(4), name="agent_dir"
+        )
 
     def generate(self, gridworld, player_id, **kwargs):
         return np.array([gridworld.agents[player_id].dir])
@@ -315,7 +328,7 @@ class ActionMask(Feature):
             low=0,
             high=1,
             shape=None,
-            space=MultiBinary(num_actions),
+            space=spaces.MultiBinary(num_actions),
             name="action_mask",
             **kwargs
         )

@@ -1,0 +1,16 @@
+from cogrid.core import grid_object
+
+
+class SoupPot(grid_object.GridObj): ...
+
+
+class PlateStack(grid_object.GridObj): ...
+
+
+class Plate(grid_object.GridObj): ...
+
+
+class OnionStack(grid_object.GridObj): ...
+
+
+class DeliveryZone(grid_object.GridObj): ...
