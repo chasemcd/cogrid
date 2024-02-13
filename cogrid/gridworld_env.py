@@ -24,7 +24,7 @@ class GridWorld(Env):
     Any subclass should be sure to define rewards
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
 
     def __init__(
         self,
