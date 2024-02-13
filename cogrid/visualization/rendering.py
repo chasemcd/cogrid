@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import cv2
 
 
 def downsample(img, factor):
@@ -13,7 +14,9 @@ def downsample(img, factor):
     assert img.shape[0] % factor == 0
     assert img.shape[1] % factor == 0
 
-    img = img.reshape([img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3])
+    img = img.reshape(
+        [img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3]
+    )
     img = img.mean(axis=3)
     img = img.mean(axis=1)
 
@@ -129,3 +132,33 @@ def highlight_img(img, color=(255, 255, 255), alpha=0.30):
     blend_img = img + alpha * (np.array(color, dtype=np.uint8) - img)
     blend_img = blend_img.clip(0, 255).astype(np.uint8)
     img[:, :, :] = blend_img
+
+
+def add_text_to_image(
+    image,
+    text,
+    position,
+    font=cv2.FONT_HERSHEY_SIMPLEX,
+    font_scale=1,
+    color=(255, 255, 255),
+    thickness=2,
+):
+    """
+    Add text to an RGB image.
+
+    Parameters:
+    - image: numpy array representing the RGB image
+    - text: string, the text to add to the image
+    - position: tuple, the (x, y) position of the text on the image
+    - font: OpenCV font type
+    - font_scale: float, the scale of the font
+    - color: tuple, the color of the text in BGR format
+    - thickness: int, the thickness of the text
+
+    Returns:
+    - The image (numpy array) with text added
+    """
+    # Add the text to the image
+    cv2.putText(image, text, position, font, font_scale, color, thickness)
+
+    return image

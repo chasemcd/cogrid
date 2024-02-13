@@ -20,6 +20,7 @@ from cogrid.visualization.rendering import (
     point_in_rect,
     point_in_triangle,
     rotate_fn,
+    add_text_to_image,
 )
 
 
@@ -38,6 +39,13 @@ OBJECT_NAMES = [
     "purple_victim",
     "yellow_victim",
     "red_victim",
+    "pot",
+    "plate",
+    "plate_stack",
+    "onion_soup",
+    "onion_stack",
+    "onion",
+    "delivery_zone",
 ] + [f"agent_{direction}" for direction in "^>v<"]
 
 OBJECT_NAMES_TO_CHAR = {
@@ -47,9 +55,16 @@ OBJECT_NAMES_TO_CHAR = {
     "medkit": GridConstants.MedKit,
     "rubble": GridConstants.Rubble,
     "green_victim": GridConstants.GreenVictim,
-    "purple_victim": GridConstants.PurpleVictim,
     "yellow_victim": GridConstants.YellowVictim,
     "red_victim": GridConstants.RedVictim,
+    "counter": GridConstants.Counter,
+    "pot": GridConstants.Pot,
+    "plate": GridConstants.Plate,
+    "plate_stack": GridConstants.PlateStack,
+    "onion_soup": GridConstants.OnionSoup,
+    "onion_stack": GridConstants.OnionStack,
+    "onion": GridConstants.Onion,
+    "delivery_zone": GridConstants.DeliveryZone,
     "agent_^": GridConstants.AgentUp,
     "agent_>": GridConstants.AgentRight,
     "agent_v": GridConstants.AgentDown,
@@ -71,6 +86,24 @@ def fetch_object_by_name(name):
         return Floor
     elif name == "key":
         return Key
+    elif name == "counter":
+        return Counter
+    elif name == "onion_stack":
+        return OnionStack
+    elif name == "pot":
+        return Pot
+    elif name == "plate":
+        return Plate
+    elif name == "plate_stack":
+        return PlateStack
+    elif name == "onion_soup":
+        return OnionSoup
+    elif name == "onion_stack":
+        return OnionStack
+    elif name == "onion":
+        return Onion
+    elif name == "delivery_zone":
+        return DeliveryZone
     elif name == "green_victim":
         return GreenVictim
     elif name == "purple_victim":
@@ -119,30 +152,32 @@ class GridObj:
         self.inventory_value: float | int = inventory_value
         self.overlap_value: float | int = overlap_value
 
-    def can_overlap(self) -> bool:
+    def can_overlap(self, agent: GridAgent) -> bool:
         """Can an agent overlap with this object?"""
         return False
 
-    def can_pickup(self) -> bool:
+    def can_pickup(self, agent: GridAgent) -> bool:
         """Can an agent pick this object up and store in inventory?"""
         return False
 
-    def can_place_on(self, cell: GridObj) -> bool:
+    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
         """
         Can another object be placed on top of this object? e.g., a countertop that can't be walked through
         but can have an item on top of it.
         """
         return False
 
-    def can_pickup_from(self) -> bool:
+    def can_pickup_from(self, agent: GridAgent) -> bool:
         """Can the agent pick up an object from this one?"""
-        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup()
+        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(
+            agent=agent
+        )
 
-    def place_on(self, cell: GridObj) -> None:
+    def place_on(self, agent: GridAgent, cell: GridObj) -> None:
         self.obj_placed_on = cell
         self.state = object_to_idx(cell)
 
-    def pick_up_from(self) -> GridObj:
+    def pick_up_from(self, agent: GridAgent, cell: GridObj) -> GridObj:
         assert (
             self.obj_placed_on is not None
         ), f"Picking up from but there's no object placed on {self.name}"
@@ -151,14 +186,14 @@ class GridObj:
         self.state = 0
         return cell
 
-    def see_behind(self) -> bool:
+    def see_behind(self, agent: GridAgent) -> bool:
         """Can the agent see through this object?"""
         return True
 
     def visible(self) -> bool:
         return True
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent: GridAgent = None) -> bool:
         """
         Trigger/Toggle an action this object performs. Some toggles are conditioned on the environment
         and require specific conditions to be met, which can be checked with the end.
@@ -198,6 +233,13 @@ class GridObj:
 
     def rotate_left(self):
         """Some objects (e.g., agents) have a rotation and must be rotated with the grid."""
+        pass
+
+    def tick(self):
+        """
+        Some objects have a time component (e.g., cooking soup), so we call the tick
+        method on all objects for each env.step()
+        """
         pass
 
     def _remove_from_grid(self, grid):
@@ -346,16 +388,24 @@ class Floor(GridObj):
 
 
 class Counter(GridObj):
-    def __init__(self, **kwargs):
+    def __init__(self, state: int = 0, **kwargs):
+        # TODO(chase): need to be able to initialize an object on top
+        #   via the state. Take state and map it to an object.
         super().__init__(
             name="counter",
             color=ObjectColors.Counter,
             char=GridConstants.Counter,
-            state=0,
+            state=state,
         )
 
-    def can_place_on(self, cell: GridObj) -> bool:
+    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
         return self.state == 0
+
+    def render(self, tile_img):
+        super().render(tile_img)
+
+        if self.obj_placed_on is not None:
+            self.obj_placed_on.render(tile_img)
 
 
 class Key(GridObj):
@@ -364,7 +414,7 @@ class Key(GridObj):
             name="key", color=ObjectColors.Key, char=GridConstants.Key, state=state
         )
 
-    def can_pickup(self):
+    def can_pickup(self, agent: GridAgent, cell: GridObj):
         return True
 
     def render(self, tile_img):
@@ -390,16 +440,16 @@ class Door(GridObj):
         self.is_open = state == 2
         self.is_locked = state == 0
 
-    def can_overlap(self) -> bool:
+    def can_overlap(self, agent: GridAgent) -> bool:
         """The agent can only walk over this cell when the door is open"""
         return self.is_open
 
-    def see_behind(self) -> bool:
+    def see_behind(self, agent: GridAgent) -> bool:
         return self.is_open
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent: GridAgent) -> bool:
         if self.is_locked:
-            if any([isinstance(obj, Key) for obj in toggling_agent.inventory]):
+            if any([isinstance(obj, Key) for obj in agent.inventory]):
                 self.is_locked = False
                 self.is_open = True
                 return True
@@ -462,7 +512,7 @@ class MedKit(GridObj):
             state=state,
         )
 
-    def can_pickup(self):
+    def can_pickup(self, agent: GridAgent):
         return True
 
     def render(self, tile_img):
@@ -487,7 +537,7 @@ class Pickaxe(GridObj):
             state=state,
         )
 
-    def can_pickup(self):
+    def can_pickup(self, agent: GridAgent):
         return True
 
     def render(self, tile_img):
@@ -708,55 +758,240 @@ class RedVictim(GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
 
 
-class Onion(GridObj): ...
-
-
-class OnionStack(GridObj): ...
-
-
-class Pot(GridObj):
-
-    def __init__(self, capacity: int = 3, legal_contents: list[GridObj] = [Onion]):
+class Onion(GridObj):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
         super().__init__(
-            name="pot",
-            color="grey",
-            char=GridConstants.SoupPot,
+            name="onion",
+            color="yellow",
+            char="O",
             state=0,
             toggle_value=0,
             inventory_value=0,
             overlap_value=0,
         )
 
+    def can_pickup(self, agent: GridAgent) -> bool:
+        return True
+
+    def render(self, tile_img):
+        c = COLORS[self.color]
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), c)
+
+
+class OnionStack(GridObj):
+    """An OnionStack is just an (infinite) pile of onions."""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            name="onion_stack",
+            color="yellow",
+            char="M",
+            state=0,
+            toggle_value=0,
+            inventory_value=0,
+            overlap_value=0,
+        )
+
+    def can_pickup_from(self, agent: GridAgent) -> bool:
+        return True
+
+    def pick_up_from(self, agent: GridAgent) -> GridObj:
+        return Onion()
+
+    def render(self, tile_img):
+        c = COLORS[self.color]
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
+
+
+class Pot(GridObj):
+
+    cooking_time: int = 30  # env steps to cook a soup
+
+    def __init__(
+        self,
+        state: int = 0,
+        capacity: int = 3,
+        legal_contents: list[GridObj] = [Onion],
+        *args,
+        **kwargs,
+    ):
+
+        super().__init__(
+            name="pot",
+            color="grey",
+            char=GridConstants.Pot,
+            state=state,
+            toggle_value=0,
+            inventory_value=0,
+            overlap_value=0,
+        )
+
         self.objects_in_pot: list[GridObj] = []
-        self.dish_ready: bool = False
         self.capacity: int = capacity
+        self.cooking_timer: int = self.cooking_time
+        self.legal_contents: list[GridObj] = legal_contents
 
-    def can_pickup_from(self) -> bool:
-        return self.dish_ready
+    def can_pickup_from(self, agent: GridAgent) -> bool:
+        return self.dish_ready and any(
+            [isinstance(grid_obj, Plate) for grid_obj in agent.inventory]
+        )
 
-    def pick_up_from(self) -> GridObj:
-        cell = self.obj_placed_on
-        self.obj_placed_on = None
-        self.state = 0
-        return cell
+    def pick_up_from(self, agent: GridAgent) -> GridObj:
+        self.objects_in_pot = []
+        self.cooking_timer = self.cooking_time
+        agent.inventory.pop(0)  # TODO(chase): assumes size 1 inventory
+        return OnionSoup()
 
-    def can_place_on(self, cell: GridObj) -> bool:
+    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
+        """Can only place onions in the soup!"""
+        if not any([isinstance(cell, grid_obj) for grid_obj in self.legal_contents]):
+            return False
+
         return len(self.objects_in_pot) < self.capacity
 
-    def place_on(self, cell: GridObj) -> None:
+    def place_on(self, agent: GridAgent, cell: GridObj) -> None:
         self.objects_in_pot.append(cell)
 
+    def tick(self) -> None:
+        """Update cooking time if the pot is full"""
+        if len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0:
+            self.cooking_timer -= 1
+            self.state += 100
+
+        self.state = (
+            len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
+        )
+
     @property
-    def dish_ready(self) -> bool: ...
+    def dish_ready(self) -> bool:
+        return self.cooking_timer == 0
+
+    def render(self, tile_img):
+        c = COLORS[self.color]
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), c)
+
+        for i, grid_obj in enumerate(self.objects_in_pot):
+            fill_coords(
+                tile_img,
+                point_in_circle(cx=0.25 * (i + 1), cy=0.2, r=0.2),
+                COLORS[grid_obj.color],
+            )
+
+        if len(self.objects_in_pot) == self.capacity:
+            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
 
 
-class PlateStack(GridObj): ...
+class PlateStack(GridObj):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            name="plate_stack",
+            color="white",
+            char=",",
+            state=0,
+            toggle_value=0,
+            inventory_value=0,
+            overlap_value=0,
+        )
+
+    def can_pickup_from(self, agent: GridAgent) -> bool:
+        return True
+
+    def pick_up_from(self, agent: GridAgent) -> GridObj:
+        return Plate()
+
+    def render(self, tile_img):
+        c = COLORS[self.color]
+        c = COLORS[self.color]
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
 
 
-class Plate(GridObj): ...
+class Plate(GridObj):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            name="plate",
+            color="white",
+            char="L",
+            state=0,
+            toggle_value=0,
+            inventory_value=0,
+            overlap_value=0,
+        )
+
+    def can_pickup(self, agent: GridAgent) -> bool:
+        return True
+
+    def render(self, tile_img):
+        c = COLORS[self.color]
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), c)
 
 
-class DeliveryZone(GridObj): ...
+class DeliveryZone(GridObj):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            name="delivery_zone",
+            color="black",
+            char="D",
+            state=0,
+            toggle_value=1.0,
+            inventory_value=0,
+            overlap_value=0,
+        )
+
+    def toggle(self, env, agent: GridAgent = None) -> bool:
+        """Delivery can be toggled by an agent with Soup"""
+        toggling_agent_has_soup = any(
+            [isinstance(grid_obj, OnionSoup) for grid_obj in agent.inventory]
+        )
+
+        if not toggling_agent_has_soup:
+            return False
+
+        # remove soup from agent inventory
+        # TODO(chase): this assumes inventory size is 1
+        agent.inventory.pop(0)
+
+        return True
 
 
-class Soup(GridObj): ...
+class OnionSoup(GridObj):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            name="onion_soup",
+            color="brown",
+            char="S",
+            state=0,
+            toggle_value=0,
+            inventory_value=0,
+            overlap_value=0,
+        )

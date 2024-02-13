@@ -11,6 +11,7 @@ from copy import deepcopy
 import numpy as np
 
 from cogrid.core.grid_object import GridObj, Wall, object_to_idx, GridAgent
+from cogrid.core import grid_object
 from cogrid.core.constants import CoreConstants
 from cogrid.constants import GridConstants
 from cogrid.visualization.rendering import (
@@ -34,7 +35,7 @@ def get_grid_agent_at_position(
 
 
 class Grid:
-    tile_cache: dict[tuple[Any, ...], Any] = {}
+    tile_cache: dict[tuple[Any], Any] = {}
 
     def __init__(self, height: int, width: int):
         assert height >= 3 and width >= 3, "Both dimensions must be >= 3."
@@ -45,8 +46,12 @@ class Grid:
         self.grid: list[GridObj | None] = [None] * (height * width)
         self.grid_agents: dict[str:GridAgent] = {}
 
+    def tick(self):
+        for grid_obj in self.grid:
+            if grid_obj is not None:
+                grid_obj.tick()
+
     def __contains__(self, item: Any) -> bool:
-        assert isinstance(item, GridObj)
         if isinstance(item, GridObj):
             for grid_obj in self.grid:
                 if grid_obj is item:
@@ -123,7 +128,7 @@ class Grid:
         self.vert_wall(x=x + w - 1, y=y, length=h)
 
     def rotate_left(self) -> Grid:
-        """Rotate the grid to the left (counter-clockwise"""
+        """Rotate the grid to the left (counter-clockwise)"""
         grid = Grid(width=self.height, height=self.width)
 
         for col in range(self.width):
@@ -251,7 +256,7 @@ class Grid:
 
                 tile_img = self.render_tile(
                     cell,
-                    highlight=highlight_mask[row, col],
+                    highlight=highlight_mask.T[row, col],  # TODO: Maybe remove .T
                     position=(row, col),
                     tile_size=tile_size,
                 )

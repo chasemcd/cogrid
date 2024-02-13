@@ -8,7 +8,7 @@ from cogrid.core.actions import Actions
 from cogrid.core.directions import Directions
 from cogrid.core.grid_object import GreenVictim, YellowVictim, RedVictim
 from cogrid.gridworld_env import GridWorld
-from cogrid.search_rescue.agent import SRAgent, SRRoles
+from cogrid.envs.search_rescue.agent import SRAgent, SRRoles
 
 
 class SearchRescue(GridWorld):

@@ -9,7 +9,7 @@ from gymnasium.spaces import Discrete, Dict
 from gymnasium import Env
 
 from cogrid.constants import GridConstants, FIXED_GRIDS
-from cogrid.core import grid_actions
+from cogrid.core import actions as grid_actions
 from cogrid.core.constants import CoreConstants
 from cogrid.core.directions import Directions
 from cogrid.core.grid import Grid
@@ -143,6 +143,7 @@ class GridWorld(Env):
         """
         if self.frames:
             self.create_gif_from_frames(self.frames)
+
         self.frames = []
         super().reset(seed=seed)
         self._gen_grid()
@@ -186,6 +187,7 @@ class GridWorld(Env):
         :return info: (dict) supplementary information for each agent, defined on a per-environment basis.
         """
         self.t += 1
+        self.grid.tick()
 
         actions = self._try_action_idx_to_str(actions)
         self.move_agents(
@@ -307,7 +309,7 @@ class GridWorld(Env):
         fwd_cell = self.grid.get(*fwd_pos)
 
         if action == grid_actions.Actions.Forward:
-            if fwd_cell is None or fwd_cell.can_overlap():
+            if fwd_cell is None or fwd_cell.can_overlap(agent=agent):
                 return fwd_pos
 
         return agent.pos
@@ -330,32 +332,41 @@ class GridWorld(Env):
                     fwd_cell = self.grid.get(*fwd_pos)
                     if not len(agent.inventory) < agent.inventory_capacity:
                         return
-                    if fwd_cell and fwd_cell.can_pickup():
+                    if fwd_cell and fwd_cell.can_pickup(agent=agent):
                         pos = fwd_cell.pos
                         agent.inventory.append(fwd_cell)
                         fwd_cell.pos = None
                         self.grid.set(*pos, None)
-                    elif fwd_cell and fwd_cell.can_pickup_from():
-                        pickup_cell = fwd_cell.pick_up_from()
+                    elif fwd_cell and fwd_cell.can_pickup_from(agent=agent):
+                        pickup_cell = fwd_cell.pick_up_from(agent=agent)
                         pickup_cell.pos = None
                         agent.inventory.append(pickup_cell)
-                else:
-                    fwd_pos = agent.front_pos
-                    fwd_cell = self.grid.get(*fwd_pos)
-                    agent_ahead = tuple(fwd_pos) in self.agent_pos
+
+                    continue
+
+                fwd_pos = agent.front_pos
+                fwd_cell = self.grid.get(*fwd_pos)
+                agent_ahead = tuple(fwd_pos) in self.agent_pos
+                if not agent_ahead and not fwd_cell:
                     drop_cell = agent.inventory.pop(0)
-                    if not agent_ahead and not fwd_cell:
-                        drop_cell.pos = fwd_pos
-                        self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
-                    elif fwd_cell and fwd_cell.can_place_on(drop_cell):
-                        drop_cell.pos = fwd_pos
-                        fwd_cell.place_on(drop_cell)
+                    drop_cell.pos = fwd_pos
+                    self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
+                elif fwd_cell and fwd_cell.can_place_on(
+                    cell=agent.inventory[0], agent=agent
+                ):
+                    drop_cell = agent.inventory.pop(0)
+                    drop_cell.pos = fwd_pos
+                    fwd_cell.place_on(cell=drop_cell, agent=agent)
+                elif fwd_cell and fwd_cell.can_pickup_from(agent):
+                    pickup_cell = fwd_cell.pick_up_from(agent=agent)
+                    pickup_cell.pos = None
+                    agent.inventory.append(pickup_cell)
 
             # Attempt to toggle the object in front of the agent
             elif action == grid_actions.Actions.Toggle:
                 fwd_cell = self.grid.get(*agent.front_pos)
                 if fwd_cell:
-                    toggle_success = fwd_cell.toggle(env=self, toggling_agent=agent)
+                    toggle_success = fwd_cell.toggle(env=self, agent=agent)
                     if toggle_success:
                         agent.cell_toggled = fwd_cell
 

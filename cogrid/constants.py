@@ -22,7 +22,13 @@ class GridConstants:
     MedKit = "M"
     GreenVictim = "G"
     YellowVictim = "Y"
-    SoupPot = "P"
+    Pot = "P"
+    Plate = "]"
+    PlateStack = "["
+    OnionSoup = "="
+    OnionStack = "+"
+    Onion = "&"
+    DeliveryZone = "@"
     RedVictim = "R"
     AgentUp = "^"
     AgentRight = ">"
@@ -31,6 +37,21 @@ class GridConstants:
 
 
 FIXED_GRIDS = {
+    "sa_simple_cooking": (
+        [
+            "#########",
+            "#CCCPCCC#",
+            "#C     C#",
+            "#C     C#",
+            "#+     [#",
+            "#C     C#",
+            "#C     C#",
+            "#C     C#",
+            "#CCCCC@C#",
+            "#########",
+        ],
+        np.zeros((10, 9)),
+    ),
     "m3minimap": (
         [
             "#############",

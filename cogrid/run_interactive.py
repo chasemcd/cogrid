@@ -4,6 +4,7 @@ import pygame
 
 from cogrid.core.actions import Actions
 from cogrid.gridworld_env import GridWorld
+from cogrid.envs import registry
 
 ACTION_MESSAGE = ""
 HUMAN_AGENT_ID = (
@@ -44,7 +45,6 @@ class HumanPlay:
         self.seed = seed
         self.closed = False
         self.human_agent_id = human_agent_id
-        self.eval_algorithm = eval_algorithm
         self.obs = None
         self.cumulative_reward = 0
 
@@ -56,9 +56,9 @@ class HumanPlay:
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
                     continue
-                actions[a_id] = self.eval_algorithm.compute_single_action(
-                    obs=obs, agent_id=a_id
-                )
+                # actions[a_id] = self.eval_algorithm.compute_single_action(
+                #     obs=obs, agent_id=a_id
+                # )
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -144,47 +144,38 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env_config = {
-        "name": "search_rescue",
+        "name": "simple_cooking",
         "num_agents": 1,
         "action_set": ACTION_SET,
         "obs": [
             # see gridworld.features for all available obs.
-            "full_map_ascii",
-            "agent_positions",
+            # "full_map_ascii",
+            # "agent_positions",
             "agent_id",
         ],
         "grid_gen_kwargs": {
             # use "load" to retrieve a fixed map from gridworld.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the
             # standard Search and Rescue task which requires you to set "roles": True).
-            "load": "simple_goal_seeking",
+            "load": "sa_simple_cooking",
         },
         # Minigrid implemented obscured view
         # in a strange way that doesn't work
         # as expected. best to just see through
         # walls at this point, but I'll fix it.
         "see_through_walls": True,
-        "roles": False,
         "common_reward": True,
-        "agent_view_size": args.agent_view_size,  # if using FoV, set view size.
+        # "agent_view_size": args.agent_view_size,  # if using FoV, set view size.
         "max_steps": 1000,
     }
 
     def env_creator(render_mode: str | None = None, render_message="") -> GridWorld:
-        if env_config["name"] == "search_rescue":
-            env_class = SearchRescue
-        else:
-            raise ValueError(
-                f"You passed env {env_config['name']}, which doesn't exist."
-            )
-
-        agent_pov = "agent-0" if args.agent_pov else None
-        return env_class(
-            env_config,
+        return registry.make(
+            env_config["name"],
+            config=env_config,
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,
-            agent_pov=agent_pov,
             render_message=render_message,
         )
 
@@ -198,7 +189,6 @@ if __name__ == "__main__":
     manual_control = HumanPlay(
         env,
         human_agent_id=HUMAN_AGENT_ID,
-        eval_algorithm=eval_algorithm,
         seed=args.seed,
     )
     manual_control.run()

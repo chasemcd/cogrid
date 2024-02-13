@@ -21,6 +21,7 @@ class ObjectColors:
     PurpleVictim = "purple"
     YellowVictim = "yellow"
     RedVictim = "red"
+    Counter = "light_brown"
 
     AgentOne = "cyan"
     AgentTwo = "lavender"
@@ -46,6 +47,8 @@ COLORS = {
     "light_pink": np.array([237, 185, 185]),
     "orange": np.array([245, 130, 200]),
     "pale_blue": np.array([0, 0, 127]),
+    "white": np.array([255, 255, 255]),
+    "black": np.array([0, 0, 0]),
 }
 
 COLOR_NAMES = sorted(list(COLORS.keys()))

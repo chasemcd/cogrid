@@ -1,6 +1,6 @@
 import operator
 
-from cogrid.goal_seeking.agent import GoalSeekingAgent
+from cogrid.envs.goal_seeking.agent import GoalSeekingAgent
 from cogrid.gridworld_env import GridWorld
 
 

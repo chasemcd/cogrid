@@ -9,7 +9,6 @@ class SRRoles:
 class CookingAgent(Agent):
     def __init__(self, agent_id, start_position, start_direction, **kwargs):
         super().__init__(agent_id, start_position, start_direction, **kwargs)
-        self.role = role
 
     @property
     def inventory_capacity(self) -> int:

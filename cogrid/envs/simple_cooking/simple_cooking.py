@@ -19,8 +19,6 @@ class SimpleCooking(gridworld_env.GridWorld):
         super().__init__(
             config=config,
             render_mode=render_mode,
-            env_actions=Actions,
-            num_roles=2,
             **kwargs,
         )
 
@@ -32,19 +30,14 @@ class SimpleCooking(gridworld_env.GridWorld):
         self.toggle_sequences = {a_id: 0 for a_id in self.agent_ids}
 
     def _setup_agents(self) -> None:
-        if self.roles:
-            assert self.config["num_agents"] % 2 == 0, (
-                "Must have an even number of agents for Search and Rescue env with roles"
-                "to ensure that there's an equal number of medics and engineers."
-            )
         for i in range(self.config["num_agents"]):
             agent_id = f"agent-{i}"
-            agent = agent.CookingAgent(
+            cooking_agent = agent.CookingAgent(
                 agent_id=agent_id,
                 start_position=self.select_spawn_point(),
                 start_direction=self.np_random.choice(directions.Directions),
             )
-            self.agents[agent_id] = agent
+            self.agents[agent_id] = cooking_agent
 
     def get_terminateds_truncateds(self) -> tuple:
         """ """
