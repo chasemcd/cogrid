@@ -37,7 +37,7 @@ class GridConstants:
 
 
 FIXED_GRIDS = {
-    "sa_simple_cooking": (
+    "sa_overcooked": (
         [
             "#########",
             "#CCCPCCC#",

@@ -7,10 +7,10 @@ from cogrid.core import grid_utils
 from cogrid.core.actions import Actions
 from cogrid.core import directions
 from cogrid import gridworld_env
-from cogrid.envs.simple_cooking import agent
+from cogrid.envs.overcooked import agent
 
 
-class SimpleCooking(gridworld_env.GridWorld):
+class Overcooked(gridworld_env.GridWorld):
     """
     The Search & Rescue task is a reproduction of the __Minimap__ game.
     """

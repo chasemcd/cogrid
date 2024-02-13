@@ -461,7 +461,9 @@ class GridWorld(Env):
         for r in range(self.grid.height):
             for c in range(self.grid.width):
                 cell = self.grid.get(row=r, col=c)
-                if (r, c) not in self.agent_pos and (not cell or cell.name == "floor"):
+                if (r, c) not in self.agent_pos and (
+                    not cell or cell.object_id == "floor"
+                ):
                     spawns.append((r, c))
         return spawns
 

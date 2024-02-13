@@ -9,6 +9,7 @@ import os
 
 import numpy as np
 
+
 class ObjectRenderer:
 
     def __init__(self):

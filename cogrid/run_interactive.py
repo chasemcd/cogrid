@@ -144,7 +144,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env_config = {
-        "name": "simple_cooking",
+        "name": "overcooked",
         "num_agents": 1,
         "action_set": ACTION_SET,
         "obs": [
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             # use "load" to retrieve a fixed map from gridworld.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the
             # standard Search and Rescue task which requires you to set "roles": True).
-            "load": "sa_simple_cooking",
+            "load": "sa_overcooked",
         },
         # Minigrid implemented obscured view
         # in a strange way that doesn't work

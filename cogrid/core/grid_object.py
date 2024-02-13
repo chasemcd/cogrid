@@ -24,7 +24,47 @@ from cogrid.visualization.rendering import (
 )
 
 
-registry: dict[str, GridObj] = {}
+OBJECT_REGISTRY: dict[str, GridObj] = {}
+
+
+def make_object(object_id: str | None, **kwargs) -> GridObj:
+    if object_id is None:
+        return None
+
+    if object_id not in OBJECT_REGISTRY:
+        raise ValueError(
+            f"Object with object_id {object_id} not registered. Call register_object(object_id, class) to add it to the registry."
+        )
+
+    return OBJECT_REGISTRY[object_id](**kwargs)
+
+
+def get_object_class(object_id: str) -> GridObj:
+    return OBJECT_REGISTRY[object_id]
+
+
+def register_object(object_id: str, obj_class: GridObj) -> None:
+    OBJECT_REGISTRY[object_id] = obj_class
+
+
+def get_registered_object_ids() -> list[str]:
+    """Return a list of the object_ids of available objects"""
+    return list(OBJECT_REGISTRY.keys())
+
+
+def get_object_char(object_id: str) -> str:
+    return get_object_class(object_id).char
+
+
+def get_object_id_from_char(object_char: str) -> str:
+    for object_id, object_class in OBJECT_REGISTRY.items():
+        if object_class.char == object_char:
+            return object_id
+
+    raise ValueError(
+        f"There is no registered object with character representation {object_char}."
+    )
+
 
 OBJECT_NAMES = [
     None,
@@ -48,96 +88,19 @@ OBJECT_NAMES = [
     "delivery_zone",
 ] + [f"agent_{direction}" for direction in "^>v<"]
 
-OBJECT_NAMES_TO_CHAR = {
-    "wall": GridConstants.Wall,
-    "key": GridConstants.Key,
-    "pickaxe": GridConstants.Pickaxe,
-    "medkit": GridConstants.MedKit,
-    "rubble": GridConstants.Rubble,
-    "green_victim": GridConstants.GreenVictim,
-    "yellow_victim": GridConstants.YellowVictim,
-    "red_victim": GridConstants.RedVictim,
-    "counter": GridConstants.Counter,
-    "pot": GridConstants.Pot,
-    "plate": GridConstants.Plate,
-    "plate_stack": GridConstants.PlateStack,
-    "onion_soup": GridConstants.OnionSoup,
-    "onion_stack": GridConstants.OnionStack,
-    "onion": GridConstants.Onion,
-    "delivery_zone": GridConstants.DeliveryZone,
-    "agent_^": GridConstants.AgentUp,
-    "agent_>": GridConstants.AgentRight,
-    "agent_v": GridConstants.AgentDown,
-    "agent_<": GridConstants.AgentLeft,
-    "door": GridConstants.Door,
-}
-
-OBJECT_CHAR_TO_NAMES = dict((v, k) for k, v in OBJECT_NAMES_TO_CHAR.items())
-
-
-def fetch_object_by_name(name):
-    if name == "agent":
-        raise ValueError(
-            "Agents must be added to a grid from the Gridworld env and need to be instantiated with the `Agent` object."
-        )
-    elif name == "wall":
-        return Wall
-    elif name == "floor":
-        return Floor
-    elif name == "key":
-        return Key
-    elif name == "counter":
-        return Counter
-    elif name == "onion_stack":
-        return OnionStack
-    elif name == "pot":
-        return Pot
-    elif name == "plate":
-        return Plate
-    elif name == "plate_stack":
-        return PlateStack
-    elif name == "onion_soup":
-        return OnionSoup
-    elif name == "onion_stack":
-        return OnionStack
-    elif name == "onion":
-        return Onion
-    elif name == "delivery_zone":
-        return DeliveryZone
-    elif name == "green_victim":
-        return GreenVictim
-    elif name == "purple_victim":
-        return PurpleVictim
-    elif name == "yellow_victim":
-        return YellowVictim
-    elif name == "red_victim":
-        return RedVictim
-    elif name == "rubble":
-        return Rubble
-    elif name == "medkit":
-        return MedKit
-    elif name == "pickaxe":
-        return Pickaxe
-    elif name == "door":
-        return Door
-    else:
-        raise NotImplementedError(f"Object {name} not implemented.")
-
 
 class GridObj:
+    object_id: str = None
+    color: str | tuple = None
+    char: str = None
+
     def __init__(
         self,
-        name: str,
-        color: tuple,
-        char: str,
         state: int = 0,
         toggle_value: float = 0,
         inventory_value: float = 0,
         overlap_value: float = 0,
     ):
-        self.name: str = name
-        self.color: str = color
-        self.char: str = char
         self.state: int = state
 
         # If an object can be placed on top of this one, this will hold the object that's on top.
@@ -177,10 +140,10 @@ class GridObj:
         self.obj_placed_on = cell
         self.state = object_to_idx(cell)
 
-    def pick_up_from(self, agent: GridAgent, cell: GridObj) -> GridObj:
+    def pick_up_from(self, agent: GridAgent) -> GridObj:
         assert (
             self.obj_placed_on is not None
-        ), f"Picking up from but there's no object placed on {self.name}"
+        ), f"Picking up from but there's no object placed on {self.object_id}"
         cell = self.obj_placed_on
         self.obj_placed_on = None
         self.state = 0
@@ -219,17 +182,15 @@ class GridObj:
 
         # check if the name was passed instead of the character
         if _is_str(char_or_idx) and len(char_or_idx) > 1:
-            obj_name = char_or_idx
+            object_id = char_or_idx
         elif _is_str(char_or_idx):
-            obj_name = OBJECT_CHAR_TO_NAMES[char_or_idx]
-        elif _is_int(char_or_idx):
-            obj_name = OBJECT_NAMES[char_or_idx]
+            object_id = get_object_id_from_char(char_or_idx)
         else:
             raise ValueError(f"Invalid identifier for decoding: {char_or_idx}")
 
         state = int(state)
 
-        return fetch_object_by_name(obj_name)(state)
+        return make_object(object_id, state=state)
 
     def rotate_left(self):
         """Some objects (e.g., agents) have a rotation and must be rotated with the grid."""
@@ -258,11 +219,11 @@ def _is_int(chk):
 
 def object_to_idx(object: GridObj | str | None):
     if isinstance(object, GridObj):
-        obj_name = object.name
+        object_id = object.object_id
     else:
-        obj_name = object
+        object_id = object
 
-    return OBJECT_NAMES.index(obj_name)
+    return OBJECT_NAMES.index(object_id)
 
 
 def idx_to_object(idx: int):
@@ -278,26 +239,31 @@ class GridAgent(GridObj):
         Grid agents are initialized slightly differently. State corresponds to the object they are holding
         and char/colors are unique for each agent.
         """
-        color = {
+        self.color = {
             1: ObjectColors.AgentOne,
             2: ObjectColors.AgentTwo,
             3: ObjectColors.AgentThree,
             4: ObjectColors.AgentFour,
         }[agent.agent_number]
 
-        char = {
+        self.char = {
             Directions.Up: "^",
             Directions.Down: "v",
             Directions.Left: "<",
             Directions.Right: ">",
         }[agent.dir]
+
         assert (
             len(agent.inventory) <= 1
         ), "Current implementation requires maximum inventory size of 1."
+
+        self.object_id = f"agent_{self.char}"
+
         # TODO(chase): State must encapsulate carried objects and role
-        state = 0 if len(agent.inventory) == 0 else object_to_idx(agent.inventory[0])
         # state = agent.role_idx
-        super().__init__(name=f"agent_{char}", color=color, char=char, state=state)
+        state = 0 if len(agent.inventory) == 0 else object_to_idx(agent.inventory[0])
+
+        super().__init__(state=state)
         self.dir = agent.dir
         self.pos = agent.pos
         self.agent_id = agent.id
@@ -306,7 +272,7 @@ class GridAgent(GridObj):
 
     def rotate_left(self):
         self.char = {"^": "<", "<": "v", "v": ">", ">": "^"}[self.char]
-        self.name = f"agent_{self.char}"
+        self.object_id = f"agent_{self.char}"
         self.dir -= 1
         if self.dir < 0:
             self.dir += 4
@@ -351,35 +317,41 @@ class GridAgent(GridObj):
 
         # check if the name was passed instead of the character
         if _is_str(char_or_idx) and len(char_or_idx) > 1:
-            obj_name = char_or_idx
+            object_id = char_or_idx
         elif _is_str(char_or_idx):
-            obj_name = OBJECT_CHAR_TO_NAMES[char_or_idx]
+            object_id = get_object_id_from_char(char_or_idx)
         elif _is_int(char_or_idx):
-            obj_name = OBJECT_NAMES[char_or_idx]
+            object_id = OBJECT_NAMES[char_or_idx]
         else:
             raise ValueError(f"Invalid identifier for decoding: {char_or_idx}")
 
         state = int(state)
 
-        return fetch_object_by_name(obj_name)(state)
+        return make_object(object_id, state=state)
 
 
 class Wall(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="wall", color=ObjectColors.Wall, char=GridConstants.Wall, state=state
-        )
+    object_id = "wall"
+    color = ObjectColors.Wall
+    char = GridConstants.Wall
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(state=0)
 
     def see_behind(self) -> bool:
         return False
 
 
+register_object(Wall.object_id, Wall)
+
+
 class Floor(GridObj):
+    object_id = "floor"
+    color = ObjectColors.Floor
+    char = GridConstants.FreeSpace
+
     def __init__(self, **kwargs):
         super().__init__(
-            name="floor",
-            color=ObjectColors.Floor,
-            char=GridConstants.FreeSpace,
             state=0,
         )
 
@@ -387,14 +359,18 @@ class Floor(GridObj):
         return True
 
 
+register_object(Floor.object_id, Floor)
+
+
 class Counter(GridObj):
+    object_id = "counter"
+    color = ObjectColors.Counter
+    char = GridConstants.Counter
+
     def __init__(self, state: int = 0, **kwargs):
         # TODO(chase): need to be able to initialize an object on top
         #   via the state. Take state and map it to an object.
         super().__init__(
-            name="counter",
-            color=ObjectColors.Counter,
-            char=GridConstants.Counter,
             state=state,
         )
 
@@ -408,11 +384,16 @@ class Counter(GridObj):
             self.obj_placed_on.render(tile_img)
 
 
+register_object(Counter.object_id, Counter)
+
+
 class Key(GridObj):
+    object_id = "key"
+    color = ObjectColors.Key
+    char = GridConstants.Key
+
     def __init__(self, state=0):
-        super().__init__(
-            name="key", color=ObjectColors.Key, char=GridConstants.Key, state=state
-        )
+        super().__init__(state=state)
 
     def can_pickup(self, agent: GridAgent, cell: GridObj):
         return True
@@ -432,11 +413,16 @@ class Key(GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0))
 
 
+register_object(Key.object_id, Key)
+
+
 class Door(GridObj):
+    object_id = "door"
+    color = ObjectColors.Door
+    char = GridConstants.Door
+
     def __init__(self, state):
-        super().__init__(
-            "door", color=ObjectColors.Door, char=GridConstants.Door, state=state
-        )
+        super().__init__(state=state)
         self.is_open = state == 2
         self.is_locked = state == 0
 
@@ -503,495 +489,4 @@ class Door(GridObj):
             fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), c)
 
 
-class MedKit(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="medkit",
-            color=ObjectColors.MedKit,
-            char=GridConstants.MedKit,
-            state=state,
-        )
-
-    def can_pickup(self, agent: GridAgent):
-        return True
-
-    def render(self, tile_img):
-        # red background with white cross
-        fill_coords(
-            tile_img, point_in_rect(0.1, 0.9, 0.1, 0.9), (255, 0, 0)
-        )  # red background
-        fill_coords(
-            tile_img, point_in_rect(0.4, 0.6, 0.2, 0.8), (255, 255, 255)
-        )  # vertical bar
-        fill_coords(
-            tile_img, point_in_rect(0.2, 0.8, 0.4, 0.6), (255, 255, 255)
-        )  # horizontal bar
-
-
-class Pickaxe(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="pickaxe",
-            color=ObjectColors.Pickaxe,
-            char=GridConstants.Pickaxe,
-            state=state,
-        )
-
-    def can_pickup(self, agent: GridAgent):
-        return True
-
-    def render(self, tile_img):
-        # red background with white cross
-        fill_coords(
-            tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), COLORS["brown"]
-        )  # brown handle
-
-        # TODO(chase): figure out the triangle rendering.
-        tri_fn = point_in_triangle(
-            (0.5, 0.1),
-            (0.5, 0.3),
-            (0.9, 0.35),
-        )
-        # tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5)
-        fill_coords(tile_img, tri_fn, COLORS["grey"])
-
-        tri_fn = point_in_triangle(
-            (0.5, 0.1),
-            (0.5, 0.3),
-            (0.1, 0.35),
-        )
-        # tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5)
-        fill_coords(tile_img, tri_fn, COLORS["grey"])
-
-        # triangle pointing right
-        # tri_fn = point_in_triangle(
-        #     (0.9, 0.75),
-        #     (0.5, 0.8),
-        #     (0.5, 0.7),
-        # )
-        # tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5)
-        # fill_coords(tile_img, tri_fn, COLORS["grey"])
-
-        # # triangle pointing left
-        # tri_fn = point_in_triangle(
-        #     (0.5, 0.8),
-        #     (0.5, 0.7),
-        #     (0.1, 0.75),
-        # )
-        # tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * 2)
-        # fill_coords(tile_img, tri_fn, COLORS["grey"])
-        #
-
-
-class Rubble(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="rubble",
-            color=ObjectColors.Rubble,
-            char=GridConstants.Rubble,
-            state=state,
-            toggle_value=0.05,
-        )
-
-    def see_behind(self) -> bool:
-        return False
-
-    def toggle(self, env, toggling_agent=None) -> bool:
-        """Rubble can be toggled by an Engineer/agent with Pickaxe"""
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        toggling_agent_is_engineer = (
-            any([isinstance(obj, Pickaxe) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Engineer
-        )
-
-        assert toggling_agent_is_adjacent, "Rubble toggled by non-adjacent agent."
-
-        toggle_success = toggling_agent_is_engineer
-
-        if toggle_success:
-            self._remove_from_grid(env.grid)
-        return toggle_success
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
-
-
-class GreenVictim(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="green_victim",
-            color=ObjectColors.GreenVictim,
-            char=GridConstants.GreenVictim,
-            state=state,
-            toggle_value=0.1,
-        )
-
-    def toggle(self, env, toggling_agent=None) -> bool:
-        """Toggling a victim rescues them. A GreenVictim can be rescued if any agent is adjacent to it"""
-        # Toggle should only be triggered if the GreenVictim is directly in front of it. For debugging purposes,
-        # we'll just check to make sure that's true (if this isn't triggered it can be removed).
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
-
-        self._remove_from_grid(env.grid)
-        return toggling_agent_is_adjacent
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
-
-
-class PurpleVictim(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="purple_victim",
-            color=ObjectColors.PurpleVictim,
-            char=GridConstants.PurpleVictim,
-            state=state,
-            toggle_value=0.2,
-        )
-
-    def toggle(self, env, toggling_agent=None) -> bool:
-        """Toggling a victim rescues them. A GreenVictim can be rescued if any agent is adjacent to it"""
-        # Toggle should only be triggered if the GreenVictim is directly in front of it. For debugging purposes,
-        # we'll just check to make sure that's true (if this isn't triggered it can be removed).
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
-
-        self._remove_from_grid(env.grid)
-        return toggling_agent_is_adjacent
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
-
-
-class YellowVictim(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="yellow_victim",
-            color=ObjectColors.YellowVictim,
-            char=GridConstants.YellowVictim,
-            state=state,
-            toggle_value=0.2,
-        )
-
-    def toggle(self, env, toggling_agent=None) -> bool:
-        """
-        Toggling a victim rescues them. A YellowVictim can be rescued if a Medic is adjcent to it or the agent
-        is carrying a MedKit
-        """
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Medic
-        )
-
-        assert toggling_agent_is_adjacent, "YellowVictim toggled by non-adjacent agent."
-
-        toggle_success = toggling_agent_is_medic
-
-        if toggle_success:
-            self._remove_from_grid(env.grid)
-        return toggle_success
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
-
-
-class RedVictim(GridObj):
-    def __init__(self, state=0):
-        super().__init__(
-            name="red_victim",
-            color=ObjectColors.RedVictim,
-            char=GridConstants.RedVictim,
-            state=state,
-            toggle_value=0.3,
-        )
-
-    def toggle(self, env, toggling_agent=None) -> bool:
-        """A RedVictim can be rescued if a Medic (or agent carrying MedKit) is the adjacent toggling agent
-        and there is another agent adjacent."""
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Medic
-        )
-
-        assert toggling_agent_is_adjacent, "RedVictim toggled by non-adjacent agent."
-
-        other_adjacent_agent = None
-        for agent in env.agents.values():
-            if agent is toggling_agent or tuple(agent.pos) not in adj_positions:
-                continue
-            other_adjacent_agent = agent
-            break
-
-        toggle_success = toggling_agent_is_medic and other_adjacent_agent is not None
-
-        if toggle_success:
-            self._remove_from_grid(env.grid)
-
-            # If we're using common reward both will automatically receive. If not, both acted in saving,
-            # so we reward both for the red victim.
-            if not env.common_reward:
-                other_adjacent_agent.reward += self.toggle_value
-
-        return toggle_success
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
-
-
-class Onion(GridObj):
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="onion",
-            color="yellow",
-            char="O",
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-    def can_pickup(self, agent: GridAgent) -> bool:
-        return True
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), c)
-
-
-class OnionStack(GridObj):
-    """An OnionStack is just an (infinite) pile of onions."""
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="onion_stack",
-            color="yellow",
-            char="M",
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-    def can_pickup_from(self, agent: GridAgent) -> bool:
-        return True
-
-    def pick_up_from(self, agent: GridAgent) -> GridObj:
-        return Onion()
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
-
-
-class Pot(GridObj):
-
-    cooking_time: int = 30  # env steps to cook a soup
-
-    def __init__(
-        self,
-        state: int = 0,
-        capacity: int = 3,
-        legal_contents: list[GridObj] = [Onion],
-        *args,
-        **kwargs,
-    ):
-
-        super().__init__(
-            name="pot",
-            color="grey",
-            char=GridConstants.Pot,
-            state=state,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-        self.objects_in_pot: list[GridObj] = []
-        self.capacity: int = capacity
-        self.cooking_timer: int = self.cooking_time
-        self.legal_contents: list[GridObj] = legal_contents
-
-    def can_pickup_from(self, agent: GridAgent) -> bool:
-        return self.dish_ready and any(
-            [isinstance(grid_obj, Plate) for grid_obj in agent.inventory]
-        )
-
-    def pick_up_from(self, agent: GridAgent) -> GridObj:
-        self.objects_in_pot = []
-        self.cooking_timer = self.cooking_time
-        agent.inventory.pop(0)  # TODO(chase): assumes size 1 inventory
-        return OnionSoup()
-
-    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        """Can only place onions in the soup!"""
-        if not any([isinstance(cell, grid_obj) for grid_obj in self.legal_contents]):
-            return False
-
-        return len(self.objects_in_pot) < self.capacity
-
-    def place_on(self, agent: GridAgent, cell: GridObj) -> None:
-        self.objects_in_pot.append(cell)
-
-    def tick(self) -> None:
-        """Update cooking time if the pot is full"""
-        if len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0:
-            self.cooking_timer -= 1
-            self.state += 100
-
-        self.state = (
-            len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
-        )
-
-    @property
-    def dish_ready(self) -> bool:
-        return self.cooking_timer == 0
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), c)
-
-        for i, grid_obj in enumerate(self.objects_in_pot):
-            fill_coords(
-                tile_img,
-                point_in_circle(cx=0.25 * (i + 1), cy=0.2, r=0.2),
-                COLORS[grid_obj.color],
-            )
-
-        if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
-
-
-class PlateStack(GridObj):
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="plate_stack",
-            color="white",
-            char=",",
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-    def can_pickup_from(self, agent: GridAgent) -> bool:
-        return True
-
-    def pick_up_from(self, agent: GridAgent) -> GridObj:
-        return Plate()
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
-
-
-class Plate(GridObj):
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="plate",
-            color="white",
-            char="L",
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-    def can_pickup(self, agent: GridAgent) -> bool:
-        return True
-
-    def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), c)
-
-
-class DeliveryZone(GridObj):
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="delivery_zone",
-            color="black",
-            char="D",
-            state=0,
-            toggle_value=1.0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
-    def toggle(self, env, agent: GridAgent = None) -> bool:
-        """Delivery can be toggled by an agent with Soup"""
-        toggling_agent_has_soup = any(
-            [isinstance(grid_obj, OnionSoup) for grid_obj in agent.inventory]
-        )
-
-        if not toggling_agent_has_soup:
-            return False
-
-        # remove soup from agent inventory
-        # TODO(chase): this assumes inventory size is 1
-        agent.inventory.pop(0)
-
-        return True
-
-
-class OnionSoup(GridObj):
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            name="onion_soup",
-            color="brown",
-            char="S",
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
+register_object(Door.object_id, Door)

@@ -312,7 +312,7 @@ class Inventory(Feature):
         agent = gridworld.agents[player_id]
         idxs = []
         for obj in agent.inventory:
-            idxs.append(OBJECT_NAMES.index(obj.name) + 1)
+            idxs.append(OBJECT_NAMES.index(obj.object_id) + 1)
         sorted_idxs = sorted(idxs)
 
         encoding = np.zeros(self.shape, dtype=np.uint8)

@@ -185,7 +185,9 @@ class Grid:
         agent_dir = grid_agent.dir if grid_agent else None
         agent_color = grid_agent.color if grid_agent else None
         agent_inventory_names = (
-            tuple([obj.name for obj in grid_agent.inventory]) if grid_agent else None
+            tuple([obj.object_id for obj in grid_agent.inventory])
+            if grid_agent
+            else None
         )
         key: tuple[Any, ...] = (
             (agent_dir, agent_color, agent_inventory_names),

@@ -6,9 +6,9 @@ from cogrid.constants import GridConstants
 from cogrid.core import grid_utils
 from cogrid.core.actions import Actions
 from cogrid.core.directions import Directions
-from cogrid.core.grid_object import GreenVictim, YellowVictim, RedVictim
 from cogrid.gridworld_env import GridWorld
 from cogrid.envs.search_rescue.agent import SRAgent, SRRoles
+from cogrid.envs.search_rescue import search_rescue_grid_objects
 
 
 class SearchRescue(GridWorld):
@@ -125,13 +125,22 @@ class SearchRescue(GridWorld):
         returns dones only when all targets have been located.
         """
         green_targets_in_grid = any(
-            [isinstance(obj, GreenVictim) for obj in self.grid.grid]
+            [
+                isinstance(obj, search_rescue_grid_objects.GreenVictim)
+                for obj in self.grid.grid
+            ]
         )
         yellow_targets_in_grid = any(
-            [isinstance(obj, YellowVictim) for obj in self.grid.grid]
+            [
+                isinstance(obj, search_rescue_grid_objects.YellowVictim)
+                for obj in self.grid.grid
+            ]
         )
         red_targets_in_grid = any(
-            [isinstance(obj, RedVictim) for obj in self.grid.grid]
+            [
+                isinstance(obj, search_rescue_grid_objects.RedVictim)
+                for obj in self.grid.grid
+            ]
         )
 
         all_targets_reached = (
