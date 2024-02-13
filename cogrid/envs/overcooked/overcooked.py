@@ -8,6 +8,7 @@ from cogrid.core.actions import Actions
 from cogrid.core import directions
 from cogrid import gridworld_env
 from cogrid.envs.overcooked import agent
+from cogrid.envs import registry
 
 
 class Overcooked(gridworld_env.GridWorld):
@@ -60,3 +61,6 @@ class Overcooked(gridworld_env.GridWorld):
         agent = self.agents[agent_id]
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
+
+
+registry.register("overcooked", Overcooked)

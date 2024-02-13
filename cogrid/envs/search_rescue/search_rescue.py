@@ -9,6 +9,7 @@ from cogrid.core.directions import Directions
 from cogrid.gridworld_env import GridWorld
 from cogrid.envs.search_rescue.agent import SRAgent, SRRoles
 from cogrid.envs.search_rescue import search_rescue_grid_objects
+from cogrid.envs import registry
 
 
 class SearchRescue(GridWorld):
@@ -172,3 +173,6 @@ class SearchRescue(GridWorld):
         agent = self.agents[agent_id]
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
+
+
+registry.register("search_rescue", SearchRescue)
