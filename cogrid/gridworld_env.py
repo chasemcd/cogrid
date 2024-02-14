@@ -165,7 +165,7 @@ class GridWorld(Env):
 
         self.cumulative_score = 0
 
-        self.render()
+        self.render(render_mode=self.render_mode)
 
         obs = self.get_obs()
 
@@ -211,7 +211,7 @@ class GridWorld(Env):
             self.get_terminateds_truncateds(),
         )
 
-        self.render()
+        self.render(render_mode=self.render_mode)
 
         self.cumulative_score += sum([*rewards.values()])
 
@@ -316,7 +316,7 @@ class GridWorld(Env):
 
     def interact(self, actions) -> None:
         for a_id, action in actions.items():
-            agent = self.agents[a_id]
+            agent: GridAgent = self.agents[a_id]
             agent.cell_toggled = None
             agent.cell_overlapped = self.grid.get(*agent.pos)
 
@@ -327,27 +327,35 @@ class GridWorld(Env):
 
             # Attempt to pick up the object in front of the agent
             elif action == grid_actions.Actions.PickupDrop:
-                if not agent.inventory:  # TODO(chase): this assumes inventory size == 1
-                    fwd_pos = agent.front_pos
-                    fwd_cell = self.grid.get(*fwd_pos)
-                    if not len(agent.inventory) < agent.inventory_capacity:
-                        return
-                    if fwd_cell and fwd_cell.can_pickup(agent=agent):
-                        pos = fwd_cell.pos
-                        agent.inventory.append(fwd_cell)
-                        fwd_cell.pos = None
-                        self.grid.set(*pos, None)
-                    elif fwd_cell and fwd_cell.can_pickup_from(agent=agent):
-                        pickup_cell = fwd_cell.pick_up_from(agent=agent)
-                        pickup_cell.pos = None
-                        agent.inventory.append(pickup_cell)
-
-                    continue
-
                 fwd_pos = agent.front_pos
                 fwd_cell = self.grid.get(*fwd_pos)
                 agent_ahead = tuple(fwd_pos) in self.agent_pos
-                if not agent_ahead and not fwd_cell:
+
+                # If there's an agent in front of you, you can't
+                # pick up or drop.
+                if agent_ahead:
+                    continue
+
+                # TODO(chase): we need to fix this logic so that we check if an agent
+                # can pick up the type of object that is returned from pick_up_from
+                if (
+                    fwd_cell
+                    and fwd_cell.can_pickup(agent=agent)
+                    and agent.can_pickup(grid_object=fwd_cell)
+                ):
+                    pos = fwd_cell.pos
+                    agent.inventory.append(fwd_cell)
+                    fwd_cell.pos = None
+                    self.grid.set(*pos, None)
+                elif (
+                    fwd_cell
+                    and fwd_cell.can_pickup_from(agent=agent)
+                    and agent.can_pickup(grid_object=fwd_cell)
+                ):
+                    pickup_cell = fwd_cell.pick_up_from(agent=agent)
+                    pickup_cell.pos = None
+                    agent.inventory.append(pickup_cell)
+                elif not agent_ahead and not fwd_cell:
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
                     self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
@@ -357,10 +365,6 @@ class GridWorld(Env):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
                     fwd_cell.place_on(cell=drop_cell, agent=agent)
-                elif fwd_cell and fwd_cell.can_pickup_from(agent):
-                    pickup_cell = fwd_cell.pick_up_from(agent=agent)
-                    pickup_cell.pos = None
-                    agent.inventory.append(pickup_cell)
 
             # Attempt to toggle the object in front of the agent
             elif action == grid_actions.Actions.Toggle:
@@ -600,7 +604,7 @@ class GridWorld(Env):
 
         return frame
 
-    def render(self, mode="human") -> None | np.ndarray:
+    def render(self, render_mode="human") -> None | np.ndarray:
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
@@ -618,12 +622,12 @@ class GridWorld(Env):
                 subitems=inventories,
             )
 
-        if self.render_mode is None:
+        if render_mode is None:
             return
 
         img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
         self.frames.append(img)
-        if self.render_mode == "human":
+        if render_mode == "human":
             # if img.shape[0] == 3:  # move the channels last
             #     img = np.moveaxis(img, 0, -1)
             if self.render_size is None:
@@ -669,7 +673,7 @@ class GridWorld(Env):
             self.clock.tick(self.metadata["render_fps"])
             pygame.display.update()
 
-        elif self.render_mode == "rgb_array":
+        elif render_mode == "rgb_array":
             return img
 
     def close(self):

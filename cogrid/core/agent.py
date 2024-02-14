@@ -31,7 +31,9 @@ class Agent:
 
         self.reward: float = 0  # at each move, agents will update this value
         self.step_penalty: float = 0
-        self.collision: bool = False  # Some envs keep track of if an agent crashed into another agent/object/etc.
+        self.collision: bool = (
+            False  # Some envs keep track of if an agent crashed into another agent/object/etc.
+        )
 
         self.orientation: str = "down"
         self.inventory: list[GridObj] = []
@@ -103,6 +105,12 @@ class Agent:
             Directions.Left: "left",
             Directions.Right: "right",
         }[self.dir]
+
+    def can_pickup(self, grid_object: GridObj) -> bool:
+        return len(self.inventory) < self.inventory_capacity
+
+    def pick_up_object(self, grid_object: GridObj):
+        self.inventory.append(grid_object)
 
     @property
     def inventory_capacity(self) -> int:
