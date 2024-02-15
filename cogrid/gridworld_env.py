@@ -40,7 +40,6 @@ class GridWorld(Env):
 
         self.clock = None
         self.render_size = None
-        self.frames = []
         self.config = config
         self.render_mode = render_mode
         self.render_message = render_message
@@ -141,10 +140,6 @@ class GridWorld(Env):
         """
         Reset the map and return the initial observations. Must be implemented for each environment.
         """
-        if self.frames:
-            self.create_gif_from_frames(self.frames)
-
-        self.frames = []
         super().reset(seed=seed)
         self._gen_grid()
 
@@ -355,7 +350,7 @@ class GridWorld(Env):
                     pickup_cell = fwd_cell.pick_up_from(agent=agent)
                     pickup_cell.pos = None
                     agent.inventory.append(pickup_cell)
-                elif not agent_ahead and not fwd_cell:
+                elif not agent_ahead and not fwd_cell and agent.inventory:
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
                     self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
@@ -626,7 +621,6 @@ class GridWorld(Env):
             return
 
         img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
-        self.frames.append(img)
         if self.render_mode == "human":
             # if img.shape[0] == 3:  # move the channels last
             #     img = np.moveaxis(img, 0, -1)
