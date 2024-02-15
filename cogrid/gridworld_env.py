@@ -165,7 +165,7 @@ class GridWorld(Env):
 
         self.cumulative_score = 0
 
-        self.render(render_mode=self.render_mode)
+        self.render()
 
         obs = self.get_obs()
 
@@ -211,7 +211,7 @@ class GridWorld(Env):
             self.get_terminateds_truncateds(),
         )
 
-        self.render(render_mode=self.render_mode)
+        self.render()
 
         self.cumulative_score += sum([*rewards.values()])
 
@@ -604,7 +604,7 @@ class GridWorld(Env):
 
         return frame
 
-    def render(self, render_mode="human") -> None | np.ndarray:
+    def render(self) -> None | np.ndarray:
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
@@ -622,12 +622,12 @@ class GridWorld(Env):
                 subitems=inventories,
             )
 
-        if render_mode is None:
+        if self.render_mode is None:
             return
 
         img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
         self.frames.append(img)
-        if render_mode == "human":
+        if self.render_mode == "human":
             # if img.shape[0] == 3:  # move the channels last
             #     img = np.moveaxis(img, 0, -1)
             if self.render_size is None:
@@ -673,7 +673,7 @@ class GridWorld(Env):
             self.clock.tick(self.metadata["render_fps"])
             pygame.display.update()
 
-        elif render_mode == "rgb_array":
+        elif self.render_mode == "rgb_array":
             return img
 
     def close(self):
