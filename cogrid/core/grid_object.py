@@ -6,6 +6,7 @@ https://github.com/Farama-Foundation/Minigrid/minigrid/core/world_object.py
 from __future__ import annotations
 from copy import deepcopy
 import math
+import uuid
 
 import numpy as np
 
@@ -93,6 +94,7 @@ class GridObj:
     object_id: str = None
     color: str | tuple = None
     char: str = None
+    uuid: str = uuid.uuid()
 
     def __init__(
         self,
