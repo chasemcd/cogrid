@@ -221,7 +221,7 @@ grid_object.register_object(Plate.object_id, Plate)
 
 class DeliveryZone(grid_object.GridObj):
     object_id = "delivery_zone"
-    color = "black"
+    color = "green"
     char = GridConstants.DeliveryZone
 
     def __init__(

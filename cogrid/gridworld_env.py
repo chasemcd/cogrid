@@ -250,11 +250,9 @@ class GridWorld(Env):
                     agent = self.agents[a_id]
                     desired_direction = move_action_to_dir[action]
 
-                    # If already facing that direciton, move forward
-                    if agent.dir == desired_direction:
-                        actions[a_id] = grid_actions.Actions.Forward
-                    else:
-                        agent.dir = desired_direction
+                    # rotate to the desired direction and move that way
+                    agent.dir = desired_direction
+                    actions[a_id] = grid_actions.Actions.Forward
 
         # Determine the position each agent is attempting to move to
         attempted_positions = {}
