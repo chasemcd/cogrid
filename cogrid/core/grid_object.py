@@ -94,7 +94,7 @@ class GridObj:
     object_id: str = None
     color: str | tuple = None
     char: str = None
-    uuid: str = uuid.uuid()
+    uuid: str = str(uuid.uuid4())
 
     def __init__(
         self,
