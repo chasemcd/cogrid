@@ -19,3 +19,18 @@ registry.register(
     "SAOvercooked-V0",
     functools.partial(overcooked.Overcooked, config=sa_overcooked_config),
 )
+
+overcooked_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "action_set": "cardinal_actions",
+    "obs": ["agent_id"],
+    "grid_gen_kwargs": {"load": "overcooked-v0"},
+    "max_steps": 1000,
+}
+
+
+registry.register(
+    "Overcooked-V0",
+    functools.partial(overcooked.Overcooked, config=overcooked_config),
+)
