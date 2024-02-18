@@ -362,8 +362,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
                     self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
-                elif fwd_cell and fwd_cell.can_place_on(
-                    cell=agent.inventory[0], agent=agent
+                elif (
+                    fwd_cell
+                    and agent.inventory
+                    and fwd_cell.can_place_on(cell=agent.inventory[0], agent=agent)
                 ):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
