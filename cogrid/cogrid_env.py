@@ -15,7 +15,8 @@ from cogrid.core.grid import Grid
 from cogrid.core.grid_object import GridObj, GridAgent
 from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
-from cogrid.env_utils import seeding
+
+RNG = RandomNumberGenerator = np.random.Generator
 
 
 class CoGridEnv(pettingzoo.ParallelEnv):
@@ -135,10 +136,27 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return grid, states
 
+    @staticmethod
+    def _set_np_random(seed: int | None = None):
+        if seed is not None and not (isinstance(seed, int) and 0 <= seed):
+            if isinstance(seed, int) is False:
+                raise ValueError(
+                    f"Seed must be a python integer, actual type: {type(seed)}"
+                )
+            else:
+                raise ValueError(
+                    f"Seed must be greater or equal to zero, actual value: {seed}"
+                )
+
+        seed_seq = np.random.SeedSequence(seed)
+        np_seed = seed_seq.entropy
+        rng = RandomNumberGenerator(np.random.PCG64(seed_seq))
+        return rng, np_seed
+
     @property
     def np_random(self) -> np.random.Generator:
         if self._np_random is None:
-            self._np_random, _ = seeding.np_random()
+            self._np_random, _ = self._set_np_random()
 
         return self._np_random
 
@@ -149,7 +167,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         Reset the map and return the initial observations. Must be implemented for each environment.
         """
         if seed is not None:
-            self._np_random, _ = seeding.np_random(seed=seed)
+            self._np_random, _ = self._set_np_random(seed=seed)
 
         self._gen_grid()
 
