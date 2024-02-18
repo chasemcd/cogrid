@@ -110,9 +110,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def _gen_grid(self):
         self.spawn_points = []
         grid, states = self._generate_encoded_grid_states()
-        grid = ascii_to_numpy(
-            grid
-        )  # if grid is a list of strings this will turn it into the correct np format
+
+        # If the grid is a list of strings this will turn it into the correct np format
+        grid = ascii_to_numpy(grid)
         spawn_points = np.where(grid == GridConstants.Spawn)
         grid[spawn_points] = GridConstants.FreeSpace
         self.spawn_points = list(zip(*spawn_points))
