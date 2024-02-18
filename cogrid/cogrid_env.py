@@ -6,8 +6,7 @@ import numpy as np
 import pygame
 import pygame.freetype
 from gymnasium.spaces import Discrete, Dict
-from gymnasium import Env
-
+import pettingzoo
 from cogrid.constants import GridConstants, FIXED_GRIDS
 from cogrid.core import actions as grid_actions
 from cogrid.core.constants import CoreConstants
@@ -16,11 +15,12 @@ from cogrid.core.grid import Grid
 from cogrid.core.grid_object import GridObj, GridAgent
 from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
+from cogrid.utils import seeding
 
 
-class GridWorld(Env):
+class CoGridEnv(pettingzoo.ParallelEnv):
     """
-    The GridWorld class is a base environment for any other GridWorld environment that you may want to create.
+    The CoGridEnv class is a base environment for any other CoGridEnv environment that you may want to create.
     Any subclass should be sure to define rewards
     """
 
@@ -36,7 +36,8 @@ class GridWorld(Env):
         screen_size: int | None = None,
         render_message: str | None = None,
     ):
-        super(GridWorld, self).__init__()
+        super(CoGridEnv, self).__init__()
+        self._np_random: np.random.Generator | None = None  # set in reset()
 
         self.clock = None
         self.render_size = None
@@ -134,13 +135,22 @@ class GridWorld(Env):
 
         return grid, states
 
+    @property
+    def np_random(self) -> np.random.Generator:
+        if self._np_random is None:
+            self._np_random, _ = seeding.np_random()
+
+        return self._np_random
+
     def reset(
         self, *, seed: int | None = 42, options: dict[str, Any] | None = None
     ) -> tuple:
         """
         Reset the map and return the initial observations. Must be implemented for each environment.
         """
-        super().reset(seed=seed)
+        if seed is not None:
+            self._np_random, _ = seeding.np_random(seed=seed)
+
         self._gen_grid()
 
         # Clear out past agents and re-initialize

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pygame
 
 from cogrid.core.actions import Actions
-from cogrid.gridworld_env import GridWorld
+from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
 
 ACTION_MESSAGE = ""
@@ -37,7 +37,7 @@ elif ACTION_SET == "rotation_actions":
 class HumanPlay:
     def __init__(
         self,
-        env: GridWorld,
+        env: CoGridEnv,
         human_agent_id: str | None = None,
         seed: int = None,
     ) -> None:
@@ -148,13 +148,13 @@ if __name__ == "__main__":
         "num_agents": 1,
         "action_set": ACTION_SET,
         "obs": [
-            # see gridworld.features for all available obs.
+            # see CoGridEnv.features for all available obs.
             # "full_map_ascii",
             # "agent_positions",
             "agent_id",
         ],
         "grid_gen_kwargs": {
-            # use "load" to retrieve a fixed map from gridworld.constants.FIXED_MAPS
+            # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the
             # standard Search and Rescue task which requires you to set "roles": True).
             "load": "sa_overcooked",
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         "max_steps": 1000,
     }
 
-    def env_creator(render_mode: str | None = None, render_message="") -> GridWorld:
+    def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
         return registry.make(
             env_config["name"],
             config=env_config,
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     # policy class will be initialized with it.
     configs = {agent_id: {} for agent_id in policy_mapping.keys()}
 
-    env: GridWorld = env_creator(render_mode="human")
+    env: CoGridEnv = env_creator(render_mode="human")
     manual_control = HumanPlay(
         env,
         human_agent_id=HUMAN_AGENT_ID,

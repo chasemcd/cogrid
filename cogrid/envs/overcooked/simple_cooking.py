@@ -2,13 +2,15 @@ import copy
 
 import numpy as np
 
+from cogrid.constants import GridConstants
+from cogrid.core import grid_utils
+from cogrid.core.actions import Actions
 from cogrid.core import directions
 from cogrid import cogrid_env
 from cogrid.envs.overcooked import agent
-from cogrid.envs import registry
 
 
-class Overcooked(cogrid_env.CoGridEnv):
+class SimpleCooking(cogrid_env.GridWorld):
     """
     The Search & Rescue task is a reproduction of the __Minimap__ game.
     """
@@ -58,6 +60,3 @@ class Overcooked(cogrid_env.CoGridEnv):
         agent = self.agents[agent_id]
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
-
-
-registry.register("overcooked", Overcooked)

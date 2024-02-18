@@ -7,7 +7,7 @@
 # import numpy as np
 # from gymnasium.spaces import Dict
 #
-# from cogrid.gridworld_env import GridWorld
+# from cogrid.CoGridEnv_env import CoGridEnv
 # from cogrid.core.agent import Agent
 # from cogrid.core.grid_utils import ascii_to_numpy
 # from cogrid.constants import DEFAULT_COLORS, GridConstants, BASE_ACTION_MAP
@@ -23,7 +23,7 @@
 #         return GridConstants.FreeSpace
 #
 #
-# class DummyMapEnv(GridWorld):
+# class DummyMapEnv(CoGridEnv):
 #     def __init__(self, config, test_grid_data):
 #         self.test_grid_data = test_grid_data
 #         self.start_positions = config.get("start_positions")

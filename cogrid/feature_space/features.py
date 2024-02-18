@@ -1,4 +1,4 @@
-"""Observation generators takes the Gridworld object and turns it into the desired observation"""
+"""Observation generators takes the CoGridEnv object and turns it into the desired observation"""
 
 import numpy as np
 from gymnasium import spaces

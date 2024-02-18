@@ -6,13 +6,13 @@ from cogrid.constants import GridConstants
 from cogrid.core import grid_utils
 from cogrid.core.actions import Actions
 from cogrid.core.directions import Directions
-from cogrid.gridworld_env import GridWorld
+from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs.search_rescue.agent import SRAgent, SRRoles
 from cogrid.envs.search_rescue import search_rescue_grid_objects
 from cogrid.envs import registry
 
 
-class SearchRescue(GridWorld):
+class SearchRescue(CoGridEnv):
     """
     The Search & Rescue task is a reproduction of the __Minimap__ game.
     """

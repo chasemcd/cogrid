@@ -1,12 +1,12 @@
-from cogrid import gridworld_env
+from cogrid import cogrid_env
 
 
-ENVIRONMENT_REGISTRY: dict[str, gridworld_env.GridWorld] = {}
+ENVIRONMENT_REGISTRY: dict[str, cogrid_env.CoGridEnv] = {}
 
 
-def make(environment_id: str, **kwargs) -> gridworld_env.GridWorld:
+def make(environment_id: str, **kwargs) -> cogrid_env.CoGridEnv:
     return ENVIRONMENT_REGISTRY[environment_id](**kwargs)
 
 
-def register(environment_id: str, env_class: gridworld_env.GridWorld) -> None:
+def register(environment_id: str, env_class: cogrid_env.CoGridEnv) -> None:
     ENVIRONMENT_REGISTRY[environment_id] = env_class

@@ -1,4 +1,4 @@
-"""GridObj defines an object in the gridworld environment. It is largely derived from the Minigrid WorldObj:
+"""GridObj defines an object in the CoGridEnv environment. It is largely derived from the Minigrid WorldObj:
 https://github.com/Farama-Foundation/Minigrid/minigrid/core/world_object.py
 
 """

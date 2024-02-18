@@ -1,10 +1,10 @@
 import operator
 
 from cogrid.envs.goal_seeking.agent import GoalSeekingAgent
-from cogrid.gridworld_env import GridWorld
+from cogrid.cogrid_env import CoGridEnv
 
 
-class GoalSeeking(GridWorld):
+class GoalSeeking(CoGridEnv):
     """
     Goal Seeking GridWorld task. A remake with multi-agent capability. For reference, see:
         https://www.cmu.edu/dietrich/sds/ddmlab/papers/2020ICCM_Ngoc-CameraReady.pdf

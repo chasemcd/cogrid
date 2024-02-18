@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 from gymnasium.spaces import Dict
 
-from gridworld.gridworld_env import GridWorld
+from gridworld.gridworld_env import CoGridEnv
 from gridworld.core.agent import Agent
 from gridworld.core.grid_actions import Actions
 from gridworld.core.directions import Directions
@@ -48,7 +48,7 @@ class DummyAgent(Agent):
         return GridConstants.FreeSpace
 
 
-class DummyMapEnv(GridWorld):
+class DummyMapEnv(CoGridEnv):
     def __init__(self, config: dict, test_grid_data: tuple[np.ndarray, np.ndarray]):
         self.test_grid_data: tuple[np.ndarray, np.ndarray] = test_grid_data
         self.start_positions: list[tuple] | None = config.get("start_positions")
