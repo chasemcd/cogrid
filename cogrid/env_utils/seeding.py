@@ -4,8 +4,6 @@ Set of random number generator functions: seeding, generator, hashing seeds.
 Copied from https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/utils/seeding.py
 """
 
-from __future__ import annotations
-
 import numpy as np
 
 
@@ -14,8 +12,6 @@ def np_random(seed: int | None = None) -> tuple[np.random.Generator, int]:
 
     If ``seed`` is ``None`` then a **random** seed will be generated as the RNG's initial seed.
     This randomly selected seed is returned as the second value of the tuple.
-
-    .. py:currentmodule:: gymnasium.Env
 
     This function is called in :meth:`reset` to reset an environment's initial RNG.
 

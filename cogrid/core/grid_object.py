@@ -11,9 +11,7 @@ import uuid
 import numpy as np
 
 from cogrid.constants import GridConstants
-from cogrid.core.roles import Roles
 from cogrid.core.constants import ObjectColors, COLORS, COLOR_NAMES
-from cogrid.core.grid_utils import adjacent_positions
 from cogrid.core.directions import Directions
 from cogrid.visualization.rendering import (
     fill_coords,

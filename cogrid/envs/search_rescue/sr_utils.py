@@ -70,7 +70,7 @@ def generate_sr_grid(
 
 
 def surround_by_rubble(grid, row, col):
-    for r, c in env_utils.adjacent_positions(row, col):
+    for r, c in grid_utils.adjacent_positions(row, col):
         if grid[r, c] == constants.GridConstants.FreeSpace:
             grid[r, c] = constants.GridConstants.Rubble
     return grid
