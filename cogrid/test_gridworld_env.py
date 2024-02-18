@@ -8,14 +8,14 @@ import unittest
 import numpy as np
 from gymnasium.spaces import Dict
 
-from gridworld.gridworld_env import CoGridEnv
-from gridworld.core.agent import Agent
-from gridworld.core.grid_actions import Actions
-from gridworld.core.directions import Directions
-from gridworld.constants import FIXED_GRIDS
-from gridworld.constants import GridConstants
-from gridworld.core import grid_object
-from gridworld.search_rescue.search_rescue import SearchRescue
+from cogrid.cogrid_env import CoGridEnv
+from cogrid.core.agent import Agent
+from cogrid.core.actions import Actions
+from cogrid.core.directions import Directions
+from cogrid.constants import FIXED_GRIDS
+from cogrid.constants import GridConstants
+from cogrid.core import grid_object
+from cogrid.envs.search_rescue import SearchRescue
 
 
 BASE_MAP = (
