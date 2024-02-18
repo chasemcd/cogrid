@@ -15,7 +15,7 @@ from cogrid.core.grid import Grid
 from cogrid.core.grid_object import GridObj, GridAgent
 from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
-from cogrid.utils import seeding
+from cogrid.env_utils import seeding
 
 
 class CoGridEnv(pettingzoo.ParallelEnv):
