@@ -100,7 +100,7 @@ class GridObj:
         inventory_value: float = 0,
         overlap_value: float = 0,
     ):
-        uuid: str = str(uuid.uuid4())
+        self.uuid: str = str(uuid.uuid4())
 
         self.state: int = state
 
