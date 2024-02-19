@@ -92,7 +92,6 @@ class GridObj:
     object_id: str = None
     color: str | tuple = None
     char: str = None
-    uuid: str = str(uuid.uuid4())
 
     def __init__(
         self,
@@ -101,6 +100,8 @@ class GridObj:
         inventory_value: float = 0,
         overlap_value: float = 0,
     ):
+        uuid: str = str(uuid.uuid4())
+
         self.state: int = state
 
         # If an object can be placed on top of this one, this will hold the object that's on top.
@@ -267,7 +268,7 @@ class GridAgent(GridObj):
         self.dir = agent.dir
         self.pos = agent.pos
         self.agent_id = agent.id
-        self.inventory = deepcopy(agent.inventory)
+        self.inventory: list[GridObj] = deepcopy(agent.inventory)
         assert self.pos is not None
 
     def rotate_left(self):
