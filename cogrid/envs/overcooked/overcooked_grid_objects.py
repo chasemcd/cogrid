@@ -267,6 +267,9 @@ class OnionSoup(grid_object.GridObj):
             state=0,
         )
 
+    def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        return True
+
     def render(self, tile_img):
         c = COLORS[self.color]
         # draw white plate
