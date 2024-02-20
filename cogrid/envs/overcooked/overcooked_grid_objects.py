@@ -125,6 +125,10 @@ class Pot(grid_object.GridObj):
     def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
         self.objects_in_pot.append(cell)
 
+    @property
+    def is_cooking(self) -> None:
+        return len(self.objects_in_pot) == self.capacity
+
     def tick(self) -> None:
         """Update cooking time if the pot is full"""
         if len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0:

@@ -11,18 +11,24 @@ from cogrid.core.grid_object import OBJECT_NAMES
 class Feature:
     """Base class for"""
 
+    shape = None
+
     def __init__(
         self,
         low: float,
         high: float,
-        shape: tuple | np.ndarray,
         name: str,
+        shape: tuple | np.ndarray = None,
         space: spaces.Space | None = None,
         **kwargs
     ):
         self.low = low
         self.high = high
-        self.shape = shape
+
+        if shape is not None:
+            self.shape = shape
+        assert self.shape is not None, "Must specify shape via class or init!"
+
         self.space = spaces.Box(low, high, shape) if space is None else space
         self.name = name
 
@@ -183,6 +189,17 @@ class FoVASCII(Feature):
         return encoded_agent_grid
 
 
+class AgentPosition(Feature):
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            low=0, high=np.inf, shape=(2,), name="agent_position", **kwargs
+        )
+
+    def generate(self, gridworld, player_id, **kwargs):
+        return np.asarray(gridworld.agents[player_id].pos, dtype=np.int32)
+
+
 class AgentPositions(Feature):
     def __init__(self, map_shape, **kwargs):
         self.rgb = True
@@ -214,13 +231,15 @@ class AgentPositions(Feature):
 
 
 class AgentDir(Feature):
+    """One-hot encoding of the agent's direction."""
+
     def __init__(self, **kwargs):
-        super().__init__(
-            low=0, high=3, shape=(1,), space=spaces.Discrete(4), name="agent_dir"
-        )
+        super().__init__(low=0, high=1, shape=(4,), name="agent_dir")
 
     def generate(self, gridworld, player_id, **kwargs):
-        return np.array([gridworld.agents[player_id].dir])
+        encoding = np.array(self.shape, dtype=np.int32)
+        encoding[gridworld.agents[player_id].dir] = 1
+        return encoding
 
 
 class OtherAgentActions(Feature):
