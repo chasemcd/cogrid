@@ -50,7 +50,7 @@ class Agent:
             self.reward += self.cell_placed_on.placed_on_value
 
         if self.cell_picked_up_from:
-            self.reward += self.cell_picked_up_from
+            self.reward += self.cell_picked_up_from.picked_up_from_value
 
         for cell in self.inventory:
             self.reward += cell.inventory_value
