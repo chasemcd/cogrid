@@ -56,6 +56,7 @@ class HumanPlay:
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
                     continue
+                actions[a_id] = self.env.action_space.sample()
                 # actions[a_id] = self.eval_algorithm.compute_single_action(
                 #     obs=obs, agent_id=a_id
                 # )

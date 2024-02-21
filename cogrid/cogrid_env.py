@@ -197,12 +197,14 @@ class CoGridEnv(MultiAgentEnv):
 
         return obs, {}
 
-    def _try_action_idx_to_str(self, actions: dict[str, int or str]) -> dict[str, str]:
+    def _action_idx_to_str(self, actions: dict[str, int | str]) -> dict[str, str]:
         """If not already, convert the action from index to string representation"""
-        return {
-            a_id: self.action_set[action] if type(action) == int else action
+        str_actions = {
+            a_id: self.action_set[action] if not isinstance(action, str) else action
             for a_id, action in actions.items()
         }
+
+        return str_actions
 
     def step(self, actions: dict) -> tuple:
         """
@@ -215,7 +217,7 @@ class CoGridEnv(MultiAgentEnv):
         self.t += 1
         self.grid.tick()
 
-        actions = self._try_action_idx_to_str(actions)
+        actions = self._action_idx_to_str(actions)  # helpful for debugging!
         self.move_agents(
             actions
         )  # Agents who are moving have their positions updated (and conflicts resolved)
