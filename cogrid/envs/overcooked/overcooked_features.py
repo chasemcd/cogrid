@@ -110,7 +110,10 @@ class OvercookedCollectedFeatures(features.Feature):
                 continue
             player_encodings.append(self.generate_player_encoding(gridworld, pid))
 
-        return np.hstack(player_encodings).astype(np.float32)
+        encoding = np.hstack(player_encodings).astype(np.float32)
+        assert np.array_equal(self.shape, encoding.shape)
+
+        return encoding
 
     def generate_player_encoding(
         self, env: cogrid_env.CoGridEnv, player_id: str | int
@@ -118,6 +121,7 @@ class OvercookedCollectedFeatures(features.Feature):
         encoded_features = []
         for feature in self.features:
             encoded_features.append(feature.generate(env, player_id))
+
         return np.hstack(encoded_features)
 
 
@@ -143,7 +147,7 @@ class OvercookedInventory(features.Feature):
             overcooked_grid_objects.Plate,
         ]
         encoding[objs.index(type(agent.inventory[0]))] = 1
-
+        assert np.array_equal(self.shape, encoding.shape)
         return encoding
 
 
@@ -175,6 +179,7 @@ class NextToCounter(features.Feature):
             if isinstance(adj_cell, grid_object.Counter):
                 encoding[i] = 1
 
+        assert np.array_equal(self.shape, encoding.shape)
         return encoding
 
 
@@ -226,7 +231,10 @@ class ClosestObj(features.Feature):
 
         # find the closest instance and return that array
         min_dist_idx = np.argmin(euc_distances)
-        return np.asarray(distances[min_dist_idx], dtype=np.int32)
+        encoding = np.asarray(distances[min_dist_idx], dtype=np.int32)
+        assert np.array_equal(self.shape, encoding.shape)
+
+        return encoding
 
 
 class OrderedPotFeatures(features.Feature):
@@ -247,7 +255,7 @@ class OrderedPotFeatures(features.Feature):
         super().__init__(
             low=-np.inf,
             high=np.inf,
-            shape=(num_pots * 10,),
+            shape=(num_pots * 11,),
             name="pot_features",
             **kwargs,
         )
@@ -263,7 +271,7 @@ class OrderedPotFeatures(features.Feature):
             # Encode if the pot is reachable (size 1)
             pot_reachable = [1]  # TODO(chase): use search to determine
 
-            # Encode if the pot is empty, cooking, or ready (size 3)
+            # Encode if the pot is empty, cooking, or ready (size 4)
             pot_status = np.zeros((4,), dtype=np.int32)  # empty, cooking, ready, ptr
             if grid_obj.dish_ready:
                 pot_status[0] = 1
@@ -300,6 +308,7 @@ class OrderedPotFeatures(features.Feature):
             pot_features = np.hstack(
                 [
                     pot_reachable,
+                    pot_status,
                     pot_contents,
                     pot_cooking_time,
                     pot_distance,
@@ -316,7 +325,10 @@ class OrderedPotFeatures(features.Feature):
 
         # remove euc distance feature
         pot_feature_values = [v[1] for v in pot_feature_dict.values()]
-        return np.hstack(pot_feature_values)
+        encoding = np.hstack(pot_feature_values)
+
+        assert np.array_equal(self.shape, encoding.shape)
+        return encoding
 
 
 class DistToOtherPlayers(features.Feature):
@@ -344,4 +356,6 @@ class DistToOtherPlayers(features.Feature):
                 agent.pos
             ) - np.asarray(other_agent.pos)
         other_agent_nums += 1
+
+        assert np.array_equal(self.shape, encoding.shape)
         return encoding

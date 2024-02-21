@@ -151,7 +151,6 @@ if __name__ == "__main__":
             # see CoGridEnv.features for all available obs.
             # "full_map_ascii",
             # "agent_positions",
-            "agent_id",
             "overcooked_features",
         ],
         "grid_gen_kwargs": {
