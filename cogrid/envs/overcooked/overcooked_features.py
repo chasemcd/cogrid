@@ -93,7 +93,7 @@ class OvercookedCollectedFeatures(features.Feature):
         full_shape = num_agents * np.sum([feature.shape for feature in self.features])
 
         super().__init__(
-            low=-1,
+            low=-np.inf,
             high=np.inf,
             shape=(full_shape,),
             name="overcooked_features",
