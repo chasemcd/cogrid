@@ -36,7 +36,7 @@ class FeatureSpace:
 
     def _setup_feature_generators(self, feature_names):
         return [
-            self._fetch_feature_generator(feature_name)
+            self._fetch_feature_generator(feature_name, env=self.env)
             for feature_name in feature_names
         ]
 

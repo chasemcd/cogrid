@@ -237,7 +237,7 @@ class AgentDir(Feature):
         super().__init__(low=0, high=1, shape=(4,), name="agent_dir")
 
     def generate(self, gridworld, player_id, **kwargs):
-        encoding = np.array(self.shape, dtype=np.int32)
+        encoding = np.zeros(self.shape, dtype=np.int32)
         encoding[gridworld.agents[player_id].dir] = 1
         return encoding
 
@@ -342,16 +342,17 @@ class Inventory(Feature):
 
 
 class ActionMask(Feature):
-    def __init__(self, num_actions, **kwargs):
+    def __init__(self, env, **kwargs):
         super().__init__(
             low=0,
             high=1,
             shape=None,
-            space=spaces.MultiBinary(num_actions),
+            space=spaces.Box(
+                env.action_space.n,
+            ),
             name="action_mask",
             **kwargs
         )
-        self.num_actions = num_actions
 
     def generate(self, gridworld, player_id, **kwargs):
         action_mask = gridworld.get_action_mask(player_id)
@@ -359,9 +360,9 @@ class ActionMask(Feature):
 
 
 class AgentID(Feature):
-    def __init__(self, num_agents, **kwargs):
+    def __init__(self, env, **kwargs):
         super().__init__(
-            low=0, high=num_agents - 1, shape=(1,), name="agent_id", **kwargs
+            low=0, high=len(env.agent_ids) - 1, shape=(1,), name="agent_id", **kwargs
         )
 
     def generate(self, gridworld, player_id, **kwargs):

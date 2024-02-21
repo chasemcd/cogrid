@@ -1,7 +1,7 @@
 import collections
 
-from gymnasium import Space
 from cogrid.feature_space import features
+from cogrid.feature_space import feature_space
 from cogrid.core import grid_utils
 from cogrid import cogrid_env
 from cogrid.core import grid_object
@@ -43,7 +43,27 @@ def euclidian_distance(pos_1: tuple[int, int], pos_2: tuple[int, int]) -> int:
 
 
 class OvercookedCollectedFeatures(features.Feature):
-    """A wrapper class to create all overcooked features as a single array."""
+    """
+    A wrapper class to create all overcooked features as a single array.
+
+    For each agent j, calculate:
+
+        - Agent j Direction
+        - Agent j Inventory
+        - Agent j Adjacent to Counter
+        - Agent j Dist to closest {onion, plate, platestack, onionstack, onionsoup, deliveryzone}
+        - Agent j Pot Features
+            - pot_j_reachable: {0, 1}
+            - pot_j_status: onehot of {empty | full | is_cooking | is_ready}
+            - pot_j_contents: integer of the number of onions in the pot
+            - pot_j_cooking_timer: integer for the number of ts remaining if cooking, 0 if finished, -1 if not cooking
+            - pot_j_distance: (dy, dx) from the player's location
+            - pot_j_location: (row, column) of the pot on the grid
+        - Agent j Distance to other agents j != i
+        - Agent j Position
+
+    The observation is the concatenation of all these features for all players.
+    """
 
     def __init__(self, env: cogrid_env.CoGridEnv, **kwargs):
         num_pots = np.sum(
@@ -54,16 +74,6 @@ class OvercookedCollectedFeatures(features.Feature):
         )
         num_agents = len(env.agent_ids)
 
-        full_shape = len(env.agent_ids) * (
-            4 + 2 * 5 + num_pots * 9 + (num_agents - 1) * 2 + 4
-        )
-        super().__init__(
-            low=-1,
-            high=np.inf,
-            shape=(full_shape,),
-            name="overcooked_features",
-            **kwargs,
-        )
         self.features = [
             features.AgentDir(),
             OvercookedInventory(),
@@ -80,18 +90,27 @@ class OvercookedCollectedFeatures(features.Feature):
             features.AgentPosition(),
         ]
 
+        full_shape = num_agents * np.sum([feature.shape for feature in self.features])
+
+        super().__init__(
+            low=-1,
+            high=np.inf,
+            shape=(full_shape,),
+            name="overcooked_features",
+            **kwargs,
+        )
+
     def generate(
         self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs
-    ) -> np.ndaray:
-        cur_player_encoding = self.generate_player_encoding(gridworld, player_id)
+    ) -> np.ndarray:
+        player_encodings = [self.generate_player_encoding(gridworld, player_id)]
 
-        other_player_encodings = []
         for pid in gridworld.agent_ids:
             if pid == player_id:
                 continue
-            other_player_encodings.append(self.generate_player_encoding(gridworld, pid))
+            player_encodings.append(self.generate_player_encoding(gridworld, pid))
 
-        return np.hstack([cur_player_encoding] + other_player_encodings)
+        return np.hstack(player_encodings).astype(np.float32)
 
     def generate_player_encoding(
         self, env: cogrid_env.CoGridEnv, player_id: str | int
@@ -100,6 +119,9 @@ class OvercookedCollectedFeatures(features.Feature):
         for feature in self.features:
             encoded_features.append(feature.generate(env, player_id))
         return np.hstack(encoded_features)
+
+
+feature_space.register_feature("overcooked_features", OvercookedCollectedFeatures)
 
 
 class OvercookedInventory(features.Feature):
@@ -225,7 +247,7 @@ class OrderedPotFeatures(features.Feature):
         super().__init__(
             low=-np.inf,
             high=np.inf,
-            shap=(num_pots * 9,),
+            shape=(num_pots * 10,),
             name="pot_features",
             **kwargs,
         )
@@ -242,7 +264,7 @@ class OrderedPotFeatures(features.Feature):
             pot_reachable = [1]  # TODO(chase): use search to determine
 
             # Encode if the pot is empty, cooking, or ready (size 3)
-            pot_status = np.zeros((3,), dtype=np.int32)  # empty, cooking, ready
+            pot_status = np.zeros((4,), dtype=np.int32)  # empty, cooking, ready, ptr
             if grid_obj.dish_ready:
                 pot_status[0] = 1
             elif len(grid_obj.objects_in_pot) == 0:
@@ -250,7 +272,7 @@ class OrderedPotFeatures(features.Feature):
             elif len(grid_obj.objects_in_pot) == grid_obj.capacity:
                 pot_status[2] = 1
             else:
-                raise ValueError("Pot status encoding failed.")
+                pot_status[3] = 1
 
             # Encode the number of each legal content in the pot (size legal_contents)
             pot_contents = np.zeros((len(grid_obj.legal_contents),))
@@ -273,7 +295,7 @@ class OrderedPotFeatures(features.Feature):
             pot_location = np.asarray(grid_obj.pos)
 
             # concatenate all features and store distance
-            euc_distance = euc_distance(agent.pos, grid_obj.pos)
+            euc_dist = euclidian_distance(agent.pos, grid_obj.pos)
 
             pot_features = np.hstack(
                 [
@@ -284,7 +306,7 @@ class OrderedPotFeatures(features.Feature):
                     pot_location,
                 ]
             )
-            pot_feature_dict[grid_obj.uuid] = (euc_distance, pot_features)
+            pot_feature_dict[grid_obj.uuid] = (euc_dist, pot_features)
 
         # sort based on euclidian distance
         # 1 indexes the value, 0 the euc_distance from above
@@ -292,7 +314,9 @@ class OrderedPotFeatures(features.Feature):
             sorted(pot_feature_dict.items(), key=lambda item: item[1][0])
         )
 
-        return np.hstack(pot_feature_dict.values()).astype(np.int32)
+        # remove euc distance feature
+        pot_feature_values = [v[1] for v in pot_feature_dict.values()]
+        return np.hstack(pot_feature_values)
 
 
 class DistToOtherPlayers(features.Feature):

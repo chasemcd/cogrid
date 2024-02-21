@@ -152,6 +152,7 @@ if __name__ == "__main__":
             # "full_map_ascii",
             # "agent_positions",
             "agent_id",
+            "overcooked_features",
         ],
         "grid_gen_kwargs": {
             # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
