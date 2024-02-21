@@ -30,6 +30,7 @@ class Onion(grid_object.GridObj):
     ):
         super().__init__(
             state=0,
+            inventory_value=0.01,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
@@ -208,7 +209,7 @@ class Plate(grid_object.GridObj):
         super().__init__(
             state=0,
             toggle_value=0,
-            inventory_value=0,
+            inventory_value=0.01,
             overlap_value=0,
         )
 
@@ -235,7 +236,7 @@ class DeliveryZone(grid_object.GridObj):
     ):
         super().__init__(
             state=0,
-            toggle_value=1.0,
+            toggle_value=5.0,
         )
 
     def toggle(self, env, agent: grid_object.GridAgent = None) -> bool:
@@ -269,6 +270,7 @@ class OnionSoup(grid_object.GridObj):
     ):
         super().__init__(
             state=0,
+            inventory_value=0.05,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
