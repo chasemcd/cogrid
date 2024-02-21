@@ -335,10 +335,13 @@ class DistToOtherPlayers(features.Feature):
         encoding = np.zeros((2 * (len(gridworld.agent_ids) - 1),), dtype=np.int32)
         agent = gridworld.grid.grid_agents[player_id]
 
-        for i, (pid, other_agent) in enumerate(gridworld.grid.grid_agents.items()):
+        other_agent_nums = 0
+        for pid, other_agent in gridworld.grid.grid_agents.items():
             if pid == player_id:
                 continue
 
-            encoding[i : i + 2] = np.asarray(agent.pos) - np.asarray(other_agent.pos)
-
+            encoding[other_agent_nums * 2 : other_agent_nums * 2 + 2] = np.asarray(
+                agent.pos
+            ) - np.asarray(other_agent.pos)
+        other_agent_nums += 1
         return encoding
