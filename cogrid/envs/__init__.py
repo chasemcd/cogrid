@@ -27,6 +27,7 @@ overcooked_config = {
     "obs": ["overcooked_features"],
     "grid_gen_kwargs": {"load": "overcooked-v0"},
     "max_steps": 1000,
+    "common_reward": True,
 }
 
 

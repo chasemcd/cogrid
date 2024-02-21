@@ -99,6 +99,8 @@ class GridObj:
         toggle_value: float = 0,
         inventory_value: float = 0,
         overlap_value: float = 0,
+        placed_on_value: float = 0,
+        picked_up_from_value: float = 0,
     ):
         self.uuid: str = str(uuid.uuid4())
 
@@ -115,6 +117,8 @@ class GridObj:
         self.toggle_value: float | int = toggle_value
         self.inventory_value: float | int = inventory_value
         self.overlap_value: float | int = overlap_value
+        self.placed_on_value: float | int = placed_on_value
+        self.picked_up_from_value: float | int = picked_up_from_value
 
     def can_overlap(self, agent: GridAgent) -> bool:
         """Can an agent overlap with this object?"""

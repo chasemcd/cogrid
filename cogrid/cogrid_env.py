@@ -344,6 +344,8 @@ class CoGridEnv(MultiAgentEnv):
         for a_id, action in actions.items():
             agent: GridAgent = self.agents[a_id]
             agent.cell_toggled = None
+            agent.cell_placed_on = None
+            agent.cell_picked_up_from = None
             agent.cell_overlapped = self.grid.get(*agent.pos)
 
             if action == grid_actions.Actions.RotateRight:
@@ -381,6 +383,7 @@ class CoGridEnv(MultiAgentEnv):
                     pickup_cell = fwd_cell.pick_up_from(agent=agent)
                     pickup_cell.pos = None
                     agent.inventory.append(pickup_cell)
+                    agent.cell_picked_up_from = fwd_cell
                 elif not agent_ahead and not fwd_cell and agent.inventory:
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
@@ -393,6 +396,7 @@ class CoGridEnv(MultiAgentEnv):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
                     fwd_cell.place_on(cell=drop_cell, agent=agent)
+                    agent.cell_placed_on = fwd_cell
 
             # Attempt to toggle the object in front of the agent
             elif action == grid_actions.Actions.Toggle:

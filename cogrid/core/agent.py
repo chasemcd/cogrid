@@ -38,11 +38,19 @@ class Agent:
         self.orientation: str = "down"
         self.inventory: list[GridObj] = []
         self.cell_toggled: GridObj | None = None
+        self.cell_placed_on: GridObj | None = None
+        self.cell_picked_up_from: GridObj | None = None
         self.cell_overlapped: GridObj | None = None
 
     def compute_and_reset_step_reward(self):
         if self.cell_toggled:
             self.reward += self.cell_toggled.toggle_value
+
+        if self.cell_placed_on:
+            self.reward += self.cell_placed_on.placed_on_value
+
+        if self.cell_picked_up_from:
+            self.reward += self.cell_picked_up_from
 
         for cell in self.inventory:
             self.reward += cell.inventory_value
