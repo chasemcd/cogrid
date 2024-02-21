@@ -10,7 +10,7 @@ sa_overcooked_config = {
     "name": "overcooked",
     "num_agents": 1,
     "action_set": "cardinal_actions",
-    "obs": ["agent_id"],
+    "obs": ["overcooked_features"],
     "grid_gen_kwargs": {"load": "sa_overcooked"},
     "max_steps": 1000,
 }
@@ -24,7 +24,7 @@ overcooked_config = {
     "name": "overcooked",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "obs": ["agent_id"],
+    "obs": ["overcooked_features"],
     "grid_gen_kwargs": {"load": "overcooked-v0"},
     "max_steps": 1000,
 }
