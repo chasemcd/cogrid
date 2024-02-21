@@ -1,6 +1,7 @@
 import collections
 from itertools import combinations
 from typing import Any
+from ray.rllib.env import MultiAgentEnv
 
 import numpy as np
 import pygame
@@ -19,7 +20,8 @@ from cogrid.feature_space.feature_space import FeatureSpace
 RNG = RandomNumberGenerator = np.random.Generator
 
 
-class CoGridEnv(pettingzoo.ParallelEnv):
+# pettingzoo.ParallelEnv
+class CoGridEnv(MultiAgentEnv):
     """
     The CoGridEnv class is a base environment for any other CoGridEnv environment that you may want to create.
     Any subclass should be sure to define rewards
@@ -75,6 +77,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.agents = {
             f"agent-{i}": None for i in range(config["num_agents"])
         }  # will contain: {'agent_id': agent}
+        self._agent_ids = set(self.agents.keys())
 
         # Action space describes the set of actions available to agents.
         action_str = config.get("action_set")
