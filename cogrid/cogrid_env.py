@@ -27,7 +27,12 @@ class CoGridEnv(MultiAgentEnv):
     Any subclass should be sure to define rewards
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
+    metadata = {
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 20,
+        "screen_size": 480,
+        "render_message": "",
+    }
 
     def __init__(
         self,
@@ -36,8 +41,7 @@ class CoGridEnv(MultiAgentEnv):
         num_roles: int | None = None,
         highlight: bool = False,
         agent_pov: str | None = None,
-        screen_size: int | None = None,
-        render_message: str | None = None,
+        **kwargs,
     ):
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
@@ -46,11 +50,13 @@ class CoGridEnv(MultiAgentEnv):
         self.render_size = None
         self.config = config
         self.render_mode = render_mode
-        self.render_message = render_message
+        self.render_message = (
+            kwargs.get("render_message") or self.metadata["render_message"]
+        )
         self.highlight = highlight
         self.agent_pov = agent_pov
         self.tile_size = CoreConstants.TilePixels
-        self.screen_size = screen_size
+        self.screen_size = kwargs.get("screen_size") or self.metadata["screen_size"]
         self.window = None
         self.name = config["name"]
         self.cumulative_score = 0
@@ -217,13 +223,16 @@ class CoGridEnv(MultiAgentEnv):
         self.t += 1
         self.grid.tick()
 
-        actions = self._action_idx_to_str(actions)  # helpful for debugging!
-        self.move_agents(
-            actions
-        )  # Agents who are moving have their positions updated (and conflicts resolved)
-        self.interact(
-            actions
-        )  # Given any new position(s), agents interact with the environment
+        # Convert the integer actions to strings (helpful for debugging!)
+        actions = self._action_idx_to_str(actions)
+        if "toggle" in list(actions.values()):
+            print("toggle")
+
+        # Agents who are moving have their positions updated (and conflicts resolved)
+        self.move_agents(actions)
+
+        # Given any new position(s), agents interact with the environment
+        self.interact(actions)
 
         self.on_step()  # Custom function if a subclass wants to make any updates
 
