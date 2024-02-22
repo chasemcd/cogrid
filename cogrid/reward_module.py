@@ -1,4 +1,4 @@
-from cogrid.core import grid_object
+from cogrid import cogrid_env
 
 
 class RewardModule:
@@ -15,9 +15,6 @@ class RewardModule:
 
     def compute_reward(
         self,
-        focal_agent_id: str | int,
-        current_grid_state: list[grid_object.GridObj],
-        previous_grid_state: list[grid_object.GridObj],
-        actions: dict[str | int, str | int],
+        env: cogrid_env.CoGridEnv,
     ) -> float:
         raise NotImplementedError
