@@ -1,6 +1,8 @@
 import collections
 from itertools import combinations
 from typing import Any
+import copy
+
 from ray.rllib.env import MultiAgentEnv
 
 import numpy as np
@@ -16,6 +18,7 @@ from cogrid.core.grid import Grid
 from cogrid.core.grid_object import GridObj, GridAgent
 from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
+
 
 RNG = RandomNumberGenerator = np.random.Generator
 
@@ -88,15 +91,14 @@ class CoGridEnv(MultiAgentEnv):
         # Action space describes the set of actions available to agents.
         action_str = config.get("action_set")
         if action_str == "rotation_actions":
-            action_set = grid_actions.ActionSets.RotationActions
+            self.action_set = grid_actions.ActionSets.RotationActions
         elif action_str == "cardinal_actions":
-            action_set = grid_actions.ActionSets.CardinalActions
+            self.action_set = grid_actions.ActionSets.CardinalActions
         else:
             raise ValueError(f"Invalid or None action set string: {action_str}.")
-        self.action_set = action_set
 
         # Set the action space for the gym environment
-        self.action_space = Discrete(len(action_set))
+        self.action_space = Discrete(len(self.action_set))
 
         # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
         self.see_through_walls = self.config.get("see_through_walls", True)
@@ -221,6 +223,11 @@ class CoGridEnv(MultiAgentEnv):
         :return info: (dict) supplementary information for each agent, defined on a per-environment basis.
         """
         self.t += 1
+
+        # Track the previous state so that we have the delta for computing rewards
+        self.prev_grid = copy.deepcopy(self.grid)
+
+        # Update attributes of the grid objects that are timestep dependent
         self.grid.tick()
 
         # Convert the integer actions to strings (helpful for debugging!)
@@ -232,10 +239,10 @@ class CoGridEnv(MultiAgentEnv):
         # Given any new position(s), agents interact with the environment
         self.interact(actions)
 
-        self.on_step()  # Custom function if a subclass wants to make any updates
+        # Updates the GridAgent objects to reflect new positions/interactions
+        self.update_grid_agents()
 
-        self.update_grid_agents()  # Updates the GridAgent objects to reflect new positions/interactions
-
+        # Store the actions taken by the agents
         self.prev_actions = actions.copy()
 
         # setup return values
@@ -250,9 +257,13 @@ class CoGridEnv(MultiAgentEnv):
 
         self.cumulative_score += sum([*rewards.values()])
 
+        # Custom hook if a subclass wants to make any updates
+        self.on_step()
+
         return observations, rewards, terminateds, truncateds, info
 
     def update_grid_agents(self):
+        # TODO(chase): this is inefficient; just update the existing objects?
         self.grid.grid_agents = {
             a_id: GridAgent(agent) for a_id, agent in self.agents.items()
         }
