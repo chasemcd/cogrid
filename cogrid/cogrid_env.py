@@ -225,8 +225,6 @@ class CoGridEnv(MultiAgentEnv):
 
         # Convert the integer actions to strings (helpful for debugging!)
         actions = self._action_idx_to_str(actions)
-        if "toggle" in list(actions.values()):
-            print("toggle")
 
         # Agents who are moving have their positions updated (and conflicts resolved)
         self.move_agents(actions)
