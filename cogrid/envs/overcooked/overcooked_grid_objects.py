@@ -232,25 +232,23 @@ class DeliveryZone(grid_object.GridObj):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            state=0,
-            toggle_value=5.0,
-        )
+        super().__init__(state=0, toggle_value=5.0, placed_on_value=5.0)
 
-    def toggle(self, env, agent: grid_object.GridAgent = None) -> bool:
+    def can_place_on(
+        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
+    ) -> bool:
         """Delivery can be toggled by an agent with Soup"""
         toggling_agent_has_soup = any(
             [isinstance(grid_obj, OnionSoup) for grid_obj in agent.inventory]
         )
 
-        if not toggling_agent_has_soup:
-            return False
+        if toggling_agent_has_soup:
+            return True
 
-        # remove soup from agent inventory
-        # TODO(chase): this assumes inventory size is 1
-        agent.inventory.pop(0)
+        return False
 
-        return True
+    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+        del cell
 
 
 grid_object.register_object(DeliveryZone.object_id, DeliveryZone)
