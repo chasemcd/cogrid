@@ -234,7 +234,7 @@ class DeliveryZone(grid_object.GridObj):
     ):
         super().__init__(
             state=0,
-            toggle_value=1.0,
+            toggle_value=5.0,
         )
 
     def toggle(self, env, agent: grid_object.GridAgent = None) -> bool:
