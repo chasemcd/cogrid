@@ -94,7 +94,7 @@ class Pot(grid_object.GridObj):
         **kwargs,
     ):
 
-        super().__init__(state=state, picked_up_from_value=0.3, placed_on_value=0.1)
+        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
@@ -232,7 +232,7 @@ class DeliveryZone(grid_object.GridObj):
         *args,
         **kwargs,
     ):
-        super().__init__(state=0, toggle_value=5.0, placed_on_value=3.0)
+        super().__init__(state=0, toggle_value=0.0, placed_on_value=1.0)
 
     def can_place_on(
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
