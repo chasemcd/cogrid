@@ -44,10 +44,10 @@ class GoalSeeking(CoGridEnv):
             agent = GoalSeekingAgent(
                 agent_id, spawn_point, map_with_agents, self.target_values, self.config
             )
-            self.agents[agent_id] = agent
+            self.grid_agents[agent_id] = agent
 
     def select_spawn_point(self, random_spawn=True) -> tuple:
-        curr_pos = [agent.pos for agent in self.agents.values()]
+        curr_pos = [agent.pos for agent in self.grid_agents.values()]
 
         if (
             "gen_random_spawn" in self.config["env"].keys()
@@ -84,7 +84,7 @@ class GoalSeeking(CoGridEnv):
 
     def custom_reset(self):
         self.add_goals()
-        for agent in self.agents.values():
+        for agent in self.grid_agents.values():
             agent.all_agent_pos = self.agent_pos
 
     def add_goals(self):

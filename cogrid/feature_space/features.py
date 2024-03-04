@@ -197,7 +197,7 @@ class AgentPosition(Feature):
         )
 
     def generate(self, gridworld, player_id, **kwargs):
-        return np.asarray(gridworld.agents[player_id].pos, dtype=np.int32)
+        return np.asarray(gridworld.grid_agents[player_id].pos, dtype=np.int32)
 
 
 class AgentPositions(Feature):
@@ -217,7 +217,7 @@ class AgentPositions(Feature):
     def generate(self, gridworld, player_id, **kwargs):
         channel_dim = 1 if not self.rgb else 3
         grid = np.full((*gridworld.map_with_agents.shape, channel_dim), fill_value=0)
-        for a_id, agent in gridworld.agents.items():
+        for a_id, agent in gridworld.grid_agents.items():
             if agent is not None:  # will be None before being set by subclassed env
                 assert not self.rgb, "RGB not implemented for new grid."
                 # if self.rgb:
@@ -238,7 +238,7 @@ class AgentDir(Feature):
 
     def generate(self, gridworld, player_id, **kwargs):
         encoding = np.zeros(self.shape, dtype=np.int32)
-        encoding[gridworld.agents[player_id].dir] = 1
+        encoding[gridworld.grid_agents[player_id].dir] = 1
         return encoding
 
 
@@ -286,7 +286,7 @@ class OtherAgentVisibility(Feature):
 
     def generate(self, gridworld, player_id, **kwargs):
         raise NotImplementedError
-        # agent = gridworld.agents[player_id]
+        # agent = gridworld.grid_agents[player_id]
         # view = ascii_view(gridworld.ascii_map, agent.pos, self.view_len)
         # visibility = np.zeros((len(gridworld.agent_ids) - 1,))
         # other_agent_ids = [pid for pid in gridworld.agent_ids if pid != player_id]
@@ -304,7 +304,7 @@ class Role(Feature):
         self.num_roles = num_roles
 
     def generate(self, gridworld, player_id, **kwargs):
-        agent = gridworld.agents[player_id]
+        agent = gridworld.grid_agents[player_id]
         role_encoding = np.zeros((self.num_roles,), dtype=np.uint8)
         role_encoding[agent.role_idx] = 1
         return role_encoding
@@ -328,7 +328,7 @@ class Inventory(Feature):
             # super().__init__(low=0, high=len(OBJECT_NAMES), shape=space.shape, space=space, name="inventory", **kwargs)
 
     def generate(self, gridworld, player_id, **kwargs):
-        agent = gridworld.agents[player_id]
+        agent = gridworld.grid_agents[player_id]
         idxs = []
         for obj in agent.inventory:
             idxs.append(OBJECT_NAMES.index(obj.object_id) + 1)
@@ -367,6 +367,6 @@ class AgentID(Feature):
 
     def generate(self, gridworld, player_id, **kwargs):
         agent_number = (
-            gridworld.agents[player_id].agent_number - 1
+            gridworld.grid_agents[player_id].agent_number - 1
         )  # subtract 1 so we start from 0
         return np.array([agent_number])

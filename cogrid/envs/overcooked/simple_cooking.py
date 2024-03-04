@@ -37,7 +37,7 @@ class SimpleCooking(cogrid_env.GridWorld):
                 start_position=self.select_spawn_point(),
                 start_direction=self.np_random.choice(directions.Directions),
             )
-            self.agents[agent_id] = cooking_agent
+            self.grid_agents[agent_id] = cooking_agent
 
     def get_terminateds_truncateds(self) -> tuple:
         """ """
@@ -57,6 +57,6 @@ class SimpleCooking(cogrid_env.GridWorld):
 
     def can_toggle(self, agent_id):
         # check if we can toggle by just making a copy of the forward cell and attempting to toggle it
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)

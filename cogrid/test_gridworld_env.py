@@ -71,7 +71,7 @@ class DummyMapEnv(CoGridEnv):
                     else self.np_random.choice(Directions)
                 ),
             )
-            self.agents[agent_id] = agent
+            self.grid_agents[agent_id] = agent
 
     def _generate_encoded_grid_states(self, **kwargs):
         return self.test_grid_data
@@ -114,13 +114,13 @@ class TestMapEnv(unittest.TestCase):
         self.env.update_grid_agents()
 
     def change_agent_position(self, agent_id, new_pos, new_dir):
-        agent = self.env.agents[agent_id]
+        agent = self.env.grid_agents[agent_id]
         agent.pos = new_pos
         agent.dir = new_dir
         self.env.update_grid_agents()
 
     def add_agent_to_env(self, agent_id, start_position, start_direction):
-        self.env.agents[agent_id] = Agent(
+        self.env.grid_agents[agent_id] = Agent(
             agent_id, start_position=start_position, start_direction=start_direction
         )
         self.env.feature_generators[agent_id] = [
@@ -265,14 +265,14 @@ class TestMapEnv(unittest.TestCase):
         self._construct_map(BASE_MAP, 1, [(2, 2)], [Directions.Up])
 
         self.env.step({a_id: Actions.Noop})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
         self.env.step({a_id: Actions.Left})
         assert self.env.grid.grid_agents[a_id].dir == Directions.Left
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 1])
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, [2, 1])
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 1])
         np.testing.assert_array_equal(self.env.map_with_agents[2, 1], "1")
 
@@ -282,7 +282,7 @@ class TestMapEnv(unittest.TestCase):
         assert self.env.grid.grid_agents[a_id].dir == Directions.Right
         self.env.step({a_id: Actions.Forward})  # Move back to (2, 2)
         assert self.env.grid.grid_agents[a_id].dir == Directions.Right
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
@@ -291,7 +291,7 @@ class TestMapEnv(unittest.TestCase):
         self.env.step({a_id: Actions.Forward})
         assert self.env.grid.grid_agents[a_id].dir == Directions.Up
 
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, [1, 2])
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, [1, 2])
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 2])
         np.testing.assert_array_equal(self.env.map_with_agents[1, 2], "1")
 
@@ -302,22 +302,22 @@ class TestMapEnv(unittest.TestCase):
         self.env.step({a_id: Actions.Forward})
         assert self.env.grid.grid_agents[a_id].dir == Directions.Down
 
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
         # if an agent tries to move through a wall they should stay in the same place
         # we check that this works correctly for both corner and non-corner edges
         self.change_agent_position(a_id, new_pos=(1, 1), new_dir=Directions.Up)
-        assert self.env.agents[a_id].dir == Directions.Up
+        assert self.env.grid_agents[a_id].dir == Directions.Up
         assert self.env.grid.grid_agents[a_id].dir == Directions.Up
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (1, 1))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 1])
 
         self.env.step({a_id: Actions.Left})
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (1, 1))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 1])
 
         self.change_agent_position(a_id, new_pos=(4, 4), new_dir=Directions.Right)
@@ -328,32 +328,32 @@ class TestMapEnv(unittest.TestCase):
         self.env.step({a_id: Actions.Forward})
         self.env.step({a_id: Actions.Right})
 
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (5, 5))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 5])
 
         assert self.env.grid.grid_agents[a_id].dir == Directions.Down
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (5, 5))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 5])
 
         self.env.step({a_id: Actions.Right})
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 4))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (5, 4))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 4])
 
         self.change_agent_position(a_id, new_pos=(4, 5), new_dir=Directions.Right)
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (4, 5))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (4, 5))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [4, 5])
 
         self.change_agent_position(a_id, new_pos=(2, 1), new_dir=Directions.Left)
         self.env.step({a_id: Actions.Left})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (2, 1))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (2, 1))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 1])
 
         self.change_agent_position(a_id, new_pos=(1, 2), new_dir=Directions.Up)
         self.env.step({a_id: Actions.Forward})
-        np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 2))
+        np.testing.assert_array_equal(self.env.grid_agents[a_id].pos, (1, 2))
         np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 2])
 
     # def test_agent_conflict(self):
@@ -364,13 +364,13 @@ class TestMapEnv(unittest.TestCase):
     #     self.change_agent_position("agent-1", (3, 4))
     #     self.env.step({"agent-0": BASE_ACTION_MAP["RIGHT"]})
     #     self.env.step({"agent-1": BASE_ACTION_MAP["LEFT"]})
-    #     np.testing.assert_array_equal(self.env.agents["agent-0"].pos, (3, 3))
-    #     np.testing.assert_array_equal(self.env.agents["agent-1"].pos, (3, 4))
+    #     np.testing.assert_array_equal(self.env.grid_agents["agent-0"].pos, (3, 3))
+    #     np.testing.assert_array_equal(self.env.grid_agents["agent-1"].pos, (3, 4))
     #
     #     # test that agents can't walk through each other if they move simultaneously
     #     self.env.step({"agent-0": BASE_ACTION_MAP["RIGHT"], "agent-1": BASE_ACTION_MAP["LEFT"]})
-    #     np.testing.assert_array_equal(self.env.agents["agent-0"].pos, (3, 3))
-    #     np.testing.assert_array_equal(self.env.agents["agent-1"].pos, (3, 4))
+    #     np.testing.assert_array_equal(self.env.grid_agents["agent-0"].pos, (3, 3))
+    #     np.testing.assert_array_equal(self.env.grid_agents["agent-1"].pos, (3, 4))
     #     # also check that the map looks correct, no agent has disappeared
     #     expected_map = ascii_to_numpy(["######", "#    #", "#    #", "#  12#", "#    #", "######"])
     #

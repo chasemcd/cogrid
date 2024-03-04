@@ -3,8 +3,7 @@ from itertools import combinations
 from typing import Any
 import copy
 
-from ray.rllib.env import MultiAgentEnv
-
+from gymnasium import spaces
 import numpy as np
 import pygame
 import pygame.freetype
@@ -24,7 +23,7 @@ RNG = RandomNumberGenerator = np.random.Generator
 
 
 # pettingzoo.ParallelEnv
-class CoGridEnv(MultiAgentEnv):
+class CoGridEnv(pettingzoo.ParallelEnv):
     """
     The CoGridEnv class is a base environment for any other CoGridEnv environment that you may want to create.
     Any subclass should be sure to define rewards
@@ -46,9 +45,47 @@ class CoGridEnv(MultiAgentEnv):
         agent_pov: str | None = None,
         **kwargs,
     ):
-        super(CoGridEnv, self).__init__()
+
+        # Set the list of agent IDs and all possible agents.
+        agents = list(range(config["num_agents"]))
+        possible_agents = list(range(config["num_agents"]))
+
+        # Establish a FeatureSpace for each agent, which contains the feature
+        # generators that will create observations for the agents
+        self.feature_spaces = {
+            a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
+            for a_id in self.agent_ids
+        }
+        observation_spaces = {
+            a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids
+        }
+
+        # Action space describes the set of actions available to agents.
+        action_str = config.get("action_set")
+        if action_str == "rotation_actions":
+            self.action_set = grid_actions.ActionSets.RotationActions
+        elif action_str == "cardinal_actions":
+            self.action_set = grid_actions.ActionSets.CardinalActions
+        else:
+            raise ValueError(f"Invalid or None action set string: {action_str}.")
+
+        # Set the action space for the gym environment
+        action_spaces = {
+            agent_id: spaces.Discrete(len(self.action_set)) for agent_id in agents
+        }
+
+        # Initialize the ParallelEnv
+        super(CoGridEnv, self).__init__(
+            agents=agents,
+            possible_agents=possible_agents,
+            observation_spaces=observation_spaces,
+            action_spaces=action_spaces,
+        )
+
+        self.name = config["name"]
         self._np_random: np.random.Generator | None = None  # set in reset()
 
+        # Rendering settings
         self.clock = None
         self.render_size = None
         self.config = config
@@ -61,16 +98,14 @@ class CoGridEnv(MultiAgentEnv):
         self.tile_size = CoreConstants.TilePixels
         self.screen_size = kwargs.get("screen_size") or self.metadata["screen_size"]
         self.window = None
-        self.name = config["name"]
         self.cumulative_score = 0
-
-        self.max_steps = config["max_steps"]
         self.visualizer = None
-        self.common_reward = self.config.get("common_reward", False)
-        self.roles = self.config.get("roles", True)
-        self.num_roles = num_roles  # some envs have agent roles that we need to specify at init for obs space
 
-        self.t = 0
+        self.max_steps: int = config["max_steps"]
+        self.t: int = 0
+
+        # TODO(chase): this should be defined in each reward module, not at the env level
+        self.common_reward = self.config.get("common_reward", False)
 
         # grid data is set by _gen_grid()
         self.grid: Grid | None = None
@@ -83,41 +118,15 @@ class CoGridEnv(MultiAgentEnv):
 
         self.agent_view_size = self.config.get("agent_view_size", 7)
 
-        self.agents = {
-            f"agent-{i}": None for i in range(config["num_agents"])
-        }  # will contain: {'agent_id': agent}
-        self._agent_ids = set(self.agents.keys())
-
-        # Action space describes the set of actions available to agents.
-        action_str = config.get("action_set")
-        if action_str == "rotation_actions":
-            self.action_set = grid_actions.ActionSets.RotationActions
-        elif action_str == "cardinal_actions":
-            self.action_set = grid_actions.ActionSets.CardinalActions
-        else:
-            raise ValueError(f"Invalid or None action set string: {action_str}.")
-
-        # Set the action space for the gym environment
-        self.action_space = Discrete(len(self.action_set))
+        self.grid_agents: dict[int, GridAgent | None] = {
+            agent_id: None for agent_id in self.agents
+        }  # will contain: {'agent_id': GridAgent}
 
         # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
+        # TODO(chase): This should be defined in each feature module, not at the env level
         self.see_through_walls = self.config.get("see_through_walls", True)
 
-        # Establish the observation space. This provides the general form of what an agent's observation
-        # looks like so that they can be properly initialized.
-        self.feature_spaces = {
-            a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
-            for a_id in self.agent_ids
-        }
-        self.observation_space = Dict(
-            {
-                a_id: self.feature_spaces[a_id].observation_space
-                for a_id in self.agent_ids
-            }
-        )
-
         self.prev_actions = None
-        self.trajectories = collections.defaultdict(list)
 
     def _gen_grid(self):
         self.spawn_points = []
@@ -183,13 +192,11 @@ class CoGridEnv(MultiAgentEnv):
         self._gen_grid()
 
         # Clear out past agents and re-initialize
-        self.agents = {}
+        self.grid_agents = {}
         self.setup_agents()
 
         # Initialize previous actions as no-op
         self.prev_actions = {a_id: grid_actions.Actions.Noop for a_id in self.agent_ids}
-
-        self.trajectories = collections.defaultdict(list)
 
         self.t = 0
 
@@ -222,6 +229,7 @@ class CoGridEnv(MultiAgentEnv):
         :return dones: (dict) Indicator of whether or not an agent is done, keyed by agent IDs.
         :return info: (dict) supplementary information for each agent, defined on a per-environment basis.
         """
+        # Update the current timestep
         self.t += 1
 
         # Track the previous state so that we have the delta for computing rewards
@@ -265,7 +273,7 @@ class CoGridEnv(MultiAgentEnv):
     def update_grid_agents(self):
         # TODO(chase): this is inefficient; just update the existing objects?
         self.grid.grid_agents = {
-            a_id: GridAgent(agent) for a_id, agent in self.agents.items()
+            a_id: GridAgent(agent) for a_id, agent in self.grid_agents.items()
         }
 
     def setup_agents(self):
@@ -280,26 +288,20 @@ class CoGridEnv(MultiAgentEnv):
         # Take any terminated agents or those who we do not have an action for and keep them in the same position
         new_positions = {
             a_id: agent.pos
-            for a_id, agent in self.agents.items()
+            for a_id, agent in self.grid_agents.items()
             if agent.terminated or a_id not in actions
         }
         agents_to_move = [
-            a_id for a_id in actions.keys() if not self.agents[a_id].terminated
+            a_id for a_id in actions.keys() if not self.grid_agents[a_id].terminated
         ]
 
         # If we're using cardinal actions, change the agent direction if they aren't already facing the desired dir
         # if they are, then they move in that direction.
         if self.action_set == grid_actions.ActionSets.CardinalActions:
-            move_action_to_dir = {
-                grid_actions.Actions.MoveRight: Directions.Right,
-                grid_actions.Actions.MoveLeft: Directions.Left,
-                grid_actions.Actions.MoveUp: Directions.Up,
-                grid_actions.Actions.MoveDown: Directions.Down,
-            }
             for a_id, action in actions.items():
-                if action in move_action_to_dir.keys():
-                    agent = self.agents[a_id]
-                    desired_direction = move_action_to_dir[action]
+                if action in grid_actions.MOVE_ACTION_TO_DIR.keys():
+                    agent = self.grid_agents[a_id]
+                    desired_direction = grid_actions.MOVE_ACTION_TO_DIR[action]
 
                     # rotate to the desired direction and move that way
                     agent.dir = desired_direction
@@ -312,7 +314,7 @@ class CoGridEnv(MultiAgentEnv):
 
         # First, give priority to agents staying in the same position
         for a_id, attemped_pos in attempted_positions.items():
-            agent = self.agents[a_id]
+            agent = self.grid_agents[a_id]
             if np.array_equal(attemped_pos, agent.pos):
                 new_positions[a_id] = agent.pos
                 if a_id in agents_to_move:
@@ -321,7 +323,7 @@ class CoGridEnv(MultiAgentEnv):
         # Randomize agent priority and move agents to new positions
         self.np_random.shuffle(agents_to_move)
         for a_id in agents_to_move:
-            agent = self.agents[a_id]
+            agent = self.grid_agents[a_id]
             attempted_pos = attempted_positions[a_id]
             # If an agent is already moving to the desired position, keep them at the current position
             if tuple(attempted_pos) in [tuple(npos) for npos in new_positions.values()]:
@@ -331,7 +333,7 @@ class CoGridEnv(MultiAgentEnv):
 
         # Make sure no two agents moved through each other
         for a_id1, a_id2 in combinations(self.agent_ids, r=2):
-            agent1, agent2 = self.agents[a_id1], self.agents[a_id2]
+            agent1, agent2 = self.grid_agents[a_id1], self.grid_agents[a_id2]
             if np.array_equal(new_positions[a_id1], agent2.pos) and np.array_equal(
                 new_positions[a_id2], agent1.pos
             ):
@@ -339,16 +341,15 @@ class CoGridEnv(MultiAgentEnv):
                 new_positions[a_id2] = agent2.pos
 
         # assign the new positions and store the agent position
-        for a_id, agent in self.agents.items():
+        for a_id, agent in self.grid_agents.items():
             agent.pos = new_positions[a_id]
-            self.trajectories[a_id].append(agent.pos)
 
         assert len(self.agent_pos) == len(
             set(self.agent_pos)
         ), "Agents do not have unique positions!"
 
     def determine_attempted_pos(self, agent_id, action) -> tuple[int, int]:
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         fwd_pos = agent.front_pos
         fwd_cell = self.grid.get(*fwd_pos)
 
@@ -360,7 +361,7 @@ class CoGridEnv(MultiAgentEnv):
 
     def interact(self, actions) -> None:
         for a_id, action in actions.items():
-            agent: GridAgent = self.agents[a_id]
+            agent: GridAgent = self.grid_agents[a_id]
             agent.cell_toggled = None
             agent.cell_placed_on = None
             agent.cell_picked_up_from = None
@@ -451,7 +452,7 @@ class CoGridEnv(MultiAgentEnv):
         """
         per_agent_reward = {
             agent_id: agent.compute_and_reset_step_reward()
-            for agent_id, agent in self.agents.items()
+            for agent_id, agent in self.grid_agents.items()
         }
         if self.common_reward:
             collective_reward = sum([*per_agent_reward.values()])
@@ -469,7 +470,7 @@ class CoGridEnv(MultiAgentEnv):
         Determine the done status for each agent.
         """
         terminateds = {
-            agent_id: agent.terminated for agent_id, agent in self.agents.items()
+            agent_id: agent.terminated for agent_id, agent in self.grid_agents.items()
         }
         terminateds["__all__"] = all([*terminateds.values()])
 
@@ -496,7 +497,7 @@ class CoGridEnv(MultiAgentEnv):
         grid_encoding = self.grid.encode(encode_char=True)
         grid = grid_encoding[:, :, 0]
 
-        for a_id, agent in self.agents.items():
+        for a_id, agent in self.grid_agents.items():
             if agent is not None:  # will be None before being set by subclassed env
                 grid[agent.pos[0], agent.pos[1]] = self.id_to_numeric(a_id)
 
@@ -535,7 +536,7 @@ class CoGridEnv(MultiAgentEnv):
         Note: the bottom extent indices are not included in the set
         if agent_view_size is None, use self.agent_view_size
         """
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         agent_view_size = agent_view_size or self.agent_view_size
 
         if agent.dir == Directions.Right:
@@ -568,7 +569,7 @@ class CoGridEnv(MultiAgentEnv):
 
         assert agent_id in grid.grid_agents
 
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         for i in range(agent.dir + 1):
             grid = grid.rotate_left()
 
@@ -604,7 +605,7 @@ class CoGridEnv(MultiAgentEnv):
             highlight_mask = np.zeros(
                 shape=(self.grid.height, self.grid.width), dtype=bool
             )
-            for a_id, agent in self.agents.items():
+            for a_id, agent in self.grid_agents.items():
                 # Determine cell visibility for the agent
                 _, vis_mask = self.gen_obs_grid(a_id)
 
@@ -658,11 +659,11 @@ class CoGridEnv(MultiAgentEnv):
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
-                for a_id, agent in self.agents.items()
+                for a_id, agent in self.grid_agents.items()
             }
             inventories = {
                 self.id_to_numeric(a_id): agent.inventory
-                for a_id, agent in self.agents.items()
+                for a_id, agent in self.grid_agents.items()
                 if len(agent.inventory) > 0
             }
             self.visualizer.render(
@@ -734,17 +735,19 @@ class CoGridEnv(MultiAgentEnv):
 
     @property
     def agent_ids(self) -> list:
-        return list(self.agents.keys())
+        return list(self.grid_agents.keys())
 
     @property
     def agent_pos(self) -> list:
-        return [tuple(agent.pos) for agent in self.agents.values() if agent is not None]
+        return [
+            tuple(agent.pos) for agent in self.grid_agents.values() if agent is not None
+        ]
 
     def id_to_numeric(self, agent_id) -> str:
         """Converts agent id to integer, beginning with 1,
         e.g., agent-0 -> 1, agent-1 -> 2, etc.
         """
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         return str(agent.agent_number)
 
     # @staticmethod

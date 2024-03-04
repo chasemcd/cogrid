@@ -247,7 +247,7 @@ class RedVictim(grid_object.GridObj):
         assert toggling_agent_is_adjacent, "RedVictim toggled by non-adjacent agent."
 
         other_adjacent_agent = None
-        for agent in env.agents.values():
+        for agent in env.grid_agents.values():
             if agent is toggling_agent or tuple(agent.pos) not in adj_positions:
                 continue
             other_adjacent_agent = agent

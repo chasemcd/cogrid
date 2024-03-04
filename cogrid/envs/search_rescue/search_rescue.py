@@ -22,10 +22,11 @@ class SearchRescue(CoGridEnv):
             config=config,
             render_mode=render_mode,
             env_actions=Actions,
-            num_roles=2,
             **kwargs,
         )
 
+        self.roles = True
+        self.num_roles = 2
         self._setup_agents()
 
         # When an agent interacts, they must play the interact action 5 times in a row (or until it is successful).
@@ -48,7 +49,7 @@ class SearchRescue(CoGridEnv):
                 start_direction=self.np_random.choice(Directions),
                 role=role if self.roles else None,
             )
-            self.agents[agent_id] = agent
+            self.grid_agents[agent_id] = agent
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
         grid, states = super()._generate_encoded_grid_states()
@@ -111,7 +112,7 @@ class SearchRescue(CoGridEnv):
         """
         for agent_id, action in actions.items():
             if action == self.env_actions.Toggle:
-                agent = self.agents[agent_id]
+                agent = self.grid_agents[agent_id]
                 # Break out of the sequence if the agent was successful, otherwise continue it.
                 if (
                     self.toggle_sequences[agent_id] < self.toggle_seq_len
@@ -151,7 +152,7 @@ class SearchRescue(CoGridEnv):
         )
 
         if all_targets_reached:
-            for agent in self.agents.values():
+            for agent in self.grid_agents.values():
                 agent.terminated = True
 
         return super().get_terminateds_truncateds()
@@ -170,7 +171,7 @@ class SearchRescue(CoGridEnv):
 
     def can_toggle(self, agent_id):
         # check if we can toggle by just making a copy of the forward cell and attempting to toggle it
-        agent = self.agents[agent_id]
+        agent = self.grid_agents[agent_id]
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
 

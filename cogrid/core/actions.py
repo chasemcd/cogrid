@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from cogrid.core import directions
 
 
 @dataclasses.dataclass
@@ -41,3 +42,11 @@ class ActionSets:
         Actions.Toggle,
         Actions.Noop,
     )
+
+
+MOVE_ACTION_TO_DIR = {
+    Actions.MoveRight: directions.Directions.Right,
+    Actions.MoveLeft: directions.Directions.Left,
+    Actions.MoveUp: directions.Directions.Up,
+    Actions.MoveDown: directions.Directions.Down,
+}
