@@ -3,8 +3,6 @@ from itertools import combinations
 from typing import Any
 import copy
 
-from ray.rllib.env import MultiAgentEnv
-
 import numpy as np
 import pygame
 import pygame.freetype
@@ -24,7 +22,7 @@ RNG = RandomNumberGenerator = np.random.Generator
 
 
 # pettingzoo.ParallelEnv
-class CoGridEnv(MultiAgentEnv):
+class CoGridEnv(pettingzoo.ParallelEnv):
     """
     The CoGridEnv class is a base environment for any other CoGridEnv environment that you may want to create.
     Any subclass should be sure to define rewards
@@ -98,7 +96,9 @@ class CoGridEnv(MultiAgentEnv):
             raise ValueError(f"Invalid or None action set string: {action_str}.")
 
         # Set the action space for the gym environment
-        self.action_space = Discrete(len(self.action_set))
+        self.action_space = {
+            a_id: Discrete(len(self.action_set)) for a_id in self.agent_ids
+        }
 
         # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
         self.see_through_walls = self.config.get("see_through_walls", True)
@@ -109,12 +109,9 @@ class CoGridEnv(MultiAgentEnv):
             a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
             for a_id in self.agent_ids
         }
-        self.observation_space = Dict(
-            {
-                a_id: self.feature_spaces[a_id].observation_space
-                for a_id in self.agent_ids
-            }
-        )
+        self.observation_space = {
+            a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids
+        }
 
         self.prev_actions = None
         self.trajectories = collections.defaultdict(list)
