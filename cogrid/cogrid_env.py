@@ -48,16 +48,17 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Set the list of agent IDs and all possible agents.
         agents = list(range(config["num_agents"]))
+        self.grid_agents = {}
         possible_agents = list(range(config["num_agents"]))
 
         # Establish a FeatureSpace for each agent, which contains the feature
         # generators that will create observations for the agents
         self.feature_spaces = {
             a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
-            for a_id in self.agent_ids
+            for a_id in agents
         }
         observation_spaces = {
-            a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids
+            a_id: self.feature_spaces[a_id].observation_space for a_id in agents
         }
 
         # Action space describes the set of actions available to agents.
@@ -735,7 +736,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     @property
     def agent_ids(self) -> list:
-        return list(self.grid_agents.keys())
+        return self.agents
 
     @property
     def agent_pos(self) -> list:

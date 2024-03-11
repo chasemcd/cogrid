@@ -158,7 +158,7 @@ if __name__ == "__main__":
             # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the
             # standard Search and Rescue task which requires you to set "roles": True).
-            "load": "overcooked-v0",
+            "load": "overcooked-crampedroom-v0",
         },
         # Minigrid implemented obscured view
         # in a strange way that doesn't work

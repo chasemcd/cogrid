@@ -67,6 +67,17 @@ FIXED_GRIDS = {
         ],
         np.zeros((10, 9)),
     ),
+    "overcooked-crampedroom-v0": (
+        [
+            "#######",
+            "#CCPCC#",
+            "#+   +#",
+            "#C   C#",
+            "#C[C@C#",
+            "#######",
+        ],
+        np.zeros((6, 7)),
+    ),
     "m3minimap": (
         [
             "#############",
