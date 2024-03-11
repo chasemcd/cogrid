@@ -35,3 +35,20 @@ registry.register(
     "Overcooked-V0",
     functools.partial(overcooked.Overcooked, config=overcooked_config),
 )
+
+
+overcooked_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "action_set": "cardinal_actions",
+    "obs": ["overcooked_features"],
+    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0"},
+    "max_steps": 1000,
+    "common_reward": True,
+}
+
+
+registry.register(
+    "Overcooked-CrampedRoom-V0",
+    functools.partial(overcooked.Overcooked, config=overcooked_config),
+)

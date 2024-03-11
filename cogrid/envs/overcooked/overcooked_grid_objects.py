@@ -94,7 +94,7 @@ class Pot(grid_object.GridObj):
         **kwargs,
     ):
 
-        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
+        super().__init__(state=state, picked_up_from_value=0.3, placed_on_value=0.1)
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
