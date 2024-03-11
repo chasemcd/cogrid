@@ -43,13 +43,13 @@ class Overcooked(cogrid_env.CoGridEnv):
 
     def get_action_mask(self, agent_id):
         if 1 <= self.toggle_sequences[agent_id] <= self.toggle_seq_len:
-            action_mask = np.zeros((self.action_space.n,))
+            action_mask = np.zeros((self.action_spaces[agent_id].n,))
             action_mask[self.env_actions.Toggle] = 1
             return action_mask
         elif self.can_toggle(agent_id):
-            return np.ones((self.action_space.n))
+            return np.ones((self.action_spaces[agent_id].n))
         else:
-            mask = np.ones((self.action_space.n,))
+            mask = np.ones((self.action_spaces[agent_id].n,))
             mask[self.env_actions.Toggle] = 0
             return mask
 

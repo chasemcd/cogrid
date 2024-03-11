@@ -96,7 +96,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             raise ValueError(f"Invalid or None action set string: {action_str}.")
 
         # Set the action space for the gym environment
-        self.action_space = {
+        self.action_spaces = {
             a_id: Discrete(len(self.action_set)) for a_id in self.agent_ids
         }
 
@@ -109,7 +109,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             a_id: FeatureSpace(feature_names=config["obs"], env=self, agent_id=a_id)
             for a_id in self.agent_ids
         }
-        self.observation_space = {
+        self.observation_spaces = {
             a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids
         }
 

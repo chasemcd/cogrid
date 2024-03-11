@@ -348,7 +348,7 @@ class ActionMask(Feature):
             high=1,
             shape=None,
             space=spaces.Box(
-                env.action_space.n,
+                env.action_spaces["agent-0"].n,
             ),
             name="action_mask",
             **kwargs
