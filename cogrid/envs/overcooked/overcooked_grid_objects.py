@@ -69,7 +69,7 @@ class OnionStack(grid_object.GridObj):
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
         return Onion()
 
-    def render(self, tile_img):
+    def render(self, tile_img: np.ndarray):
         c = COLORS[self.color]
         fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
         fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
@@ -94,7 +94,7 @@ class Pot(grid_object.GridObj):
         **kwargs,
     ):
 
-        super().__init__(state=state, picked_up_from_value=0.3, placed_on_value=0.1)
+        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
