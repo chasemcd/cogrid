@@ -8,9 +8,9 @@ setuptools.setup(
     author_email="chasemcd@cmu.edu",
     packages=setuptools.find_packages(),
     install_requires=[
-        "numpy",
+        "numpy==1.26.4",
+        "gymnasium==0.29.1",
         "pettingzoo==1.24.3",
-        "opencv-python==4.9.0.80",
         "pygame==2.5.2",
     ],
 )

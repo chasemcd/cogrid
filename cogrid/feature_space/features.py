@@ -2,10 +2,15 @@
 
 import numpy as np
 from gymnasium import spaces
-import cv2  # TODO(chase): remove cv2 dependency
 from collections import deque
 
 from cogrid.core.grid_object import OBJECT_NAMES
+
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 
 class Feature:
@@ -55,6 +60,9 @@ class FullMapImage(Feature):
 
 class StackedFullMapResizedGrayscale(Feature):
     def __init__(self, **kwargs):
+        assert (
+            cv2 is not None
+        ), "Must install cv2 to use image resizing. Run `pip install opencv-python` then try again."
         super().__init__(
             low=0,
             high=1,

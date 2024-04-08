@@ -3,7 +3,11 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import cv2
+
+try:
+    import cv2
+except:
+    cv2 = None
 
 
 def downsample(img, factor):
@@ -138,7 +142,7 @@ def add_text_to_image(
     image,
     text,
     position,
-    font=cv2.FONT_HERSHEY_SIMPLEX,
+    font=cv2.FONT_HERSHEY_SIMPLEX if cv2 else None,
     font_scale=1,
     color=(255, 255, 255),
     thickness=2,
@@ -158,6 +162,10 @@ def add_text_to_image(
     Returns:
     - The image (numpy array) with text added
     """
+    assert (
+        cv2 is not None
+    ), "Must have cv2 installed to add text. Try `pip install opencv-python`."
+
     # Add the text to the image
     cv2.putText(image, text, position, font, font_scale, color, thickness)
 
