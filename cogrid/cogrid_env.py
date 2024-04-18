@@ -21,11 +21,39 @@ from cogrid.feature_space.feature_space import FeatureSpace
 RNG = RandomNumberGenerator = np.random.Generator
 
 
-# pettingzoo.ParallelEnv
 class CoGridEnv(pettingzoo.ParallelEnv):
     """
-    The CoGridEnv class is a base environment for any other CoGridEnv environment that you may want to create.
-    Any subclass should be sure to define rewards
+    CoGridEnv is an environment class that represents a cooperative grid-world environment.
+
+    This class inherits from the `pettingzoo.ParallelEnv` class and implements the necessary methods
+    for a parallel environment. It provides a cooperative grid-world environment where multiple agents
+    can interact with the environment and each other.
+
+    Attributes:
+        metadata (dict): A dictionary containing metadata about the environment, such as render modes,
+            render FPS, screen size, and render message.
+
+    Args:
+        config (dict): A dictionary containing configuration parameters for the environment.
+        render_mode (str, optional): The render mode for visualization. Defaults to None.
+        num_roles (int, optional): The number of roles in the environment. Defaults to None.
+        highlight (bool, optional): Whether to highlight the agents. Defaults to False.
+        agent_pov (str, optional): The point of view for the agent. Defaults to None.
+        **kwargs: Additional keyword arguments.
+
+    Raises:
+        ValueError: If an invalid or None action set string is provided.
+
+    Properties:
+        np_random (np.random.Generator): A property that returns the numpy random number generator.
+
+    Methods:
+        reset(seed=None, options=None): Resets the environment and returns the initial observations.
+        step(actions): Takes a step in the environment given the actions of the agents.
+        update_grid_agents(): Updates the GridAgent objects to reflect new positions/interactions.
+        setup_agents(): Sets up the agents in the environment.
+        move_agents(actions): Executes all agent movements.
+
     """
 
     metadata = {
@@ -117,6 +145,16 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.trajectories = collections.defaultdict(list)
 
     def _gen_grid(self):
+        """
+        Generates the grid for the environment.
+
+        This method generates the grid for the environment by calling the `_generate_encoded_grid_states` method,
+        converting the grid to the correct numpy format, finding the spawn points, and encoding the grid and states.
+        The resulting grid is then decoded and stored in the `grid` attribute.
+
+        Returns:
+            None
+        """
         self.spawn_points = []
         grid, states = self._generate_encoded_grid_states()
 
