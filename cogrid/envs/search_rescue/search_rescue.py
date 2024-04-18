@@ -22,7 +22,6 @@ class SearchRescue(CoGridEnv):
             config=config,
             render_mode=render_mode,
             env_actions=Actions,
-            num_roles=2,
             **kwargs,
         )
 
