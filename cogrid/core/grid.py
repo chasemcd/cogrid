@@ -44,7 +44,7 @@ class Grid:
         self.width: int = width
 
         self.grid: list[GridObj | None] = [None] * (height * width)
-        self.grid_agents: dict[str:GridAgent] = {}
+        self.grid_agents: dict[str, GridAgent] = {}
 
     def tick(self):
         for grid_obj in self.grid:
