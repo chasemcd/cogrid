@@ -6,6 +6,7 @@ from cogrid.core import directions
 from cogrid import cogrid_env
 from cogrid.envs.overcooked import agent
 from cogrid.envs import registry
+from cogrid.envs.overcooked import rewards
 
 
 class Overcooked(cogrid_env.CoGridEnv):
@@ -17,6 +18,11 @@ class Overcooked(cogrid_env.CoGridEnv):
         super().__init__(
             config=config,
             render_mode=render_mode,
+            rewards=[
+                rewards.SoupDeliveryReward(
+                    agent_ids=[f"agent-{i}" for i in range(config["num_agents"])]
+                )
+            ],
             **kwargs,
         )
 
