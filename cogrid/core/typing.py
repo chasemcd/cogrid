@@ -1,0 +1,9 @@
+import typing
+
+from pettingzoo.utils import env
+
+
+ActionType = env.ActionType
+AgentID = env.AgentID
+ObsType = env.ObsType
+Any = typing.Any
