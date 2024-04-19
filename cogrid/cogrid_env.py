@@ -16,6 +16,7 @@ from cogrid.core.grid import Grid
 from cogrid.core.grid_object import GridObj, GridAgent
 from cogrid.core.grid_utils import ascii_to_numpy
 from cogrid.feature_space.feature_space import FeatureSpace
+from cogrid.core import reward
 
 
 RNG = RandomNumberGenerator = np.random.Generator
@@ -70,6 +71,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         num_roles: int | None = None,
         highlight: bool = False,
         agent_pov: str | None = None,
+        rewards: list[reward.Reward] | None = None,
         **kwargs,
     ):
         super(CoGridEnv, self).__init__()
@@ -95,7 +97,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.common_reward = self.config.get("common_reward", False)
         self.roles = self.config.get("roles", True)
         self.num_roles = num_roles  # some envs have agent roles that we need to specify at init for obs space
-
+        self.rewards = rewards or []
         self.t = 0
 
         # grid data is set by _gen_grid()
@@ -488,6 +490,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             agent_id: agent.compute_and_reset_step_reward()
             for agent_id, agent in self.agents.items()
         }
+
         if self.common_reward:
             collective_reward = sum([*per_agent_reward.values()])
             per_agent_reward = {
@@ -496,6 +499,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
             # TODO(chase): if we have a step penalty, it'll be step_penalty * num_agents for common_reward. Decide
             #   how to deal with it.
+        for reward in self.rewards:
+            calculated_rewards = reward.calculate_reward(
+                state=self.prev_grid,
+                agent_actions=self.prev_actions,
+                new_state=self.grid,
+            )
+            for agent_id, reward_value in calculated_rewards.items():
+                per_agent_reward[agent_id] += reward_value
 
         return per_agent_reward
 
