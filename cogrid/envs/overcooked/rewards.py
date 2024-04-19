@@ -58,7 +58,7 @@ class OnionInPotReward(reward.Reward):
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="onion_in_pot_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs
+            name="onion_in_pot_reward", agent_ids=agent_ids, coefficient=0.1, **kwargs
         )
 
     def calculate_reward(
@@ -105,13 +105,13 @@ class SoupInDishReward(reward.Reward):
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="soup_in_dish_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs
+            name="soup_in_dish_reward", agent_ids=agent_ids, coefficient=0.3, **kwargs
         )
 
     def calculate_reward(
         self, state: Grid, agent_actions: dict[int | str, int | float], new_state: Grid
     ) -> dict[str | int, float]:
-        """Calcaute the reward for delivering a soup dish.
+        """Calcaute the reward putting the soup .
 
         :param state: The previous state of the grid.
         :type state: Grid
