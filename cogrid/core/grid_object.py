@@ -271,6 +271,7 @@ class GridAgent(GridObj):
         super().__init__(state=state)
         self.dir = agent.dir
         self.pos = agent.pos
+        self.front_pos = agent.front_pos
         self.agent_id = agent.id
         self.inventory: list[GridObj] = deepcopy(agent.inventory)
         assert self.pos is not None
