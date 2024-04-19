@@ -102,7 +102,9 @@ class Rubble(grid_object.GridObj):
             or toggling_agent.role == Roles.Engineer
         )
 
-        assert toggling_agent_is_adjacent, "Rubble toggled by non-adjacent agent."
+        assert (
+            toggling_agent_is_adjacent
+        ), "Rubble toggled by non-adjacent agent."
 
         toggle_success = toggling_agent_is_engineer
 
@@ -138,7 +140,9 @@ class GreenVictim(grid_object.GridObj):
         assert toggling_agent
         adj_positions = [*adjacent_positions(*self.pos)]
         toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
+        assert (
+            toggling_agent_is_adjacent
+        ), "GreenVictim toggled by non-adjacent agent."
 
         self._remove_from_grid(env.grid)
         return toggling_agent_is_adjacent
@@ -169,7 +173,9 @@ class PurpleVictim(grid_object.GridObj):
         assert toggling_agent
         adj_positions = [*adjacent_positions(*self.pos)]
         toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
+        assert (
+            toggling_agent_is_adjacent
+        ), "GreenVictim toggled by non-adjacent agent."
 
         self._remove_from_grid(env.grid)
         return toggling_agent_is_adjacent
@@ -206,7 +212,9 @@ class YellowVictim(grid_object.GridObj):
             or toggling_agent.role == Roles.Medic
         )
 
-        assert toggling_agent_is_adjacent, "YellowVictim toggled by non-adjacent agent."
+        assert (
+            toggling_agent_is_adjacent
+        ), "YellowVictim toggled by non-adjacent agent."
 
         toggle_success = toggling_agent_is_medic
 
@@ -236,34 +244,39 @@ class RedVictim(grid_object.GridObj):
     def toggle(self, env, toggling_agent=None) -> bool:
         """A RedVictim can be rescued if a Medic (or agent carrying MedKit) is the adjacent toggling agent
         and there is another agent adjacent."""
-        assert toggling_agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Medic
-        )
+        raise NotImplementedError("Must implement reward modules!")
+        # assert toggling_agent
+        # adj_positions = [*adjacent_positions(*self.pos)]
+        # toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
+        # toggling_agent_is_medic = (
+        #     any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
+        #     or toggling_agent.role == Roles.Medic
+        # )
 
-        assert toggling_agent_is_adjacent, "RedVictim toggled by non-adjacent agent."
+        # assert (
+        #     toggling_agent_is_adjacent
+        # ), "RedVictim toggled by non-adjacent agent."
 
-        other_adjacent_agent = None
-        for agent in env.agents.values():
-            if agent is toggling_agent or tuple(agent.pos) not in adj_positions:
-                continue
-            other_adjacent_agent = agent
-            break
+        # other_adjacent_agent = None
+        # for agent in env.agents.values():
+        #     if agent is toggling_agent or tuple(agent.pos) not in adj_positions:
+        #         continue
+        #     other_adjacent_agent = agent
+        #     break
 
-        toggle_success = toggling_agent_is_medic and other_adjacent_agent is not None
+        # toggle_success = (
+        #     toggling_agent_is_medic and other_adjacent_agent is not None
+        # )
 
-        if toggle_success:
-            self._remove_from_grid(env.grid)
+        # if toggle_success:
+        #     self._remove_from_grid(env.grid)
 
-            # If we're using common reward both will automatically receive. If not, both acted in saving,
-            # so we reward both for the red victim.
-            if not env.common_reward:
-                other_adjacent_agent.reward += self.toggle_value
+        #     # If we're using common reward both will automatically receive. If not, both acted in saving,
+        #     # so we reward both for the red victim.
+        #     if not env.common_reward:
+        #         other_adjacent_agent.reward += self.toggle_value
 
-        return toggle_success
+        # return toggle_success
 
     def render(self, tile_img):
         c = COLORS[self.color]

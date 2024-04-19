@@ -18,20 +18,14 @@ class GoalSeekingAgent(Agent):
         self.collision_penalty = 0.05
 
     def interact(self, char):
-        if char in self.target_values.keys():
-            self.reward += self.target_values[char]
-            self.inventory.append(char)
-            self.done = True
-        elif self.collision:
-            self.reward -= self.collision_penalty
-            self.collision = False
-        else:
-            self.reward -= self.step_penalty
-
-        return " "
+        raise NotImplementedError("Must add in reward modules!")
+        # return " "
 
     def create_inventory_ob(self):
-        return [1 if obj in self.inventory else 0 for obj in self.target_values.keys()]
+        return [
+            1 if obj in self.inventory else 0
+            for obj in self.target_values.keys()
+        ]
 
     @property
     def inventory_capacity(self):
