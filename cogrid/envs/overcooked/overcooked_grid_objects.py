@@ -232,7 +232,7 @@ class DeliveryZone(grid_object.GridObj):
         *args,
         **kwargs,
     ):
-        super().__init__(state=0, toggle_value=0.0, placed_on_value=1.0)
+        super().__init__(state=0, toggle_value=0.0, placed_on_value=0.0)
 
     def can_place_on(
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
