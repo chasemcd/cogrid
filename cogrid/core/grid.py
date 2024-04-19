@@ -160,11 +160,15 @@ class Grid:
                 if 0 <= x < self.width and 0 <= y < self.height:
                     v = self.get(row=y, col=x)
 
-                    agent = get_grid_agent_at_position(grid=self, position=(y, x))
+                    agent = get_grid_agent_at_position(
+                        grid=self, position=(y, x)
+                    )
                     if agent is not None:
                         grid_slice_agent = deepcopy(agent)
                         grid_slice_agent.pos = (row, col)
-                        grid.grid_agents[grid_slice_agent.agent_id] = grid_slice_agent
+                        grid.grid_agents[grid_slice_agent.agent_id] = (
+                            grid_slice_agent
+                        )
                 else:
                     v = Wall()
 
@@ -234,7 +238,9 @@ class Grid:
         """Render this grid at a given scale"""
 
         if highlight_mask is None:
-            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=bool)
+            highlight_mask = np.zeros(
+                shape=(self.width, self.height), dtype=bool
+            )
 
         # Compute total size
         width_px = self.width * tile_size
@@ -258,7 +264,9 @@ class Grid:
 
                 tile_img = self.render_tile(
                     cell,
-                    highlight=highlight_mask.T[row, col],  # TODO: Maybe remove .T
+                    highlight=highlight_mask.T[
+                        row, col
+                    ],  # TODO: Maybe remove .T
                     position=(row, col),
                     tile_size=tile_size,
                 )
@@ -289,7 +297,11 @@ class Grid:
                 v = self.get(row=row, col=col)
                 if v is None:
                     encoding = (
-                        GridConstants.FreeSpace if encode_char else object_to_idx(None),
+                        (
+                            GridConstants.FreeSpace
+                            if encode_char
+                            else object_to_idx(None)
+                        ),
                         0,
                         0,
                     )
