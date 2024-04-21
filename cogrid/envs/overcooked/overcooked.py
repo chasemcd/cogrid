@@ -19,15 +19,9 @@ class Overcooked(cogrid_env.CoGridEnv):
 
     def __init__(self, config, render_mode=None, **kwargs):
         """Constructor method"""
-        agent_ids = [i for i in range(config["num_agents"])]
         super().__init__(
             config=config,
             render_mode=render_mode,
-            rewards=[
-                rewards.SoupDeliveryReward(agent_ids=agent_ids),
-                rewards.OnionInPotReward(agent_ids=agent_ids),
-                rewards.SoupInDishReward(agent_ids=agent_ids),
-            ],
             agent_class=agent.OvercookedAgent,
             **kwargs,
         )

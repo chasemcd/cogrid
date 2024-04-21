@@ -9,11 +9,17 @@ class SoupDeliveryReward(reward.Reward):
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="delivery_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs
+            name="delivery_reward",
+            agent_ids=agent_ids,
+            coefficient=1.0,
+            **kwargs
         )
 
     def calculate_reward(
-        self, state: Grid, agent_actions: dict[int | str, int | float], new_state: Grid
+        self,
+        state: Grid,
+        agent_actions: dict[int | str, int | float],
+        new_state: Grid,
     ) -> dict[str | int, float]:
         """Calcaute the reward for delivering a soup dish.
 
@@ -53,16 +59,25 @@ class SoupDeliveryReward(reward.Reward):
         return rewards
 
 
+reward.register_reward("delivery_reward", SoupDeliveryReward)
+
+
 class OnionInPotReward(reward.Reward):
     """Provide a reward for putting an onion in the pot. This is for reward shaping."""
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="onion_in_pot_reward", agent_ids=agent_ids, coefficient=0.1, **kwargs
+            name="onion_in_pot_reward",
+            agent_ids=agent_ids,
+            coefficient=0.1,
+            **kwargs
         )
 
     def calculate_reward(
-        self, state: Grid, agent_actions: dict[int | str, int | float], new_state: Grid
+        self,
+        state: Grid,
+        agent_actions: dict[int | str, int | float],
+        new_state: Grid,
     ) -> dict[str | int, float]:
         """Calcaute the reward for delivering a soup dish.
 
@@ -100,16 +115,25 @@ class OnionInPotReward(reward.Reward):
         return rewards
 
 
+reward.register_reward("onion_in_pot_reward", OnionInPotReward)
+
+
 class SoupInDishReward(reward.Reward):
     """Provide a reward for putting the soup into a dish."""
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="soup_in_dish_reward", agent_ids=agent_ids, coefficient=0.3, **kwargs
+            name="soup_in_dish_reward",
+            agent_ids=agent_ids,
+            coefficient=0.3,
+            **kwargs
         )
 
     def calculate_reward(
-        self, state: Grid, agent_actions: dict[int | str, int | float], new_state: Grid
+        self,
+        state: Grid,
+        agent_actions: dict[int | str, int | float],
+        new_state: Grid,
     ) -> dict[str | int, float]:
         """Calcaute the reward putting the soup .
 
@@ -140,9 +164,14 @@ class SoupInDishReward(reward.Reward):
             fwd_pos = agent.front_pos
             fwd_cell = state.get(*fwd_pos)
             agent_facing_pot = isinstance(fwd_cell, overcooked_grid_objects.Pot)
-            facing_pot_and_pot_is_ready = agent_facing_pot and fwd_cell.dish_ready
+            facing_pot_and_pot_is_ready = (
+                agent_facing_pot and fwd_cell.dish_ready
+            )
 
             if agent_holding_soup and facing_pot_and_pot_is_ready:
                 rewards[agent_id] = self.coefficient
 
         return rewards
+
+
+reward.register_reward("soup_in_dish_reward", SoupInDishReward)

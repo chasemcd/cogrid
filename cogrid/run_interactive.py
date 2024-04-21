@@ -161,6 +161,7 @@ if __name__ == "__main__":
             # "agent_positions",
             "overcooked_features",
         ],
+        "rewards": ["delivery_reward"],
         "grid_gen_kwargs": {
             # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the

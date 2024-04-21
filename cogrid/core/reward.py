@@ -1,4 +1,5 @@
 from cogrid.core import grid
+from cogrid.core import typing
 
 
 class Reward:
@@ -9,7 +10,7 @@ class Reward:
     def __init__(
         self,
         name: str,
-        agent_ids: list[str | int],
+        agent_ids: list[typing.AgentID],
         coefficient: float = 1.0,
         common_reward: bool = False,
         **kwargs,
@@ -26,9 +27,9 @@ class Reward:
         :type common_reward: bool, optional
         """
         self.name = name
-        self.agent_ids = agent_ids
         self.coefficient = coefficient
         self.common_reward = common_reward
+        self.agent_ids = agent_ids
 
     def calculate_reward(
         self,
@@ -56,3 +57,19 @@ class Reward:
         :rtype: bool
         """
         return self.common_reward
+
+
+REWARD_REGISTRY: dict[str, Reward] = {}
+
+
+def register_reward(reward_id: str, reward_class: Reward) -> None:
+    if reward_id in REWARD_REGISTRY:
+        print("Overriding existing feature", reward_id)
+
+    REWARD_REGISTRY[reward_id] = reward_class
+
+
+def make_reward(reward_id: str, **kwargs) -> Reward:
+    if reward_id not in REWARD_REGISTRY:
+        raise ValueError(f"Reward {reward_id} not registered.")
+    return REWARD_REGISTRY[reward_id](**kwargs)
