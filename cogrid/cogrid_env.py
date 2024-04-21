@@ -128,7 +128,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # looks like so that they can be properly initialized.
         self.feature_spaces = {
             a_id: FeatureSpace(
-                feature_names=config["obs"], env=self, agent_id=a_id
+                feature_names=config["features"], env=self, agent_id=a_id
             )
             for a_id in self.agent_ids
         }

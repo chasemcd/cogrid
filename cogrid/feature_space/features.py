@@ -1,4 +1,4 @@
-"""Observation generators takes the CoGridEnv object and turns it into the desired observation"""
+"""Feature generators takes the CoGridEnv object and turns it into the desired observation"""
 
 import numpy as np
 from gymnasium import spaces

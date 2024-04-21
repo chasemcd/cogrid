@@ -26,6 +26,7 @@ class Agent:
         self.dir: Directions = start_direction
         self.role: str = None
         self.role_idx: int = None
+        self.inventory_capacity: int = kwargs.get("inventory_capacity", 1)
 
         self.terminated: bool = False
 
@@ -97,15 +98,6 @@ class Agent:
 
     def pick_up_object(self, grid_object: GridObj):
         self.inventory.append(grid_object)
-
-    @property
-    def inventory_capacity(self) -> int:
-        """
-        For each agent that can "hold" an item, you must specify the maximum number of items that can be held,
-        which will allow us to store a constant sized array with the current items held. This is only necessary
-        for using 'inventory' as an observation addition.
-        """
-        raise NotImplementedError
 
     @property
     def agent_number(self) -> int:

@@ -113,7 +113,7 @@ class TestMapEnv(unittest.TestCase):
             "num_agents": num_agents,
             "start_positions": start_positions,
             "start_directions": start_directions,
-            "obs": obs,
+            "features": obs,
             "grid_gen_kwargs": {
                 "load": map_encoding if type(map_encoding) == str else None
             },
@@ -135,8 +135,8 @@ class TestMapEnv(unittest.TestCase):
             start_direction=start_direction,
         )
         self.env.feature_generators[agent_id] = [
-            self.env._fetch_feature_generator(ob_name)
-            for ob_name in self.env.config["obs"]
+            self.env._fetch_feature_generator(feature_name)
+            for feature_name in self.env.config["features"]
         ]
         self.env.observation_space[agent_id] = Dict(
             {
@@ -498,7 +498,7 @@ class TestMapEnv(unittest.TestCase):
         env_config = {
             "name": "search_rescue",
             "num_agents": 1,
-            "obs": [
+            "features": [
                 "full_map_encoding",
                 "fov_encoding",
             ],

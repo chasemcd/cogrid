@@ -155,7 +155,7 @@ if __name__ == "__main__":
         "name": "overcooked",
         "num_agents": 2,
         "action_set": ACTION_SET,
-        "obs": [
+        "features": [
             # see CoGridEnv.features for all available obs.
             # "full_map_ascii",
             # "agent_positions",
