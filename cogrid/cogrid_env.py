@@ -7,7 +7,6 @@ import pygame
 import pygame.freetype
 from gymnasium.spaces import Discrete, Dict
 import pettingzoo
-from pettingzoo.utils import env as env_utils
 from cogrid.constants import GridConstants, FIXED_GRIDS
 from cogrid.core import actions as grid_actions
 from cogrid.core.constants import CoreConstants
@@ -19,44 +18,30 @@ from cogrid.feature_space.feature_space import FeatureSpace
 from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
+from cogrid.core import directions
 
 
 RNG = RandomNumberGenerator = np.random.Generator
 
 
 class CoGridEnv(pettingzoo.ParallelEnv):
-    """
-    CoGridEnv is an environment class that represents a cooperative grid-world environment.
+    """CoGridEnv is an environment class that represents a multi-agent grid-world environment,
+    where multiple agents can interact with the environment and each other.
 
-    This class inherits from the `pettingzoo.ParallelEnv` class and implements the necessary methods
-    for a parallel environment. It provides a cooperative grid-world environment where multiple agents
-    can interact with the environment and each other.
+    This class inherits from the ``pettingzoo.ParallelEnv`` class and implements the necessary methods
+    for a parallel environment. It provides a cooperative grid-world environment
 
-    Attributes:
-        metadata (dict): A dictionary containing metadata about the environment, such as render modes,
-            render FPS, screen size, and render message.
-
-    Args:
-        config (dict): A dictionary containing configuration parameters for the environment.
-        render_mode (str, optional): The render mode for visualization. Defaults to None.
-        num_roles (int, optional): The number of roles in the environment. Defaults to None.
-        highlight (bool, optional): Whether to highlight the agents. Defaults to False.
-        agent_pov (str, optional): The point of view for the agent. Defaults to None.
-        **kwargs: Additional keyword arguments.
-
-    Raises:
-        ValueError: If an invalid or None action set string is provided.
-
-    Properties:
-        np_random (np.random.Generator): A property that returns the numpy random number generator.
-
-    Methods:
-        reset(seed=None, options=None): Resets the environment and returns the initial observations.
-        step(actions): Takes a step in the environment given the actions of the agents.
-        update_grid_agents(): Updates the GridAgent objects to reflect new positions/interactions.
-        setup_agents(): Sets up the agents in the environment.
-        move_agents(actions): Executes all agent movements.
-
+    :param config: Configuration dictionary for the environment.
+    :type config: dict
+    :param render_mode: Rendering method for local visualization, defaults to None
+    :type render_mode: str | None, optional
+    :param highlight: _description_, defaults to False
+    :type highlight: bool, optional
+    :param agent_pov: _description_, defaults to None
+    :type agent_pov: str | None, optional
+    :param rewards: A list of reward modules to use for this environment, defaults to None
+    :type rewards: list[reward.Reward] | None, optional
+    :raises ValueError: ValueError if an invalid or None action set string is provided.
     """
 
     metadata = {
@@ -64,18 +49,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         "render_fps": 35,
         "screen_size": 480,
         "render_message": "",
+        "highlight": False,
     }
 
     def __init__(
         self,
         config: dict,
         render_mode: str | None = None,
-        num_roles: int | None = None,
-        highlight: bool = False,
         agent_pov: str | None = None,
         rewards: list[reward.Reward] | None = None,
+        agent_class: agent.Agent | None = None,
         **kwargs,
     ):
+        """Constructor method"""
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
@@ -86,7 +72,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.render_message = (
             kwargs.get("render_message") or self.metadata["render_message"]
         )
-        self.highlight = highlight
         self.agent_pov = agent_pov
         self.tile_size = CoreConstants.TilePixels
         self.screen_size = (
@@ -100,8 +85,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.visualizer = None
         self.common_reward = self.config.get("common_reward", False)
         self.roles = self.config.get("roles", True)
-        self.num_roles = num_roles  # some envs have agent roles that we need to specify at init for obs space
         self.rewards = rewards or []
+        self.agent_class = agent_class or agent.Agent
         self.t = 0
 
         # grid data is set by _gen_grid()
@@ -116,7 +101,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.agent_view_size = self.config.get("agent_view_size", 7)
 
         self.agents: dict[typing.AgentID, agent.Agent] = {
-            f"agent-{i}": None for i in range(config["num_agents"])
+            i: None for i in range(config["num_agents"])
         }  # will contain: {'agent_id': agent}
         self._agent_ids: set[typing.AgentID] = set(self.agents.keys())
 
@@ -159,9 +144,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         Generates the grid for the environment.
 
-        This method generates the grid for the environment by calling the `_generate_encoded_grid_states` method,
+        This method generates the grid for the environment by calling the ``_generate_encoded_grid_states`` method,
         converting the grid to the correct numpy format, finding the spawn points, and encoding the grid and states.
-        The resulting grid is then decoded and stored in the `grid` attribute.
+        The resulting grid is then decoded and stored in the ``grid`` attribute.
 
         Returns:
             None
@@ -319,7 +304,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return observations, per_agent_rewards, terminateds, truncateds, infos
 
-    def update_grid_agents(self):
+    def update_grid_agents(self) -> None:
+        """Update the grid agents to reflect the current state of each Agent."""
         # TODO(chase): this is inefficient; just update the existing objects?
         self.grid.grid_agents = {
             a_id: GridAgent(agent) for a_id, agent in self.agents.items()
@@ -329,23 +315,36 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._setup_agents()
 
     def _setup_agents(self):
-        raise NotImplementedError
+        for agent_id in range(self.config["num_agents"]):
+            agent = self.agent_class(
+                agent_id=agent_id,
+                start_position=self.select_spawn_point(),
+                start_direction=self.np_random.choice(directions.Directions),
+            )
+            self.agents[agent_id] = agent
 
-    def move_agents(self, actions: dict[str, str]) -> None:
-        """This function executes all agent movements"""
+    def move_agents(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
+        """Move agents to new positions based on the actions they take.
 
-        # Take any terminated agents or those who we do not have an action for and keep them in the same position
+        :param actions: A dictionary of agent IDs and the actions they are taking.
+        :type actions: dict[str, str]
+        """
+        # All terminated agents or those we don't have an action for will stay in the same position
         new_positions = {
             a_id: agent.pos
             for a_id, agent in self.agents.items()
             if agent.terminated or a_id not in actions
         }
+
+        # All agents that are taking an action will be moved to a new position
         agents_to_move = [
             a_id for a_id in actions.keys() if not self.agents[a_id].terminated
         ]
 
-        # If we're using cardinal actions, change the agent direction if they aren't already facing the desired dir
-        # if they are, then they move in that direction.
+        # If we're using cardinal actions, change the agent direction if they aren't
+        # already facing the desired dir if they are, then they move in that direction.
         if self.action_set == grid_actions.ActionSets.CardinalActions:
             move_action_to_dir = {
                 grid_actions.Actions.MoveRight: Directions.Right,
@@ -408,7 +407,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             set(self.agent_pos)
         ), "Agents do not have unique positions!"
 
-    def determine_attempted_pos(self, agent_id, action) -> tuple[int, int]:
+    def determine_attempted_pos(
+        self, agent_id: typing.AgentID, action: typing.ActionType
+    ) -> tuple[int, int]:
+        """Determine the position an agent is attempting to move to.
+
+        :param agent_id: The ID of the agent attempting to move.
+        :type agent_id: typing.AgentID
+        :param action: The action the agent is attempting to take.
+        :type action: typing.ActionType
+        :return: The position the agent is attempting to move to.
+        :rtype: tuple[int, int]
+        """
         agent = self.agents[agent_id]
         fwd_pos = agent.front_pos
         fwd_cell = self.grid.get(*fwd_pos)
@@ -418,6 +428,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 return fwd_pos
 
         return agent.pos
+
+    def can_toggle(self, agent_id: typing.AgentID) -> bool:
+        """Check if an agent can toggle the object in front of them.
+
+        :param agent_id: The ID of the agent attempting to toggle the object.
+        :type agent_id: typing.AgentID
+        :return: True if the agent can toggle the object in front of them, False otherwise.
+        :rtype: bool
+        """
+        agent = self.agents[agent_id]
+        fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
+        return fwd_cell.toggle(env=self, toggling_agent=agent)
 
     def interact(self, actions) -> None:
         for a_id, action in actions.items():
@@ -781,7 +803,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         if self.render_mode is None:
             return
 
-        img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
+        img = self.get_frame(
+            self.metadata.get("highlight", False),
+            self.tile_size,
+            self.agent_pov,
+        )
         if self.render_mode == "human":
             # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
             # if img.shape[0] == 3:  # move the channels last
