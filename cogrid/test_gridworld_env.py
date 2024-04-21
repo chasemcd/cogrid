@@ -19,7 +19,15 @@ from cogrid.envs.search_rescue import SearchRescue
 
 
 BASE_MAP = (
-    ["#######", "#     #", "#     #", "#     #", "#     #", "#     #", "#######"],
+    [
+        "#######",
+        "#     #",
+        "#     #",
+        "#     #",
+        "#     #",
+        "#     #",
+        "#######",
+    ],
     np.zeros((7, 7)),
 )
 BASE_MAP_2 = (
@@ -49,15 +57,16 @@ class DummyAgent(Agent):
 
 
 class DummyMapEnv(CoGridEnv):
-    def __init__(self, config: dict, test_grid_data: tuple[np.ndarray, np.ndarray]):
+    def __init__(
+        self, config: dict, test_grid_data: tuple[np.ndarray, np.ndarray]
+    ):
         self.test_grid_data: tuple[np.ndarray, np.ndarray] = test_grid_data
         self.start_positions: list[tuple] | None = config.get("start_positions")
         self.start_directions: list[int] | None = config.get("start_directions")
         super().__init__(config=config)
 
     def _setup_agents(self) -> None:
-        for i in range(self.config["num_agents"]):
-            agent_id = f"agent-{i}"
+        for agent_id in range(self.config["num_agents"]):
             agent = Agent(
                 agent_id=agent_id,
                 start_position=(
@@ -121,7 +130,9 @@ class TestMapEnv(unittest.TestCase):
 
     def add_agent_to_env(self, agent_id, start_position, start_direction):
         self.env.agents[agent_id] = Agent(
-            agent_id, start_position=start_position, start_direction=start_direction
+            agent_id,
+            start_position=start_position,
+            start_direction=start_direction,
         )
         self.env.feature_generators[agent_id] = [
             self.env._fetch_feature_generator(ob_name)
@@ -261,19 +272,23 @@ class TestMapEnv(unittest.TestCase):
     #     np.testing.assert_array_equal(visibility[2], [0, 1])
 
     def test_agent_actions(self):
-        a_id = "agent-0"
+        a_id = 0
         self._construct_map(BASE_MAP, 1, [(2, 2)], [Directions.Up])
 
         self.env.step({a_id: Actions.Noop})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [2, 2]
+        )
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
         self.env.step({a_id: Actions.Left})
         assert self.env.grid.grid_agents[a_id].dir == Directions.Left
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 1])
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 1])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [2, 1]
+        )
         np.testing.assert_array_equal(self.env.map_with_agents[2, 1], "1")
 
         self.env.step({a_id: Actions.Right})  # Rotate to face up
@@ -283,7 +298,9 @@ class TestMapEnv(unittest.TestCase):
         self.env.step({a_id: Actions.Forward})  # Move back to (2, 2)
         assert self.env.grid.grid_agents[a_id].dir == Directions.Right
         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [2, 2]
+        )
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
         self.env.step({a_id: Actions.Left})  # Rotate to face up
@@ -292,7 +309,9 @@ class TestMapEnv(unittest.TestCase):
         assert self.env.grid.grid_agents[a_id].dir == Directions.Up
 
         np.testing.assert_array_equal(self.env.agents[a_id].pos, [1, 2])
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 2])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [1, 2]
+        )
         np.testing.assert_array_equal(self.env.map_with_agents[1, 2], "1")
 
         self.env.step({a_id: Actions.Left})  # Rotate to face left
@@ -303,7 +322,9 @@ class TestMapEnv(unittest.TestCase):
         assert self.env.grid.grid_agents[a_id].dir == Directions.Down
 
         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 2])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [2, 2]
+        )
         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 
         # if an agent tries to move through a wall they should stay in the same place
@@ -313,14 +334,20 @@ class TestMapEnv(unittest.TestCase):
         assert self.env.grid.grid_agents[a_id].dir == Directions.Up
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 1])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [1, 1]
+        )
 
         self.env.step({a_id: Actions.Left})
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 1])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [1, 1]
+        )
 
-        self.change_agent_position(a_id, new_pos=(4, 4), new_dir=Directions.Right)
+        self.change_agent_position(
+            a_id, new_pos=(4, 4), new_dir=Directions.Right
+        )
         self.env.step({a_id: Actions.Forward})
         self.env.step({a_id: Actions.Right})
         self.env.step({a_id: Actions.Forward})
@@ -329,32 +356,48 @@ class TestMapEnv(unittest.TestCase):
         self.env.step({a_id: Actions.Right})
 
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 5])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [5, 5]
+        )
 
         assert self.env.grid.grid_agents[a_id].dir == Directions.Down
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 5])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [5, 5]
+        )
 
         self.env.step({a_id: Actions.Right})
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 4))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [5, 4])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [5, 4]
+        )
 
-        self.change_agent_position(a_id, new_pos=(4, 5), new_dir=Directions.Right)
+        self.change_agent_position(
+            a_id, new_pos=(4, 5), new_dir=Directions.Right
+        )
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (4, 5))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [4, 5])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [4, 5]
+        )
 
-        self.change_agent_position(a_id, new_pos=(2, 1), new_dir=Directions.Left)
+        self.change_agent_position(
+            a_id, new_pos=(2, 1), new_dir=Directions.Left
+        )
         self.env.step({a_id: Actions.Left})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (2, 1))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [2, 1])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [2, 1]
+        )
 
         self.change_agent_position(a_id, new_pos=(1, 2), new_dir=Directions.Up)
         self.env.step({a_id: Actions.Forward})
         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 2))
-        np.testing.assert_array_equal(self.env.grid.grid_agents[a_id].pos, [1, 2])
+        np.testing.assert_array_equal(
+            self.env.grid.grid_agents[a_id].pos, [1, 2]
+        )
 
     # def test_agent_conflict(self):
     #     self._construct_map(BASE_MAP_2, 2, [(1, 2), (4, 4)], [Directions.Up, Directions.Up])

@@ -340,7 +340,7 @@ class Grid:
                     vis_mask[row, col] = v.visible()
 
                 if isinstance(v, GridAgent):
-                    grid.grid_agents[f"agent-{agent_count}"] = v
+                    grid.grid_agents[agent_count] = v
                     agent_count += 1
                 else:
                     grid.set(row=row, col=col, v=v)

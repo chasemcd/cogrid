@@ -2,7 +2,7 @@ from cogrid.core.agent import Agent
 from cogrid.core.grid_object import GridObj
 
 
-class CookingAgent(Agent):
+class OvercookedAgent(Agent):
     def __init__(self, agent_id, start_position, start_direction, **kwargs):
         super().__init__(agent_id, start_position, start_direction, **kwargs)
 
@@ -12,7 +12,10 @@ class CookingAgent(Agent):
 
     def can_pickup(self, grid_object: GridObj) -> bool:
         if grid_object.__class__.object_id == "pot" and any(
-            [inv_obj.__class__.object_id == "plate" for inv_obj in self.inventory]
+            [
+                inv_obj.__class__.object_id == "plate"
+                for inv_obj in self.inventory
+            ]
         ):
             return True
 

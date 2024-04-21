@@ -12,7 +12,9 @@ class GoalSeeking(CoGridEnv):
     """
 
     def __init__(self, grid_path, config):
-        super().__init__(grid_path=grid_path, config=config)
+        super().__init__(
+            grid_path=grid_path, agent_class=GoalSeekingAgent, config=config
+        )
 
         self.target_values = self.grid_data["values"]
         self.optimal_path_length = self.grid_data["optimal_path_length"]
@@ -34,17 +36,6 @@ class GoalSeeking(CoGridEnv):
         ]
 
         self.setup_agents()
-
-    def setup_agents(self):
-        map_with_agents = self.map_with_agents
-
-        for i in range(self.config["num_agents"]):
-            agent_id = f"agent-{i}"
-            spawn_point = self.select_spawn_point()
-            agent = GoalSeekingAgent(
-                agent_id, spawn_point, map_with_agents, self.target_values, self.config
-            )
-            self.agents[agent_id] = agent
 
     def select_spawn_point(self, random_spawn=True) -> tuple:
         curr_pos = [agent.pos for agent in self.agents.values()]

@@ -10,36 +10,16 @@ import numpy as np
 
 
 def euclidian_distance(pos_1: tuple[int, int], pos_2: tuple[int, int]) -> int:
+    """Calculate the euclidian distance between two points.
+
+    :param pos_1: The first point on the grid.
+    :type pos_1: tuple[int, int]
+    :param pos_2: The second point on the grid.
+    :type pos_2: tuple[int, int]
+    :return: The euclidian distance between the two points.
+    :rtype: int
+    """
     return np.sqrt((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2)
-
-
-"""
-            The encoding for player i is as follows:
-
-                [player_i_features, other_player_features player_i_dist_to_other_players, player_i_position]
-
-                player_{i}_features (length num_pots*10 + 24):
-                    pi_orientation: length 4 one-hot-encoding of direction currently facing
-                    pi_obj: length 4 one-hot-encoding of object currently being held (all 0s if no object held)
-                    pi_wall_{j}: {0, 1} boolean value of whether player i has wall immediately in direction j
-                    pi_closest_{onion|tomato|dish|soup|serving|empty_counter}: (dx, dy) where dx = x dist to item, dy = y dist to item. (0, 0) if item is currently held
-                    pi_cloest_soup_n_{onions|tomatoes}: int value for number of this ingredient in closest soup
-                    pi_closest_pot_{j}_exists: {0, 1} depending on whether jth closest pot found. If 0, then all other pot features are 0. Note: can
-                        be 0 even if there are more than j pots on layout, if the pot is not reachable by player i
-                    pi_closest_pot_{j}_{is_empty|is_full|is_cooking|is_ready}: {0, 1} depending on boolean value for jth closest pot
-                    pi_closest_pot_{j}_{num_onions|num_tomatoes}: int value for number of this ingredient in jth closest pot
-                    pi_closest_pot_{j}_cook_time: int value for seconds remaining on soup. -1 if no soup is cooking
-                    pi_closest_pot_{j}: (dx, dy) to jth closest pot from player i location
-
-                other_player_features (length (num_players - 1)*(num_pots*10 + 24)):
-                    ordered concatenation of player_{j}_features for j != i
-
-                player_i_dist_to_other_players (length (num_players - 1)*2):
-                    [player_j.pos - player_i.pos for j != i]
-
-                player_i_position (length 2)
-
-"""
 
 
 class OvercookedCollectedFeatures(features.Feature):
@@ -90,7 +70,9 @@ class OvercookedCollectedFeatures(features.Feature):
             features.AgentPosition(),
         ]
 
-        full_shape = num_agents * np.sum([feature.shape for feature in self.features])
+        full_shape = num_agents * np.sum(
+            [feature.shape for feature in self.features]
+        )
 
         super().__init__(
             low=-np.inf,
@@ -108,7 +90,9 @@ class OvercookedCollectedFeatures(features.Feature):
         for pid in gridworld.agent_ids:
             if pid == player_id:
                 continue
-            player_encodings.append(self.generate_player_encoding(gridworld, pid))
+            player_encodings.append(
+                self.generate_player_encoding(gridworld, pid)
+            )
 
         encoding = np.hstack(player_encodings).astype(np.float32)
         assert np.array_equal(self.shape, encoding.shape)
@@ -125,7 +109,9 @@ class OvercookedCollectedFeatures(features.Feature):
         return np.hstack(encoded_features)
 
 
-feature_space.register_feature("overcooked_features", OvercookedCollectedFeatures)
+feature_space.register_feature(
+    "overcooked_features", OvercookedCollectedFeatures
+)
 
 
 class OvercookedInventory(features.Feature):
@@ -152,7 +138,7 @@ class OvercookedInventory(features.Feature):
 
 
 class NextToCounter(features.Feature):
-    """This feature represents a multi-hot encoding of whether or not there is a counter
+    """A feature that represents a multi-hot encoding of whether or not there is a counter
     immediately in each of the four cardinal directions.
 
     For example, let '#' be the counter and '@' be the player. The following situation
@@ -174,7 +160,9 @@ class NextToCounter(features.Feature):
         encoding = np.zeros((4,), dtype=np.int32)
         agent = gridworld.grid.grid_agents[player_id]
 
-        for i, (row, col) in enumerate(grid_utils.adjacent_positions(*agent.pos)):
+        for i, (row, col) in enumerate(
+            grid_utils.adjacent_positions(*agent.pos)
+        ):
             adj_cell = gridworld.grid.get(row, col)
             if isinstance(adj_cell, grid_object.Counter):
                 encoding[i] = 1
@@ -223,7 +211,9 @@ class ClosestObj(features.Feature):
         for grid_obj in gridworld.grid.grid:
             if isinstance(grid_obj, self.focal_object_type):
                 distances.append(np.array(agent.pos) - np.array(grid_obj.pos))
-                euc_distances.append(euclidian_distance(agent.pos, grid_obj.pos))
+                euc_distances.append(
+                    euclidian_distance(agent.pos, grid_obj.pos)
+                )
 
         # if there were no instances of that object, return (-1, -1)
         if not distances:
@@ -238,9 +228,8 @@ class ClosestObj(features.Feature):
 
 
 class OrderedPotFeatures(features.Feature):
-    """
-    Encode features related to the pot. Note that this assumes the number of pots is fixed, otherwise
-    the feature size will vary and will cause errors. For each pot, calculate:
+    """Encode features related to the pot. Note that this assumes the number of pots is fixed,
+    otherwise the feature size will vary and will cause errors. For each pot, calculate:
         - pot_j_reachable: {0, 1}  # TODO(chase): use BFS to calculate this, currently fixed at 1.
         - pot_j_status: onehot of {empty | full | is_cooking | is_ready}
         - pot_j_contents: integer of the number of onions in the pot
@@ -272,7 +261,9 @@ class OrderedPotFeatures(features.Feature):
             pot_reachable = [1]  # TODO(chase): use search to determine
 
             # Encode if the pot is empty, cooking, or ready (size 4)
-            pot_status = np.zeros((4,), dtype=np.int32)  # empty, cooking, ready, ptr
+            pot_status = np.zeros(
+                (4,), dtype=np.int32
+            )  # empty, cooking, ready, ptr
             if grid_obj.dish_ready:
                 pot_status[0] = 1
             elif len(grid_obj.objects_in_pot) == 0:
@@ -288,12 +279,15 @@ class OrderedPotFeatures(features.Feature):
                 grid_obj.legal_contents.index(type(pot_content_obj))
                 for pot_content_obj in grid_obj.objects_in_pot
             ]
-            for obj_index, obj_count in collections.Counter(item_types_in_pot).items():
+            for obj_index, obj_count in collections.Counter(
+                item_types_in_pot
+            ).items():
                 pot_contents[obj_index] = obj_count
 
             # Encode cooking time (size 1)
             pot_cooking_time = np.array(
-                (grid_obj.cooking_timer if grid_obj.is_cooking else -1,), dtype=np.int32
+                (grid_obj.cooking_timer if grid_obj.is_cooking else -1,),
+                dtype=np.int32,
             )
 
             # encode the distance from agent to pot (size 2)
@@ -344,7 +338,9 @@ class DistToOtherPlayers(features.Feature):
         )
 
     def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
-        encoding = np.zeros((2 * (len(gridworld.agent_ids) - 1),), dtype=np.int32)
+        encoding = np.zeros(
+            (2 * (len(gridworld.agent_ids) - 1),), dtype=np.int32
+        )
         agent = gridworld.grid.grid_agents[player_id]
 
         other_agent_nums = 0
@@ -352,9 +348,9 @@ class DistToOtherPlayers(features.Feature):
             if pid == player_id:
                 continue
 
-            encoding[other_agent_nums * 2 : other_agent_nums * 2 + 2] = np.asarray(
-                agent.pos
-            ) - np.asarray(other_agent.pos)
+            encoding[other_agent_nums * 2 : other_agent_nums * 2 + 2] = (
+                np.asarray(agent.pos) - np.asarray(other_agent.pos)
+            )
         other_agent_nums += 1
 
         assert np.array_equal(self.shape, encoding.shape)

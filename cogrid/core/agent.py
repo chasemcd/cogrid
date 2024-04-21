@@ -112,4 +112,4 @@ class Agent:
         """Converts agent id to integer, beginning with 1,
         e.g., agent-0 -> 1, agent-1 -> 2, etc.
         """
-        return int(self.id[-1]) + 1
+        return int(self.id[-1]) + 1 if isinstance(self.id, str) else self.id + 1

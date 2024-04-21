@@ -5,11 +5,10 @@ import pygame
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
+from cogrid.core import typing
 
 ACTION_MESSAGE = ""
-HUMAN_AGENT_ID = (
-    "agent-0"  # change this to "agent-{0, 1}" if you want to play, None for fully bots
-)
+HUMAN_AGENT_ID = 0
 
 ACTION_SET = "cardinal_actions"
 
@@ -38,7 +37,7 @@ class HumanPlay:
     def __init__(
         self,
         env: CoGridEnv,
-        human_agent_id: str | None = None,
+        human_agent_id: typing.AgentID = None,
         seed: int = None,
     ) -> None:
         self.env = env
@@ -51,7 +50,9 @@ class HumanPlay:
     def run(self):
         self.reset(self.seed)
         while not self.closed:
-            actions = {agent_id: Actions.Noop for agent_id in self.env.agent_ids}
+            actions = {
+                agent_id: Actions.Noop for agent_id in self.env.agent_ids
+            }
 
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
@@ -76,7 +77,10 @@ class HumanPlay:
                         self.reset(self.seed)
                         return
 
-                    if self.human_agent_id and event.key in KEY_TO_ACTION.keys():
+                    if (
+                        self.human_agent_id is not None
+                        and event.key in KEY_TO_ACTION.keys()
+                    ):
                         actions[self.human_agent_id] = KEY_TO_ACTION[event.key]
                     else:
                         print(f"Invalid action: {event.key}")
@@ -122,7 +126,10 @@ if __name__ == "__main__":
         default=42,
     )
     parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
+        "--tile-size",
+        type=int,
+        help="size at which to render tiles",
+        default=32,
     )
     parser.add_argument(
         "--agent-pov",
@@ -170,7 +177,9 @@ if __name__ == "__main__":
         "max_steps": 1000,
     }
 
-    def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
+    def env_creator(
+        render_mode: str | None = None, render_message=""
+    ) -> CoGridEnv:
         return registry.make(
             env_config["name"],
             config=env_config,
@@ -180,7 +189,7 @@ if __name__ == "__main__":
             render_message=render_message,
         )
 
-    policy_mapping = {"agent-0": "random", "agent-1": "random"}
+    policy_mapping = {0: "random", 1: "random"}
 
     # NOTE: If you need to pass a config to your policy, specify it here and the
     # policy class will be initialized with it.

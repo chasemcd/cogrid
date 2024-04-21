@@ -22,6 +22,7 @@ class SearchRescue(CoGridEnv):
             config=config,
             render_mode=render_mode,
             env_actions=Actions,
+            agent_class=SRAgent,
             **kwargs,
         )
 
@@ -31,23 +32,6 @@ class SearchRescue(CoGridEnv):
         # This is only triggered when action masking is used.
         self.toggle_seq_len = 5
         self.toggle_sequences = {a_id: 0 for a_id in self.agent_ids}
-
-    def _setup_agents(self) -> None:
-        if self.roles:
-            assert self.config["num_agents"] % 2 == 0, (
-                "Must have an even number of agents for Search and Rescue env with roles"
-                "to ensure that there's an equal number of medics and engineers."
-            )
-        for i in range(self.config["num_agents"]):
-            agent_id = f"agent-{i}"
-            role = SRRoles.Medic if i % 2 == 0 else SRRoles.Engineer
-            agent = SRAgent(
-                agent_id=agent_id,
-                start_position=self.select_spawn_point(),
-                start_direction=self.np_random.choice(Directions),
-                role=role if self.roles else None,
-            )
-            self.agents[agent_id] = agent
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
         grid, states = super()._generate_encoded_grid_states()
