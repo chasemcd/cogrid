@@ -83,7 +83,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.max_steps = config["max_steps"]
         self.visualizer = None
-        self.common_reward = self.config.get("common_reward", False)
         self.roles = self.config.get("roles", True)
         self.agent_class = agent_class or agent.Agent
         self.t = 0
