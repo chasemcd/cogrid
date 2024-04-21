@@ -19,7 +19,7 @@ from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
 from cogrid.core import directions
-
+from cogrid.core import reward
 
 RNG = RandomNumberGenerator = np.random.Generator
 
@@ -85,7 +85,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.visualizer = None
         self.common_reward = self.config.get("common_reward", False)
         self.roles = self.config.get("roles", True)
-        self.rewards = rewards or []
         self.agent_class = agent_class or agent.Agent
         self.t = 0
 
@@ -104,6 +103,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             i: None for i in range(config["num_agents"])
         }  # will contain: {'agent_id': agent}
         self._agent_ids: set[typing.AgentID] = set(self.agents.keys())
+
+        # Establish reward function through reward modules
+        reward_names = config.get("rewards", [])
+        self.rewards = []
+        for reward_name in reward_names:
+            self.rewards.append(
+                reward.make_reward(reward_name, agent_ids=self._agent_ids)
+            )
 
         # Action space describes the set of actions available to agents.
         action_str = config.get("action_set")
