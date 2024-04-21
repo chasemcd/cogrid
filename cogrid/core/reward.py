@@ -49,15 +49,6 @@ class Reward:
         """
         raise NotImplementedError
 
-    @property
-    def is_common_reward(self) -> bool:
-        """Returns whether or not the reward is common to all agents.
-
-        :return: Whether or not the reward is common to all agents.
-        :rtype: bool
-        """
-        return self.common_reward
-
 
 REWARD_REGISTRY: dict[str, Reward] = {}
 

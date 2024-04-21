@@ -2,6 +2,7 @@ from cogrid.core import reward
 from cogrid.core import actions
 from cogrid.core.grid import Grid
 from cogrid.envs.overcooked import overcooked_grid_objects
+from cogrid.core import typing
 
 
 class SoupDeliveryReward(reward.Reward):
@@ -18,9 +19,9 @@ class SoupDeliveryReward(reward.Reward):
     def calculate_reward(
         self,
         state: Grid,
-        agent_actions: dict[int | str, int | float],
+        agent_actions: dict[typing.AgentID, typing.ActionType],
         new_state: Grid,
-    ) -> dict[str | int, float]:
+    ) -> dict[typing.AgentID, float]:
         """Calcaute the reward for delivering a soup dish.
 
         :param state: The previous state of the grid.
@@ -30,7 +31,9 @@ class SoupDeliveryReward(reward.Reward):
         :param new_state: The new state of the grid.
         :type new_state: Grid
         """
-        rewards = {agent_id: 0 for agent_id in self.agent_ids}
+        # Reward is shared among all agents, so calculate once
+        # then distribute to all agents
+        calculated_reward = 0
 
         for agent_id, action in agent_actions.items():
             # Check if agent is performing a PickupDrop action
@@ -54,8 +57,9 @@ class SoupDeliveryReward(reward.Reward):
             )
 
             if agent_holding_soup and agent_facing_delivery:
-                rewards[agent_id] = self.coefficient
+                calculated_reward += self.coefficient
 
+        rewards = {agent_id: calculated_reward for agent_id in self.agent_ids}
         return rewards
 
 

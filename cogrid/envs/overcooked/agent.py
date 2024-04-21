@@ -4,17 +4,14 @@ from cogrid.envs.overcooked import overcooked_grid_objects
 
 
 class OvercookedAgent(Agent):
-    def __init__(self, agent_id, start_position, start_direction, **kwargs):
-        super().__init__(agent_id, start_position, start_direction, **kwargs)
-
     def can_pickup(self, grid_object: GridObj) -> bool:
         """Determine if the agent can pickup a specified grid object.
         The Overcooked agent can pick up objects until it reaches capacity,
 
 
-        :param grid_object: _description_
+        :param grid_object: The grid object to check if the agent can pick up.
         :type grid_object: GridObj
-        :return: _description_
+        :return: True if the agent can pick up the object, False otherwise.
         :rtype: bool
         """
         if isinstance(grid_object, overcooked_grid_objects.Pot) and any(

@@ -51,18 +51,6 @@ class OnionStack(grid_object.GridObj):
     color = "yellow"
     char = "+"
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
-
     def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
         return True
 
@@ -94,7 +82,9 @@ class Pot(grid_object.GridObj):
         **kwargs,
     ):
 
-        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
+        super().__init__(
+            state=state, picked_up_from_value=0.0, placed_on_value=0.0
+        )
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
@@ -116,12 +106,16 @@ class Pot(grid_object.GridObj):
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
     ) -> bool:
         """Can only place onions in the soup!"""
-        if not any([isinstance(cell, grid_obj) for grid_obj in self.legal_contents]):
+        if not any(
+            [isinstance(cell, grid_obj) for grid_obj in self.legal_contents]
+        ):
             return False
 
         return len(self.objects_in_pot) < self.capacity
 
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+    def place_on(
+        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
+    ) -> None:
         self.objects_in_pot.append(cell)
 
     @property
@@ -135,7 +129,8 @@ class Pot(grid_object.GridObj):
             self.state += 100
 
         self.state = (
-            len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
+            len(self.objects_in_pot)
+            + len(self.objects_in_pot) * self.cooking_timer
         )
 
     @property
@@ -154,7 +149,9 @@ class Pot(grid_object.GridObj):
             )
 
         if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
+            add_text_to_image(
+                tile_img, text=str(self.cooking_timer), position=(50, 75)
+            )
 
 
 grid_object.register_object(Pot.object_id, Pot)
@@ -247,7 +244,9 @@ class DeliveryZone(grid_object.GridObj):
 
         return False
 
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+    def place_on(
+        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
+    ) -> None:
         del cell
 
 
@@ -275,11 +274,15 @@ class OnionSoup(grid_object.GridObj):
     def render(self, tile_img):
         c = COLORS[self.color]
         # draw white plate
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), COLORS["white"])
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), COLORS["white"]
+        )
 
         # draw soup inside plate
         fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), COLORS["light_brown"]
+            tile_img,
+            point_in_circle(cx=0.5, cy=0.5, r=0.3),
+            COLORS["light_brown"],
         )
 
 

@@ -173,7 +173,6 @@ if __name__ == "__main__":
         # as expected. best to just see through
         # walls at this point, but I'll fix it.
         "see_through_walls": True,
-        "common_reward": True,
         # "agent_view_size": args.agent_view_size,  # if using FoV, set view size.
         "max_steps": 1000,
     }

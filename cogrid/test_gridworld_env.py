@@ -506,7 +506,6 @@ class TestMapEnv(unittest.TestCase):
                 "load": "small_test_map",
             },
             "roles": False,
-            "common_reward": False,
             "agent_view_size": 7,
             "max_steps": 1000,
         }
