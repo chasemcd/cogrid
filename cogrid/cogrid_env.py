@@ -30,7 +30,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     metadata = {
         "render_modes": ["human", "rgb_array"],
-        "render_fps": 20,
+        "render_fps": 35,
         "screen_size": 480,
         "render_message": "",
     }
@@ -674,6 +674,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         img = self.get_frame(self.highlight, self.tile_size, self.agent_pov)
         if self.render_mode == "human":
+            # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
             # if img.shape[0] == 3:  # move the channels last
             #     img = np.moveaxis(img, 0, -1)
             if self.render_size is None:
