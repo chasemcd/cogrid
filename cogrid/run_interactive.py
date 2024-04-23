@@ -1,14 +1,80 @@
 from __future__ import annotations
 
 import pygame
+from scipy import special
 
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
 
+
+import numpy as np
+
+try:
+    import onnxruntime as ort
+except ImportError:
+    raise ImportError("Must `pip install onnxruntime` to use the ONNX inference utils!")
+
+
+ORT_SESSIONS: dict[str, ort.InferenceSession] = {}
+
+REWARDS = []
+
+
+def sample_action_via_softmax(logits: np.ndarray) -> int:
+    """Given logits sample an action via softmax"""
+    action_distribution = special.softmax(logits)
+    action = np.random.choice(
+        np.arange(len(action_distribution)), p=action_distribution
+    )
+    return action
+
+
+def inference_onnx_model(
+    input_dict: dict[str, np.ndarray],
+    model_path: str,
+) -> np.ndarray:
+    """Given an input dict and path to an ONNX model, return the model outputs"""
+    outputs = ORT_SESSIONS[model_path].run(["output"], input_dict)
+    return outputs
+
+
+def onnx_model_inference_fn(
+    observation: dict[str, np.ndarray] | np.ndarray, onnx_model_path: str
+):
+    # if it's a dictionary observation, the onnx model expects a flattened input array
+    if isinstance(observation, dict):
+        observation = np.hstack(list(observation.values())).reshape((1, -1))
+
+    model_outputs = inference_onnx_model(
+        {
+            "obs": observation.astype(np.float32),
+            "state_ins": np.array([0.0], dtype=np.float32),  # rllib artifact
+        },
+        model_path=onnx_model_path,
+    )[0].reshape(
+        -1
+    )  # outputs list of a batch. batch size always 1 so index list and reshape
+
+    action = sample_action_via_softmax(model_outputs)
+
+    return action
+
+
+def load_onnx_policy_fn(onnx_model_path: str) -> str:
+    """Initialize the ORT session and return the string to access it"""
+    if ORT_SESSIONS.get(onnx_model_path) is None:
+        ORT_SESSIONS[onnx_model_path] = ort.InferenceSession(onnx_model_path, None)
+
+    return onnx_model_path
+
+
+model = load_onnx_policy_fn("cramped_room_model.onnx")
+
+
 ACTION_MESSAGE = ""
 HUMAN_AGENT_ID = (
-    "agent-0"  # change this to "agent-{0, 1}" if you want to play, None for fully bots
+    None  # change this to "agent-{0, 1}" if you want to play, None for fully bots
 )
 
 ACTION_SET = "cardinal_actions"
@@ -56,10 +122,9 @@ class HumanPlay:
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
                     continue
-                actions[a_id] = self.env.action_spaces[a_id].sample()
-                # actions[a_id] = self.eval_algorithm.compute_single_action(
-                #     obs=obs, agent_id=a_id
-                # )
+                # actions[a_id] = self.env.action_spaces[a_id].sample()
+                if self.env.t % 5 == 0:
+                    actions[a_id] = onnx_model_inference_fn(obs, model)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -85,17 +150,21 @@ class HumanPlay:
 
     def step(self, actions: dict[str:Actions]):
         self.obs, rewards, terminateds, truncateds, _ = self.env.step(actions)
-        self.cumulative_reward += sum([*rewards.values()])
-        print(
-            f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
-        )
+        self.cumulative_reward += [*rewards.values()][0]
+        # print(
+        #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
+        # )
 
         if terminateds["__all__"]:
             print("Terminated!")
             self.reset(self.seed)
         elif truncateds["__all__"]:
             print("Truncated!")
+            REWARDS.append(self.cumulative_reward)
+            if len(REWARDS) == 50:
+                print(REWARDS)
             self.reset(self.seed)
+
         else:
             self.env.render()
 

@@ -13,7 +13,7 @@ from cogrid.visualization.rendering import (
 
 
 class MedKit(grid_object.GridObj):
-    name = "medkit"
+    object_id = "medkit"
     color = ObjectColors.MedKit
     char = GridConstants.MedKit
 
@@ -42,7 +42,7 @@ grid_object.register_object(MedKit.object_id, MedKit)
 
 
 class Pickaxe(grid_object.GridObj):
-    name = "pickaxe"
+    object_id = "pickaxe"
     color = ObjectColors.Pickaxe
     char = GridConstants.Pickaxe
 
@@ -79,7 +79,7 @@ grid_object.register_object(Pickaxe.object_id, Pickaxe)
 
 
 class Rubble(grid_object.GridObj):
-    name = "rubble"
+    object_id = "plate"
     color = ObjectColors.Rubble
     char = GridConstants.Rubble
 
@@ -92,14 +92,14 @@ class Rubble(grid_object.GridObj):
     def see_behind(self) -> bool:
         return False
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent=None) -> bool:
         """Rubble can be toggled by an Engineer/agent with Pickaxe"""
-        assert toggling_agent
+        assert agent
         adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
+        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
         toggling_agent_is_engineer = (
-            any([isinstance(obj, Pickaxe) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Engineer
+            any([isinstance(obj, Pickaxe) for obj in agent.inventory])
+            or agent.role == Roles.Engineer
         )
 
         assert toggling_agent_is_adjacent, "Rubble toggled by non-adjacent agent."
@@ -121,7 +121,7 @@ grid_object.register_object(Rubble.object_id, Rubble)
 
 
 class GreenVictim(grid_object.GridObj):
-    name = "green_victim"
+    object_id = "green_victim"
     color = ObjectColors.GreenVictim
     char = GridConstants.GreenVictim
 
@@ -131,13 +131,13 @@ class GreenVictim(grid_object.GridObj):
             toggle_value=0.1,  # 0.1 reward for rescuing
         )
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent=None) -> bool:
         """Toggling a victim rescues them. A GreenVictim can be rescued if any agent is adjacent to it"""
         # Toggle should only be triggered if the GreenVictim is directly in front of it. For debugging purposes,
         # we'll just check to make sure that's true (if this isn't triggered it can be removed).
-        assert toggling_agent
+        assert agent
         adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
+        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
         assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
 
         self._remove_from_grid(env.grid)
@@ -152,7 +152,7 @@ grid_object.register_object(GreenVictim.object_id, GreenVictim)
 
 
 class PurpleVictim(grid_object.GridObj):
-    name = "purple_victim"
+    object_id = "purple_victim"
     color = ObjectColors.PurpleVictim
     char = None
 
@@ -162,13 +162,13 @@ class PurpleVictim(grid_object.GridObj):
             toggle_value=0.2,
         )
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent=None) -> bool:
         """Toggling a victim rescues them. A PurpleVictim can be rescued if any agent is adjacent to it"""
         # Toggle should only be triggered if the GreenVictim is directly in front of it. For debugging purposes,
         # we'll just check to make sure that's true (if this isn't triggered it can be removed).
-        assert toggling_agent
+        assert agent
         adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
+        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
         assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
 
         self._remove_from_grid(env.grid)
@@ -183,7 +183,7 @@ grid_object.register_object(PurpleVictim.object_id, PurpleVictim)
 
 
 class YellowVictim(grid_object.GridObj):
-    name = "yellow_victim"
+    object_id = "yellow_victim"
     color = ObjectColors.YellowVictim
     char = GridConstants.YellowVictim
 
@@ -193,17 +193,17 @@ class YellowVictim(grid_object.GridObj):
             toggle_value=0.2,
         )
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def toggle(self, env, agent=None) -> bool:
         """
         Toggling a victim rescues them. A YellowVictim can be rescued if a Medic is adjcent to it or the agent
         is carrying a MedKit
         """
-        assert toggling_agent
+        assert agent
         adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
+        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
         toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
-            or toggling_agent.role == Roles.Medic
+            any([isinstance(obj, MedKit) for obj in agent.inventory])
+            or agent.role == Roles.Medic
         )
 
         assert toggling_agent_is_adjacent, "YellowVictim toggled by non-adjacent agent."
@@ -223,7 +223,7 @@ grid_object.register_object(YellowVictim.object_id, YellowVictim)
 
 
 class RedVictim(grid_object.GridObj):
-    name = "red_victim"
+    object_id = "red_victim"
     color = ObjectColors.RedVictim
     char = GridConstants.RedVictim
 

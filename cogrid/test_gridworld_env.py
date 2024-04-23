@@ -127,7 +127,7 @@ class TestMapEnv(unittest.TestCase):
             self.env._fetch_feature_generator(ob_name)
             for ob_name in self.env.config["obs"]
         ]
-        self.env.observation_space[agent_id] = Dict(
+        self.env.observation_spaces[agent_id] = Dict(
             {
                 feature.name: feature.space
                 for feature in self.env.feature_generators[agent_id]

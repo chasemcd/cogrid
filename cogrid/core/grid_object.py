@@ -400,7 +400,7 @@ class Key(GridObj):
     def __init__(self, state=0):
         super().__init__(state=state)
 
-    def can_pickup(self, agent: GridAgent, cell: GridObj):
+    def can_pickup(self, agent: GridAgent):
         return True
 
     def render(self, tile_img):

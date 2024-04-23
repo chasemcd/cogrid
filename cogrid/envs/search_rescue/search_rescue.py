@@ -110,7 +110,7 @@ class SearchRescue(CoGridEnv):
         more than a single step).
         """
         for agent_id, action in actions.items():
-            if action == self.env_actions.Toggle:
+            if action == Actions.Toggle:
                 agent = self.agents[agent_id]
                 # Break out of the sequence if the agent was successful, otherwise continue it.
                 if (
@@ -159,13 +159,13 @@ class SearchRescue(CoGridEnv):
     def get_action_mask(self, agent_id):
         if 1 <= self.toggle_sequences[agent_id] <= self.toggle_seq_len:
             action_mask = np.zeros((self.action_space.n,))
-            action_mask[self.env_actions.Toggle] = 1
+            action_mask[Actions.Toggle] = 1
             return action_mask
         elif self.can_interact(agent_id):
             return np.ones((self.action_space.n))
         else:
             mask = np.ones((self.action_space.n,))
-            mask[self.env_actions.Toggle] = 0
+            mask[Actions.Toggle] = 0
             return mask
 
     def can_toggle(self, agent_id):
