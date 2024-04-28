@@ -5,16 +5,16 @@ import copy
 import numpy as np
 import pygame
 import pygame.freetype
-from gymnasium.spaces import Discrete, Dict
+from gymnasium import spaces
 import pettingzoo
-from cogrid.constants import GridConstants, FIXED_GRIDS
+from cogrid import constants
 from cogrid.core import actions as grid_actions
 from cogrid.core.constants import CoreConstants
-from cogrid.core.directions import Directions
-from cogrid.core.grid import Grid
-from cogrid.core.grid_object import GridObj, GridAgent
-from cogrid.core.grid_utils import ascii_to_numpy
-from cogrid.feature_space.feature_space import FeatureSpace
+from cogrid.core import directions
+from cogrid.core import grid
+from cogrid.core import grid_object
+from cogrid.core import grid_utils
+from cogrid.feature_space import feature_space
 from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
@@ -25,11 +25,10 @@ RNG = RandomNumberGenerator = np.random.Generator
 
 
 class CoGridEnv(pettingzoo.ParallelEnv):
-    """CoGridEnv is an environment class that represents a multi-agent grid-world environment,
-    where multiple agents can interact with the environment and each other.
+    """CoGridEnv is the base environment class for a multi-agent grid-world environment.
 
     This class inherits from the ``pettingzoo.ParallelEnv`` class and implements the necessary methods
-    for a parallel environment. It provides a cooperative grid-world environment
+    for a parallel environment.
 
     :param config: Configuration dictionary for the environment.
     :type config: dict
@@ -37,8 +36,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     :type render_mode: str | None, optional
     :param highlight: _description_, defaults to False
     :type highlight: bool, optional
-    :param agent_pov: _description_, defaults to None
-    :type agent_pov: str | None, optional
     :param rewards: A list of reward modules to use for this environment, defaults to None
     :type rewards: list[reward.Reward] | None, optional
     :raises ValueError: ValueError if an invalid or None action set string is provided.
@@ -49,6 +46,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         "render_fps": 35,
         "screen_size": 480,
         "render_message": "",
+        "agent_pov": None,
         "highlight": False,
     }
 
@@ -56,8 +54,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self,
         config: dict,
         render_mode: str | None = None,
-        agent_pov: str | None = None,
-        rewards: list[reward.Reward] | None = None,
         agent_class: agent.Agent | None = None,
         **kwargs,
     ):
@@ -72,7 +68,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.render_message = (
             kwargs.get("render_message") or self.metadata["render_message"]
         )
-        self.agent_pov = agent_pov
         self.tile_size = CoreConstants.TilePixels
         self.screen_size = (
             kwargs.get("screen_size") or self.metadata["screen_size"]
@@ -88,7 +83,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.t = 0
 
         # grid data is set by _gen_grid()
-        self.grid: Grid | None = None
+        self.grid: grid.Grid | None = None
         self.spawn_points: list = []
         self.load = self.config["grid_gen_kwargs"].get(
             "load", None
@@ -124,7 +119,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Set the action space for the gym environment
         self.action_spaces = {
-            a_id: Discrete(len(self.action_set)) for a_id in self.agent_ids
+            a_id: spaces.Discrete(len(self.action_set))
+            for a_id in self.agent_ids
         }
 
         # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
@@ -133,7 +129,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Establish the observation space. This provides the general form of what an agent's observation
         # looks like so that they can be properly initialized.
         self.feature_spaces = {
-            a_id: FeatureSpace(
+            a_id: feature_space.FeatureSpace(
                 feature_names=config["features"], env=self, agent_id=a_id
             )
             for a_id in self.agent_ids
@@ -161,28 +157,28 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         grid, states = self._generate_encoded_grid_states()
 
         # If the grid is a list of strings this will turn it into the correct np format
-        grid = ascii_to_numpy(grid)
-        spawn_points = np.where(grid == GridConstants.Spawn)
-        grid[spawn_points] = GridConstants.FreeSpace
+        grid = grid_utils.ascii_to_numpy(grid)
+        spawn_points = np.where(grid == constants.GridConstants.Spawn)
+        grid[spawn_points] = constants.GridConstants.FreeSpace
         self.spawn_points = list(zip(*spawn_points))
         grid_encoding = np.stack([grid, states], axis=0)
-        self.grid, _ = Grid.decode(grid_encoding)
+        self.grid, _ = grid.Grid.decode(grid_encoding)
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
         if (
             self.load is not None
         ):  # load a specific grid instead of generating one
-            return FIXED_GRIDS[self.load]
+            return constants.FIXED_GRIDS[self.load]
 
         shape = self.config["grid_gen_kwargs"]["shape"]
-        grid = np.full(shape, fill_value=GridConstants.FreeSpace)
+        grid = np.full(shape, fill_value=constants.GridConstants.FreeSpace)
         states = np.zeros(shape=grid.shape)
 
         # Fill outside border with walls
-        grid[0, :] = GridConstants.Wall
-        grid[-1, :] = GridConstants.Wall
-        grid[:, 0] = GridConstants.Wall
-        grid[:, -1] = GridConstants.Wall
+        grid[0, :] = constants.GridConstants.Wall
+        grid[-1, :] = constants.GridConstants.Wall
+        grid[:, 0] = constants.GridConstants.Wall
+        grid[:, -1] = constants.GridConstants.Wall
 
         return grid, states
 
@@ -314,7 +310,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Update the grid agents to reflect the current state of each Agent."""
         # TODO(chase): this is inefficient; just update the existing objects?
         self.grid.grid_agents = {
-            a_id: GridAgent(agent) for a_id, agent in self.agents.items()
+            a_id: grid_object.GridAgent(agent)
+            for a_id, agent in self.agents.items()
         }
 
     def setup_agents(self):
@@ -353,10 +350,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # already facing the desired dir if they are, then they move in that direction.
         if self.action_set == grid_actions.ActionSets.CardinalActions:
             move_action_to_dir = {
-                grid_actions.Actions.MoveRight: Directions.Right,
-                grid_actions.Actions.MoveLeft: Directions.Left,
-                grid_actions.Actions.MoveUp: Directions.Up,
-                grid_actions.Actions.MoveDown: Directions.Down,
+                grid_actions.Actions.MoveRight: directions.Directions.Right,
+                grid_actions.Actions.MoveLeft: directions.Directions.Left,
+                grid_actions.Actions.MoveUp: directions.Directions.Up,
+                grid_actions.Actions.MoveDown: directions.Directions.Down,
             }
             for a_id, action in actions.items():
                 if action in move_action_to_dir.keys():
@@ -449,7 +446,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def interact(self, actions) -> None:
         for a_id, action in actions.items():
-            agent: GridAgent = self.agents[a_id]
+            agent: grid_object.GridAgent = self.agents[a_id]
             agent.cell_toggled = None
             agent.cell_placed_on = None
             agent.cell_picked_up_from = None
@@ -647,7 +644,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     spawns.append((r, c))
         return spawns
 
-    def put_obj(self, obj: GridObj, row: int, col: int):
+    def put_obj(self, obj: grid_object.GridObj, row: int, col: int):
         """
         Place an object at a specific point in the grid.
         """
@@ -664,16 +661,16 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         agent = self.agents[agent_id]
         agent_view_size = agent_view_size or self.agent_view_size
 
-        if agent.dir == Directions.Right:
+        if agent.dir == directions.Directions.Right:
             topY = agent.pos[0] - agent_view_size // 2
             topX = agent.pos[1]
-        elif agent.dir == Directions.Down:
+        elif agent.dir == directions.Directions.Down:
             topY = agent.pos[0]
             topX = agent.pos[1] - agent_view_size // 2
-        elif agent.dir == Directions.Left:
+        elif agent.dir == directions.Directions.Left:
             topY = agent.pos[0] - agent_view_size // 2
             topX = agent.pos[1] - agent_view_size + 1
-        elif agent.dir == Directions.Up:
+        elif agent.dir == directions.Directions.Up:
             topY = agent.pos[0] - agent_view_size + 1
             topX = agent.pos[1] - agent_view_size // 2
         else:
@@ -684,9 +681,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return topX, topY, botX, botY
 
-    def gen_obs_grid(self, agent_id, agent_view_size=None):
-        """Generate the sub-grid observed by a specific agent"""
-        topX, topY, botX, botY = self.get_view_exts(agent_id, agent_view_size)
+    def gen_obs_grid(
+        self, agent_id: typing.AgentID, agent_view_size: int = None
+    ):
+        """Generate the sub-grid observed by a specific agent
+
+        :param agent_id: _description_
+        :type agent_id: _type_
+        :param agent_view_size: _description_, defaults to None
+        :type agent_view_size: _type_, optional
+        :return: _description_
+        :rtype: _type_
+        """
+        topX, topY, *_ = self.get_view_exts(agent_id, agent_view_size)
 
         agent_view_size = agent_view_size or self.agent_view_size
 
@@ -705,29 +712,48 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             vis_mask = np.ones(shape=(grid.height, grid.width), dtype=bool)
 
         assert len(grid.grid_agents) >= 1
-        assert grid.grid_agents[agent_id].dir == Directions.Up
+        assert grid.grid_agents[agent_id].dir == directions.Directions.Up
 
         # NOTE: In Minigrid, they replace the agent's position with the item they're carrying. We don't do that
         #   here. Rather, we'll provide an additional observation space that represents the item(s) in inventory.
 
         return grid, vis_mask
 
-    def get_pov_render(self, agent_id, tile_size=CoreConstants.TilePixels):
-        """Render a specific agent's POV"""
+    def get_pov_render(
+        self,
+        agent_id: typing.AgentID,
+        tile_size: int = CoreConstants.TilePixels,
+    ) -> np.ndarray:
+        """Render a specific agent's POV
+
+        :param agent_id: Agent ID of the POV to render.
+        :type agent_id: typing.AgentID
+        :param tile_size: The pixel height/width of each rendered grid cell, defaults to CoreConstants.TilePixels
+        :type tile_size: int, optional
+        :return: Render of an agent's POV.
+        :rtype: np.ndarray
+        """
         grid, vis_mask = self.gen_obs_grid(agent_id)
         img = grid.render(
             tile_size,
             agent_pos=(self.agent_view_size - 1, self.agent_view_size // 2),
-            agent_dir=Directions.Up,
+            agent_dir=directions.Directions.Up,
             highlight_mask=vis_mask,
         )
         return img
 
     def get_full_render(
-        self, highlight: bool, tile_size=CoreConstants.TilePixels
-    ):
-        """Return a render of the full environment"""
+        self, highlight: bool = False, tile_size: int = CoreConstants.TilePixels
+    ) -> np.ndarray:
+        """Generate a render of the full environment.
 
+        :param highlight: Highlight the visible region for each agent, defaults to False.
+        :type highlight: bool
+        :param tile_size: The pixel height/width of each rendered grid cell, defaults to CoreConstants.TilePixels
+        :type tile_size: int, optional
+        :return: Render of the full environment.
+        :rtype: np.ndarray
+        """
         if highlight:
             highlight_mask = np.zeros(
                 shape=(self.grid.height, self.grid.width), dtype=bool
@@ -774,9 +800,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self,
         highlight: bool = True,
         tile_size: int = CoreConstants.TilePixels,
-        agent_pov: str | None = None,
-    ):
-        """Return RGB image corresponding to the whole environment or an agent's POV"""
+        agent_pov: typing.AgentID | None = None,
+    ) -> np.ndarray:
+        """Return RGB image corresponding to the whole environment or an agent's POV
+
+        :param highlight: Highlight the visible region for each agent, defaults to True
+        :type highlight: bool, optional
+        :param tile_size: The pixel width height of each grid cell, defaults to CoreConstants.TilePixels
+        :type tile_size: int, optional
+        :param agent_pov: If specified, gets the frame view for the specified agent, defaults to None
+        :type agent_pov: str | None, optional
+        :return: The rendered image of the environment or agent perspective.
+        :rtype: np.ndarray
+        """
         if agent_pov:
             frame = self.get_pov_render(
                 agent_id=self.agent_pov, tile_size=tile_size
@@ -789,6 +825,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return frame
 
     def render(self) -> None | np.ndarray:
+        """Render the environment.
+
+        :return: None if rendering is not enabled, otherwise the rendered image.
+        :rtype: None | np.ndarray
+        """
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
