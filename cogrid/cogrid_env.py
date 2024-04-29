@@ -48,6 +48,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         "render_message": "",
         "agent_pov": None,
         "highlight": False,
+        "see_through_walls": True,
     }
 
     def __init__(
@@ -106,6 +107,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 reward.make_reward(reward_name, agent_ids=self._agent_ids)
             )
 
+        # The reward at each timestep is the sum of the rewards from each reward module
+        # but can also be added to via environment hooks.
+        self.per_agent_reward: dict[typing.AgentID, float] = (
+            self.get_empty_reward_dict()
+        )
+        self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
+
         # Action space describes the set of actions available to agents.
         action_str = config.get("action_set")
         if action_str == "rotation_actions":
@@ -123,9 +131,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             for a_id in self.agent_ids
         }
 
-        # If False, the observations (ascii, images, etc) will be obscured so that agents cannot see through walls
-        self.see_through_walls = self.config.get("see_through_walls", True)
-
         # Establish the observation space. This provides the general form of what an agent's observation
         # looks like so that they can be properly initialized.
         self.feature_spaces = {
@@ -140,7 +145,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         }
 
         self.prev_actions = None
-        self.trajectories = collections.defaultdict(list)
 
     def _gen_grid(self):
         """
@@ -154,14 +158,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             None
         """
         self.spawn_points = []
-        grid, states = self._generate_encoded_grid_states()
+        encoded_grid, states = self._generate_encoded_grid_states()
 
         # If the grid is a list of strings this will turn it into the correct np format
-        grid = grid_utils.ascii_to_numpy(grid)
-        spawn_points = np.where(grid == constants.GridConstants.Spawn)
-        grid[spawn_points] = constants.GridConstants.FreeSpace
+        np_grid = grid_utils.ascii_to_numpy(encoded_grid)
+        spawn_points = np.where(np_grid == constants.GridConstants.Spawn)
+        np_grid[spawn_points] = constants.GridConstants.FreeSpace
         self.spawn_points = list(zip(*spawn_points))
-        grid_encoding = np.stack([grid, states], axis=0)
+        grid_encoding = np.stack([np_grid, states], axis=0)
         self.grid, _ = grid.Grid.decode(grid_encoding)
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
@@ -229,8 +233,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             a_id: grid_actions.Actions.Noop for a_id in self.agent_ids
         }
 
-        self.trajectories = collections.defaultdict(list)
-
         self.t = 0
 
         self.on_reset()
@@ -242,6 +244,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.render()
 
         obs = self.get_obs()
+
+        self.per_agent_reward = self.get_empty_reward_dict()
+        self.per_component_reward = {}
 
         return obs, {}
 
@@ -270,6 +275,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         self.t += 1
 
+        # Reset the rewards for this step
+        self.per_agent_reward = self.get_empty_reward_dict()
+        self.per_component_reward = {}
+
         # Track the previous state so that we have the delta for computing rewards
         self.prev_grid = copy.deepcopy(self.grid)
 
@@ -293,18 +302,24 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Setup the return values
         observations = self.get_obs()
-        per_agent_rewards, per_component_rewards = self.compute_rewards()
-        infos = self.get_infos(**per_component_rewards)
+        self.compute_rewards()
+        infos = self.get_infos(**self.per_component_reward)
         terminateds, truncateds = self.get_terminateds_truncateds()
 
         self.render()
 
-        self.cumulative_score += sum([*per_agent_rewards.values()])
+        self.cumulative_score += sum([*self.per_agent_reward.values()])
 
         # Custom hook if a subclass wants to make any updates
         self.on_step()
 
-        return observations, per_agent_rewards, terminateds, truncateds, infos
+        return (
+            observations,
+            self.per_agent_reward,
+            terminateds,
+            truncateds,
+            infos,
+        )
 
     def update_grid_agents(self) -> None:
         """Update the grid agents to reflect the current state of each Agent."""
@@ -404,7 +419,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # assign the new positions and store the agent position
         for a_id, agent in self.agents.items():
             agent.pos = new_positions[a_id]
-            self.trajectories[a_id].append(agent.pos)
+            self.on_move(a_id)
 
         assert len(self.agent_pos) == len(
             set(self.agent_pos)
@@ -504,6 +519,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     fwd_cell.place_on(cell=drop_cell, agent=agent)
                     agent.cell_placed_on = fwd_cell
 
+                self.on_pickup_drop(a_id)
+
             # Attempt to toggle the object in front of the agent
             elif action == grid_actions.Actions.Toggle:
                 fwd_cell = self.grid.get(*agent.front_pos)
@@ -512,15 +529,28 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     if toggle_success:
                         agent.cell_toggled = fwd_cell
 
+                self.on_toggle(a_id)
+
         self.on_interact(actions)
 
-    def on_interact(self, actions) -> None:
+    def on_interact(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
+        pass
+
+    def on_toggle(self, agent_id: typing.AgentID) -> None:
+        pass
+
+    def on_pickup_drop(self, agent_id: typing.AgentID) -> None:
         pass
 
     def on_reset(self) -> None:
         pass
 
     def on_step(self) -> None:
+        pass
+
+    def on_move(self, agent_id: typing.AgentID) -> None:
         pass
 
     def get_obs(self) -> dict:
@@ -535,17 +565,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def compute_rewards(
         self,
-    ) -> tuple[
-        dict[typing.AgentID, float], dict[str, dict[typing.AgentID, float]]
-    ]:
-        """Compute the per agent and per component rewards for the current state transition.
+    ) -> None:
+        """Compute the per agent and per component rewards for the current state transition
+        using the reward modules provided in the environment configuration.
 
-        :return: A tuple containing the per agent rewards and the per component rewards. The per-agent rewards are keyed by agent ID and the per-component rewards are keyed by component name, with values being dictionaries keyed by agent IDs.
-        :rtype: tuple[dict[typing.AgentID, float], dict[str, dict[typing.AgentID, float]]]
+        The rewards are added to self.per_agent_rewards and self.per_component_rewards.
         """
-
-        per_agent_rewards = self.get_empty_reward_dict()
-        per_component_rewards = {}
 
         for reward in self.rewards:
             calculated_rewards = reward.calculate_reward(
@@ -556,12 +581,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
             # Add component rewards to per agent reward
             for agent_id, reward_value in calculated_rewards.items():
-                per_agent_rewards[agent_id] += reward_value
+                self.per_agent_reward[agent_id] += reward_value
 
             # Save reward by component
-            per_component_rewards[reward.name] = calculated_rewards
-
-        return per_agent_rewards, per_component_rewards
+            self.per_component_reward[reward.name] = calculated_rewards
 
     def get_terminateds_truncateds(self) -> tuple:
         """
@@ -705,7 +728,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         for i in range(agent.dir + 1):
             grid = grid.rotate_left()
 
-        if not self.see_through_walls:
+        if not self.metadata.get("see_through_walls", True):
             # Mask view from the agents position at the bottom-center of the grid view
             vis_mask = grid.process_vis(agent_pos=(-1, grid.width // 2))
         else:
@@ -853,7 +876,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         img = self.get_frame(
             self.metadata.get("highlight", False),
             self.tile_size,
-            self.agent_pov,
+            self.metadata.get("agent_pov", None),
         )
         if self.render_mode == "human":
             # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
