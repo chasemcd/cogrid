@@ -34,10 +34,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     :type config: dict
     :param render_mode: Rendering method for local visualization, defaults to None
     :type render_mode: str | None, optional
-    :param highlight: _description_, defaults to False
-    :type highlight: bool, optional
-    :param rewards: A list of reward modules to use for this environment, defaults to None
-    :type rewards: list[reward.Reward] | None, optional
+    :param agent_class: Agent class for the environment if using a custom Agent, defaults to None
+    :type agent_class: agent.Agent | None, optional
     :raises ValueError: ValueError if an invalid or None action set string is provided.
     """
 
@@ -58,10 +56,20 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         agent_class: agent.Agent | None = None,
         **kwargs,
     ):
-        """Constructor method"""
+        """_summary_
+
+        :param config: _description_
+        :type config: dict
+        :param render_mode: _description_, defaults to None
+        :type render_mode: str | None, optional
+        :param agent_class: _description_, defaults to None
+        :type agent_class: agent.Agent | None, optional
+        :raises ValueError: _description_
+        """
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
+        # TODO(chase): Move PyGame/rendering logic outside of this class.
         self.clock = None
         self.render_size = None
         self.config = config
@@ -146,16 +154,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.prev_actions = None
 
-    def _gen_grid(self):
-        """
-        Generates the grid for the environment.
+    def _gen_grid(self) -> None:
+        """Generates the grid for the environment.
 
         This method generates the grid for the environment by calling the ``_generate_encoded_grid_states`` method,
         converting the grid to the correct numpy format, finding the spawn points, and encoding the grid and states.
-        The resulting grid is then decoded and stored in the ``grid`` attribute.
-
-        Returns:
-            None
+        The resulting grid is then decoded and stored in the ``self.grid`` attribute.
         """
         self.spawn_points = []
         encoded_grid, states = self._generate_encoded_grid_states()
@@ -169,6 +173,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.grid, _ = grid.Grid.decode(grid_encoding)
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
+        """Generates a grid encoding from the configuration.
+
+        :return: A tuple containing the encoded grid and state arrays.
+        :rtype: tuple[np.ndarray, np.ndarray]
+        """
         if (
             self.load is not None
         ):  # load a specific grid instead of generating one
@@ -187,7 +196,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return grid, states
 
     @staticmethod
-    def _set_np_random(seed: int | None = None):
+    def _set_np_random(
+        seed: int | None = None,
+    ) -> tuple[RandomNumberGenerator, int]:
+        """Set the numpy random number generator. This is copied from
+        the
+
+        :param seed: _description_, defaults to None
+        :type seed: int | None, optional
+        :raises ValueError: Invalid seed value.
+        :return: Random number generator and seed.
+        :rtype: tuple[RandomNumberGenerator, int]
+        """
         if seed is not None and not (isinstance(seed, int) and 0 <= seed):
             if isinstance(seed, int) is False:
                 raise ValueError(
@@ -205,6 +225,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     @property
     def np_random(self) -> np.random.Generator:
+        """Get the numpy random number generator.
+
+        :return: The numpy random number generator.
+        :rtype: np.random.Generator
+        """
         if self._np_random is None:
             self._np_random, _ = self._set_np_random()
 
@@ -215,9 +240,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         *,
         seed: int | None = 42,
         options: dict[str, typing.Any] | None = None,
-    ) -> tuple:
-        """
-        Reset the map and return the initial observations. Must be implemented for each environment.
+    ) -> tuple[dict[typing.AgentID, typing.ObsType], dict[str, typing.Any]]:
+        """Reset the environement and return the initial observations. Must be implemented for each environment.
+
+        :param seed: NumPy random seed, defaults to 42
+        :type seed: int | None, optional
+        :param options: Environment reset options, defaults to None
+        :type options: dict[str, typing.Any] | None, optional
+        :return: Tuple of observations and info.
+        :rtype: tuple[dict[typing.AgentID, typing.ObsType], dict[str, typing.Any]]
         """
         if seed is not None:
             self._np_random, _ = self._set_np_random(seed=seed)
@@ -251,9 +282,16 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return obs, {}
 
     def _action_idx_to_str(
-        self, actions: dict[str, int | str]
-    ) -> dict[str, str]:
-        """If not already, convert the action from index to string representation"""
+        self, actions: dict[typing.AgentID, int | str]
+    ) -> dict[typing.AgentID, str]:
+        """Convert the action from index to string representation
+
+
+        :param actions: Dictionary of agent IDs and actions.
+        :type actions: dict[str, int  |  str]
+        :return: _description_
+        :rtype: dict[str, str]
+        """
         str_actions = {
             a_id: (
                 self.action_set[action]
@@ -265,13 +303,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return str_actions
 
-    def step(self, actions: dict[str | int, int]) -> tuple:
-        """_summary_
+    def step(self, actions: dict[typing.AgentID, typing.ActionType]) -> tuple[
+        dict[typing.AgentID, typing.ObsType],
+        dict[typing.AgentID, float],
+        dict[typing.AgentID, bool],
+        dict[typing.AgentID, bool],
+        dict[typing.AgentID, dict[typing.Any, typing.Any]],
+    ]:
+        """Transitition the environment forward by one step, given the actions of the agents.
 
-        :param actions: _description_
+        :param actions: Dictionary of agent IDs and actions.
         :type actions: dict
-        :return: _description_
-        :rtype: tuple
+        :return: Tuple of observations, rewards, terminateds, truncateds, and infos.
+        :rtype: tuple[ dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, float], dict[typing.AgentID, bool], dict[typing.AgentID, bool], dict[typing.AgentID, dict[typing.Any, typing.Any]], ]
         """
         self.t += 1
 
@@ -347,7 +391,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Move agents to new positions based on the actions they take.
 
         :param actions: A dictionary of agent IDs and the actions they are taking.
-        :type actions: dict[str, str]
+        :type actions: dict[typing.AgentID, typing.ActionType]
         """
         # All terminated agents or those we don't have an action for will stay in the same position
         new_positions = {
@@ -459,7 +503,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
 
-    def interact(self, actions) -> None:
+    def interact(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
+        """After agents have moved, let them interact with the environment
+        based on their actions (e.g., picking up, dropping, toggling, etc.).
+
+        :param actions: Dictionary of agent IDs and actions.
+        :type actions: dict[typing.AgentID, typing.ActionType]
+        """
         for a_id, action in actions.items():
             agent: grid_object.GridAgent = self.agents[a_id]
             agent.cell_toggled = None
@@ -536,30 +588,53 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def on_interact(
         self, actions: dict[typing.AgentID, typing.ActionType]
     ) -> None:
+        """Hook for subclasses to implement custom logic after agents interact with the environment.
+
+        :param actions: Dictionary of agent IDs and actions.
+        :type actions: dict[typing.AgentID, typing.ActionType]
+        """
         pass
 
     def on_toggle(self, agent_id: typing.AgentID) -> None:
+        """Hook for subclasses to implement custom logic after an agent toggles an object.
+
+        :param agent_id: The ID of the agent toggling the object.
+        :type agent_id: typing.AgentID
+        """
         pass
 
     def on_pickup_drop(self, agent_id: typing.AgentID) -> None:
+        """Hook for subclasses to implement custom logic after an agent picks up or drops an object.
+
+        :param agent_id: The ID of the agent picking up or dropping an object.
+        :type agent_id: typing.AgentID
+        """
         pass
 
     def on_reset(self) -> None:
+        """Hook for subclasses to implement custom logic after the environment is reset."""
         pass
 
     def on_step(self) -> None:
+        """Hook for subclasses to implement custom logic after each step."""
         pass
 
     def on_move(self, agent_id: typing.AgentID) -> None:
+        """Hook for subclasses to implement custom logic after an agent moves.
+
+        :param agent_id: The ID of the agent moving.
+        :type agent_id: typing.AgentID
+        """
         pass
 
-    def get_obs(self) -> dict:
-        """
-        Fetch new observations for the agents
+    def get_obs(self) -> dict[typing.AgentID, typing.ObsType]:
+        """Fetch new observations for the agents
+
+        :return: Dictionary of agent IDs and their observations.
+        :rtype: dict[typing.AgentID, typing.ObsType]
         """
         obs = {}
         for a_id in self.agent_ids:
-            # obs[a_id] = {feature.name: feature.generate(self, a_id) for feature in self.feature_generators[a_id]}
             obs[a_id] = self.feature_spaces[a_id].generate_features()
         return obs
 
@@ -586,10 +661,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             # Save reward by component
             self.per_component_reward[reward.name] = calculated_rewards
 
-    def get_terminateds_truncateds(self) -> tuple:
-        """
-        Determine the done status for each agent.
-        """
+    def get_terminateds_truncateds(
+        self,
+    ) -> tuple[dict[typing.AgentID, bool], dict[typing.AgentID, bool]]:
+        """Determine the done status for each agent."""
         terminateds = {
             agent_id: agent.terminated
             for agent_id, agent in self.agents.items()
@@ -631,10 +706,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return {a_id: 0 for a_id in self.agent_ids}
 
     @property
-    def map_with_agents(self):
-        """
-        retrieve a version of the environment where 'P' chars have agent IDs.
-        :return: 1d array of strings representing the map
+    def map_with_agents(self) -> np.ndarray:
+        """retrieve a version of the environment where 'P' chars have agent IDs.
+
+        :return: Map of the environment with agent IDs.
+        :rtype: np.ndarray
         """
 
         grid_encoding = self.grid.encode(encode_char=True)
@@ -648,7 +724,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return grid
 
-    def select_spawn_point(self) -> tuple:
+    def select_spawn_point(self) -> tuple[int, int]:
+        """Select a spawn point for an agent.
+
+        :return: A spawn point for an agent.
+        :rtype: tuple[int, int]
+        """
         if self.spawn_points:
             return self.spawn_points.pop(0)
 
@@ -656,7 +737,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return self.np_random.choice(available_spawns)
 
     @property
-    def available_positions(self):
+    def available_positions(self) -> list[tuple[int, int]]:
+        """Get a list of available positions for agents to spawn.
+
+        :return: List of available positions for agents to spawn.
+        :rtype: list[tuple[int, int]]
+        """
         spawns = []
         for r in range(self.grid.height):
             for c in range(self.grid.width):
@@ -668,18 +754,34 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return spawns
 
     def put_obj(self, obj: grid_object.GridObj, row: int, col: int):
-        """
-        Place an object at a specific point in the grid.
+        """Place an object at a specific point in the grid.
+
+        :param obj: The object to place.
+        :type obj: grid_object.GridObj
+        :param row: The row to place the object.
+        :type row: int
+        :param col: The column to place the object.
+        :type col: int
         """
         self.grid.set(row=row, col=col, v=obj)
         obj.pos = (row, col)
         obj.init_pos = (row, col)
 
-    def get_view_exts(self, agent_id, agent_view_size=None):
-        """
-        Get the extents of the square set of tiles visible to the agent
+    def get_view_exts(
+        self, agent_id: typing.AgentID, agent_view_size: int = None
+    ) -> tuple[int, int, int, int]:
+        """Get the extents of the square set of tiles visible to the agent
         Note: the bottom extent indices are not included in the set
         if agent_view_size is None, use self.agent_view_size
+
+
+        :param agent_id: Agent ID of the agent to get the view extents for.
+        :type agent_id: typing.AgentID
+        :param agent_view_size: View distance, defaults to None
+        :type agent_view_size: int, optional
+        :raises ValueError: Invalid agent direction.
+        :return: Tuple of the top-left and bottom-right extents of the agent's view.
+        :rtype: tuple[int, int, int, int]
         """
         agent = self.agents[agent_id]
         agent_view_size = agent_view_size or self.agent_view_size
@@ -706,15 +808,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def gen_obs_grid(
         self, agent_id: typing.AgentID, agent_view_size: int = None
-    ):
+    ) -> grid.Grid:
         """Generate the sub-grid observed by a specific agent
 
-        :param agent_id: _description_
-        :type agent_id: _type_
-        :param agent_view_size: _description_, defaults to None
-        :type agent_view_size: _type_, optional
-        :return: _description_
-        :rtype: _type_
+        :param agent_id: Agent ID of the agent to generate the observation for.
+        :type agent_id: typing.AgentID
+        :param agent_view_size: Size of the agents view area, defaults to None
+        :type agent_view_size: int, optional
+        :return: A sub-grid observed by the agent.
+        :rtype: grid.Grid
         """
         topX, topY, *_ = self.get_view_exts(agent_id, agent_view_size)
 
@@ -963,12 +1065,3 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         agent = self.agents[agent_id]
         return str(agent.agent_number)
-
-    # @staticmethod
-    # def create_gif_from_frames(frames):
-    #     frames = [PIL.Image.fromarray(np.moveaxis(f, 0, -1).astype(np.uint8)) for f in frames]
-    #
-    #     save_path = f'render.gif'
-    #     frames[0].save(save_path, save_all=True, optimize=True, quality=90, append_images=frames[1:], loop=0, duration=80)
-    #
-    #     print(f"Video saved to {save_path}.")
