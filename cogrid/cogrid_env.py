@@ -861,8 +861,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         grid, vis_mask = self.gen_obs_grid(agent_id)
         img = grid.render(
             tile_size,
-            agent_pos=(self.agent_view_size - 1, self.agent_view_size // 2),
-            agent_dir=directions.Directions.Up,
             highlight_mask=vis_mask,
         )
         return img
