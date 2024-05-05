@@ -204,8 +204,6 @@ and provide a common reward to all agents according to their types.
 .. code-block:: python
 
     class RescueReward(reward.Reward):
-        """Provide a reward for delivery an OnionSoup to a DeliveryZone."""
-
         def __init__(self, agent_ids: list[str | int], **kwargs):
             super().__init__(
                 name="rescue_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs

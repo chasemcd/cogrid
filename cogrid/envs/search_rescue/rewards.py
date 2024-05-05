@@ -6,7 +6,7 @@ from cogrid.core import typing
 
 
 class RescueReward(reward.Reward):
-    """Provide a reward for delivery an OnionSoup to a DeliveryZone."""
+    """Provide a reward for rescuing one of the victims."""
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
