@@ -181,7 +181,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         if (
             self.load is not None
         ):  # load a specific grid instead of generating one
-            return constants.FIXED_GRIDS[self.load]
+            if isinstance(self.load, str):
+                return constants.FIXED_GRIDS[self.load]
+            else:
+                return self.load
 
         shape = self.config["grid_gen_kwargs"]["shape"]
         grid = np.full(shape, fill_value=constants.GridConstants.FreeSpace)

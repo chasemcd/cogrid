@@ -9,68 +9,42 @@ CoGrid
    :maxdepth: 1
    :caption: Contents:
 
-
-   content/cogrid_env
+   content/getting_started
    content/examples
+   content/cogrid_env
+   content/custom_env
+
 
 
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
-It is built on top of the Minigrid library, which is a minimalistic gridworld environment for OpenAI Gym. 
-CoGrid is designed to support multi-agent reinforcement learning research, 
-and it provides a simple API for creating multi-agent gridworld environments.
+It is built on top of the Minigrid library, which is a minimalistic gridworld environment developed
+originally by Chevalier-Boisvert et al. (2023) (https://arxiv.org/abs/2306.13831). CoGrid has several
+differentiating factors from Minigrid:
+
+1. Multi-agent support. CoGrid supports multiple agents in the same environment, each with their own
+   observation space and action space. Whereas Minigrid's environment logic is centered around a single 
+   agent interacting with a ``Grid`` of ``WorldObj``s, CoGrid's environment logic also tracks ``Agent``s abs
+   unique objects, allowing an arbitrary number to exist in the environment.
+2. ``Reward`` modularization. CoGrid allows for the creation of custom ``Reward``s that can be added to the
+   environment. These ``Reward``s are used to calculate the reward for each agent at each step, and can be
+   used to create complex reward functions that depend on the state of the environment, the actions of
+   other agents, etc.
+3. ``Feature`` modularization. Similar to rewards, CoGrid allows for the creation of custom ``Feature``s that can be added to the
+   environment. These ``Feature``s are used to construct the agent's observation
+   space, such as the location of other agents, an image of the environment, etc. 
 
 CoGrid utilizes the PettingZoo API to standardize the multi-agent environment interface.
 
-Example Project usage
----------------------
+Installation
+------------
+To install CoGrid, you can use the PyPi distribution:
 
-CoGrid is meant to provide a simple, customizable API for creating multi-agent gridworld environments. It s
-You can build and view this documentation project locally - we recommend that you activate `a local Python virtual environment first <https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment>`_:
+    .. code-block:: bash
 
-.. code-block:: console
+        pip install cogrid
 
-    # Install required Python dependencies (Sphinx etc.)
-    pip install -r docs/requirements.txt
+Or directly from the master branch:
 
-    # Enter the Sphinx project
-    cd docs/
-    
-    # Run the raw sphinx-build command
-    sphinx-build -M html . _build/
+    .. code-block:: bash
 
-
-You can also build the documentation locally with ``make``:
-
-.. code-block:: console
-
-    # Enter the Sphinx project
-    cd docs/
-    
-    # Build with make
-    make html
-    
-    # Open with your preferred browser, pointing it to the documentation index page
-    firefox _build/html/index.html
-
-
-Using the example in your own project
--------------------------------------
-
-If you are new to Read the Docs, you may want to refer to the `Read the Docs User documentation <https://docs.readthedocs.io/>`_.
-
-If you are copying this code in order to get started with your documentation, you need to:
-
-#. place your ``docs/`` folder alongside your Python project. If you are starting a new project, you can adapt the `pyproject.toml` example configuration.
-#. use your existing project repository or create a new repository on Github, GitLab, Bitbucket or another host supported by Read the Docs
-#. copy ``.readthedocs.yaml`` and the ``docs/`` folder into your project.
-#. customize all the files, replacing example contents.
-#. add your own Python project, replacing the ``pyproject.toml`` configuration and ``lumache.py`` module.
-#. rebuild the documenation locally to see that it works.
-#. *finally*, register your project on Read the Docs, see `Importing Your Documentation <https://docs.readthedocs.io/en/stable/intro/import-guide.html>`_.
-
-
-Read the Docs tutorial
-----------------------
-
-To get started with Read the Docs, you may also refer to the `Read the Docs tutorial <https://docs.readthedocs.io/en/stable/tutorial/>`__.
-It provides a full walk-through of building an example project similar to the one in this repository.
+        pip install git+https://www.github.com/chasemcd/cogrid.git

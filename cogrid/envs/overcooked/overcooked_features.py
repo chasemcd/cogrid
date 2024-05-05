@@ -1,5 +1,6 @@
 import collections
 
+from cogrid.feature_space import feature
 from cogrid.feature_space import features
 from cogrid.feature_space import feature_space
 from cogrid.core import grid_utils
@@ -22,7 +23,7 @@ def euclidian_distance(pos_1: tuple[int, int], pos_2: tuple[int, int]) -> int:
     return np.sqrt((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2)
 
 
-class OvercookedCollectedFeatures(features.Feature):
+class OvercookedCollectedFeatures(feature.Feature):
     """
     A wrapper class to create all overcooked features as a single array.
 
@@ -90,9 +91,7 @@ class OvercookedCollectedFeatures(features.Feature):
         for pid in env.agent_ids:
             if pid == player_id:
                 continue
-            player_encodings.append(
-                self.generate_player_encoding(env, pid)
-            )
+            player_encodings.append(self.generate_player_encoding(env, pid))
 
         encoding = np.hstack(player_encodings).astype(np.float32)
         assert np.array_equal(self.shape, encoding.shape)
@@ -114,7 +113,7 @@ feature_space.register_feature(
 )
 
 
-class OvercookedInventory(features.Feature):
+class OvercookedInventory(feature.Feature):
     shape = (3,)
 
     def __init__(self, **kwargs):
@@ -137,7 +136,7 @@ class OvercookedInventory(features.Feature):
         return encoding
 
 
-class NextToCounter(features.Feature):
+class NextToCounter(feature.Feature):
     """A feature that represents a multi-hot encoding of whether or not there is a counter
     immediately in each of the four cardinal directions.
 
@@ -171,7 +170,7 @@ class NextToCounter(features.Feature):
         return encoding
 
 
-class ClosestObj(features.Feature):
+class ClosestObj(feature.Feature):
     """
     This feature calculates (dy, dx) to the closest instance of a specified object.
 
@@ -227,7 +226,7 @@ class ClosestObj(features.Feature):
         return encoding
 
 
-class OrderedPotFeatures(features.Feature):
+class OrderedPotFeatures(feature.Feature):
     """Encode features related to the pot. Note that this assumes the number of pots is fixed,
     otherwise the feature size will vary and will cause errors. For each pot, calculate:
         - pot_j_reachable: {0, 1}  # TODO(chase): use BFS to calculate this, currently fixed at 1.
@@ -325,7 +324,7 @@ class OrderedPotFeatures(features.Feature):
         return encoding
 
 
-class DistToOtherPlayers(features.Feature):
+class DistToOtherPlayers(feature.Feature):
     """Return an encoding of the distance to all other players, unsorted."""
 
     def __init__(self, num_other_players=1, **kwargs):
@@ -338,9 +337,7 @@ class DistToOtherPlayers(features.Feature):
         )
 
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
-        encoding = np.zeros(
-            (2 * (len(env.agent_ids) - 1),), dtype=np.int32
-        )
+        encoding = np.zeros((2 * (len(env.agent_ids) - 1),), dtype=np.int32)
         agent = env.grid.grid_agents[player_id]
 
         other_agent_nums = 0

@@ -4,6 +4,7 @@ from cogrid.constants import GridConstants
 from cogrid.core.roles import Roles
 from cogrid.core.constants import ObjectColors, COLORS
 from cogrid.core.grid_utils import adjacent_positions
+from cogrid.core import typing
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
@@ -110,6 +111,7 @@ class Rubble(grid_object.GridObj):
 
         if toggle_success:
             self._remove_from_grid(env.grid)
+
         return toggle_success
 
     def render(self, tile_img):
@@ -238,45 +240,40 @@ class RedVictim(grid_object.GridObj):
     def __init__(self, state=0):
         super().__init__(
             state=state,
-            toggle_value=0.3,
         )
+        self.toggle_countdown = 0
+        self.first_toggle_agent_id: typing.AgentID = None
 
-    def toggle(self, env, toggling_agent=None) -> bool:
+    def tick(self):
+        """At each timestep, decrement toggle countdown and set the count as the state."""
+        if self.toggle_countdown > 0:
+            self.toggle_countdown -= 1
+        self.state = self.toggle_countdown
+
+    def toggle(self, env, agent) -> bool:
         """A RedVictim can be rescued if a Medic (or agent carrying MedKit) is the adjacent toggling agent
-        and there is another agent adjacent."""
-        raise NotImplementedError("Must implement reward modules!")
-        # assert toggling_agent
-        # adj_positions = [*adjacent_positions(*self.pos)]
-        # toggling_agent_is_adjacent = tuple(toggling_agent.pos) in adj_positions
-        # toggling_agent_is_medic = (
-        #     any([isinstance(obj, MedKit) for obj in toggling_agent.inventory])
-        #     or toggling_agent.role == Roles.Medic
-        # )
+        and then another agent toggles within 30 timesteps."""
 
-        # assert (
-        #     toggling_agent_is_adjacent
-        # ), "RedVictim toggled by non-adjacent agent."
+        if self.toggle_countdown == 0:
 
-        # other_adjacent_agent = None
-        # for agent in env.agents.values():
-        #     if agent is toggling_agent or tuple(agent.pos) not in adj_positions:
-        #         continue
-        #     other_adjacent_agent = agent
-        #     break
+            toggling_agent_has_medkit = any(
+                [isinstance(obj, MedKit) for obj in agent.inventory]
+            )
 
-        # toggle_success = (
-        #     toggling_agent_is_medic and other_adjacent_agent is not None
-        # )
+            if toggling_agent_has_medkit:
+                self.first_toggle_agent = agent.agent_id
+                self.toggle_countdown = 30
 
-        # if toggle_success:
-        #     self._remove_from_grid(env.grid)
+            return True
 
-        #     # If we're using common reward both will automatically receive. If not, both acted in saving,
-        #     # so we reward both for the red victim.
-        #     if not env.common_reward:
-        #         other_adjacent_agent.reward += self.toggle_value
+        if (
+            self.toggle_countdown > 0
+            and agent.agent_id != self.first_toggle_agent
+        ):
+            self._remove_from_grid(env.grid)
+            return True
 
-        # return toggle_success
+        return False
 
     def render(self, tile_img):
         c = COLORS[self.color]

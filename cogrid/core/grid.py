@@ -528,6 +528,20 @@ class Grid:
     #
     #     return mask
 
+    def get_obj_count(self, grid_obj: GridObj | None) -> int:
+        """Get the number of a particular object that exists in the grid.
+
+        :param grid_obj: The GridObj to count.
+        :type grid_obj: GridObj | None
+        :return: The number of the GridObj in the grid.
+        :rtype: int
+        """
+        count = 0
+        for obj in self.grid:
+            if isinstance(obj, grid_obj):
+                count += 1
+        return count
+
     def process_vis(self, agent_pos: tuple[int, int]) -> np.ndarray:
         mask = np.zeros(shape=(self.width, self.height), dtype=bool)
 
