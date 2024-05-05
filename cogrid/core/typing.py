@@ -7,3 +7,4 @@ ActionType = env.ActionType
 AgentID = env.AgentID
 ObsType = env.ObsType
 Any = typing.Any
+EnvType = env.ParallelEnv
