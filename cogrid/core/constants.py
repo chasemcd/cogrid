@@ -29,6 +29,28 @@ class ObjectColors:
     AgentFour = "puke_green"
 
 
+@dataclasses.dataclass
+class Colors:
+    Red = "red"
+    Green = "green"
+    Blue = "blue"
+    Purple = "purple"
+    Yellow = "yellow"
+    Grey = "grey"
+    DarkGrey = "dark_grey"
+    LightBrown = "light_brown"
+    Brown = "brown"
+    Cyan = "cyan"
+    Lavender = "lavender"
+    YellowGrey = "yellow_grey"
+    PukeGreen = "puke_green"
+    LightPink = "light_pink"
+    Orange = "orange"
+    PaleBlue = "pale_blue"
+    White = "white"
+    Black = "black"
+
+
 # Map of color names to RGB values
 COLORS = {
     "red": np.array([255, 0, 0]),

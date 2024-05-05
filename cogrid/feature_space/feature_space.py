@@ -1,18 +1,18 @@
 from gymnasium.spaces import Dict
 
-from cogrid.feature_space import features
+from cogrid.feature_space import feature
 
-FEATURE_SPACE_REGISTRY: dict[str, features.Feature] = {}
+FEATURE_SPACE_REGISTRY: dict[str, feature.Feature] = {}
 
 
-def register_feature(feature_id: str, feature_class: features.Feature) -> None:
+def register_feature(feature_id: str, feature_class: feature.Feature) -> None:
     if feature_id in FEATURE_SPACE_REGISTRY:
         print("Overriding existing feature", feature_id)
 
     FEATURE_SPACE_REGISTRY[feature_id] = feature_class
 
 
-def make_feature_generator(feature_id: str, **kwargs) -> features.Feature:
+def make_feature_generator(feature_id: str, **kwargs) -> feature.Feature:
     if feature_id not in FEATURE_SPACE_REGISTRY:
         raise ValueError(f"Feature {feature_id} not registered.")
     return FEATURE_SPACE_REGISTRY[feature_id](**kwargs)
