@@ -5,7 +5,7 @@ from gymnasium import spaces
 from collections import deque
 
 from cogrid.core.grid_object import OBJECT_NAMES
-
+from cogrid.feature_space import feature
 
 try:
     import cv2
@@ -13,35 +13,7 @@ except ImportError:
     cv2 = None
 
 
-class Feature:
-    """Base class for"""
-
-    shape = None
-
-    def __init__(
-        self,
-        low: float,
-        high: float,
-        name: str,
-        shape: tuple | np.ndarray = None,
-        space: spaces.Space | None = None,
-        **kwargs
-    ):
-        self.low = low
-        self.high = high
-
-        if shape is not None:
-            self.shape = shape
-        assert self.shape is not None, "Must specify shape via class or init!"
-
-        self.space = spaces.Box(low, high, shape) if space is None else space
-        self.name = name
-
-    def generate(self, gridworld, player_id, **kwargs):
-        raise NotImplementedError
-
-
-class FullMapImage(Feature):
+class FullMapImage(feature.Feature):
     def __init__(self, map_size, tile_size, **kwargs):
         rows, cols = map_size
         super().__init__(
@@ -58,7 +30,7 @@ class FullMapImage(Feature):
         return img
 
 
-class StackedFullMapResizedGrayscale(Feature):
+class StackedFullMapResizedGrayscale(feature.Feature):
     def __init__(self, **kwargs):
         assert (
             cv2 is not None
@@ -98,7 +70,7 @@ class StackedFullMapResizedGrayscale(Feature):
         return stacked
 
 
-class FullMapResizedGrayscale(Feature):
+class FullMapResizedGrayscale(feature.Feature):
     def __init__(self, **kwargs):
         super().__init__(
             low=0,
@@ -119,7 +91,7 @@ class FullMapResizedGrayscale(Feature):
         return img_grayscale / 255.0
 
 
-class FoVImage(Feature):
+class FoVImage(feature.Feature):
     def __init__(self, view_len, tile_size, **kwargs):
         super().__init__(
             low=0,
@@ -136,7 +108,7 @@ class FoVImage(Feature):
         return img
 
 
-class FullMapEncoding(Feature):
+class FullMapEncoding(feature.Feature):
     def __init__(self, map_size, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
         super().__init__(
@@ -152,7 +124,7 @@ class FullMapEncoding(Feature):
         return encoded_map
 
 
-class FoVEncoding(Feature):
+class FoVEncoding(feature.Feature):
     def __init__(self, view_len, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
         super().__init__(
@@ -169,7 +141,7 @@ class FoVEncoding(Feature):
         return encoded_agent_grid
 
 
-class FullMapASCII(Feature):
+class FullMapASCII(feature.Feature):
     def __init__(self, map_size, **kwargs):
         super().__init__(
             low=-np.inf,
@@ -184,7 +156,7 @@ class FullMapASCII(Feature):
         return encoded_map
 
 
-class FoVASCII(Feature):
+class FoVASCII(feature.Feature):
     def __init__(self, view_len, **kwargs):
         super().__init__(
             low=-np.inf,
@@ -205,7 +177,7 @@ class FoVASCII(Feature):
         return encoded_agent_grid
 
 
-class AgentPosition(Feature):
+class AgentPosition(feature.Feature):
 
     def __init__(self, **kwargs):
         super().__init__(
@@ -216,7 +188,7 @@ class AgentPosition(Feature):
         return np.asarray(gridworld.agents[player_id].pos, dtype=np.int32)
 
 
-class AgentPositions(Feature):
+class AgentPositions(feature.Feature):
     def __init__(self, map_shape, **kwargs):
         self.rgb = True
         super().__init__(
@@ -252,7 +224,7 @@ class AgentPositions(Feature):
         return grid
 
 
-class AgentDir(Feature):
+class AgentDir(feature.Feature):
     """One-hot encoding of the agent's direction."""
 
     def __init__(self, **kwargs):
@@ -264,7 +236,7 @@ class AgentDir(Feature):
         return encoding
 
 
-class OtherAgentActions(Feature):
+class OtherAgentActions(feature.Feature):
     def __init__(self, num_agents, num_actions, **kwargs):
         super().__init__(
             low=0,
@@ -296,7 +268,7 @@ class OtherAgentActions(Feature):
         return oh_action
 
 
-class OtherAgentVisibility(Feature):
+class OtherAgentVisibility(feature.Feature):
     def __init__(self, num_agents, view_len, **kwargs):
         super().__init__(
             low=0,
@@ -320,7 +292,7 @@ class OtherAgentVisibility(Feature):
         # return visibility
 
 
-class Role(Feature):
+class Role(feature.Feature):
     def __init__(self, num_roles, **kwargs):
         super().__init__(
             low=0, high=num_roles - 1, shape=(num_roles,), name="role", **kwargs
@@ -334,7 +306,7 @@ class Role(Feature):
         return role_encoding
 
 
-class Inventory(Feature):
+class Inventory(feature.Feature):
     def __init__(self, inventory_capacity, **kwargs):
         if inventory_capacity == 1:
             super().__init__(
@@ -365,7 +337,7 @@ class Inventory(Feature):
         return encoding
 
 
-class ActionMask(Feature):
+class ActionMask(feature.Feature):
     def __init__(self, env, **kwargs):
         super().__init__(
             low=0,
@@ -383,7 +355,7 @@ class ActionMask(Feature):
         return action_mask
 
 
-class AgentID(Feature):
+class AgentID(feature.Feature):
     def __init__(self, env, **kwargs):
         super().__init__(
             low=0,
