@@ -24,8 +24,8 @@ class FullMapImage(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        img = gridworld.get_full_render(highlight=False)
+    def generate(self, env, player_id, **kwargs):
+        img = env.get_full_render(highlight=False)
         img = (img / 255.0).astype(np.float32)
         return img
 
@@ -48,13 +48,13 @@ class StackedFullMapResizedGrayscale(feature.Feature):
 
         self.player_id = None
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         if self.player_id is not None:
             assert player_id == self.player_id
         else:
             self.player_id = player_id
 
-        img_rgb = gridworld.get_full_render(highlight=False)
+        img_rgb = env.get_full_render(highlight=False)
 
         assert img_rgb.shape[-1] == 3
 
@@ -80,8 +80,8 @@ class FullMapResizedGrayscale(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        img_rgb = gridworld.get_full_render(highlight=False)
+    def generate(self, env, player_id, **kwargs):
+        img_rgb = env.get_full_render(highlight=False)
         img_resized = cv2.resize(
             img_rgb, (84, 84), interpolation=cv2.INTER_AREA
         )
@@ -102,8 +102,8 @@ class FoVImage(feature.Feature):
         )
         self.view_len = view_len
 
-    def generate(self, gridworld, player_id, **kwargs):
-        img = gridworld.get_pov_render(agent_id=player_id)
+    def generate(self, env, player_id, **kwargs):
+        img = env.get_pov_render(agent_id=player_id)
         img = (img / 255.0).astype(np.float32)
         return img
 
@@ -119,8 +119,8 @@ class FullMapEncoding(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        encoded_map = gridworld.grid.encode(encode_char=False)
+    def generate(self, env, player_id, **kwargs):
+        encoded_map = env.grid.encode(encode_char=False)
         return encoded_map
 
 
@@ -135,8 +135,8 @@ class FoVEncoding(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        agent_grid, _ = gridworld.gen_obs_grid(agent_id=player_id)
+    def generate(self, env, player_id, **kwargs):
+        agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
         encoded_agent_grid = agent_grid.encode(encode_char=False)
         return encoded_agent_grid
 
@@ -151,8 +151,8 @@ class FullMapASCII(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        encoded_map = gridworld.grid.encode(encode_char=True)
+    def generate(self, env, player_id, **kwargs):
+        encoded_map = env.grid.encode(encode_char=True)
         return encoded_map
 
 
@@ -166,8 +166,8 @@ class FoVASCII(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        agent_grid, _ = gridworld.gen_obs_grid(agent_id=player_id)
+    def generate(self, env, player_id, **kwargs):
+        agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
         encoded_agent_grid = agent_grid.encode(encode_char=True)
 
         # TODO(chase): Confirm that this shouldn't already be correct
@@ -184,8 +184,8 @@ class AgentPosition(feature.Feature):
             low=0, high=np.inf, shape=(2,), name="agent_position", **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        return np.asarray(gridworld.agents[player_id].pos, dtype=np.int32)
+    def generate(self, env, player_id, **kwargs):
+        return np.asarray(env.agents[player_id].pos, dtype=np.int32)
 
 
 class AgentPositions(feature.Feature):
@@ -202,23 +202,21 @@ class AgentPositions(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         channel_dim = 1 if not self.rgb else 3
-        grid = np.full(
-            (*gridworld.map_with_agents.shape, channel_dim), fill_value=0
-        )
-        for a_id, agent in gridworld.agents.items():
+        grid = np.full((*env.map_with_agents.shape, channel_dim), fill_value=0)
+        for a_id, agent in env.agents.items():
             if (
                 agent is not None
             ):  # will be None before being set by subclassed env
                 assert not self.rgb, "RGB not implemented for new grid."
                 # if self.rgb:
                 #     grid[:, agent.pos[0], agent.pos[1]] = (
-                #         np.array(constants.DEFAULT_COLORS[str(gridworld.id_to_numeric(a_id))]) / 255.0
+                #         np.array(constants.DEFAULT_COLORS[str(env.id_to_numeric(a_id))]) / 255.0
                 #     )
                 # else:
                 grid[:, agent.pos[0], agent.pos[1]] = int(
-                    gridworld.id_to_numeric(a_id)
+                    env.id_to_numeric(a_id)
                 )
 
         return grid
@@ -230,9 +228,9 @@ class AgentDir(feature.Feature):
     def __init__(self, **kwargs):
         super().__init__(low=0, high=1, shape=(4,), name="agent_dir")
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         encoding = np.zeros(self.shape, dtype=np.int32)
-        encoding[gridworld.agents[player_id].dir] = 1
+        encoding[env.agents[player_id].dir] = 1
         return encoding
 
 
@@ -246,14 +244,14 @@ class OtherAgentActions(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         return (
             np.array(
                 [
                     self.one_hot_encode_actions(
-                        gridworld.prev_actions[a_id], self.high
+                        env.prev_actions[a_id], self.high
                     )
-                    for a_id in gridworld.agent_ids
+                    for a_id in env.agent_ids
                     if a_id is not player_id
                 ]
             )
@@ -280,14 +278,14 @@ class OtherAgentVisibility(feature.Feature):
         self.view_len = view_len
         self.num_other_agents = num_agents - 1
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         raise NotImplementedError
-        # agent = gridworld.agents[player_id]
-        # view = ascii_view(gridworld.ascii_map, agent.pos, self.view_len)
-        # visibility = np.zeros((len(gridworld.agent_ids) - 1,))
-        # other_agent_ids = [pid for pid in gridworld.agent_ids if pid != player_id]
+        # agent = env.agents[player_id]
+        # view = ascii_view(env.ascii_map, agent.pos, self.view_len)
+        # visibility = np.zeros((len(env.agent_ids) - 1,))
+        # other_agent_ids = [pid for pid in env.agent_ids if pid != player_id]
         # for i, other_agent_id in enumerate(other_agent_ids):
-        #     numeric_id = gridworld.id_to_numeric(other_agent_id)
+        #     numeric_id = env.id_to_numeric(other_agent_id)
         #     visibility[i] = int(numeric_id in view)
         # return visibility
 
@@ -299,8 +297,8 @@ class Role(feature.Feature):
         )
         self.num_roles = num_roles
 
-    def generate(self, gridworld, player_id, **kwargs):
-        agent = gridworld.agents[player_id]
+    def generate(self, env, player_id, **kwargs):
+        agent = env.agents[player_id]
         role_encoding = np.zeros((self.num_roles,), dtype=np.uint8)
         role_encoding[agent.role_idx] = 1
         return role_encoding
@@ -323,8 +321,8 @@ class Inventory(feature.Feature):
             # space = MultiDiscrete([len(OBJECT_NAMES) for _ in range(inventory_capacity)])
             # super().__init__(low=0, high=len(OBJECT_NAMES), shape=space.shape, space=space, name="inventory", **kwargs)
 
-    def generate(self, gridworld, player_id, **kwargs):
-        agent = gridworld.agents[player_id]
+    def generate(self, env, player_id, **kwargs):
+        agent = env.agents[player_id]
         idxs = []
         for obj in agent.inventory:
             idxs.append(OBJECT_NAMES.index(obj.object_id) + 1)
@@ -350,8 +348,8 @@ class ActionMask(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
-        action_mask = gridworld.get_action_mask(player_id)
+    def generate(self, env, player_id, **kwargs):
+        action_mask = env.get_action_mask(player_id)
         return action_mask
 
 
@@ -365,8 +363,8 @@ class AgentID(feature.Feature):
             **kwargs
         )
 
-    def generate(self, gridworld, player_id, **kwargs):
+    def generate(self, env, player_id, **kwargs):
         agent_number = (
-            gridworld.agents[player_id].agent_number - 1
+            env.agents[player_id].agent_number - 1
         )  # subtract 1 so we start from 0
         return np.array([agent_number])

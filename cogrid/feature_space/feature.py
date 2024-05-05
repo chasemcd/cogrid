@@ -1,7 +1,6 @@
 import numpy as np
 from gymnasium import spaces
 
-from cogrid import cogrid_env
 from cogrid.core import typing
 
 
@@ -43,15 +42,12 @@ class Feature:
         self.name = name
 
     def generate(
-        self,
-        gridworld: cogrid_env.CoGridEnv,
-        player_id: typing.AgentID,
-        **kwargs
+        self, env: typing.EnvType, player_id: typing.AgentID, **kwargs
     ):
         """Generate the feature for the specified player in environment.
 
-        :param gridworld: The CoGridEnv instance to calculate the feature from (e.g., state S).
-        :type gridworld: cogrid_env.CoGridEnv
+        :param env: The CoGridEnv instance to calculate the feature from (e.g., state S).
+        :type env: cogrid_env.CoGridEnv
         :param player_id: The AgentID to calculate the feature for.
         :type player_id: typing.AgentID
         :raises NotImplementedError: Must be implemented by subclass.
