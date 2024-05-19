@@ -66,5 +66,5 @@ sr_config = {
 
 registry.register(
     "SearchRescue-Items-V0",
-    functools.partial(search_rescue.SearchRescue, config=sr_config),
+    functools.partial(search_rescue.SearchRescueEnv, config=sr_config),
 )

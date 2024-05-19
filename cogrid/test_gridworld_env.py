@@ -15,7 +15,7 @@ from cogrid.core.directions import Directions
 from cogrid.constants import FIXED_GRIDS
 from cogrid.constants import GridConstants
 from cogrid.core import grid_object
-from cogrid.envs.search_rescue import SearchRescue
+from cogrid.envs.search_rescue import search_rescue
 
 
 BASE_MAP = (
@@ -476,7 +476,7 @@ class TestMapEnv(unittest.TestCase):
             "max_steps": 1000,
         }
 
-        self.env = SearchRescue(env_config)
+        self.env = search_rescue.SearchRescueEnv(env_config)
         agent_id = self.env.agent_ids[0]
         self.change_agent_position(agent_id, (1, 1), Directions.Down)
 
