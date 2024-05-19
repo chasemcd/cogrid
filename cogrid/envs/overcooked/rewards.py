@@ -1,3 +1,5 @@
+import functools
+
 from cogrid.core import reward
 from cogrid.core import actions
 from cogrid.core.grid import Grid
@@ -8,13 +10,13 @@ from cogrid.core import typing
 class SoupDeliveryReward(reward.Reward):
     """Provide a reward for delivery an OnionSoup to a DeliveryZone."""
 
-    def __init__(self, agent_ids: list[str | int], **kwargs):
+    def __init__(
+        self, agent_ids: list[str | int], common_reward: bool = True, **kwargs
+    ):
         super().__init__(
-            name="delivery_reward",
-            agent_ids=agent_ids,
-            coefficient=1.0,
-            **kwargs
+            name="delivery_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs
         )
+        self.common_reward = common_reward
 
     def calculate_reward(
         self,
@@ -33,7 +35,9 @@ class SoupDeliveryReward(reward.Reward):
         """
         # Reward is shared among all agents, so calculate once
         # then distribute to all agents
-        calculated_reward = 0
+
+        common_reward = 0
+        individual_rewards = {agent_id: 0 for agent_id in self.agent_ids}
 
         for agent_id, action in agent_actions.items():
             # Check if agent is performing a PickupDrop action
@@ -58,12 +62,19 @@ class SoupDeliveryReward(reward.Reward):
 
             if agent_holding_soup and agent_facing_delivery:
                 calculated_reward += self.coefficient
+                individual_rewards[agent_id] += self.coefficient
 
-        rewards = {agent_id: calculated_reward for agent_id in self.agent_ids}
-        return rewards
+        if self.common_reward:
+            return {agent_id: common_reward for agent_id in self.agent_ids}
+
+        return individual_rewards
 
 
 reward.register_reward("delivery_reward", SoupDeliveryReward)
+reward.register_reward(
+    "delivery_reward_individual",
+    functools.partial(SoupDeliveryReward, common_reward=False),
+)
 
 
 class OnionInPotReward(reward.Reward):
@@ -71,10 +82,7 @@ class OnionInPotReward(reward.Reward):
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="onion_in_pot_reward",
-            agent_ids=agent_ids,
-            coefficient=0.1,
-            **kwargs
+            name="onion_in_pot_reward", agent_ids=agent_ids, coefficient=0.1, **kwargs
         )
 
     def calculate_reward(
@@ -83,7 +91,7 @@ class OnionInPotReward(reward.Reward):
         agent_actions: dict[int | str, int | float],
         new_state: Grid,
     ) -> dict[str | int, float]:
-        """Calcaute the reward for delivering a soup dish.
+        """Calcaute the reward putting an onion in the pot.
 
         :param state: The previous state of the grid.
         :type state: Grid
@@ -127,10 +135,7 @@ class SoupInDishReward(reward.Reward):
 
     def __init__(self, agent_ids: list[str | int], **kwargs):
         super().__init__(
-            name="soup_in_dish_reward",
-            agent_ids=agent_ids,
-            coefficient=0.3,
-            **kwargs
+            name="soup_in_dish_reward", agent_ids=agent_ids, coefficient=0.3, **kwargs
         )
 
     def calculate_reward(
@@ -168,9 +173,7 @@ class SoupInDishReward(reward.Reward):
             fwd_pos = agent.front_pos
             fwd_cell = state.get(*fwd_pos)
             agent_facing_pot = isinstance(fwd_cell, overcooked_grid_objects.Pot)
-            facing_pot_and_pot_is_ready = (
-                agent_facing_pot and fwd_cell.dish_ready
-            )
+            facing_pot_and_pot_is_ready = agent_facing_pot and fwd_cell.dish_ready
 
             if agent_holding_soup and facing_pot_and_pot_is_ready:
                 rewards[agent_id] = self.coefficient
