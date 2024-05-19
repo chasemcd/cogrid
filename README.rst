@@ -43,11 +43,7 @@ differentiating factors from Minigrid:
 
 CoGrid utilizes the PettingZoo API to standardize the multi-agent environment interface.
 
-.. raw:: html
 
-   <div style="display: flex; justify-content: center; margin-top: 20px;">
-      <img src="docs/_static/images/sr_example.gif" alt="Example GIF" style="width: 75%; display: block;">
-   </div>
 
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
 It is built on top of the Minigrid library, which is a minimalistic gridworld environment developed
@@ -66,6 +62,13 @@ differentiating factors from Minigrid:
    space, such as the location of other agents, an image of the environment, etc. 
 
 CoGrid utilizes the PettingZoo API to standardize the multi-agent environment interface.
+
+
+.. raw:: html
+
+   <div style="display: flex; justify-content: center; margin-top: 20px;">
+      <img src="docs/_static/images/sr_example.gif" alt="Example GIF" style="width: 75%; display: block;">
+   </div>
 
 Installation
 ------------
