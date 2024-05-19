@@ -42,7 +42,7 @@ overcooked_config = {
     "action_set": "cardinal_actions",
     "features": ["overcooked_features"],
     "rewards": ["soup_delivery_reward"],
-    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0-configuration"},
+    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0"},
     "max_steps": 1000,
 }
 

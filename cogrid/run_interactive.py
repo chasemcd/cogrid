@@ -70,7 +70,7 @@ def load_onnx_policy_fn(onnx_model_path: str) -> str:
     return onnx_model_path
 
 
-model = load_onnx_policy_fn("cramped_room_model.onnx")
+model = None  # load_onnx_policy_fn("path/to/model.onnx")
 
 
 ACTION_MESSAGE = ""
@@ -121,9 +121,9 @@ class HumanPlay:
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
                     continue
-                # actions[a_id] = self.env.action_spaces[a_id].sample()
-                if self.env.t % 5 == 0:
-                    actions[a_id] = onnx_model_inference_fn(obs, model)
+                actions[a_id] = self.env.action_spaces[a_id].sample()
+                # if self.env.t % 5 == 0:
+                #     actions[a_id] = onnx_model_inference_fn(obs, model)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -246,7 +246,8 @@ if __name__ == "__main__":
 
     def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
         return registry.make(
-            env_config["name"],
+            # env_config["name"],
+            "Overcooked-CrampedRoom-V0",
             config=env_config,
             highlight=False,
             render_mode=render_mode,
