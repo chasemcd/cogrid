@@ -2,7 +2,7 @@ CoGrid
 =======
 .. raw:: html
 
-   <div style="display: flex; justify-content: center;">
+   <div style="display: flex; justify-content: center; padding-left: 40%;">
       <a href="https://www.github.com/chasemcd/cogrid">
          <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 25%; display: block;">
       </a>
