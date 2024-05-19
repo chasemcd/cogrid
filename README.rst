@@ -5,7 +5,7 @@ CoGrid
 
    <div style="text-align: center;">
        <a href="https://www.github.com/chasemcd/cogrid">
-           <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 50%;">
+           <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 25%; display: block; margin: 0 auto;">
        </a>
    </div>
 
