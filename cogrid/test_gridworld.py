@@ -57,7 +57,7 @@
 #             "view_size": view_size,
 #             "num_agents": num_agents,
 #             "start_positions": start_positions,
-#             "obs": obs,
+#             "features": obs,
 #         }
 #         self.env = DummyMapEnv(dummy_config, map)
 #         self.env.reset()
@@ -71,7 +71,7 @@
 #     def add_agent_to_env(self, agent_id, start_position):
 #         self.env.agents[agent_id] = DummyAgent(agent_id, start_position, self.env.map_with_agents, self.env.config)
 #         self.env.feature_generators[agent_id] = [
-#             self.env._fetch_feature_generator(ob_name) for ob_name in self.env.config["obs"]
+#             self.env._fetch_feature_generator(ob_name) for ob_name in self.env.config["features"]
 #         ]
 #         self.env.observation_space[agent_id] = Dict(
 #             {feature.name: feature.space for feature in self.env.feature_generators[agent_id]}

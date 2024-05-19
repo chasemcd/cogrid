@@ -6,6 +6,7 @@ from scipy import special
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
+from cogrid.core import typing
 
 
 import numpy as np
@@ -73,9 +74,7 @@ model = load_onnx_policy_fn("cramped_room_model.onnx")
 
 
 ACTION_MESSAGE = ""
-HUMAN_AGENT_ID = (
-    None  # change this to "agent-{0, 1}" if you want to play, None for fully bots
-)
+HUMAN_AGENT_ID = 0
 
 ACTION_SET = "cardinal_actions"
 
@@ -104,7 +103,7 @@ class HumanPlay:
     def __init__(
         self,
         env: CoGridEnv,
-        human_agent_id: str | None = None,
+        human_agent_id: typing.AgentID = None,
         seed: int = None,
     ) -> None:
         self.env = env
@@ -141,7 +140,10 @@ class HumanPlay:
                         self.reset(self.seed)
                         return
 
-                    if self.human_agent_id and event.key in KEY_TO_ACTION.keys():
+                    if (
+                        self.human_agent_id is not None
+                        and event.key in KEY_TO_ACTION.keys()
+                    ):
                         actions[self.human_agent_id] = KEY_TO_ACTION[event.key]
                     else:
                         print(f"Invalid action: {event.key}")
@@ -191,7 +193,10 @@ if __name__ == "__main__":
         default=42,
     )
     parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
+        "--tile-size",
+        type=int,
+        help="size at which to render tiles",
+        default=32,
     )
     parser.add_argument(
         "--agent-pov",
@@ -217,12 +222,13 @@ if __name__ == "__main__":
         "name": "overcooked",
         "num_agents": 2,
         "action_set": ACTION_SET,
-        "obs": [
+        "features": [
             # see CoGridEnv.features for all available obs.
             # "full_map_ascii",
             # "agent_positions",
             "overcooked_features",
         ],
+        "rewards": ["delivery_reward"],
         "grid_gen_kwargs": {
             # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the
@@ -234,7 +240,6 @@ if __name__ == "__main__":
         # as expected. best to just see through
         # walls at this point, but I'll fix it.
         "see_through_walls": True,
-        "common_reward": True,
         # "agent_view_size": args.agent_view_size,  # if using FoV, set view size.
         "max_steps": 1000,
     }
@@ -249,7 +254,7 @@ if __name__ == "__main__":
             render_message=render_message,
         )
 
-    policy_mapping = {"agent-0": "random", "agent-1": "random"}
+    policy_mapping = {0: "random", 1: "random"}
 
     # NOTE: If you need to pass a config to your policy, specify it here and the
     # policy class will be initialized with it.

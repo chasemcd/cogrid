@@ -9,7 +9,7 @@ sa_overcooked_config = {
     "name": "overcooked",
     "num_agents": 1,
     "action_set": "cardinal_actions",
-    "obs": ["overcooked_features"],
+    "features": ["overcooked_features"],
     "grid_gen_kwargs": {"load": "sa_overcooked"},
     "max_steps": 1000,
 }
@@ -23,7 +23,7 @@ overcooked_config = {
     "name": "overcooked",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "obs": ["overcooked_features"],
+    "features": ["overcooked_features"],
     "grid_gen_kwargs": {"load": "overcooked-v0"},
     "max_steps": 1000,
     "common_reward": True,
@@ -40,10 +40,10 @@ overcooked_config = {
     "name": "overcooked",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "obs": ["overcooked_features"],
-    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0"},
+    "features": ["overcooked_features"],
+    "rewards": ["soup_delivery_reward"],
+    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0-configuration"},
     "max_steps": 1000,
-    "common_reward": True,
 }
 
 

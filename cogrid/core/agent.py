@@ -26,11 +26,10 @@ class Agent:
         self.dir: Directions = start_direction
         self.role: str = None
         self.role_idx: int = None
+        self.inventory_capacity: int = kwargs.get("inventory_capacity", 1)
 
         self.terminated: bool = False
 
-        self.reward: float = 0  # at each move, agents will update this value
-        self.step_penalty: float = 0
         self.collision: bool = (
             False  # Some envs keep track of if an agent crashed into another agent/object/etc.
         )
@@ -41,28 +40,6 @@ class Agent:
         self.cell_placed_on: GridObj | None = None
         self.cell_picked_up_from: GridObj | None = None
         self.cell_overlapped: GridObj | None = None
-
-    def compute_and_reset_step_reward(self):
-        if self.cell_toggled:
-            self.reward += self.cell_toggled.toggle_value
-
-        if self.cell_placed_on:
-            self.reward += self.cell_placed_on.placed_on_value
-
-        if self.cell_picked_up_from:
-            self.reward += self.cell_picked_up_from.picked_up_from_value
-
-        for cell in self.inventory:
-            self.reward += cell.inventory_value
-
-        if self.cell_overlapped:
-            self.reward += self.cell_overlapped.overlap_value
-
-        self.reward -= self.step_penalty
-
-        reward = self.reward
-        self.reward = 0
-        return reward
 
     def rotate_left(self):
         self.dir -= 1
@@ -93,7 +70,9 @@ class Agent:
             Directions.Down: np.array(
                 (1, 0)
             ),  # Down increases the row number (0 is top)
-            Directions.Left: np.array((0, -1)),  # Left decreases the col towards 0
+            Directions.Left: np.array(
+                (0, -1)
+            ),  # Left decreases the col towards 0
             Directions.Up: np.array(
                 (-1, 0)
             ),  # Up decreases the row to 0 (move towards the top)
@@ -121,17 +100,8 @@ class Agent:
         self.inventory.append(grid_object)
 
     @property
-    def inventory_capacity(self) -> int:
-        """
-        For each agent that can "hold" an item, you must specify the maximum number of items that can be held,
-        which will allow us to store a constant sized array with the current items held. This is only necessary
-        for using 'inventory' as an observation addition.
-        """
-        raise NotImplementedError
-
-    @property
     def agent_number(self) -> int:
         """Converts agent id to integer, beginning with 1,
         e.g., agent-0 -> 1, agent-1 -> 2, etc.
         """
-        return int(self.id[-1]) + 1
+        return int(self.id[-1]) + 1 if isinstance(self.id, str) else self.id + 1

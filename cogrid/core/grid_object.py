@@ -177,12 +177,18 @@ class GridObj:
 
     def render(self, tile_img):
         """By default, everything will be rendered as a square with the specified color."""
-        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), color=COLORS[self.color])
+        fill_coords(
+            tile_img, point_in_rect(0, 1, 0, 1), color=COLORS[self.color]
+        )
 
     @staticmethod
     def decode(char_or_idx: str | int, state: int):
 
-        if char_or_idx in [None, GridConstants.FreeSpace, GridConstants.Obscured]:
+        if char_or_idx in [
+            None,
+            GridConstants.FreeSpace,
+            GridConstants.Obscured,
+        ]:
             return None
 
         # check if the name was passed instead of the character
@@ -266,11 +272,16 @@ class GridAgent(GridObj):
 
         # TODO(chase): State must encapsulate carried objects and role
         # state = agent.role_idx
-        state = 0 if len(agent.inventory) == 0 else object_to_idx(agent.inventory[0])
+        state = (
+            0
+            if len(agent.inventory) == 0
+            else object_to_idx(agent.inventory[0])
+        )
 
         super().__init__(state=state)
         self.dir = agent.dir
         self.pos = agent.pos
+        self.front_pos = agent.front_pos
         self.agent_id = agent.id
         self.inventory: list[GridObj] = deepcopy(agent.inventory)
         assert self.pos is not None
@@ -291,11 +302,16 @@ class GridAgent(GridObj):
 
         # Rotate the triangle based on agent direction
         assert self.dir is not None
-        tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir)
+        tri_fn = rotate_fn(
+            tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir
+        )
         fill_coords(tile_img, tri_fn, COLORS[self.color])
 
         # add any item in the inventory to the corner
-        inv_tile_rows, inv_tile_cols = tile_img.shape[0] // 3, tile_img.shape[1] // 3
+        inv_tile_rows, inv_tile_cols = (
+            tile_img.shape[0] // 3,
+            tile_img.shape[1] // 3,
+        )
         assert (
             len(self.inventory) <= 3
         ), "We're rending inv items at 1/3 size, so can't do more than 3!"
@@ -317,7 +333,11 @@ class GridAgent(GridObj):
     @staticmethod
     def decode(char_or_idx: str | int, state: int):
 
-        if char_or_idx in [None, GridConstants.FreeSpace, GridConstants.Obscured]:
+        if char_or_idx in [
+            None,
+            GridConstants.FreeSpace,
+            GridConstants.Obscured,
+        ]:
             return None
 
         # check if the name was passed instead of the character
@@ -415,7 +435,9 @@ class Key(GridObj):
 
         # Ring
         fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), c)
-        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0))
+        fill_coords(
+            tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0)
+        )
 
 
 register_object(Key.object_id, Key)
@@ -472,23 +494,31 @@ class Door(GridObj):
 
         if self.state == 2:
             fill_coords(tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), c)
-            fill_coords(tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0))
+            fill_coords(
+                tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0)
+            )
             return
 
         # Door frame and door
         if self.state == 0:
             fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), c)
             fill_coords(
-                tile_img, point_in_rect(0.06, 0.94, 0.06, 0.94), 0.45 * np.array(c)
+                tile_img,
+                point_in_rect(0.06, 0.94, 0.06, 0.94),
+                0.45 * np.array(c),
             )
 
             # Draw key slot
             fill_coords(tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), c)
         else:
             fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), c)
-            fill_coords(tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0))
+            fill_coords(
+                tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0)
+            )
             fill_coords(tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), c)
-            fill_coords(tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0))
+            fill_coords(
+                tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0)
+            )
 
             # Draw door handle
             fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), c)

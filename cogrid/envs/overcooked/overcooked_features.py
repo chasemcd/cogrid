@@ -1,5 +1,6 @@
 import collections
 
+from cogrid.feature_space import feature
 from cogrid.feature_space import features
 from cogrid.feature_space import feature_space
 from cogrid.core import grid_utils
@@ -10,10 +11,19 @@ import numpy as np
 
 
 def euclidian_distance(pos_1: tuple[int, int], pos_2: tuple[int, int]) -> int:
+    """Calculate the euclidian distance between two points.
+
+    :param pos_1: The first point on the grid.
+    :type pos_1: tuple[int, int]
+    :param pos_2: The second point on the grid.
+    :type pos_2: tuple[int, int]
+    :return: The euclidian distance between the two points.
+    :rtype: int
+    """
     return np.sqrt((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2)
 
 
-class OvercookedCollectedFeatures(features.Feature):
+class OvercookedCollectedFeatures(feature.Feature):
     """
     A wrapper class to create all overcooked features as a single array.
 
@@ -71,15 +81,13 @@ class OvercookedCollectedFeatures(features.Feature):
             **kwargs,
         )
 
-    def generate(
-        self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs
-    ) -> np.ndarray:
-        player_encodings = [self.generate_player_encoding(gridworld, player_id)]
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs) -> np.ndarray:
+        player_encodings = [self.generate_player_encoding(env, player_id)]
 
-        for pid in gridworld.agent_ids:
+        for pid in env.agent_ids:
             if pid == player_id:
                 continue
-            player_encodings.append(self.generate_player_encoding(gridworld, pid))
+            player_encodings.append(self.generate_player_encoding(env, pid))
 
         encoding = np.hstack(player_encodings).astype(np.float32)
         assert np.array_equal(self.shape, encoding.shape)
@@ -99,15 +107,15 @@ class OvercookedCollectedFeatures(features.Feature):
 feature_space.register_feature("overcooked_features", OvercookedCollectedFeatures)
 
 
-class OvercookedInventory(features.Feature):
+class OvercookedInventory(feature.Feature):
     shape = (3,)
 
     def __init__(self, **kwargs):
         super().__init__(low=0, high=1, name="overcooked_inventory", **kwargs)
 
-    def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         encoding = np.zeros(self.shape, dtype=np.int32)
-        agent = gridworld.grid.grid_agents[player_id]
+        agent = env.grid.grid_agents[player_id]
 
         if not agent.inventory:
             return encoding
@@ -122,8 +130,8 @@ class OvercookedInventory(features.Feature):
         return encoding
 
 
-class NextToCounter(features.Feature):
-    """This feature represents a multi-hot encoding of whether or not there is a counter
+class NextToCounter(feature.Feature):
+    """A feature that represents a multi-hot encoding of whether or not there is a counter
     immediately in each of the four cardinal directions.
 
     For example, let '#' be the counter and '@' be the player. The following situation
@@ -141,12 +149,12 @@ class NextToCounter(features.Feature):
     def __init__(self, **kwargs):
         super().__init__(low=0, high=1, name="next_to_counter", **kwargs)
 
-    def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         encoding = np.zeros((4,), dtype=np.int32)
-        agent = gridworld.grid.grid_agents[player_id]
+        agent = env.grid.grid_agents[player_id]
 
         for i, (row, col) in enumerate(grid_utils.adjacent_positions(*agent.pos)):
-            adj_cell = gridworld.grid.get(row, col)
+            adj_cell = env.grid.get(row, col)
             if isinstance(adj_cell, grid_object.Counter):
                 encoding[i] = 1
 
@@ -154,7 +162,7 @@ class NextToCounter(features.Feature):
         return encoding
 
 
-class ClosestObj(features.Feature):
+class ClosestObj(feature.Feature):
     """
     This feature calculates (dy, dx) to the closest instance of a specified object.
 
@@ -176,8 +184,8 @@ class ClosestObj(features.Feature):
         )
         self.focal_object_type = focal_object_type
 
-    def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
-        agent = gridworld.grid.grid_agents[player_id]
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        agent = env.grid.grid_agents[player_id]
 
         # If the agent is holding the specified item, return (0, 0)
         if agent.inventory and any(
@@ -191,7 +199,7 @@ class ClosestObj(features.Feature):
         # collect the distances
         distances: list[tuple[int, int]] = []
         euc_distances: list[float] = []
-        for grid_obj in gridworld.grid.grid:
+        for grid_obj in env.grid.grid:
             if isinstance(grid_obj, self.focal_object_type):
                 distances.append(np.array(agent.pos) - np.array(grid_obj.pos))
                 euc_distances.append(euclidian_distance(agent.pos, grid_obj.pos))
@@ -208,10 +216,9 @@ class ClosestObj(features.Feature):
         return encoding
 
 
-class OrderedPotFeatures(features.Feature):
-    """
-    Encode features related to the pot. Note that this assumes the number of pots is fixed, otherwise
-    the feature size will vary and will cause errors. For each pot, calculate:
+class OrderedPotFeatures(feature.Feature):
+    """Encode features related to the pot. Note that this assumes the number of pots is fixed,
+    otherwise the feature size will vary and will cause errors. For each pot, calculate:
         - pot_j_reachable: {0, 1}  # TODO(chase): use BFS to calculate this, currently fixed at 1.
         - pot_j_status: onehot of {empty | full | is_cooking | is_ready}
         - pot_j_contents: integer of the number of onions in the pot
@@ -231,11 +238,11 @@ class OrderedPotFeatures(features.Feature):
             **kwargs,
         )
 
-    def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         pot_feature_dict = {}
-        agent = gridworld.grid.grid_agents[player_id]
+        agent = env.grid.grid_agents[player_id]
 
-        for grid_obj in gridworld.grid.grid:
+        for grid_obj in env.grid.grid:
             if not isinstance(grid_obj, overcooked_grid_objects.Pot):
                 continue
 
@@ -264,7 +271,8 @@ class OrderedPotFeatures(features.Feature):
 
             # Encode cooking time (size 1)
             pot_cooking_time = np.array(
-                (grid_obj.cooking_timer if grid_obj.is_cooking else -1,), dtype=np.int32
+                (grid_obj.cooking_timer if grid_obj.is_cooking else -1,),
+                dtype=np.int32,
             )
 
             # encode the distance from agent to pot (size 2)
@@ -302,7 +310,7 @@ class OrderedPotFeatures(features.Feature):
         return encoding
 
 
-class DistToOtherPlayers(features.Feature):
+class DistToOtherPlayers(feature.Feature):
     """Return an encoding of the distance to all other players, unsorted."""
 
     def __init__(self, num_other_players=1, **kwargs):
@@ -314,12 +322,12 @@ class DistToOtherPlayers(features.Feature):
             **kwargs,
         )
 
-    def generate(self, gridworld: cogrid_env.CoGridEnv, player_id, **kwargs):
-        encoding = np.zeros((2 * (len(gridworld.agent_ids) - 1),), dtype=np.int32)
-        agent = gridworld.grid.grid_agents[player_id]
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        encoding = np.zeros((2 * (len(env.agent_ids) - 1),), dtype=np.int32)
+        agent = env.grid.grid_agents[player_id]
 
         other_agent_nums = 0
-        for pid, other_agent in gridworld.grid.grid_agents.items():
+        for pid, other_agent in env.grid.grid_agents.items():
             if pid == player_id:
                 continue
 

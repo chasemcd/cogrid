@@ -1,18 +1,24 @@
 from cogrid.core.agent import Agent
 from cogrid.core.grid_object import GridObj
+from cogrid.envs.overcooked import overcooked_grid_objects
 
 
-class CookingAgent(Agent):
-    def __init__(self, agent_id, start_position, start_direction, **kwargs):
-        super().__init__(agent_id, start_position, start_direction, **kwargs)
-
-    @property
-    def inventory_capacity(self) -> int:
-        return 1
-
+class OvercookedAgent(Agent):
     def can_pickup(self, grid_object: GridObj) -> bool:
-        if grid_object.__class__.object_id == "pot" and any(
-            [inv_obj.__class__.object_id == "plate" for inv_obj in self.inventory]
+        """Determine if the agent can pickup a specified grid object.
+        The Overcooked agent can pick up objects until it reaches capacity,
+
+
+        :param grid_object: The grid object to check if the agent can pick up.
+        :type grid_object: GridObj
+        :return: True if the agent can pick up the object, False otherwise.
+        :rtype: bool
+        """
+        if isinstance(grid_object, overcooked_grid_objects.Pot) and any(
+            [
+                isinstance(inv_obj, overcooked_grid_objects.Plate)
+                for inv_obj in self.inventory
+            ]
         ):
             return True
 
