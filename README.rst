@@ -1,26 +1,13 @@
 CoGrid
 =======
 
-.. .. raw:: html
-
-..    <div style="text-align: center;">
-..        <a href="https://www.github.com/chasemcd/cogrid">
-..            <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 25%; display: block; margin: 0 auto;">
-..        </a>
-..    </div>
-
 .. raw:: html
 
-   <table style="width:100%; border:0;">
-       <tr>
-           <td style="text-align: center;">
-               <a href="https://www.github.com/chasemcd/cogrid">
-                   <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 50%;">
-               </a>
-           </td>
-       </tr>
-   </table>
-
+   <div style="text-align: center;">
+       <a href="https://www.github.com/chasemcd/cogrid">
+           <img src="docs/_static/images/cogrid_logo_nobg.png" alt="CoGrid Logo" style="width: 25%; display: block; margin: 0 auto;">
+       </a>
+   </div>
 
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
 It is built on top of the Minigrid library, which is a minimalistic gridworld environment developed
@@ -43,11 +30,6 @@ CoGrid utilizes the PettingZoo API to standardize the multi-agent environment in
 
 Installation
 ------------
-.. To install CoGrid, you can use the PyPi distribution:
-
-   ..  .. code-block:: bash
-
-   ..      pip install cogrid
 
 Install directly from the master branch (``pip install cogrid`` coming soon!):
 
