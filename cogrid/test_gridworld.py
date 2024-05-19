@@ -40,7 +40,7 @@
 #                 env=map_with_agents,
 #                 config=self.config,
 #             )
-#             self.agents[agent_id] = agent
+#             self.env_agents[agent_id] = agent
 #
 #     def grid_fn(self, **kwargs):
 #         return self.test_grid_data
@@ -63,13 +63,13 @@
 #         self.env.reset()
 #
 #     def change_agent_position(self, agent_id, new_pos):
-#         agent = self.env.agents[agent_id]
+#         agent = self.env.env_agents[agent_id]
 #         self.env.remove_agents_from_color_map()
 #         agent.pos = new_pos
 #         self.env.add_agents_to_color_map()
 #
 #     def add_agent_to_env(self, agent_id, start_position):
-#         self.env.agents[agent_id] = DummyAgent(agent_id, start_position, self.env.map_with_agents, self.env.config)
+#         self.env.env_agents[agent_id] = DummyAgent(agent_id, start_position, self.env.map_with_agents, self.env.config)
 #         self.env.feature_generators[agent_id] = [
 #             self.env._fetch_feature_generator(ob_name) for ob_name in self.env.config["features"]
 #         ]
@@ -203,31 +203,31 @@
 #         )
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["NOOP"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, [2, 2])
 #         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 #         np.testing.assert_array_equal(self.env.ascii_map[pad + 2, pad + 2], "1")
 #         np.testing.assert_array_equal(self.env.world_map_color[:, pad + 2, pad + 2], DEFAULT_COLORS["1"])
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["LEFT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 1])
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, [2, 1])
 #         np.testing.assert_array_equal(self.env.map_with_agents[2, 1], "1")
 #         np.testing.assert_array_equal(self.env.ascii_map[pad + 2, pad + 1], "1")
 #         np.testing.assert_array_equal(self.env.world_map_color[:, pad + 2, pad + 1], DEFAULT_COLORS["1"])
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["RIGHT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, [2, 2])
 #         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 #         np.testing.assert_array_equal(self.env.ascii_map[pad + 2, pad + 2], "1")
 #         np.testing.assert_array_equal(self.env.world_map_color[:, pad + 2, pad + 2], DEFAULT_COLORS["1"])
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["UP"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, [1, 2])
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, [1, 2])
 #         np.testing.assert_array_equal(self.env.map_with_agents[1, 2], "1")
 #         np.testing.assert_array_equal(self.env.ascii_map[pad + 1, pad + 2], "1")
 #         np.testing.assert_array_equal(self.env.world_map_color[:, pad + 1, pad + 2], DEFAULT_COLORS["1"])
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["DOWN"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, [2, 2])
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, [2, 2])
 #         np.testing.assert_array_equal(self.env.map_with_agents[2, 2], "1")
 #         np.testing.assert_array_equal(self.env.ascii_map[pad + 2, pad + 2], "1")
 #         np.testing.assert_array_equal(self.env.world_map_color[:, pad + 2, pad + 2], DEFAULT_COLORS["1"])
@@ -236,35 +236,35 @@
 #         # we check that this works correctly for both corner and non-corner edges
 #         self.change_agent_position(a_id, (1, 1))
 #         self.env.step({a_id: BASE_ACTION_MAP["UP"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (1, 1))
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["LEFT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 1))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (1, 1))
 #
 #         self.change_agent_position(a_id, (4, 4))
 #         self.env.step({a_id: BASE_ACTION_MAP["RIGHT"]})
 #         self.env.step({a_id: BASE_ACTION_MAP["DOWN"]})
 #         self.env.step({a_id: BASE_ACTION_MAP["RIGHT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (5, 5))
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["DOWN"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 5))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (5, 5))
 #
 #         self.env.step({a_id: BASE_ACTION_MAP["LEFT"]})
 #         self.env.step({a_id: BASE_ACTION_MAP["DOWN"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (5, 4))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (5, 4))
 #
 #         self.change_agent_position(a_id, (4, 5))
 #         self.env.step({a_id: BASE_ACTION_MAP["RIGHT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (4, 5))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (4, 5))
 #
 #         self.change_agent_position(a_id, (2, 1))
 #         self.env.step({a_id: BASE_ACTION_MAP["LEFT"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (2, 1))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (2, 1))
 #
 #         self.change_agent_position(a_id, (1, 2))
 #         self.env.step({a_id: BASE_ACTION_MAP["UP"]})
-#         np.testing.assert_array_equal(self.env.agents[a_id].pos, (1, 2))
+#         np.testing.assert_array_equal(self.env.env_agents[a_id].pos, (1, 2))
 #
 #     def test_agent_conflict(self):
 #         self._construct_map(BASE_MAP_2.copy(), 2, [(1, 2), (4, 4)])
@@ -274,13 +274,13 @@
 #         self.change_agent_position("agent-1", (3, 4))
 #         self.env.step({"agent-0": BASE_ACTION_MAP["RIGHT"]})
 #         self.env.step({"agent-1": BASE_ACTION_MAP["LEFT"]})
-#         np.testing.assert_array_equal(self.env.agents["agent-0"].pos, (3, 3))
-#         np.testing.assert_array_equal(self.env.agents["agent-1"].pos, (3, 4))
+#         np.testing.assert_array_equal(self.env.env_agents["agent-0"].pos, (3, 3))
+#         np.testing.assert_array_equal(self.env.env_agents["agent-1"].pos, (3, 4))
 #
 #         # test that agents can't walk through each other if they move simultaneously
 #         self.env.step({"agent-0": BASE_ACTION_MAP["RIGHT"], "agent-1": BASE_ACTION_MAP["LEFT"]})
-#         np.testing.assert_array_equal(self.env.agents["agent-0"].pos, (3, 3))
-#         np.testing.assert_array_equal(self.env.agents["agent-1"].pos, (3, 4))
+#         np.testing.assert_array_equal(self.env.env_agents["agent-0"].pos, (3, 3))
+#         np.testing.assert_array_equal(self.env.env_agents["agent-1"].pos, (3, 4))
 #         # also check that the map looks correct, no agent has disappeared
 #         expected_map = ascii_to_numpy(["######", "#    #", "#    #", "#  12#", "#    #", "######"])
 #

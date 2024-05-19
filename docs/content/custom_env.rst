@@ -160,7 +160,7 @@ attribute for all agents. The `super()` call will determine if we're truncating 
             )
 
             if all_targets_reached:
-                for agent in self.agents.values():
+                for agent in self.env_agents.values():
                     agent.terminated = True
 
             return super().get_terminateds_truncateds()
@@ -318,5 +318,5 @@ Finally, to use the environment, we can call it as follows:
     while not terminateds["__all__"] and not truncateds["__all__"]:
         # Take a step in the environment
         obs, reward, terminateds, truncateds, infos = env.step(
-            {agent_id: env.action_space.sample() for agent_id in env.agents}
+            {agent_id: env.action_space.sample() for agent_id in env.env_agents}
         )

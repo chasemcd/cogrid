@@ -58,9 +58,7 @@ class StackedFullMapResizedGrayscale(feature.Feature):
 
         assert img_rgb.shape[-1] == 3
 
-        img_resized = cv2.resize(
-            img_rgb, (84, 84), interpolation=cv2.INTER_AREA
-        )
+        img_resized = cv2.resize(img_rgb, (84, 84), interpolation=cv2.INTER_AREA)
         img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
         img_grayscale = np.expand_dims(img_grayscale, -1)
         self.frames.append(img_grayscale / 255.0)
@@ -82,9 +80,7 @@ class FullMapResizedGrayscale(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         img_rgb = env.get_full_render(highlight=False)
-        img_resized = cv2.resize(
-            img_rgb, (84, 84), interpolation=cv2.INTER_AREA
-        )
+        img_resized = cv2.resize(img_rgb, (84, 84), interpolation=cv2.INTER_AREA)
         img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
         img_grayscale = np.expand_dims(img_grayscale, -1)
 
@@ -112,11 +108,7 @@ class FullMapEncoding(feature.Feature):
     def __init__(self, map_size, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
         super().__init__(
-            low=0,
-            high=np.inf,
-            shape=(*map_size, 3),
-            name="full_map_encoding",
-            **kwargs
+            low=0, high=np.inf, shape=(*map_size, 3), name="full_map_encoding", **kwargs
         )
 
     def generate(self, env, player_id, **kwargs):
@@ -185,7 +177,7 @@ class AgentPosition(feature.Feature):
         )
 
     def generate(self, env, player_id, **kwargs):
-        return np.asarray(env.agents[player_id].pos, dtype=np.int32)
+        return np.asarray(env.env_agents[player_id].pos, dtype=np.int32)
 
 
 class AgentPositions(feature.Feature):
@@ -205,19 +197,15 @@ class AgentPositions(feature.Feature):
     def generate(self, env, player_id, **kwargs):
         channel_dim = 1 if not self.rgb else 3
         grid = np.full((*env.map_with_agents.shape, channel_dim), fill_value=0)
-        for a_id, agent in env.agents.items():
-            if (
-                agent is not None
-            ):  # will be None before being set by subclassed env
+        for a_id, agent in env.env_agents.items():
+            if agent is not None:  # will be None before being set by subclassed env
                 assert not self.rgb, "RGB not implemented for new grid."
                 # if self.rgb:
                 #     grid[:, agent.pos[0], agent.pos[1]] = (
                 #         np.array(constants.DEFAULT_COLORS[str(env.id_to_numeric(a_id))]) / 255.0
                 #     )
                 # else:
-                grid[:, agent.pos[0], agent.pos[1]] = int(
-                    env.id_to_numeric(a_id)
-                )
+                grid[:, agent.pos[0], agent.pos[1]] = int(env.id_to_numeric(a_id))
 
         return grid
 
@@ -230,7 +218,7 @@ class AgentDir(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         encoding = np.zeros(self.shape, dtype=np.int32)
-        encoding[env.agents[player_id].dir] = 1
+        encoding[env.env_agents[player_id].dir] = 1
         return encoding
 
 
@@ -248,9 +236,7 @@ class OtherAgentActions(feature.Feature):
         return (
             np.array(
                 [
-                    self.one_hot_encode_actions(
-                        env.prev_actions[a_id], self.high
-                    )
+                    self.one_hot_encode_actions(env.prev_actions[a_id], self.high)
                     for a_id in env.agent_ids
                     if a_id is not player_id
                 ]
@@ -280,7 +266,7 @@ class OtherAgentVisibility(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         raise NotImplementedError
-        # agent = env.agents[player_id]
+        # agent = env.env_agents[player_id]
         # view = ascii_view(env.ascii_map, agent.pos, self.view_len)
         # visibility = np.zeros((len(env.agent_ids) - 1,))
         # other_agent_ids = [pid for pid in env.agent_ids if pid != player_id]
@@ -298,7 +284,7 @@ class Role(feature.Feature):
         self.num_roles = num_roles
 
     def generate(self, env, player_id, **kwargs):
-        agent = env.agents[player_id]
+        agent = env.env_agents[player_id]
         role_encoding = np.zeros((self.num_roles,), dtype=np.uint8)
         role_encoding[agent.role_idx] = 1
         return role_encoding
@@ -322,7 +308,7 @@ class Inventory(feature.Feature):
             # super().__init__(low=0, high=len(OBJECT_NAMES), shape=space.shape, space=space, name="inventory", **kwargs)
 
     def generate(self, env, player_id, **kwargs):
-        agent = env.agents[player_id]
+        agent = env.env_agents[player_id]
         idxs = []
         for obj in agent.inventory:
             idxs.append(OBJECT_NAMES.index(obj.object_id) + 1)
@@ -356,15 +342,11 @@ class ActionMask(feature.Feature):
 class AgentID(feature.Feature):
     def __init__(self, env, **kwargs):
         super().__init__(
-            low=0,
-            high=len(env.agent_ids) - 1,
-            shape=(1,),
-            name="agent_id",
-            **kwargs
+            low=0, high=len(env.agent_ids) - 1, shape=(1,), name="agent_id", **kwargs
         )
 
     def generate(self, env, player_id, **kwargs):
         agent_number = (
-            env.agents[player_id].agent_number - 1
+            env.env_agents[player_id].agent_number - 1
         )  # subtract 1 so we start from 0
         return np.array([agent_number])

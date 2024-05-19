@@ -100,7 +100,7 @@ class SearchRescueEnv(CoGridEnv):
         )
 
         if all_targets_reached:
-            for agent in self.agents.values():
+            for agent in self.env_agents.values():
                 agent.terminated = True
 
         return super().get_terminateds_truncateds()
