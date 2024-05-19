@@ -18,7 +18,7 @@ class GridConstants:
     Spawn = "S"
     Key = "K"
     Rubble = "X"
-    Pickaxe = "P"
+    Pickaxe = "*"
     MedKit = "M"
     GreenVictim = "G"
     YellowVictim = "Y"
@@ -171,7 +171,7 @@ FIXED_GRIDS = {
             "#        #",
             "#       G#",
             "#        #",
-            "#P     K #",
+            "#*     K #",
             "#XX M ##D#",
             "#GX Y #GG#",
             "##########",

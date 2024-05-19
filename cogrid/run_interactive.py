@@ -150,19 +150,18 @@ class HumanPlay:
 
             self.step(actions)
 
-    def step(self, actions: dict[str:Actions]):
+    def step(self, actions: dict[str, Actions]):
         self.obs, rewards, terminateds, truncateds, _ = self.env.step(actions)
         self.cumulative_reward += [*rewards.values()][0]
         # print(
         #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
         # )
 
-        if len(self.env.agents == 0):
+        if not self.env.agents:
             print("All agents done!")
             REWARDS.append(self.cumulative_reward)
             if len(REWARDS) == 50:
                 print(REWARDS)
-            self.reset(self.seed)
 
         else:
             self.env.render()
@@ -244,8 +243,8 @@ if __name__ == "__main__":
     def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
         return registry.make(
             # env_config["name"],
-            "Overcooked-CrampedRoom-V0",
-            config=env_config,
+            "SearchRescue-Items-V0",
+            # config=env_config,
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,

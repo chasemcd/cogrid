@@ -140,7 +140,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # looks like so that they can be properly initialized.
         self.feature_spaces = {
             a_id: feature_space.FeatureSpace(
-                feature_names=config["features"], env=self, agent_id=a_id
+                feature_names=config.get("features", []), env=self, agent_id=a_id
             )
             for a_id in self.agent_ids
         }
@@ -975,10 +975,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self.tile_size,
             self.metadata.get("agent_pov", None),
         )
+
         if self.render_mode == "human":
             # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
-            # if img.shape[0] == 3:  # move the channels last
-            #     img = np.moveaxis(img, 0, -1)
             if self.render_size is None:
                 self.render_size = img.shape[:2]
             if self.window is None:

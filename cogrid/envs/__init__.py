@@ -58,7 +58,7 @@ sr_config = {
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "obs": ["agent_positions"],
-    "grid_gen_kwargs": {"load": "item_map"},
+    "grid_gen_kwargs": {"load": "small_test_map"},
     "max_steps": 1000,
     "common_reward": True,
 }
