@@ -4,7 +4,7 @@ CoGrid
 .. image:: docs/_static/images/cogrid_logo_nobg.png
    :alt: CoGrid Logo
    :align: center
-   :scale: 50%
+   :scale: 10%
    :target: https://www.github.com/chasemcd/cogrid
 
 
