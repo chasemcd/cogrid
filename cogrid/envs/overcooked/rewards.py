@@ -109,19 +109,24 @@ class OnionInPotReward(reward.Reward):
 
             # Check if an agent is holding an Onion
             agent = state.grid_agents[agent_id]
-            agent_holding_soup = any(
+            agent_holding_onion = any(
                 [
                     isinstance(obj, overcooked_grid_objects.Onion)
                     for obj in agent.inventory
                 ]
             )
+            if not agent_holding_onion:
+                continue
 
             # Check if the agent is facing a Pot
             fwd_pos = agent.front_pos
             fwd_cell = state.get(*fwd_pos)
             agent_facing_pot = isinstance(fwd_cell, overcooked_grid_objects.Pot)
+            pot_has_capacity = agent_facing_pot and fwd_cell.can_place_on(
+                agent=agent, cell=agent.inventory[0]
+            )
 
-            if agent_holding_soup and agent_facing_pot:
+            if agent_holding_onion and agent_facing_pot and pot_has_capacity:
                 rewards[agent_id] = self.coefficient
 
         return rewards
