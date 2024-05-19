@@ -9,6 +9,16 @@ CoGrid
        </a>
    </div>
 
+
+.. image:: docs/_static/images/cogrid_logo_nobg.png
+   :alt: CoGrid Logo
+   :align: center
+   :margin-left: auto;
+   :margin-right: auto;
+   :scale: 50%
+   :target: https://www.github.com/chasemcd/cogrid
+   :class: center-image
+
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
 It is built on top of the Minigrid library, which is a minimalistic gridworld environment developed
 originally by Chevalier-Boisvert et al. (2023) (https://arxiv.org/abs/2306.13831). CoGrid has several
