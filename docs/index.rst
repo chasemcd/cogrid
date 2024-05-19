@@ -1,4 +1,4 @@
-CoGrid
+Welcome!
 ===============================================
 .. image:: https://img.shields.io/github/stars/chasemcd/cogrid
    :target: https://github.com/chasemcd/cogrid

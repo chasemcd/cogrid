@@ -100,7 +100,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.agent_view_size = self.config.get("agent_view_size", 7)
 
-        self.agents = {i for i in range(config["num_agents"])}
+        self.possible_agents = [i for i in range(config["num_agents"])]
+        self.agents = copy.copy(self.possible_agents)
         self._agent_ids: set[typing.AgentID] = set(self.agents)
         self.env_agents: dict[typing.AgentID, agent.Agent] = {
             i: None for i in self.agents
@@ -231,6 +232,26 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return self._np_random
 
+    def observation_space(self, agent: typing.AgentID) -> spaces.Space:
+        """Takes in agent and returns the observation space for that agent.
+
+        :param agent: The agent ID.
+        :type agent: typing.AgentID
+        :return: The observation space for the agent.
+        :rtype: spaces.Space
+        """
+        return self.observation_spaces[agent]
+
+    def action_space(self, agent: typing.AgentID) -> spaces.Space:
+        """Takes in agent and returns the action space for that agent.
+
+        :param agent: The agent ID.
+        :type agent: typing.AgentID
+        :return: The action space for the agent.
+        :rtype: spaces.Space
+        """
+        return self.action_spaces[agent]
+
     def reset(
         self,
         *,
@@ -248,6 +269,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         if seed is not None:
             self._np_random, _ = self._set_np_random(seed=seed)
+
+        self.agents = copy.copy(self.possible_agents)
 
         self._gen_grid()
 
@@ -273,7 +296,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.per_agent_reward = self.get_empty_reward_dict()
         self.per_component_reward = {}
 
-        return obs, {}
+        return obs, {agent_id: {} for agent_id in self.agent_ids}
 
     def _action_idx_to_str(
         self, actions: dict[typing.AgentID, int | str]
@@ -646,14 +669,21 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         terminateds = {
             agent_id: agent.terminated for agent_id, agent in self.env_agents.items()
         }
-        terminateds["__all__"] = all([*terminateds.values()])
+        # terminateds["__all__"] = all([*terminateds.values()])
 
         if self.t >= self.max_steps:
             truncateds = {agent_id: True for agent_id in self.agent_ids}
         else:
             truncateds = {agent_id: False for agent_id in self.agent_ids}
 
-        truncateds["__all__"] = all([*truncateds.values()])
+        # truncateds["__all__"] = all([*truncateds.values()])
+
+        # Update active agents
+        self.agents = [
+            agent_id
+            for agent_id in self.possible_agents
+            if not terminateds[agent_id] and not truncateds[agent_id]
+        ]
 
         return terminateds, truncateds
 

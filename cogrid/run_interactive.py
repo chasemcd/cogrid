@@ -157,11 +157,8 @@ class HumanPlay:
         #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
         # )
 
-        if terminateds["__all__"]:
-            print("Terminated!")
-            self.reset(self.seed)
-        elif truncateds["__all__"]:
-            print("Truncated!")
+        if len(self.env.agents == 0):
+            print("All agents done!")
             REWARDS.append(self.cumulative_reward)
             if len(REWARDS) == 50:
                 print(REWARDS)
@@ -228,7 +225,7 @@ if __name__ == "__main__":
             # "agent_positions",
             "overcooked_features",
         ],
-        "rewards": ["delivery_reward"],
+        "rewards": ["delivery_reward", "onion_in_pot_reward"],
         "grid_gen_kwargs": {
             # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
             # otherwise, they can be programatically generated (no items, just the

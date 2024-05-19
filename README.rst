@@ -1,3 +1,13 @@
+CoGrid
+=======
+
+.. image:: _static/images/cogrid_logo_nobg.png
+   :alt: CoGrid Logo
+   :align: center
+   :scale: 50%
+   :target: https://www.github.com/chasemcd/cogrid
+
+
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
 It is built on top of the Minigrid library, which is a minimalistic gridworld environment developed
 originally by Chevalier-Boisvert et al. (2023) (https://arxiv.org/abs/2306.13831). CoGrid has several
@@ -19,14 +29,28 @@ CoGrid utilizes the PettingZoo API to standardize the multi-agent environment in
 
 Installation
 ------------
-To install CoGrid, you can use the PyPi distribution:
+.. To install CoGrid, you can use the PyPi distribution:
 
-    .. code-block:: bash
+   ..  .. code-block:: bash
 
-        pip install cogrid
+   ..      pip install cogrid
 
-Or directly from the master branch:
+Install directly from the master branch (``pip install cogrid`` coming soon!):
 
     .. code-block:: bash
 
         pip install git+https://www.github.com/chasemcd/cogrid.git
+
+
+Citation
+---------
+
+If you use CoGrid in your research, please cite the following paper:
+
+    .. code-block:: bash
+
+        @article{mcdonald2024cogrid,
+         author  = {McDonald, Chase and Gonzalez, Cleotilde},
+         title   = {CoGrid and Interactive Gym: A Framework for Multi-Agent Experimentation},
+         year    = {forthcoming},
+         }
