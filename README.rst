@@ -4,8 +4,9 @@ CoGrid
 .. image:: docs/_static/images/cogrid_logo_nobg.png
    :alt: CoGrid Logo
    :align: center
-   :scale: 10%
+   :scale: 50%
    :target: https://www.github.com/chasemcd/cogrid
+   :class: center-image
 
 
 CoGrid is a library that extends Minigrid to support multi-agent environments. 
