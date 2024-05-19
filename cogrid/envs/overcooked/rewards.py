@@ -61,7 +61,7 @@ class SoupDeliveryReward(reward.Reward):
             )
 
             if agent_holding_soup and agent_facing_delivery:
-                calculated_reward += self.coefficient
+                common_reward += self.coefficient
                 individual_rewards[agent_id] += self.coefficient
 
         if self.common_reward:
