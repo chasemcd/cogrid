@@ -1,7 +1,7 @@
 CoGrid
 =======
 
-.. image:: _static/images/cogrid_logo_nobg.png
+.. image:: docs/_static/images/cogrid_logo_nobg.png
    :alt: CoGrid Logo
    :align: center
    :scale: 50%
