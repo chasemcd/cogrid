@@ -11,10 +11,17 @@ class SoupDeliveryReward(reward.Reward):
     """Provide a reward for delivery an OnionSoup to a DeliveryZone."""
 
     def __init__(
-        self, agent_ids: list[str | int], common_reward: bool = True, **kwargs
+        self,
+        agent_ids: list[str | int],
+        common_reward: bool = True,
+        coefficient=1.0,
+        **kwargs
     ):
         super().__init__(
-            name="delivery_reward", agent_ids=agent_ids, coefficient=1.0, **kwargs
+            name="delivery_reward",
+            agent_ids=agent_ids,
+            coefficient=coefficient,
+            **kwargs
         )
         self.common_reward = common_reward
 
@@ -80,9 +87,14 @@ reward.register_reward(
 class OnionInPotReward(reward.Reward):
     """Provide a reward for putting an onion in the pot. This is for reward shaping."""
 
-    def __init__(self, agent_ids: list[str | int], **kwargs):
+    def __init__(
+        self, agent_ids: list[str | int], coefficient: float = 0.1, **kwargs
+    ):
         super().__init__(
-            name="onion_in_pot_reward", agent_ids=agent_ids, coefficient=0.1, **kwargs
+            name="onion_in_pot_reward",
+            agent_ids=agent_ids,
+            coefficient=coefficient,
+            **kwargs
         )
 
     def calculate_reward(
@@ -138,9 +150,14 @@ reward.register_reward("onion_in_pot_reward", OnionInPotReward)
 class SoupInDishReward(reward.Reward):
     """Provide a reward for putting the soup into a dish."""
 
-    def __init__(self, agent_ids: list[str | int], **kwargs):
+    def __init__(
+        self, agent_ids: list[str | int], coefficient: float = 0.3, **kwargs
+    ):
         super().__init__(
-            name="soup_in_dish_reward", agent_ids=agent_ids, coefficient=0.3, **kwargs
+            name="soup_in_dish_reward",
+            agent_ids=agent_ids,
+            coefficient=coefficient,
+            **kwargs
         )
 
     def calculate_reward(
@@ -178,7 +195,9 @@ class SoupInDishReward(reward.Reward):
             fwd_pos = agent.front_pos
             fwd_cell = state.get(*fwd_pos)
             agent_facing_pot = isinstance(fwd_cell, overcooked_grid_objects.Pot)
-            facing_pot_and_pot_is_ready = agent_facing_pot and fwd_cell.dish_ready
+            facing_pot_and_pot_is_ready = (
+                agent_facing_pot and fwd_cell.dish_ready
+            )
 
             if agent_holding_soup and facing_pot_and_pot_is_ready:
                 rewards[agent_id] = self.coefficient
