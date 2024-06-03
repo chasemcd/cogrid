@@ -78,7 +78,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             kwargs.get("render_message") or self.metadata["render_message"]
         )
         self.tile_size = CoreConstants.TilePixels
-        self.screen_size = kwargs.get("screen_size") or self.metadata["screen_size"]
+        self.screen_size = (
+            kwargs.get("screen_size") or self.metadata["screen_size"]
+        )
         self.window = None
         self.name = config["name"]
         self.cumulative_score = 0
@@ -129,23 +131,42 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         elif action_str == "cardinal_actions":
             self.action_set = grid_actions.ActionSets.CardinalActions
         else:
-            raise ValueError(f"Invalid or None action set string: {action_str}.")
+            raise ValueError(
+                f"Invalid or None action set string: {action_str}."
+            )
 
         # Set the action space for the gym environment
         self.action_spaces = {
-            a_id: spaces.Discrete(len(self.action_set)) for a_id in self.agent_ids
+            a_id: spaces.Discrete(len(self.action_set))
+            for a_id in self.agent_ids
         }
 
         # Establish the observation space. This provides the general form of what an agent's observation
         # looks like so that they can be properly initialized.
+        features = config.get("features", [])
+        if isinstance(features, list):
+            features = {agent_id: features for agent_id in self.agent_ids}
+        elif isinstance(features, str):
+            features = {agent_id: [features] for agent_id in self.agent_ids}
+        else:
+            assert isinstance(features, dict) and set(features.keys()) == set(
+                self.agent_ids
+            ), (
+                "Must pass a feature dictionary keyed by agent IDs, "
+                "a list of features (universal for all agents), or the name "
+                "of a single feature."
+            )
+
         self.feature_spaces = {
             a_id: feature_space.FeatureSpace(
-                feature_names=config.get("features", []), env=self, agent_id=a_id
+                feature_names=features[a_id], env=self, agent_id=a_id
             )
             for a_id in self.agent_ids
         }
+
         self.observation_spaces = {
-            a_id: self.feature_spaces[a_id].observation_space for a_id in self.agent_ids
+            a_id: self.feature_spaces[a_id].observation_space
+            for a_id in self.agent_ids
         }
 
         self.prev_actions = None
@@ -174,7 +195,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :return: A tuple containing the encoded grid and state arrays.
         :rtype: tuple[np.ndarray, np.ndarray]
         """
-        if self.load is not None:  # load a specific grid instead of generating one
+        if (
+            self.load is not None
+        ):  # load a specific grid instead of generating one
             if isinstance(self.load, str):
                 return constants.FIXED_GRIDS[self.load]
             else:
@@ -279,7 +302,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.setup_agents()
 
         # Initialize previous actions as no-op
-        self.prev_actions = {a_id: grid_actions.Actions.Noop for a_id in self.agent_ids}
+        self.prev_actions = {
+            a_id: grid_actions.Actions.Noop for a_id in self.agent_ids
+        }
 
         self.t = 0
 
@@ -310,7 +335,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :rtype: dict[str, str]
         """
         str_actions = {
-            a_id: (self.action_set[action] if not isinstance(action, str) else action)
+            a_id: (
+                self.action_set[action]
+                if not isinstance(action, str)
+                else action
+            )
             for a_id, action in actions.items()
         }
 
@@ -398,7 +427,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             )
             self.env_agents[agent_id] = agent
 
-    def move_agents(self, actions: dict[typing.AgentID, typing.ActionType]) -> None:
+    def move_agents(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
         """Move agents to new positions based on the actions they take.
 
         :param actions: A dictionary of agent IDs and the actions they are taking.
@@ -413,7 +444,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # All agents that are taking an action will be moved to a new position
         agents_to_move = [
-            a_id for a_id in actions.keys() if not self.env_agents[a_id].terminated
+            a_id
+            for a_id in actions.keys()
+            if not self.env_agents[a_id].terminated
         ]
 
         # If we're using cardinal actions, change the agent direction if they aren't
@@ -437,7 +470,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Determine the position each agent is attempting to move to
         attempted_positions = {}
         for a_id, action in actions.items():
-            attempted_positions[a_id] = self.determine_attempted_pos(a_id, action)
+            attempted_positions[a_id] = self.determine_attempted_pos(
+                a_id, action
+            )
 
         # First, give priority to agents staying in the same position
         for a_id, attemped_pos in attempted_positions.items():
@@ -453,7 +488,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             agent = self.env_agents[a_id]
             attempted_pos = attempted_positions[a_id]
             # If an agent is already moving to the desired position, keep them at the current position
-            if tuple(attempted_pos) in [tuple(npos) for npos in new_positions.values()]:
+            if tuple(attempted_pos) in [
+                tuple(npos) for npos in new_positions.values()
+            ]:
                 new_positions[a_id] = agent.pos
             else:
                 new_positions[a_id] = attempted_pos
@@ -461,9 +498,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Make sure no two agents moved through each other
         for a_id1, a_id2 in combinations(self.agent_ids, r=2):
             agent1, agent2 = self.env_agents[a_id1], self.env_agents[a_id2]
-            if np.array_equal(new_positions[a_id1], agent2.pos) and np.array_equal(
-                new_positions[a_id2], agent1.pos
-            ):
+            if np.array_equal(
+                new_positions[a_id1], agent2.pos
+            ) and np.array_equal(new_positions[a_id2], agent1.pos):
                 new_positions[a_id1] = agent1.pos
                 new_positions[a_id2] = agent2.pos
 
@@ -510,7 +547,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
         return fwd_cell.toggle(env=self, toggling_agent=agent)
 
-    def interact(self, actions: dict[typing.AgentID, typing.ActionType]) -> None:
+    def interact(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
         """After agents have moved, let them interact with the environment
         based on their actions (e.g., picking up, dropping, toggling, etc.).
 
@@ -567,7 +606,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 elif (
                     fwd_cell
                     and agent.inventory
-                    and fwd_cell.can_place_on(cell=agent.inventory[0], agent=agent)
+                    and fwd_cell.can_place_on(
+                        cell=agent.inventory[0], agent=agent
+                    )
                 ):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
@@ -588,7 +629,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.on_interact(actions)
 
-    def on_interact(self, actions: dict[typing.AgentID, typing.ActionType]) -> None:
+    def on_interact(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> None:
         """Hook for subclasses to implement custom logic after agents interact with the environment.
 
         :param actions: Dictionary of agent IDs and actions.
@@ -667,7 +710,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     ) -> tuple[dict[typing.AgentID, bool], dict[typing.AgentID, bool]]:
         """Determine the done status for each agent."""
         terminateds = {
-            agent_id: agent.terminated for agent_id, agent in self.env_agents.items()
+            agent_id: agent.terminated
+            for agent_id, agent in self.env_agents.items()
         }
         # terminateds["__all__"] = all([*terminateds.values()])
 
@@ -687,7 +731,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return terminateds, truncateds
 
-    def get_infos(self, **kwargs) -> dict[typing.AgentID, dict[typing.Any, typing.Any]]:
+    def get_infos(
+        self, **kwargs
+    ) -> dict[typing.AgentID, dict[typing.Any, typing.Any]]:
         """Get info dictionaries for each agent.
 
         :return: Dictionary keyed by agent IDs containing info dictionaries.
@@ -722,7 +768,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         grid = grid_encoding[:, :, 0]
 
         for a_id, agent in self.env_agents.items():
-            if agent is not None:  # will be None before being set by subclassed env
+            if (
+                agent is not None
+            ):  # will be None before being set by subclassed env
                 grid[agent.pos[0], agent.pos[1]] = self.id_to_numeric(a_id)
 
         return grid
@@ -917,7 +965,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             highlight_mask = None
 
-        img = self.grid.render(tile_size=tile_size, highlight_mask=highlight_mask)
+        img = self.grid.render(
+            tile_size=tile_size, highlight_mask=highlight_mask
+        )
         return img
 
     def get_frame(
@@ -938,9 +988,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :rtype: np.ndarray
         """
         if agent_pov:
-            frame = self.get_pov_render(agent_id=self.agent_pov, tile_size=tile_size)
+            frame = self.get_pov_render(
+                agent_id=self.agent_pov, tile_size=tile_size
+            )
         else:
-            frame = self.get_full_render(highlight=highlight, tile_size=tile_size)
+            frame = self.get_full_render(
+                highlight=highlight, tile_size=tile_size
+            )
 
         return frame
 
@@ -1008,12 +1062,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             bg.fill((255, 255, 255))
             bg.blit(surf, (offset / 2, 0))
 
-            bg = pygame.transform.smoothscale(bg, (self.screen_size, self.screen_size))
+            bg = pygame.transform.smoothscale(
+                bg, (self.screen_size, self.screen_size)
+            )
 
             font_size = 22
-            text = f"Score: {np.round(self.cumulative_score, 2)}" + self.render_message
+            text = (
+                f"Score: {np.round(self.cumulative_score, 2)}"
+                + self.render_message
+            )
 
-            font = pygame.freetype.SysFont(pygame.font.get_default_font(), font_size)
+            font = pygame.freetype.SysFont(
+                pygame.font.get_default_font(), font_size
+            )
             text_rect = font.get_rect(text, size=font_size)
             text_rect.center = bg.get_rect().center
             text_rect.y = bg.get_height() - font_size * 1.5
@@ -1041,7 +1102,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     @property
     def agent_pos(self) -> list:
         return [
-            tuple(agent.pos) for agent in self.env_agents.values() if agent is not None
+            tuple(agent.pos)
+            for agent in self.env_agents.values()
+            if agent is not None
         ]
 
     def id_to_numeric(self, agent_id) -> str:
