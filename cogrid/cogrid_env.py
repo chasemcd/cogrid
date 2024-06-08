@@ -90,6 +90,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.roles = self.config.get("roles", True)
         self.agent_class = agent_class or agent.Agent
         self.t = 0
+        self.reward_this_step = self.get_empty_reward_dict()
 
         # grid data is set by _gen_grid()
         self.grid: grid.Grid | None = None
@@ -704,6 +705,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
             # Save reward by component
             self.per_component_reward[reward.name] = calculated_rewards
+
+        for agent_id, val in self.reward_this_step.items():
+            self.per_agent_reward[agent_id] += val
+
+        self.reward_this_step = self.get_empty_reward_dict()
 
     def get_terminateds_truncateds(
         self,
