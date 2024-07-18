@@ -90,7 +90,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.roles = self.config.get("roles", True)
         self.agent_class = agent_class or agent.Agent
         self.t = 0
-        self.reward_this_step = self.get_empty_reward_dict()
 
         # grid data is set by _gen_grid()
         self.grid: grid.Grid | None = None
@@ -124,6 +123,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self.get_empty_reward_dict()
         )
         self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
+        self.reward_this_step = self.get_empty_reward_dict()
 
         # Action space describes the set of actions available to agents.
         action_str = config.get("action_set")
