@@ -23,6 +23,10 @@ from cogrid.visualization.rendering import (
 )
 
 
+# TODO(chase): This is a global registry of all objects that can be placed in the grid. Add the ability
+# to specify a _scope_ so that we can have items with the same character in differ environments. (e.g., Onions
+# in Overcooked and Orange targets in Search Rescue)
+
 OBJECT_REGISTRY: dict[str, GridObj] = {}
 
 
