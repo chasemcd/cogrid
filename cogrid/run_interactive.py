@@ -162,7 +162,7 @@ class HumanPlay:
             REWARDS.append(self.cumulative_reward)
             if len(REWARDS) == 50:
                 print(REWARDS)
-
+            self.reset(self.seed)
         else:
             self.env.render()
 
@@ -214,37 +214,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    env_config = {
-        "name": "overcooked",
-        "num_agents": 2,
-        "action_set": ACTION_SET,
-        "features": [
-            # see CoGridEnv.features for all available obs.
-            # "full_map_ascii",
-            # "agent_positions",
-            "overcooked_features",
-        ],
-        "rewards": ["delivery_reward", "onion_in_pot_reward"],
-        "grid_gen_kwargs": {
-            # use "load" to retrieve a fixed map from CoGridEnv.constants.FIXED_MAPS
-            # otherwise, they can be programatically generated (no items, just the
-            # standard Search and Rescue task which requires you to set "roles": True).
-            "load": "overcooked-crampedroom-v0",
-        },
-        # Minigrid implemented obscured view
-        # in a strange way that doesn't work
-        # as expected. best to just see through
-        # walls at this point, but I'll fix it.
-        "see_through_walls": True,
-        # "agent_view_size": args.agent_view_size,  # if using FoV, set view size.
-        "max_steps": 1000,
-    }
-
     def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
         return registry.make(
-            # env_config["name"],
-            "SearchRescue-Items-V0",
-            # config=env_config,
+            "Overcooked-RandomizedLayout-V0",
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,
