@@ -10,8 +10,10 @@ import uuid
 
 import numpy as np
 
+
 from cogrid.constants import GridConstants
-from cogrid.core.constants import ObjectColors, COLORS, COLOR_NAMES
+from cogrid.core.constants import ObjectColors, Colors, COLORS, COLOR_NAMES
+from cogrid.core import constants
 from cogrid.core.directions import Directions
 from cogrid.visualization.rendering import (
     fill_coords,
@@ -23,52 +25,89 @@ from cogrid.visualization.rendering import (
 )
 
 
-# TODO(chase): This is a global registry of all objects that can be placed in the grid. Add the ability
-# to specify a _scope_ so that we can have items with the same character in differ environments. (e.g., Onions
-# in Overcooked and Orange targets in Search Rescue)
+# The OBJECT_REGISTRY holds all registered objects under a "scope" (e.g., "global", "search_rescue", "overcooked")
+# which allows us to re-use IDs and character representations across environments (e.g., P is a purple target in
+# search_rescue and a plate in overcooked).
+OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 
-OBJECT_REGISTRY: dict[str, GridObj] = {}
 
-
-def make_object(object_id: str | None, **kwargs) -> GridObj:
+def make_object(
+    object_id: str | None, scope: str = "global", **kwargs
+) -> GridObj:
     if object_id is None:
         return None
 
-    if object_id not in OBJECT_REGISTRY:
+    if scope not in OBJECT_REGISTRY:
         raise ValueError(
-            f"Object with object_id {object_id} not registered. Call register_object(object_id, class) to add it to the registry."
+            f"No objects registered with scope `{scope}`. Existing scopes are {list(OBJECT_REGISTRY.keys())}."
         )
 
-    return OBJECT_REGISTRY[object_id](**kwargs)
+    if object_id in OBJECT_REGISTRY["global"]:
+        return OBJECT_REGISTRY["global"][object_id](**kwargs)
+    elif object_id not in OBJECT_REGISTRY[scope]:
+        raise ValueError(
+            f"Object with object_id `{object_id}` not registered in scope `{scope}`. "
+            f"Call register_object('{object_id}', <class>, scope='{scope}') to add it to the registry."
+        )
+
+    return OBJECT_REGISTRY[scope][object_id](**kwargs)
 
 
-def get_object_class(object_id: str) -> GridObj:
-    return OBJECT_REGISTRY[object_id]
+def get_object_class(object_id: str, scope: str = "global") -> GridObj:
+    return OBJECT_REGISTRY[scope][object_id]
 
 
-def register_object(object_id: str, obj_class: GridObj) -> None:
-    OBJECT_REGISTRY[object_id] = obj_class
+def register_object(
+    object_id: str, obj_class: GridObj, scope: str = "global"
+) -> None:
+    global_scope_chars = [
+        obj.char for obj in OBJECT_REGISTRY.get("global", {}).values()
+    ]
+
+    if obj_class.char in global_scope_chars:
+        raise ValueError(
+            f"Character `{obj_class.char}` is already in use in the global scope. "
+            "Please choose a different character."
+        )
+
+    if object_id in OBJECT_REGISTRY.get("global", {}):
+        raise ValueError(
+            f"Object with object_id `{object_id}` already registered in the global scope. "
+            "Please select a different ID."
+        )
+
+    if scope not in OBJECT_REGISTRY:
+        OBJECT_REGISTRY[scope] = {}
+
+    OBJECT_REGISTRY[scope][object_id] = obj_class
 
 
-def get_registered_object_ids() -> list[str]:
-    """Return a list of the object_ids of available objects"""
-    return list(OBJECT_REGISTRY.keys())
+def get_registered_object_ids(scope: str = "global") -> list[str]:
+    """Return a list of the object_ids of available objects in a given scope."""
+    return list(OBJECT_REGISTRY[scope].keys())
 
 
-def get_object_char(object_id: str) -> str:
-    return get_object_class(object_id).char
+def get_object_char(object_id: str, scope: str = "global") -> str:
+    return get_object_class(object_id, scope=scope).char
 
 
-def get_object_id_from_char(object_char: str) -> str:
-    for object_id, object_class in OBJECT_REGISTRY.items():
+def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
+    # First check global scope, no matter what scope was passed (default to global).
+    for object_id, object_class in OBJECT_REGISTRY["global"].items():
         if object_class.char == object_char:
             return object_id
 
+    if scope != "global":
+        for object_id, object_class in OBJECT_REGISTRY[scope].items():
+            if object_class.char == object_char:
+                return object_id
+
     raise ValueError(
-        f"There is no registered object with character representation {object_char}."
+        f"There is no registered object with character representation `{object_char}` in scope `{scope}`."
     )
 
 
+# TODO(chase): This is temporary and needs to be retrieved from the registry.
 OBJECT_NAMES = [
     None,
     "free_space",
@@ -175,18 +214,16 @@ class GridObj:
     def encode(self, encode_char=True):
         return (
             self.char if encode_char else object_to_idx(self),
-            COLOR_NAMES.index(self.color),
+            0,  # TODO(chase): Remove. This used to be color, but we're no longer using it.
             int(self.state),
         )
 
     def render(self, tile_img):
         """By default, everything will be rendered as a square with the specified color."""
-        fill_coords(
-            tile_img, point_in_rect(0, 1, 0, 1), color=COLORS[self.color]
-        )
+        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), color=self.color)
 
     @staticmethod
-    def decode(char_or_idx: str | int, state: int):
+    def decode(char_or_idx: str | int, state: int, scope: str = "global"):
 
         if char_or_idx in [
             None,
@@ -199,13 +236,13 @@ class GridObj:
         if _is_str(char_or_idx) and len(char_or_idx) > 1:
             object_id = char_or_idx
         elif _is_str(char_or_idx):
-            object_id = get_object_id_from_char(char_or_idx)
+            object_id = get_object_id_from_char(char_or_idx, scope=scope)
         else:
             raise ValueError(f"Invalid identifier for decoding: {char_or_idx}")
 
         state = int(state)
 
-        return make_object(object_id, state=state)
+        return make_object(object_id, state=state, scope=scope)
 
     def rotate_left(self):
         """Some objects (e.g., agents) have a rotation and must be rotated with the grid."""
@@ -309,7 +346,7 @@ class GridAgent(GridObj):
         tri_fn = rotate_fn(
             tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir
         )
-        fill_coords(tile_img, tri_fn, COLORS[self.color])
+        fill_coords(tile_img, tri_fn, self.color)
 
         # add any item in the inventory to the corner
         inv_tile_rows, inv_tile_cols = (
@@ -318,7 +355,8 @@ class GridAgent(GridObj):
         )
         assert (
             len(self.inventory) <= 3
-        ), "We're rending inv items at 1/3 size, so can't do more than 3!"
+        ), "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+
         offset = 4  # offset so we still see grid lines
         for i, obj in enumerate(self.inventory):
             inventory_tile = np.zeros(shape=(inv_tile_rows, inv_tile_cols, 3))
@@ -361,8 +399,8 @@ class GridAgent(GridObj):
 
 class Wall(GridObj):
     object_id = "wall"
-    color = ObjectColors.Wall
-    char = GridConstants.Wall
+    color = constants.Colors.Grey
+    char = "#"
 
     def __init__(self, *args, **kwargs):
         super().__init__(state=0)
@@ -371,12 +409,12 @@ class Wall(GridObj):
         return False
 
 
-register_object(Wall.object_id, Wall)
+register_object(Wall.object_id, Wall, scope="global")
 
 
 class Floor(GridObj):
     object_id = "floor"
-    color = ObjectColors.Floor
+    color = constants.Colors.PaleBlue
     char = GridConstants.FreeSpace
 
     def __init__(self, **kwargs):
@@ -388,13 +426,13 @@ class Floor(GridObj):
         return True
 
 
-register_object(Floor.object_id, Floor)
+register_object(Floor.object_id, Floor, scope="global")
 
 
 class Counter(GridObj):
     object_id = "counter"
-    color = ObjectColors.Counter
-    char = GridConstants.Counter
+    color = constants.Colors.LightBrown
+    char = "C"
 
     def __init__(self, state: int = 0, **kwargs):
         # TODO(chase): need to be able to initialize an object on top
@@ -413,13 +451,13 @@ class Counter(GridObj):
             self.obj_placed_on.render(tile_img)
 
 
-register_object(Counter.object_id, Counter)
+register_object(Counter.object_id, Counter, scope="global")
 
 
 class Key(GridObj):
     object_id = "key"
-    color = ObjectColors.Key
-    char = GridConstants.Key
+    color = constants.Colors.Yellow
+    char = "K"
 
     def __init__(self, state=0):
         super().__init__(state=state)
@@ -428,29 +466,29 @@ class Key(GridObj):
         return True
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-
         # Vertical quad
-        fill_coords(tile_img, point_in_rect(0.50, 0.63, 0.31, 0.88), c)
+        fill_coords(tile_img, point_in_rect(0.50, 0.63, 0.31, 0.88), self.color)
 
         # Teeth
-        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.59, 0.66), c)
-        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.81, 0.88), c)
+        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.59, 0.66), self.color)
+        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.81, 0.88), self.color)
 
         # Ring
-        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), c)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), self.color
+        )
         fill_coords(
             tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0)
         )
 
 
-register_object(Key.object_id, Key)
+register_object(Key.object_id, Key, scope="global")
 
 
 class Door(GridObj):
     object_id = "door"
-    color = ObjectColors.Door
-    char = GridConstants.Door
+    color = constants.Colors.DarkGrey
+    char = "D"
 
     def __init__(self, state):
         super().__init__(state=state)
@@ -494,10 +532,11 @@ class Door(GridObj):
         return super().encode(encode_char=encode_char)
 
     def render(self, tile_img):
-        c = COLORS[self.color]
 
         if self.state == 2:
-            fill_coords(tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), c)
+            fill_coords(
+                tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), self.color
+            )
             fill_coords(
                 tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0)
             )
@@ -505,27 +544,37 @@ class Door(GridObj):
 
         # Door frame and door
         if self.state == 0:
-            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), c)
+            fill_coords(
+                tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color
+            )
             fill_coords(
                 tile_img,
                 point_in_rect(0.06, 0.94, 0.06, 0.94),
-                0.45 * np.array(c),
+                0.45 * np.array(self.color),
             )
 
             # Draw key slot
-            fill_coords(tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), c)
+            fill_coords(
+                tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), self.color
+            )
         else:
-            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), c)
+            fill_coords(
+                tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color
+            )
             fill_coords(
                 tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0)
             )
-            fill_coords(tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), c)
+            fill_coords(
+                tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), self.color
+            )
             fill_coords(
                 tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0)
             )
 
             # Draw door handle
-            fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), c)
+            fill_coords(
+                tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), self.color
+            )
 
 
-register_object(Door.object_id, Door)
+register_object(Door.object_id, Door, scope="global")
