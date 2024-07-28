@@ -74,7 +74,9 @@ class OvercookedCollectedFeatures(feature.Feature):
             LayoutID(),
         ]
 
-        full_shape = num_agents * np.sum([feature.shape for feature in self.features])
+        full_shape = num_agents * np.sum(
+            [feature.shape for feature in self.features]
+        )
 
         super().__init__(
             low=-np.inf,
@@ -84,7 +86,9 @@ class OvercookedCollectedFeatures(feature.Feature):
             **kwargs,
         )
 
-    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs) -> np.ndarray:
+    def generate(
+        self, env: cogrid_env.CoGridEnv, player_id, **kwargs
+    ) -> np.ndarray:
         player_encodings = [self.generate_player_encoding(env, player_id)]
 
         for pid in env.agent_ids:
@@ -107,7 +111,9 @@ class OvercookedCollectedFeatures(feature.Feature):
         return np.hstack(encoded_features)
 
 
-feature_space.register_feature("overcooked_features", OvercookedCollectedFeatures)
+feature_space.register_feature(
+    "overcooked_features", OvercookedCollectedFeatures
+)
 
 
 class LayoutID(feature.Feature):
@@ -127,7 +133,6 @@ class LayoutID(feature.Feature):
         encoding = np.zeros(self.shape, dtype=np.int32)
         encoding[self.overcooked_layouts.index(env.current_layout_id)] = 1
         assert np.array_equal(self.shape, encoding.shape)
-        print(encoding)
         return encoding
 
 
@@ -177,7 +182,9 @@ class NextToCounter(feature.Feature):
         encoding = np.zeros((4,), dtype=np.int32)
         agent = env.grid.grid_agents[player_id]
 
-        for i, (row, col) in enumerate(grid_utils.adjacent_positions(*agent.pos)):
+        for i, (row, col) in enumerate(
+            grid_utils.adjacent_positions(*agent.pos)
+        ):
             adj_cell = env.grid.get(row, col)
             if isinstance(adj_cell, grid_object.Counter):
                 encoding[i] = 1
@@ -226,7 +233,9 @@ class ClosestObj(feature.Feature):
         for grid_obj in env.grid.grid:
             if isinstance(grid_obj, self.focal_object_type):
                 distances.append(np.array(agent.pos) - np.array(grid_obj.pos))
-                euc_distances.append(euclidian_distance(agent.pos, grid_obj.pos))
+                euc_distances.append(
+                    euclidian_distance(agent.pos, grid_obj.pos)
+                )
 
         # if there were no instances of that object, return (-1, -1)
         if not distances:
@@ -276,7 +285,9 @@ class OrderedPotFeatures(feature.Feature):
             pot_reachable = [1]  # TODO(chase): use search to determine
 
             # Encode if the pot is empty, cooking, or ready (size 4)
-            pot_status = np.zeros((4,), dtype=np.int32)  # empty, cooking, ready, ptr
+            pot_status = np.zeros(
+                (4,), dtype=np.int32
+            )  # empty, cooking, ready, ptr
             if grid_obj.dish_ready:
                 pot_status[0] = 1
             elif len(grid_obj.objects_in_pot) == 0:
@@ -292,7 +303,9 @@ class OrderedPotFeatures(feature.Feature):
                 grid_obj.legal_contents.index(type(pot_content_obj))
                 for pot_content_obj in grid_obj.objects_in_pot
             ]
-            for obj_index, obj_count in collections.Counter(item_types_in_pot).items():
+            for obj_index, obj_count in collections.Counter(
+                item_types_in_pot
+            ).items():
                 pot_contents[obj_index] = obj_count
 
             # Encode cooking time (size 1)
@@ -359,9 +372,9 @@ class DistToOtherPlayers(feature.Feature):
             if pid == player_id:
                 continue
 
-            encoding[other_agent_nums * 2 : other_agent_nums * 2 + 2] = np.asarray(
-                agent.pos
-            ) - np.asarray(other_agent.pos)
+            encoding[other_agent_nums * 2 : other_agent_nums * 2 + 2] = (
+                np.asarray(agent.pos) - np.asarray(other_agent.pos)
+            )
         other_agent_nums += 1
 
         assert np.array_equal(self.shape, encoding.shape), (
