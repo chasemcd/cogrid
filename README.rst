@@ -65,7 +65,6 @@ Install from the PyPi distribution:
          pip install cogrid
 
 
-
 Citation
 ---------
 
