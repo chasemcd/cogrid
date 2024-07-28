@@ -9,46 +9,34 @@ class CoreConstants:
 
 
 @dataclasses.dataclass
-class ObjectColors:
-    Wall = "grey"
-    Door = "dark_grey"
-    Floor = "pale_blue"
-    Rubble = "brown"
-    Key = "yellow"
-    MedKit = "light_pink"
-    Pickaxe = "light_brown"
-    GreenVictim = "green"
-    PurpleVictim = "purple"
-    YellowVictim = "yellow"
-    RedVictim = "red"
-    Counter = "light_brown"
-
-    AgentOne = "cyan"
-    AgentTwo = "lavender"
-    AgentThree = "yellow_grey"
-    AgentFour = "puke_green"
+class Colors:
+    Red = [255, 0, 0]
+    Green = [0, 255, 0]
+    Blue = [0, 0, 255]
+    Purple = [112, 39, 195]
+    Yellow = [255, 255, 0]
+    Grey = [100, 100, 100]
+    DarkGrey = [70, 70, 70]
+    LightBrown = [181, 132, 0]
+    PukeGreen = [191, 155, 0]
+    Brown = [143, 106, 35]
+    Cyan = [0, 234, 255]
+    Lavender = [220, 185, 237]
+    YellowGrey = [231, 233, 185]
+    LightPink = [237, 185, 185]
+    Orange = [245, 130, 200]
+    PaleBlue = [0, 0, 127]
+    White = [255, 255, 255]
+    Black = [0, 0, 0]
 
 
 @dataclasses.dataclass
-class Colors:
-    Red = "red"
-    Green = "green"
-    Blue = "blue"
-    Purple = "purple"
-    Yellow = "yellow"
-    Grey = "grey"
-    DarkGrey = "dark_grey"
-    LightBrown = "light_brown"
-    Brown = "brown"
-    Cyan = "cyan"
-    Lavender = "lavender"
-    YellowGrey = "yellow_grey"
-    PukeGreen = "puke_green"
-    LightPink = "light_pink"
-    Orange = "orange"
-    PaleBlue = "pale_blue"
-    White = "white"
-    Black = "black"
+class ObjectColors:
+
+    AgentOne = Colors.Cyan
+    AgentTwo = Colors.Lavender
+    AgentThree = Colors.YellowGrey
+    AgentFour = Colors.PukeGreen
 
 
 # Map of color names to RGB values
