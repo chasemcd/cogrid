@@ -58,11 +58,12 @@ CoGrid utilizes the PettingZoo API to standardize the multi-agent environment in
 Installation
 ------------
 
-Install directly from the master branch (``pip install cogrid`` coming soon!):
+Install from the PyPi distribution:
+   
+      .. code-block:: bash
+   
+         pip install cogrid
 
-    .. code-block:: bash
-
-        pip install git+https://www.github.com/chasemcd/cogrid.git
 
 
 Citation
