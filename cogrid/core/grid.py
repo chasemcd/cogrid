@@ -319,7 +319,7 @@ class Grid:
         """
         grid_agent = get_grid_agent_at_position(grid=self, position=position)
         agent_dir = grid_agent.dir if grid_agent else None
-        agent_color = grid_agent.color if grid_agent else None
+        agent_color = grid_agent.agent_id if grid_agent else None
         agent_inventory_names = (
             tuple([obj.object_id for obj in grid_agent.inventory])
             if grid_agent
@@ -458,7 +458,9 @@ class Grid:
         return array
 
     @staticmethod
-    def decode(array: np.ndarray) -> tuple[Grid, np.ndarray]:
+    def decode(
+        array: np.ndarray, scope: str = "global"
+    ) -> tuple[Grid, np.ndarray]:
         """Decode ASCII encoding back into a Grid"""
 
         channels, height, width = array.shape
@@ -472,7 +474,7 @@ class Grid:
             for row in range(height):
                 char, state = array[:, row, col]
                 state = int(float(state))
-                v = GridObj.decode(char, state)
+                v = GridObj.decode(char, state, scope=scope)
                 if v:
                     v.pos = v.init_pos = (row, col)
                     vis_mask[row, col] = v.visible()
