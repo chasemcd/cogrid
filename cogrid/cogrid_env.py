@@ -21,6 +21,9 @@ from cogrid.core import agent
 from cogrid.core import directions
 from cogrid.core import reward
 
+from cogrid.core import layouts
+
+
 RNG = RandomNumberGenerator = np.random.Generator
 
 
@@ -92,11 +95,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.t = 0
 
         # grid data is set by _gen_grid()
+        self.scope: str = config.get("scope", "global")
         self.grid: grid.Grid | None = None
         self.spawn_points: list = []
-        self.load = self.config["grid_gen_kwargs"].get(
-            "load", None
-        )  # load a specific env configuration
+        self.current_layout_id: str | None = None
         self._gen_grid()
         self.shape = (self.grid.height, self.grid.width)
 
@@ -188,7 +190,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         np_grid[spawn_points] = constants.GridConstants.FreeSpace
         self.spawn_points = list(zip(*spawn_points))
         grid_encoding = np.stack([np_grid, states], axis=0)
-        self.grid, _ = grid.Grid.decode(grid_encoding)
+        self.grid, _ = grid.Grid.decode(grid_encoding, scope=self.scope)
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
         """Generates a grid encoding from the configuration.
@@ -196,25 +198,22 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :return: A tuple containing the encoded grid and state arrays.
         :rtype: tuple[np.ndarray, np.ndarray]
         """
-        if (
-            self.load is not None
-        ):  # load a specific grid instead of generating one
-            if isinstance(self.load, str):
-                return constants.FIXED_GRIDS[self.load]
-            else:
-                return self.load
+        grid_config: dict = self.config.get("grid", {})
+        layout_name = grid_config.get("layout", None)
+        layout_fn = grid_config.get("layout_fn", None)
 
-        shape = self.config["grid_gen_kwargs"]["shape"]
-        grid = np.full(shape, fill_value=constants.GridConstants.FreeSpace)
-        states = np.zeros(shape=grid.shape)
+        if layout_name is None and layout_fn is None:
+            raise ValueError(
+                "Must provide either a `layout` name or layout-generating function in config['grid']"
+            )
+        elif layout_name is not None:
+            layout, state_encoding = layouts.get_layout(layout_name)
+            self.current_layout_id = layout_name
+        elif layout_fn is not None:
+            layout_name, layout, state_encoding = layout_fn(**grid_config)
+            self.current_layout_id = layout_name
 
-        # Fill outside border with walls
-        grid[0, :] = constants.GridConstants.Wall
-        grid[-1, :] = constants.GridConstants.Wall
-        grid[:, 0] = constants.GridConstants.Wall
-        grid[:, -1] = constants.GridConstants.Wall
-
-        return grid, states
+        return layout, state_encoding
 
     @staticmethod
     def _set_np_random(
@@ -410,7 +409,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def update_grid_agents(self) -> None:
         """Update the grid agents to reflect the current state of each Agent."""
-        # TODO(chase): this is inefficient; just update the existing objects?
         self.grid.grid_agents = {
             a_id: grid_object.GridAgent(agent)
             for a_id, agent in self.env_agents.items()
@@ -488,7 +486,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         for a_id in agents_to_move:
             agent = self.env_agents[a_id]
             attempted_pos = attempted_positions[a_id]
-            # If an agent is already moving to the desired position, keep them at the current position
+
+            # If another agent is already moving to the desired position,
+            # keep them at the current position
             if tuple(attempted_pos) in [
                 tuple(npos) for npos in new_positions.values()
             ]:

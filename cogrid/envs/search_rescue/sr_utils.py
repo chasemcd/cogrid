@@ -4,6 +4,7 @@ import numpy as np
 
 from cogrid import constants
 from cogrid.core import grid_utils
+from cogrid.core import grid_object
 
 
 def generate_sr_grid(
@@ -27,10 +28,10 @@ def generate_sr_grid(
     grid[:, :, 1] = 0
 
     # Fill outside border with walls
-    grid[0, :] = constants.GridConstants.Wall
-    grid[-1, :] = constants.GridConstants.Wall
-    grid[:, 0] = constants.GridConstants.Wall
-    grid[:, -1] = constants.GridConstants.Wall
+    grid[0, :] = grid_object.Wall.char
+    grid[-1, :] = grid_object.Wall.char
+    grid[:, 0] = grid_object.Wall.char
+    grid[:, -1] = grid_object.Wall.char
 
     # Get free space indices
     free_spaces = list(np.argwhere(grid[:, :, 0] == constants.GridConstants.FreeSpace))

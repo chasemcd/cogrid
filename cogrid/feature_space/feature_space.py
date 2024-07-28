@@ -7,7 +7,7 @@ FEATURE_SPACE_REGISTRY: dict[str, feature.Feature] = {}
 
 def register_feature(feature_id: str, feature_class: feature.Feature) -> None:
     if feature_id in FEATURE_SPACE_REGISTRY:
-        print("Overriding existing feature", feature_id)
+        raise ValueError(f"A feature is already registered with the ID `{feature_id}`.")
 
     FEATURE_SPACE_REGISTRY[feature_id] = feature_class
 
