@@ -3,6 +3,7 @@ from cogrid.core import grid_object
 from cogrid.constants import GridConstants
 from cogrid.core.roles import Roles
 from cogrid.core.constants import ObjectColors, COLORS
+from cogrid.core import constants
 from cogrid.core.grid_utils import adjacent_positions
 from cogrid.core import typing
 from cogrid.visualization.rendering import (
@@ -15,8 +16,8 @@ from cogrid.visualization.rendering import (
 
 class MedKit(grid_object.GridObj):
     object_id = "medkit"
-    color = ObjectColors.MedKit
-    char = GridConstants.MedKit
+    color = constants.Colors.LightPink
+    char = "M"
 
     def __init__(self, state=0):
         super().__init__(
@@ -39,13 +40,13 @@ class MedKit(grid_object.GridObj):
         )  # horizontal bar
 
 
-grid_object.register_object(MedKit.object_id, MedKit)
+grid_object.register_object(MedKit.object_id, MedKit, scope="search_rescue")
 
 
 class Pickaxe(grid_object.GridObj):
     object_id = "pickaxe"
-    color = ObjectColors.Pickaxe
-    char = GridConstants.Pickaxe
+    color = constants.Colors.Grey
+    char = "T"
 
     def __init__(self, state=0):
         super().__init__(
@@ -56,33 +57,36 @@ class Pickaxe(grid_object.GridObj):
         return True
 
     def render(self, tile_img):
-        # red background with white cross
-        fill_coords(
-            tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), COLORS["brown"]
-        )  # brown handle
 
+        # Brown Handle
+        fill_coords(
+            tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), constants.Colors.Brown
+        )
+
+        # Use two triangles to make the pickaxe head
+        # These are of the specified color
         tri_fn = point_in_triangle(
             (0.5, 0.1),
             (0.5, 0.3),
             (0.9, 0.35),
         )
-        fill_coords(tile_img, tri_fn, COLORS["grey"])
+        fill_coords(tile_img, tri_fn, self.color)
 
         tri_fn = point_in_triangle(
             (0.5, 0.1),
             (0.5, 0.3),
             (0.1, 0.35),
         )
-        fill_coords(tile_img, tri_fn, COLORS["grey"])
+        fill_coords(tile_img, tri_fn, self.color)
 
 
-grid_object.register_object(Pickaxe.object_id, Pickaxe)
+grid_object.register_object(Pickaxe.object_id, Pickaxe, scope="search_rescue")
 
 
 class Rubble(grid_object.GridObj):
-    object_id = "plate"
-    color = ObjectColors.Rubble
-    char = GridConstants.Rubble
+    object_id = "rubble"
+    color = constants.Colors.Brown
+    char = "X"
 
     def __init__(self, state=0):
         super().__init__(
@@ -113,19 +117,18 @@ class Rubble(grid_object.GridObj):
         return toggle_success
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), c)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), c)
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
 
 
-grid_object.register_object(Rubble.object_id, Rubble)
+grid_object.register_object(Rubble.object_id, Rubble, scope="search_rescue")
 
 
 class GreenVictim(grid_object.GridObj):
     object_id = "green_victim"
-    color = ObjectColors.GreenVictim
-    char = GridConstants.GreenVictim
+    color = constants.Colors.Green
+    char = "G"
 
     def __init__(self, state=0):
         super().__init__(
@@ -146,17 +149,16 @@ class GreenVictim(grid_object.GridObj):
         return toggling_agent_is_adjacent
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(GreenVictim.object_id, GreenVictim)
+grid_object.register_object(GreenVictim.object_id, GreenVictim, scope="search_rescue")
 
 
 class PurpleVictim(grid_object.GridObj):
     object_id = "purple_victim"
-    color = ObjectColors.PurpleVictim
-    char = None
+    color = constants.Colors.Purple
+    char = "P"
 
     def __init__(self, state=0):
         super().__init__(
@@ -177,17 +179,16 @@ class PurpleVictim(grid_object.GridObj):
         return toggling_agent_is_adjacent
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(PurpleVictim.object_id, PurpleVictim)
+grid_object.register_object(PurpleVictim.object_id, PurpleVictim, scope="search_rescue")
 
 
 class YellowVictim(grid_object.GridObj):
     object_id = "yellow_victim"
-    color = ObjectColors.YellowVictim
-    char = GridConstants.YellowVictim
+    color = constants.Colors.Yellow
+    char = "Y"
 
     def __init__(self, state=0):
         super().__init__(
@@ -217,17 +218,16 @@ class YellowVictim(grid_object.GridObj):
         return toggle_success
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(YellowVictim.object_id, YellowVictim)
+grid_object.register_object(YellowVictim.object_id, YellowVictim, scope="search_rescue")
 
 
 class RedVictim(grid_object.GridObj):
     object_id = "red_victim"
-    color = ObjectColors.RedVictim
-    char = GridConstants.RedVictim
+    color = constants.Colors.Red
+    char = "R"
 
     def __init__(self, state=0):
         super().__init__(
@@ -265,8 +265,7 @@ class RedVictim(grid_object.GridObj):
         return False
 
     def render(self, tile_img):
-        c = COLORS[self.color]
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(RedVictim.object_id, RedVictim)
+grid_object.register_object(RedVictim.object_id, RedVictim, scope="search_rescue")

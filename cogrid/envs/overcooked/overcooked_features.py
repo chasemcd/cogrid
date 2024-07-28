@@ -47,13 +47,15 @@ class OvercookedCollectedFeatures(feature.Feature):
     """
 
     def __init__(self, env: cogrid_env.CoGridEnv, **kwargs):
-        num_pots = np.sum(
-            [
-                int(isinstance(grid_obj, overcooked_grid_objects.Pot))
-                for grid_obj in env.grid.grid
-            ]
-        )
-        num_agents = len(env.agent_ids)
+        # num_pots = np.sum(
+        #     [
+        #         int(isinstance(grid_obj, overcooked_grid_objects.Pot))
+        #         for grid_obj in env.grid.grid
+        #     ]
+        # )
+
+        num_agents = 2
+        max_num_pots = 2
 
         self.features = [
             features.AgentDir(),
@@ -66,9 +68,10 @@ class OvercookedCollectedFeatures(feature.Feature):
             ClosestObj(focal_object_type=overcooked_grid_objects.OnionSoup),
             ClosestObj(focal_object_type=overcooked_grid_objects.DeliveryZone),
             ClosestObj(focal_object_type=grid_object.Counter),
-            OrderedPotFeatures(num_pots=num_pots),
-            DistToOtherPlayers(num_other_players=len(env.agent_ids) - 1),
+            OrderedPotFeatures(num_pots=max_num_pots),
+            DistToOtherPlayers(num_other_players=num_agents - 1),
             features.AgentPosition(),
+            LayoutID(),
         ]
 
         full_shape = num_agents * np.sum([feature.shape for feature in self.features])
@@ -105,6 +108,27 @@ class OvercookedCollectedFeatures(feature.Feature):
 
 
 feature_space.register_feature("overcooked_features", OvercookedCollectedFeatures)
+
+
+class LayoutID(feature.Feature):
+    shape = (5,)
+
+    def __init__(self, **kwargs):
+        super().__init__(low=0, high=1, name="layout_id", **kwargs)
+        self.overcooked_layouts = [
+            "overcooked_cramped_room_v0",
+            "overcooked_asymmetric_advantages_v0",
+            "overcooked_coordination_ring_v0",
+            "overcooked_forced_coordination_v0",
+            "overcooked_counter_circuit_v0",
+        ]
+
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        encoding = np.zeros(self.shape, dtype=np.int32)
+        encoding[self.overcooked_layouts.index(env.current_layout_id)] = 1
+        assert np.array_equal(self.shape, encoding.shape)
+        print(encoding)
+        return encoding
 
 
 class OvercookedInventory(feature.Feature):
@@ -241,10 +265,12 @@ class OrderedPotFeatures(feature.Feature):
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         pot_feature_dict = {}
         agent = env.grid.grid_agents[player_id]
-
+        count = 0
+        pot_features = np.zeros(self.shape, dtype=np.float32)
         for grid_obj in env.grid.grid:
             if not isinstance(grid_obj, overcooked_grid_objects.Pot):
                 continue
+            count += 1
 
             # Encode if the pot is reachable (size 1)
             pot_reachable = [1]  # TODO(chase): use search to determine
@@ -302,28 +328,30 @@ class OrderedPotFeatures(feature.Feature):
             sorted(pot_feature_dict.items(), key=lambda item: item[1][0])
         )
 
-        # remove euc distance feature
         pot_feature_values = [v[1] for v in pot_feature_dict.values()]
         encoding = np.hstack(pot_feature_values)
 
-        assert np.array_equal(self.shape, encoding.shape)
-        return encoding
+        padded_encoding = np.zeros(self.shape, dtype=np.float32)
+        padded_encoding[: len(encoding)] = encoding
+
+        return padded_encoding
 
 
 class DistToOtherPlayers(feature.Feature):
     """Return an encoding of the distance to all other players, unsorted."""
 
-    def __init__(self, num_other_players=1, **kwargs):
+    def __init__(self, num_other_agents=1, **kwargs):
         super().__init__(
             low=1,
             high=np.inf,
-            shape=(num_other_players * 2,),
+            shape=(num_other_agents * 2,),
             name="dist_to_other_players",
             **kwargs,
         )
+        self.num_other_agents = num_other_agents
 
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
-        encoding = np.zeros((2 * (len(env.agent_ids) - 1),), dtype=np.int32)
+        encoding = np.zeros((2 * (self.num_other_agents),), dtype=np.int32)
         agent = env.grid.grid_agents[player_id]
 
         other_agent_nums = 0
@@ -336,5 +364,8 @@ class DistToOtherPlayers(feature.Feature):
             ) - np.asarray(other_agent.pos)
         other_agent_nums += 1
 
-        assert np.array_equal(self.shape, encoding.shape)
+        assert np.array_equal(self.shape, encoding.shape), (
+            "DistToOtherPlayers shape is off. You likely are using an environment with > 2 "
+            "agents, in which case you should change the feature encoding."
+        )
         return encoding

@@ -1,39 +1,12 @@
 import functools
+import copy
+import random
 
 from cogrid.core import grid_object
 from cogrid.envs.overcooked import overcooked
 from cogrid.envs import registry
 from cogrid.envs.search_rescue import search_rescue
-
-sa_overcooked_config = {
-    "name": "overcooked",
-    "num_agents": 1,
-    "action_set": "cardinal_actions",
-    "features": ["overcooked_features"],
-    "grid_gen_kwargs": {"load": "sa_overcooked"},
-    "max_steps": 1000,
-}
-
-registry.register(
-    "SAOvercooked-V0",
-    functools.partial(overcooked.Overcooked, config=sa_overcooked_config),
-)
-
-overcooked_config = {
-    "name": "overcooked",
-    "num_agents": 2,
-    "action_set": "cardinal_actions",
-    "features": ["overcooked_features"],
-    "grid_gen_kwargs": {"load": "overcooked-v0"},
-    "max_steps": 1000,
-    "common_reward": True,
-}
-
-
-registry.register(
-    "Overcooked-V0",
-    functools.partial(overcooked.Overcooked, config=overcooked_config),
-)
+from cogrid.core import layouts
 
 
 overcooked_config = {
@@ -42,9 +15,67 @@ overcooked_config = {
     "action_set": "cardinal_actions",
     "features": ["overcooked_features"],
     "rewards": ["delivery_reward"],
-    "grid_gen_kwargs": {"load": "overcooked-crampedroom-v0"},
+    "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
+    "scope": "overcooked",
 }
+
+layouts.register_layout(
+    "overcooked_cramped_room_v0",
+    [
+        "#######",
+        "#CCUCC#",
+        "#O   O#",
+        "#C   C#",
+        "#C=C@C#",
+        "#######",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_asymmetric_advantages_v0",
+    [
+        "###########",
+        "#CCCCCCCCC#",
+        "#O C@COC @#",
+        "#C   U   C#",
+        "#C   U   C#",
+        "#CCC=C=CCC#",
+        "###########",
+    ],
+)
+
+
+layouts.register_layout(
+    "overcooked_coordination_ring_v0",
+    ["#######", "#CCCUC#", "#C   U#", "#= C C#", "#O   C#", "#CO@CC#", "#######"],
+)
+
+layouts.register_layout(
+    "overcooked_forced_coordination_v0",
+    [
+        "#######",
+        "#CCCUC#",
+        "#O+C U#",
+        "#O C C#",
+        "#= C+C#",
+        "#CCC@C#",
+        "#######",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_counter_circuit_v0",
+    [
+        "##########",
+        "#CCCUUCCC#",
+        "#C      C#",
+        "#= CCCC @#",
+        "#C      C#",
+        "#CCCOOCCC#",
+        "##########",
+    ],
+)
 
 
 registry.register(
@@ -53,18 +84,70 @@ registry.register(
 )
 
 
+def randomized_layout_fn(**kwargs):
+    layout_name = random.choice(
+        [
+            "overcooked_cramped_room_v0",
+            "overcooked_asymmetric_advantages_v0",
+            "overcooked_coordination_ring_v0",
+            "overcooked_forced_coordination_v0",
+            "overcooked_counter_circuit_v0",
+        ]
+    )
+    print(f"Using layout {layout_name}")
+    return layout_name, *layouts.get_layout(layout_name)
+
+
+overcooked_randomized_config = copy.deepcopy(overcooked_config)
+overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
+
+registry.register(
+    "Overcooked-RandomizedLayout-V0",
+    functools.partial(overcooked.Overcooked, config=overcooked_randomized_config),
+)
+
+
+sa_overcooked_config = copy.deepcopy(overcooked_config)
+sa_overcooked_config["num_agents"] = 1
+registry.register(
+    "Overcooked-CrampedRoom-SingleAgent-V0",
+    functools.partial(
+        overcooked.Overcooked,
+        config=sa_overcooked_config,
+        environment_scope="overcooked",
+    ),
+)
+
+
 sr_config = {
     "name": "search_rescue",
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "obs": ["agent_positions"],
-    "grid_gen_kwargs": {"load": "small_test_map"},
+    "grid": {"layout": "search_rescue_test"},
     "max_steps": 1000,
     "common_reward": True,
+    "scope": "search_rescue",
 }
+
+layouts.register_layout(
+    "search_rescue_test",
+    [
+        "##########",
+        "#++      #",
+        "#        #",
+        "#        #",
+        "#       G#",
+        "#        #",
+        "#T     K #",
+        "#XX M ##D#",
+        "#GX Y #GG#",
+        "##########",
+    ],
+)
 
 
 registry.register(
-    "SearchRescue-Items-V0",
+    "SearchRescue-Test-V0",
     functools.partial(search_rescue.SearchRescueEnv, config=sr_config),
 )
