@@ -20,7 +20,7 @@ in custom environments:
 
     env_config = {
         "name": ENV_NAME,  # the name of the environment from the registry
-        "num_agents": 2,  # number of agents to place in the environment
+        "num_agents": NUM_AGENTS,  # number of agents to place in the environment
         "action_set": ACTION_SET,  # the set of available actions to the agents
         "features": [FEATURE_NAME],  # a list of features to include in the observation. Pass a dictioanry to specify per-agent.
         "rewards": [REWARD_NAME],  # a list of the reward functions to include in the environment.

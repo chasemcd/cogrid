@@ -29,7 +29,9 @@ Grid Objects
 ^^^^^^^^^^^^^
 
 We'll start by defining the grid objects that will be used in the environment. We'll create classes for ``Rubble``, ``PickAxe``, ``MedKit``, ``GreenVictim``, ``RedVictim``, and ``YellowVictim``.
-Here we provide an example for ``Rubble`` and ``RedVictim``, all other classes can be implemented similarly and are available in the source code.
+Here we provide an example for ``Rubble`` and ``RedVictim``, all other classes can be implemented similarly and are available in the source code. Each will have a corresponding character representation (e.g., ``X`` for ``Rubble``) that
+is used to design an ASCII representation of the environment. In order to avoid overlap, you can specify the ``scope`` when registering a ``GridObj``, which enables different environments to have objects
+with the same representation. Core items, such as ``Wall`` and ``Door``, are in the ``global`` scope, whereas more specific items, e.g., ``Rubble`` are registered to the ``search_rescue`` scope.
 
 .. code-block:: python
 
@@ -64,7 +66,7 @@ Here we provide an example for ``Rubble`` and ``RedVictim``, all other classes c
 
 
     # Register the grid object
-    grid_object.register_object(Rubble.object_id, Rubble)
+    grid_object.register_object(Rubble.object_id, Rubble, scope="search_rescue")
 
 
     class RedVictim(grid_object.GridObj):
@@ -116,7 +118,7 @@ Here we provide an example for ``Rubble`` and ``RedVictim``, all other classes c
             fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), c)
 
 
-    grid_object.register_object(RedVictim.object_id, RedVictim)
+    grid_object.register_object(RedVictim.object_id, RedVictim, scope="search_rescue")
 
 
 
@@ -263,6 +265,8 @@ Finally, we define the layout of the environment. This includes the grid size, t
 We can do this using the grid object ``char`` attributes in a list of strings. In this example, ``#`` denotes a ``Wall``, ``S`` a spawn position,
 ``G`` a ``GreenVictim``, ``Y`` a ``YellowVictim``, ``R`` a ``RedVictim``, ``P`` a ``PickAxe``, ``M`` a ``MedKit``, ``K`` a ``Key``, and ``D`` a ``Door``.
 
+Layouts can be predefined as ASCII strings and registered via ``register_layout`` or grids can be instantiated by overwriting the ``CoGridEnv._gen_grid`` method.
+
 .. code-block:: python
 
     layout = [
@@ -278,9 +282,9 @@ We can do this using the grid object ``char`` attributes in a list of strings. I
         "##########",
     ]
 
-    states = np.zeros((10, 10), dtype=int)
+    register_layout("search_rescue_layout", layout)
 
-We must also specify the states of all objects as a NumPy array, which defaults to 0 if unspecified. 
+Optionally, you can also pass the object states to the registration as an array of integers that represents the unique state of all objects. It defaults to all ``0``s if not provided.
 
 Environment Registration
 -------------------------
