@@ -48,7 +48,15 @@ layouts.register_layout(
 
 layouts.register_layout(
     "overcooked_coordination_ring_v0",
-    ["#######", "#CCCUC#", "#C   U#", "#= C C#", "#O   C#", "#CO@CC#", "#######"],
+    [
+        "#######",
+        "#CCCUC#",
+        "#C   U#",
+        "#= C C#",
+        "#O   C#",
+        "#CO@CC#",
+        "#######",
+    ],
 )
 
 layouts.register_layout(
@@ -94,7 +102,6 @@ def randomized_layout_fn(**kwargs):
             "overcooked_counter_circuit_v0",
         ]
     )
-    print(f"Using layout {layout_name}")
     return layout_name, *layouts.get_layout(layout_name)
 
 
@@ -103,7 +110,9 @@ overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
 
 registry.register(
     "Overcooked-RandomizedLayout-V0",
-    functools.partial(overcooked.Overcooked, config=overcooked_randomized_config),
+    functools.partial(
+        overcooked.Overcooked, config=overcooked_randomized_config
+    ),
 )
 
 
