@@ -2,7 +2,7 @@ CoGrid Environments
 ===============================================
 
 CoGrid environment classes are all based on ``CoGridEnv`` class, which contains all of the environment logic. Most important
-is the ``step`` method, as in any Gymnasium-style environment. The ``step`` method takes as input a dictionary of agent 
+are the ``step`` and ``reset`` methods, as in any Gymnasium-style environment. The ``reset`` method provides the initial state and ``step`` takes as input a dictionary of agent 
 actions and conducts the state transition (e.g., ``T(S, A) -> S'``) and returns the new observations, reward, and whether the
 episode is done (either terminated or truncated), alongside any reported information in the ``infos`` return dictionaries.
 

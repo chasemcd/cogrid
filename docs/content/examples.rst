@@ -13,10 +13,24 @@ To illustrate the ease of building environments, we reimplement the Overcooked-A
 in CoGrid. The Overcooked-AI environment is a cooperative multi-agent environment where agents must work together to
 combine ingredients to make dishes and deliver them earn a reward. 
 
-We provide an implementation of the Cramped Room layout, pictured below. 
+We provide an implementation of the Cramped Room layout, pictured below, as well as a version of the environment that randomizes across layouts at every episode.
 
 .. image:: ../_static/images/overcooked_grid.png
     :align: center
+
+To use the Overcooked environment, you can create an instance of the environment with the following code:
+
+.. code-block:: python
+
+    from cogrid.envs import registry
+
+    env = registry.make("Overcooked-CrampedRoom-V0")
+
+    obs, _ = env.reset()
+    
+    while env.agents:
+        actions = {agent: env.action_space.sample() for agent in env.agents}
+        obs, reward, terminateds, truncateds, info = env.step(actions)
 
 
 Search & Rescue

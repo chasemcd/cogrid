@@ -24,7 +24,7 @@ in custom environments:
         "action_set": ACTION_SET,  # the set of available actions to the agents
         "features": [FEATURE_NAME],  # a list of features to include in the observation. Pass a dictioanry to specify per-agent.
         "rewards": [REWARD_NAME],  # a list of the reward functions to include in the environment.
-        "grid_gen_kwargs": {"load": ENV_LAYOUT_NAME,},  # the layout of the environment if registered in the grid registry
+        "grid": {"layout": ENV_LAYOUT_NAME,},  # the layout of the environment if registered in the grid registry
         "max_steps": MAX_T,  # the number of timesteps before terminating
     }
 
