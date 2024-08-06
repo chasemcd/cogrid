@@ -298,7 +298,7 @@ We can now register an example of the ``SearchRescueEnv`` environment with the r
         "num_agents": 2,
         "features": ["fov_encoding"],
         "rewards": ["rescue_reward"],
-        "grid_gen_kwargs": {"load": (layout, states)},
+        "grid": {"layout": "search_rescue_layout"},
         "max_steps": 1000,
     }
 
