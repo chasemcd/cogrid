@@ -19,6 +19,5 @@ setuptools.setup(
         "numpy==1.26.4",
         "gymnasium==0.29.1",
         "pettingzoo==1.24.3",
-        "pygame==2.5.2",
     ],
 )
