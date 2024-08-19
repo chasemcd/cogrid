@@ -9,9 +9,6 @@ try:
     import pygame
 except ImportError:
     pygame = None
-    raise ImportError(
-        "Must `pip install pygame` to use interactive visualizer!"
-    )
 
 
 from gymnasium import spaces
@@ -1046,6 +1043,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         if self.render_mode == "human":
+            if pygame is None:
+                raise ImportError(
+                    "Must install pygame to use interactive mode."
+                )
             # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
             if self.render_size is None:
                 self.render_size = img.shape[:2]
