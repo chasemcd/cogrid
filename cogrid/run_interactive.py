@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pygame
 from scipy import special
 
 from cogrid.core.actions import Actions
@@ -14,8 +13,18 @@ import numpy as np
 try:
     import onnxruntime as ort
 except ImportError:
-    raise ImportError("Must `pip install onnxruntime` to use the ONNX inference utils!")
+    raise ImportError(
+        "Must `pip install onnxruntime` to use the ONNX inference utils!"
+    )
 
+
+try:
+    import pygame
+except ImportError:
+    pygame = None
+    raise ImportError(
+        "Must `pip install pygame` to use interactive visualizer!"
+    )
 
 ORT_SESSIONS: dict[str, ort.InferenceSession] = {}
 
@@ -65,7 +74,9 @@ def onnx_model_inference_fn(
 def load_onnx_policy_fn(onnx_model_path: str) -> str:
     """Initialize the ORT session and return the string to access it"""
     if ORT_SESSIONS.get(onnx_model_path) is None:
-        ORT_SESSIONS[onnx_model_path] = ort.InferenceSession(onnx_model_path, None)
+        ORT_SESSIONS[onnx_model_path] = ort.InferenceSession(
+            onnx_model_path, None
+        )
 
     return onnx_model_path
 
@@ -116,7 +127,9 @@ class HumanPlay:
     def run(self):
         self.reset(self.seed)
         while not self.closed:
-            actions = {agent_id: Actions.Noop for agent_id in self.env.agent_ids}
+            actions = {
+                agent_id: Actions.Noop for agent_id in self.env.agent_ids
+            }
 
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
@@ -214,7 +227,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
+    def env_creator(
+        render_mode: str | None = None, render_message=""
+    ) -> CoGridEnv:
         return registry.make(
             "Overcooked-RandomizedLayout-V0",
             highlight=False,

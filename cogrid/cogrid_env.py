@@ -3,8 +3,17 @@ from itertools import combinations
 import copy
 
 import numpy as np
-import pygame
-import pygame.freetype
+
+
+try:
+    import pygame
+except ImportError:
+    pygame = None
+    raise ImportError(
+        "Must `pip install pygame` to use interactive visualizer!"
+    )
+
+
 from gymnasium import spaces
 import pettingzoo
 from cogrid import constants
