@@ -9,17 +9,6 @@ from cogrid.envs.search_rescue import search_rescue
 from cogrid.core import layouts
 
 
-overcooked_config = {
-    "name": "overcooked",
-    "num_agents": 2,
-    "action_set": "cardinal_actions",
-    "features": ["overcooked_features"],
-    "rewards": ["delivery_reward"],
-    "grid": {"layout": "overcooked_cramped_room_v0"},
-    "max_steps": 1000,
-    "scope": "overcooked",
-}
-
 layouts.register_layout(
     "overcooked_cramped_room_v0",
     [
@@ -44,7 +33,6 @@ layouts.register_layout(
         "###########",
     ],
 )
-
 
 layouts.register_layout(
     "overcooked_coordination_ring_v0",
@@ -85,10 +73,54 @@ layouts.register_layout(
     ],
 )
 
+cramped_room_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "action_set": "cardinal_actions",
+    "features": ["overcooked_features"],
+    "rewards": ["delivery_reward"],
+    "grid": {"layout": "overcooked_cramped_room_v0"},
+    "max_steps": 1000,
+    "scope": "overcooked",
+}
 
 registry.register(
     "Overcooked-CrampedRoom-V0",
-    functools.partial(overcooked.Overcooked, config=overcooked_config),
+    functools.partial(overcooked.Overcooked, config=cramped_room_config),
+)
+
+asymmetric_adv_config = copy.deepcopy(cramped_room_config)
+asymmetric_adv_config["grid"]["layout"] = "overcooked_asymmetric_advantages_v0"
+
+registry.register(
+    "Overcooked-AsymmetricAdvantages-V0",
+    functools.partial(overcooked.Overcooked, config=asymmetric_adv_config),
+)
+
+coordination_ring_config = copy.deepcopy(cramped_room_config)
+coordination_ring_config["grid"]["layout"] = "overcooked_coordination_ring_v0"
+
+registry.register(
+    "Overcooked-CoordinationRing-V0",
+    functools.partial(overcooked.Overcooked, config=coordination_ring_config),
+)
+
+forced_coordination_config = copy.deepcopy(cramped_room_config)
+forced_coordination_config["grid"][
+    "layout"
+] = "overcooked_forced_coordination_v0"
+
+registry.register(
+    "Overcooked-ForcedCoordination-V0",
+    functools.partial(overcooked.Overcooked, config=forced_coordination_config),
+)
+
+counter_circuit_config = copy.deepcopy(cramped_room_config)
+counter_circuit_config["grid"]["layout"] = "overcooked_counter_circuit_v0"
+
+registry.register(
+    "Overcooked-CounterCircuit-V0",
+    functools.partial(overcooked.Overcooked, config=counter_circuit_config),
 )
 
 
@@ -105,7 +137,7 @@ def randomized_layout_fn(**kwargs):
     return layout_name, *layouts.get_layout(layout_name)
 
 
-overcooked_randomized_config = copy.deepcopy(overcooked_config)
+overcooked_randomized_config = copy.deepcopy(cramped_room_config)
 overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
 
 registry.register(
@@ -116,7 +148,7 @@ registry.register(
 )
 
 
-sa_overcooked_config = copy.deepcopy(overcooked_config)
+sa_overcooked_config = copy.deepcopy(cramped_room_config)
 sa_overcooked_config["num_agents"] = 1
 registry.register(
     "Overcooked-CrampedRoom-SingleAgent-V0",
