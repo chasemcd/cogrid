@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from scipy import special
 
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
@@ -10,12 +9,19 @@ from cogrid.core import typing
 
 import numpy as np
 
-try:
-    import onnxruntime as ort
-except ImportError:
-    raise ImportError(
-        "Must `pip install onnxruntime` to use the ONNX inference utils!"
-    )
+# try:
+#     import onnxruntime as ort
+# except ImportError:
+#     raise ImportError(
+#         "Must `pip install onnxruntime` to use the ONNX inference utils!"
+#     )
+
+# try:
+#     from scipy import special
+# except ImportError:
+#     raise ImportError(
+#         "Must `pip install scipy` to use the ONNX inference utils!"
+#     )
 
 
 try:
@@ -85,7 +91,7 @@ model = None  # load_onnx_policy_fn("path/to/model.onnx")
 
 
 ACTION_MESSAGE = ""
-HUMAN_AGENT_ID = 0
+HUMAN_AGENT_ID = 1
 
 ACTION_SET = "cardinal_actions"
 
@@ -231,7 +237,7 @@ if __name__ == "__main__":
         render_mode: str | None = None, render_message=""
     ) -> CoGridEnv:
         return registry.make(
-            "Overcooked-RandomizedLayout-V0",
+            "Overcooked-ForcedCoordination-V0",
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,

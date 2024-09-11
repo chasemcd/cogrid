@@ -57,10 +57,11 @@ class OvercookedCollectedFeatures(feature.Feature):
         num_agents = 2
         max_num_pots = 2
 
-        self.features = [
+        self.agent_features = [
             features.AgentDir(),
             OvercookedInventory(),
             NextToCounter(),
+            NextToPot(),
             ClosestObj(focal_object_type=overcooked_grid_objects.Onion),
             ClosestObj(focal_object_type=overcooked_grid_objects.Plate),
             ClosestObj(focal_object_type=overcooked_grid_objects.PlateStack),
@@ -72,12 +73,16 @@ class OvercookedCollectedFeatures(feature.Feature):
             DistToOtherPlayers(num_other_players=num_agents - 1),
             features.AgentPosition(),
             features.CanMoveDirection(),
+        ]
+
+        self.global_features = [
             LayoutID(),
+            EnvironmentLayout(max_shape=(11, 7)),
         ]
 
         full_shape = num_agents * np.sum(
-            [feature.shape for feature in self.features]
-        )
+            [feature.shape for feature in self.agent_features]
+        ) + np.sum([feature.shape for feature in self.global_features])
 
         super().__init__(
             low=-np.inf,
@@ -98,6 +103,10 @@ class OvercookedCollectedFeatures(feature.Feature):
             player_encodings.append(self.generate_player_encoding(env, pid))
 
         encoding = np.hstack(player_encodings).astype(np.float32)
+
+        global_encoding = self.generate_global_encoding(env, player_id)
+        encoding = np.hstack([encoding, global_encoding])
+
         assert np.array_equal(self.shape, encoding.shape)
 
         return encoding
@@ -106,7 +115,16 @@ class OvercookedCollectedFeatures(feature.Feature):
         self, env: cogrid_env.CoGridEnv, player_id: str | int
     ) -> np.ndarray:
         encoded_features = []
-        for feature in self.features:
+        for feature in self.agent_features:
+            encoded_features.append(feature.generate(env, player_id))
+
+        return np.hstack(encoded_features)
+
+    def generate_global_encoding(
+        self, env: cogrid_env.CoGridEnv, player_id: str | int
+    ) -> np.ndarray:
+        encoded_features = []
+        for feature in self.global_features:
             encoded_features.append(feature.generate(env, player_id))
 
         return np.hstack(encoded_features)
@@ -189,6 +207,48 @@ class NextToCounter(feature.Feature):
             adj_cell = env.grid.get(row, col)
             if isinstance(adj_cell, grid_object.Counter):
                 encoding[i] = 1
+
+        assert np.array_equal(self.shape, encoding.shape)
+        return encoding
+
+
+class NextToPot(feature.Feature):
+    """A feature that represents a multi-hot encoding of whether or not there is a pot
+    in each of the four cardinal directions, for each of the four pot statuses.
+
+    The feature is a concatenation of four vectors of shape (4,), resulting in a shape of (16,).
+    The four vectors correspond to:
+    1. Empty pot
+    2. Pot with less than three onions
+    3. Pot that is currently cooking
+    4. Full pot (3 onions, ready to serve)
+
+    For example, if there's an empty pot to the north and a cooking pot to the east,
+    the feature would be [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0].
+    """
+
+    shape = (16,)
+
+    def __init__(self, **kwargs):
+        super().__init__(low=0, high=1, name="next_to_pot", **kwargs)
+
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        encoding = np.zeros(self.shape, dtype=np.int32)
+        agent = env.grid.grid_agents[player_id]
+
+        for i, (row, col) in enumerate(
+            grid_utils.adjacent_positions(*agent.pos)
+        ):
+            adj_cell = env.grid.get(row, col)
+            if isinstance(adj_cell, overcooked_grid_objects.Pot):
+                if len(adj_cell.objects_in_pot) == 0:
+                    encoding[i] = 1
+                elif 0 < len(adj_cell.objects_in_pot) < adj_cell.capacity:
+                    encoding[i + 4] = 1
+                elif adj_cell.is_cooking:
+                    encoding[i + 8] = 1
+                elif adj_cell.dish_ready:
+                    encoding[i + 12] = 1
 
         assert np.array_equal(self.shape, encoding.shape)
         return encoding
@@ -332,9 +392,9 @@ class OrderedPotFeatures(feature.Feature):
 
         # sort based on euclidian distance
         # 1 indexes the value, 0 the euc_distance from above
-        pot_feature_dict = dict(
-            sorted(pot_feature_dict.items(), key=lambda item: item[1][0])
-        )
+        # pot_feature_dict = dict(
+        #     sorted(pot_feature_dict.items(), key=lambda item: item[1][0])
+        # )
 
         pot_feature_values = [v[1] for v in pot_feature_dict.values()]
         encoding = np.hstack(pot_feature_values)
@@ -376,4 +436,45 @@ class DistToOtherPlayers(feature.Feature):
             "DistToOtherPlayers shape is off. You likely are using an environment with > 2 "
             "agents, in which case you should change the feature encoding."
         )
+        return encoding
+
+
+class EnvironmentLayout(feature.Feature):
+    """
+    A 1D array representation of the entire environment for each kind of object.
+
+    For each object type, there is a flattened 1D array where each element corresponds
+    to a cell in the grid. The value is 1 if the corresponding cell contains that object,
+    and 0 otherwise.
+    """
+
+    def __init__(self, max_shape, **kwargs):
+        self.max_shape = max_shape
+        self.object_types = [
+            grid_object.Counter,
+            overcooked_grid_objects.Pot,
+            overcooked_grid_objects.Onion,
+            overcooked_grid_objects.Plate,
+            overcooked_grid_objects.OnionStack,
+            overcooked_grid_objects.PlateStack,
+        ]
+        shape = (len(self.object_types) * (max_shape[0] * max_shape[1]),)
+        super().__init__(
+            low=0, high=1, shape=shape, name="environment_layout", **kwargs
+        )
+
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        encoding = np.zeros(self.shape, dtype=np.int32)
+        current_height, current_width = env.grid.height, env.grid.width
+
+        for obj_index, obj_type in enumerate(self.object_types):
+            start_index = obj_index * (self.max_shape[0] * self.max_shape[1])
+            for row in range(current_height):
+                for col in range(current_width):
+                    cell = env.grid.get(row, col)
+                    if isinstance(cell, obj_type):
+                        flat_index = row * self.max_shape[1] + col
+                        encoding[start_index + flat_index] = 1
+
+        assert np.array_equal(self.shape, encoding.shape)
         return encoding
