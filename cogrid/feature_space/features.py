@@ -6,6 +6,7 @@ from collections import deque
 
 from cogrid.core.grid_object import OBJECT_NAMES
 from cogrid.feature_space import feature
+from cogrid.core import grid_utils
 
 try:
     import cv2
@@ -333,6 +334,31 @@ class Inventory(feature.Feature):
             encoding[i] = idx
 
         return encoding
+
+
+class CanMoveDirection(feature.Feature):
+    """
+    Returns a multi-hot encoding of the agent's ability to move in each direction.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            low=0, high=1, shape=(4,), name="can_move_direction", **kwargs
+        )
+
+    def generate(self, env, player_id, **kwargs):
+        agent = env.env_agents[player_id]
+        can_move = np.zeros(self.shape, dtype=np.int32)
+
+        # check if the agent can move in each direction by checking if the next tile in each direction
+        # is overlappable (grid_obj.can_overlap())
+        for i, pos in enumerate(grid_utils.adjacent_positions(*agent.pos)):
+            obj = env.grid.get(*pos)
+
+            if obj is None or obj.can_overlap(agent):
+                can_move[i] = 1
+
+        return can_move
 
 
 class ActionMask(feature.Feature):

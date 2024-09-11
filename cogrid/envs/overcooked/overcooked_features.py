@@ -71,6 +71,7 @@ class OvercookedCollectedFeatures(feature.Feature):
             OrderedPotFeatures(num_pots=max_num_pots),
             DistToOtherPlayers(num_other_players=num_agents - 1),
             features.AgentPosition(),
+            features.CanMoveDirection(),
             LayoutID(),
         ]
 
@@ -199,9 +200,10 @@ class ClosestObj(feature.Feature):
 
     # TODO(chase): Use BFS here, right now we're just doing (agent_y - pos_y, agent_x - pos_x)!
     It uses BFS to calculate a path from the player's position to the target, if
-    there is no possible path, returns (-1, -1).
+    there is no possible path, returns (0, 0).
 
-    If the object is in the inventory of the player, it returns (0, 0).
+    Note that this does not consider item's that the agent is holding in its inventory.
+
     """
 
     shape = (2,)
@@ -218,28 +220,21 @@ class ClosestObj(feature.Feature):
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         agent = env.grid.grid_agents[player_id]
 
-        # If the agent is holding the specified item, return (0, 0)
-        if agent.inventory and any(
-            [
-                isinstance(held_obj, self.focal_object_type)
-                for held_obj in agent.inventory
-            ]
-        ):
-            return np.zeros(self.shape, dtype=np.int32)
-
         # collect the distances
         distances: list[tuple[int, int]] = []
         euc_distances: list[float] = []
         for grid_obj in env.grid.grid:
-            if isinstance(grid_obj, self.focal_object_type):
+            if isinstance(
+                grid_obj, self.focal_object_type
+            ) and not np.array_equal(agent.pos, grid_obj.pos):
                 distances.append(np.array(agent.pos) - np.array(grid_obj.pos))
                 euc_distances.append(
                     euclidian_distance(agent.pos, grid_obj.pos)
                 )
 
-        # if there were no instances of that object, return (-1, -1)
+        # if there were no instances of that object, return (0, 0)
         if not distances:
-            return np.array([-1, -1], dtype=np.int32)
+            return np.zeros(self.shape, dtype=np.int32)
 
         # find the closest instance and return that array
         min_dist_idx = np.argmin(euc_distances)
