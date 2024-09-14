@@ -85,7 +85,7 @@ class FullMapResizedGrayscale(feature.Feature):
         super().__init__(
             low=0,
             high=1,
-            shape=(48, 48, 1),
+            shape=(42, 42, 1),
             name="full_map_resized_grayscale_image",
             **kwargs
         )
@@ -93,7 +93,7 @@ class FullMapResizedGrayscale(feature.Feature):
     def generate(self, env, player_id, **kwargs):
         img_rgb = env.get_full_render(highlight=False)
         img_resized = cv2.resize(
-            img_rgb, (48, 48), interpolation=cv2.INTER_AREA
+            img_rgb, (42, 42), interpolation=cv2.INTER_AREA
         )
         img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
         img_grayscale = np.expand_dims(img_grayscale, -1)
