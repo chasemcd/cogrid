@@ -47,14 +47,11 @@ class OvercookedCollectedFeatures(feature.Feature):
     """
 
     def __init__(self, env: cogrid_env.CoGridEnv, **kwargs):
-        # num_pots = np.sum(
-        #     [
-        #         int(isinstance(grid_obj, overcooked_grid_objects.Pot))
-        #         for grid_obj in env.grid.grid
-        #     ]
-        # )
 
-        num_agents = 2
+        num_agents = env.config["num_agents"]
+
+        # NOTE: This is hardcoded because we can have a changing number of pots in the environment.
+        # We need it to be the max possible number of pots to keep the feature shape constant.
         max_num_pots = 2
 
         self.agent_features = [
