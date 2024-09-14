@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="cogrid",
-    version="v0.0.6",
+    version="0.0.7",
     description="Multi-agent extension and expansion of MiniGrid.",
     author="Chase McDonald",
     author_email="chasemcd@cmu.edu",
