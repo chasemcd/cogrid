@@ -25,6 +25,3 @@ class Overcooked(cogrid_env.CoGridEnv):
             agent_class=agent.OvercookedAgent,
             **kwargs,
         )
-
-
-registry.register("overcooked", Overcooked)
