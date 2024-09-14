@@ -5,7 +5,7 @@ from gymnasium import spaces
 from collections import deque
 
 from cogrid.core.grid_object import OBJECT_NAMES
-from cogrid.feature_space import feature
+from cogrid.feature_space import feature, feature_space
 from cogrid.core import grid_utils
 
 try:
@@ -29,6 +29,9 @@ class FullMapImage(feature.Feature):
         img = env.get_full_render(highlight=False)
         img = (img / 255.0).astype(np.float32)
         return img
+
+
+feature_space.register_feature("full_map_image", FullMapImage)
 
 
 class StackedFullMapResizedGrayscale(feature.Feature):
@@ -71,6 +74,12 @@ class StackedFullMapResizedGrayscale(feature.Feature):
         return stacked
 
 
+feature_space.register_feature(
+    "stacked_full_map_resized_grayscale_image",
+    StackedFullMapResizedGrayscale,
+)
+
+
 class FullMapResizedGrayscale(feature.Feature):
     def __init__(self, **kwargs):
         super().__init__(
@@ -92,6 +101,12 @@ class FullMapResizedGrayscale(feature.Feature):
         return img_grayscale / 255.0
 
 
+feature_space.register_feature(
+    "full_map_resized_grayscale_image",
+    FullMapResizedGrayscale,
+)
+
+
 class FoVImage(feature.Feature):
     def __init__(self, view_len, tile_size, **kwargs):
         super().__init__(
@@ -109,6 +124,9 @@ class FoVImage(feature.Feature):
         return img
 
 
+feature_space.register_feature("fov_image", FoVImage)
+
+
 class FullMapEncoding(feature.Feature):
     def __init__(self, map_size, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
@@ -123,6 +141,9 @@ class FullMapEncoding(feature.Feature):
     def generate(self, env, player_id, **kwargs):
         encoded_map = env.grid.encode(encode_char=False)
         return encoded_map
+
+
+feature_space.register_feature("full_map_encoding", FullMapEncoding)
 
 
 class FoVEncoding(feature.Feature):
@@ -142,6 +163,9 @@ class FoVEncoding(feature.Feature):
         return encoded_agent_grid
 
 
+feature_space.register_feature("fov_encoding", FoVEncoding)
+
+
 class FullMapASCII(feature.Feature):
     def __init__(self, map_size, **kwargs):
         super().__init__(
@@ -155,6 +179,9 @@ class FullMapASCII(feature.Feature):
     def generate(self, env, player_id, **kwargs):
         encoded_map = env.grid.encode(encode_char=True)
         return encoded_map
+
+
+feature_space.register_feature("full_map_ascii", FullMapASCII)
 
 
 class FoVASCII(feature.Feature):
@@ -178,6 +205,9 @@ class FoVASCII(feature.Feature):
         return encoded_agent_grid
 
 
+feature_space.register_feature("fov_ascii", FoVASCII)
+
+
 class AgentPosition(feature.Feature):
 
     def __init__(self, **kwargs):
@@ -187,6 +217,9 @@ class AgentPosition(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         return np.asarray(env.env_agents[player_id].pos, dtype=np.int32)
+
+
+feature_space.register_feature("agent_position", AgentPosition)
 
 
 class AgentPositions(feature.Feature):
@@ -223,6 +256,9 @@ class AgentPositions(feature.Feature):
         return grid
 
 
+feature_space.register_feature("agent_positions", AgentPositions)
+
+
 class AgentDir(feature.Feature):
     """One-hot encoding of the agent's direction."""
 
@@ -233,6 +269,9 @@ class AgentDir(feature.Feature):
         encoding = np.zeros(self.shape, dtype=np.int32)
         encoding[env.env_agents[player_id].dir] = 1
         return encoding
+
+
+feature_space.register_feature("agent_dir", AgentDir)
 
 
 class OtherAgentActions(feature.Feature):
@@ -267,6 +306,9 @@ class OtherAgentActions(feature.Feature):
         return oh_action
 
 
+feature_space.register_feature("other_agent_actions", OtherAgentActions)
+
+
 class OtherAgentVisibility(feature.Feature):
     def __init__(self, num_agents, view_len, **kwargs):
         super().__init__(
@@ -291,6 +333,9 @@ class OtherAgentVisibility(feature.Feature):
         # return visibility
 
 
+feature_space.register_feature("other_agent_visibility", OtherAgentVisibility)
+
+
 class Role(feature.Feature):
     def __init__(self, num_roles, **kwargs):
         super().__init__(
@@ -303,6 +348,9 @@ class Role(feature.Feature):
         role_encoding = np.zeros((self.num_roles,), dtype=np.uint8)
         role_encoding[agent.role_idx] = 1
         return role_encoding
+
+
+feature_space.register_feature("role", Role)
 
 
 class Inventory(feature.Feature):
@@ -336,6 +384,9 @@ class Inventory(feature.Feature):
         return encoding
 
 
+feature_space.register_feature("inventory", Inventory)
+
+
 class CanMoveDirection(feature.Feature):
     """
     Returns a multi-hot encoding of the agent's ability to move in each direction.
@@ -361,6 +412,9 @@ class CanMoveDirection(feature.Feature):
         return can_move
 
 
+feature_space.register_feature("can_move_direction", CanMoveDirection)
+
+
 class ActionMask(feature.Feature):
     def __init__(self, env, **kwargs):
         super().__init__(
@@ -379,6 +433,9 @@ class ActionMask(feature.Feature):
         return action_mask
 
 
+feature_space.register_feature("action_mask", ActionMask)
+
+
 class AgentID(feature.Feature):
     def __init__(self, env, **kwargs):
         super().__init__(
@@ -394,3 +451,6 @@ class AgentID(feature.Feature):
             env.env_agents[player_id].agent_number - 1
         )  # subtract 1 so we start from 0
         return np.array([agent_number])
+
+
+feature_space.register_feature("agent_id", AgentID)
