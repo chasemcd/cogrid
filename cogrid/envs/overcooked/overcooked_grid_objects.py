@@ -38,7 +38,9 @@ class Onion(grid_object.GridObj):
         return True
 
     def render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color
+        )
 
 
 grid_object.register_object(Onion.object_id, Onion, scope="overcooked")
@@ -58,12 +60,20 @@ class OnionStack(grid_object.GridObj):
         return Onion()
 
     def render(self, tile_img: np.ndarray):
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
+        )
 
 
-grid_object.register_object(OnionStack.object_id, OnionStack, scope="overcooked")
+grid_object.register_object(
+    OnionStack.object_id, OnionStack, scope="overcooked"
+)
 
 
 class Pot(grid_object.GridObj):
@@ -81,7 +91,9 @@ class Pot(grid_object.GridObj):
         **kwargs,
     ):
 
-        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
+        super().__init__(
+            state=state, picked_up_from_value=0.0, placed_on_value=0.0
+        )
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
@@ -103,17 +115,23 @@ class Pot(grid_object.GridObj):
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
     ) -> bool:
         """Can only place onions in the soup!"""
-        if not any([isinstance(cell, grid_obj) for grid_obj in self.legal_contents]):
+        if not any(
+            [isinstance(cell, grid_obj) for grid_obj in self.legal_contents]
+        ):
             return False
 
         return len(self.objects_in_pot) < self.capacity
 
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+    def place_on(
+        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
+    ) -> None:
         self.objects_in_pot.append(cell)
 
     @property
     def is_cooking(self) -> None:
-        return len(self.objects_in_pot) == self.capacity
+        return (
+            len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0
+        )
 
     def tick(self) -> None:
         """Update cooking time if the pot is full"""
@@ -122,7 +140,8 @@ class Pot(grid_object.GridObj):
             self.state += 100
 
         self.state = (
-            len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
+            len(self.objects_in_pot)
+            + len(self.objects_in_pot) * self.cooking_timer
         )
 
     @property
@@ -130,7 +149,9 @@ class Pot(grid_object.GridObj):
         return self.cooking_timer == 0
 
     def render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color
+        )
 
         for i, grid_obj in enumerate(self.objects_in_pot):
             fill_coords(
@@ -140,7 +161,9 @@ class Pot(grid_object.GridObj):
             )
 
         if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
+            add_text_to_image(
+                tile_img, text=str(self.cooking_timer), position=(50, 75)
+            )
 
 
 grid_object.register_object(Pot.object_id, Pot, scope="overcooked")
@@ -170,12 +193,20 @@ class PlateStack(grid_object.GridObj):
         return Plate()
 
     def render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
+        )
 
 
-grid_object.register_object(PlateStack.object_id, PlateStack, scope="overcooked")
+grid_object.register_object(
+    PlateStack.object_id, PlateStack, scope="overcooked"
+)
 
 
 class Plate(grid_object.GridObj):
@@ -199,7 +230,9 @@ class Plate(grid_object.GridObj):
         return True
 
     def render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color
+        )
 
 
 grid_object.register_object(Plate.object_id, Plate, scope="overcooked")
@@ -230,11 +263,15 @@ class DeliveryZone(grid_object.GridObj):
 
         return False
 
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+    def place_on(
+        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
+    ) -> None:
         del cell
 
 
-grid_object.register_object(DeliveryZone.object_id, DeliveryZone, scope="overcooked")
+grid_object.register_object(
+    DeliveryZone.object_id, DeliveryZone, scope="overcooked"
+)
 
 
 class OnionSoup(grid_object.GridObj):
@@ -257,7 +294,9 @@ class OnionSoup(grid_object.GridObj):
 
     def render(self, tile_img):
         # Draw plate
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color
+        )
 
         # draw soup inside plate
         fill_coords(
