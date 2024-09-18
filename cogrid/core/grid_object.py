@@ -128,6 +128,7 @@ OBJECT_NAMES = [
     "onion_stack",
     "onion",
     "delivery_zone",
+    "counter",
 ] + [f"agent_{direction}" for direction in "^>v<"]
 
 
