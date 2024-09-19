@@ -59,13 +59,21 @@ class OvercookedCollectedFeatures(feature.Feature):
             OvercookedInventory(),
             NextToCounter(),
             NextToPot(),
-            ClosestObj(focal_object_type=overcooked_grid_objects.Onion),
-            ClosestObj(focal_object_type=overcooked_grid_objects.Plate),
-            ClosestObj(focal_object_type=overcooked_grid_objects.PlateStack),
-            ClosestObj(focal_object_type=overcooked_grid_objects.OnionStack),
-            ClosestObj(focal_object_type=overcooked_grid_objects.OnionSoup),
-            ClosestObj(focal_object_type=overcooked_grid_objects.DeliveryZone),
-            ClosestObj(focal_object_type=grid_object.Counter),
+            ClosestObj(focal_object_type=overcooked_grid_objects.Onion, n=4),
+            ClosestObj(focal_object_type=overcooked_grid_objects.Plate, n=4),
+            ClosestObj(
+                focal_object_type=overcooked_grid_objects.PlateStack, n=2
+            ),
+            ClosestObj(
+                focal_object_type=overcooked_grid_objects.OnionStack, n=2
+            ),
+            ClosestObj(
+                focal_object_type=overcooked_grid_objects.OnionSoup, n=4
+            ),
+            ClosestObj(
+                focal_object_type=overcooked_grid_objects.DeliveryZone, n=2
+            ),
+            ClosestObj(focal_object_type=grid_object.Counter, n=4),
             OrderedPotFeatures(num_pots=max_num_pots),
             DistToOtherPlayers(num_other_players=num_agents - 1),
             features.AgentPosition(),
@@ -259,43 +267,67 @@ class ClosestObj(feature.Feature):
     It uses BFS to calculate a path from the player's position to the target, if
     there is no possible path, returns (0, 0).
 
+    n is the number of closest objects to return.
+
     Note that this does not consider item's that the agent is holding in its inventory.
 
     """
 
-    shape = (2,)
-
-    def __init__(self, focal_object_type: grid_object.GridObj, **kwargs):
+    def __init__(
+        self, focal_object_type: grid_object.GridObj, n: int = 1, **kwargs
+    ):
         super().__init__(
-            low=-1,
+            low=-np.inf,
             high=np.inf,
             name=f"closest_{focal_object_type.object_id}_dist",
+            shape=(2 * n,),
             **kwargs,
         )
         self.focal_object_type = focal_object_type
+        self.n = n
 
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         agent = env.grid.grid_agents[player_id]
+        encoding = np.zeros(self.shape, dtype=np.int32)
 
         # collect the distances
-        distances: list[tuple[int, int]] = []
-        euc_distances: list[float] = []
+        distances: list[int] = []
+        deltas: list[tuple[int, int]] = []
+
         for grid_obj in env.grid.grid:
-            if isinstance(
+            if grid_obj is None:
+                continue
+            # Check if the grid obj is what we're looking for
+            is_focal_obj = isinstance(
                 grid_obj, self.focal_object_type
-            ) and not np.array_equal(agent.pos, grid_obj.pos):
-                distances.append(np.array(agent.pos) - np.array(grid_obj.pos))
-                euc_distances.append(
-                    euclidian_distance(agent.pos, grid_obj.pos)
-                )
+            ) and not np.array_equal(agent.pos, grid_obj.pos)
+
+            obj_is_placed_on = isinstance(
+                grid_obj.obj_placed_on, self.focal_object_type
+            )
+
+            if is_focal_obj or obj_is_placed_on:
+                delta = np.array(agent.pos) - np.array(grid_obj.pos)
+                manhattan_distance = np.sum(np.abs(delta))
+                deltas.append(delta)
+                distances.append(manhattan_distance)
 
         # if there were no instances of that object, return (0, 0)
         if not distances:
             return np.zeros(self.shape, dtype=np.int32)
 
-        # find the closest instance and return that array
-        min_dist_idx = np.argmin(euc_distances)
-        encoding = np.asarray(distances[min_dist_idx], dtype=np.int32)
+        # sort the distances and retrieve the corresponding deltas
+        sorted_indices = np.argsort(distances)
+        sorted_deltas = [deltas[i] for i in sorted_indices][: self.n]
+
+        # flatten the sorted deltas into a flat array
+        flat_deltas = [item for sublist in sorted_deltas for item in sublist]
+
+        encoding[: len(flat_deltas)] = flat_deltas
+
+        # # find the closest instance and return that array
+        # min_dist_idx = np.argmin(euc_distances)
+        # encoding = np.asarray(distances[min_dist_idx], dtype=np.int32)
         assert np.array_equal(self.shape, encoding.shape)
 
         return encoding
