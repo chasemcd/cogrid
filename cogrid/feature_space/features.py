@@ -81,11 +81,11 @@ feature_space.register_feature(
 
 
 class FullMapResizedGrayscale(feature.Feature):
-    def __init__(self, **kwargs):
+    def __init__(self, shape=(42, 42, 1), **kwargs):
         super().__init__(
             low=0,
             high=1,
-            shape=(42, 42, 1),
+            shape=shape,
             name="full_map_resized_grayscale_image",
             **kwargs
         )
@@ -93,7 +93,7 @@ class FullMapResizedGrayscale(feature.Feature):
     def generate(self, env, player_id, **kwargs):
         img_rgb = env.get_full_render(highlight=False)
         img_resized = cv2.resize(
-            img_rgb, (42, 42), interpolation=cv2.INTER_AREA
+            img_rgb, self.shape[0:2], interpolation=cv2.INTER_AREA
         )
         img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
         img_grayscale = np.expand_dims(img_grayscale, -1)
@@ -128,19 +128,27 @@ feature_space.register_feature("fov_image", FoVImage)
 
 
 class FullMapEncoding(feature.Feature):
-    def __init__(self, map_size, **kwargs):
+    max_map_size = (12, 12)
+
+    def __init__(self, **kwargs):
         # TODO(chase): We need to determine a high value for the encodings
         super().__init__(
             low=0,
             high=np.inf,
-            shape=(*map_size, 3),
+            shape=(*self.max_map_size, 3),
             name="full_map_encoding",
             **kwargs
         )
 
     def generate(self, env, player_id, **kwargs):
+        encoding = np.zeros(self.shape, dtype=np.uint8)
         encoded_map = env.grid.encode(encode_char=False)
-        return encoded_map
+
+        # Fill out the encoding with the encoded map, the encoding will be 0 padded if the map is smaller than the max map size
+        encoding[: encoded_map.shape[0], : encoded_map.shape[1], :] = (
+            encoded_map
+        )
+        return encoding
 
 
 feature_space.register_feature("full_map_encoding", FullMapEncoding)
