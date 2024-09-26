@@ -197,6 +197,9 @@ Rather than observing RGB images, we encode the view into an integer representat
 
             return encoded_agent_grid
 
+    feature_space.register_feature("fov_encoding", FoVEncoding)
+
+
 Rewards
 --------
 
