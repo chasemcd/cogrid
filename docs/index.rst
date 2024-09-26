@@ -22,7 +22,7 @@ differentiating factors from Minigrid:
 
 1. Multi-agent support. CoGrid supports multiple agents in the same environment, each with their own
    observation space and action space. Whereas Minigrid's environment logic is centered around a single 
-   agent interacting with a ``Grid`` of ``WorldObj`` objects, CoGrid's environment logic also tracks ``Agent``s as
+   agent interacting with a ``Grid`` of ``WorldObj`` objects, CoGrid's environment logic also tracks ``Agent`` objects as
    unique objects, allowing an arbitrary number to exist in the environment.
 2. ``Reward`` modularization. CoGrid allows for the creation of custom ``Reward`` objects that can be added to the
    environment. Each ``Reward`` is used to calculate the reward for each agent at each step, and can be
@@ -34,11 +34,10 @@ differentiating factors from Minigrid:
 
 CoGrid utilizes the parallel PettingZoo API to standardize the multi-agent environment interface.
 
-.. raw:: html
-
-   <div style="display: flex; justify-content: center; margin-top: 20px;">
-      <img src="_static/images/sr_example.gif" alt="Example GIF" style="width: 75%; display: block;">
-   </div>
+.. image:: _static/images/sr_example.gif
+   :alt: Example GIF
+   :width: 75%
+   :align: center
 
 Installation
 ------------
