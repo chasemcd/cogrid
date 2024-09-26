@@ -72,19 +72,11 @@ class Grid:
         :return: Whether the item is in the grid.
         :rtype: bool
         """
+        # TODO(chase): Add the ability to pass an encoding.
         if isinstance(item, GridObj):
             for grid_obj in self.grid:
                 if grid_obj is item:
                     return True
-
-        # elif isinstance(item, tuple):
-        #     for e in self.grid:
-        #         if e is None:
-        #             continue
-        #         if (e.color, e.type) == item:
-        #             return True
-        #         if item[0] is None and item[1] == e.type:
-        #             return True
         return False
 
     def __eq__(self, other_grid: Grid) -> bool:
@@ -375,6 +367,9 @@ class Grid:
         :rtype: np.ndarray
         """
 
+        # TODO(chase): Make efficiency improvements here. One option is to use
+        # "dirty tiles" so we only render the tiles that have changed.
+
         if highlight_mask is None:
             highlight_mask = np.zeros(
                 shape=(self.width, self.height), dtype=bool
@@ -392,19 +387,9 @@ class Grid:
             for col in range(self.width):
                 cell = self.get(row=row, col=col)
 
-                # if not agent_pos and not agent_dir:
-                #     agent_here = (row, col) in [tuple(agent.pos) for agent in agents.values()]
-                #     agent_dir = None
-                #     if agent_here:
-                #         agent_dir = [agent.dir for agent in agents.values() if np.array_equal(agent.pos, (row, col))][0]
-                # else:
-                #     agent_here = np.array_equal(agent_pos, (row, col))
-
                 tile_img = self.render_tile(
                     cell,
-                    highlight=highlight_mask.T[
-                        row, col
-                    ],  # TODO: Maybe remove .T
+                    highlight=highlight_mask.T[row, col],
                     position=(row, col),
                     tile_size=tile_size,
                 )
@@ -487,49 +472,6 @@ class Grid:
 
         return grid, vis_mask
 
-    # def process_vis(self, agent_pos: tuple[int, int]) -> np.ndarray:
-    #     """
-    #     Process the view for a single agent and mask the view behind any objects for which
-    #     see_behind() is False
-    #     """
-    #     mask = np.zeros(shape=(self.height, self.width), dtype=bool)
-    #
-    #     mask[agent_pos[0], agent_pos[1]] = True
-    #
-    #     for row in reversed(range(0, self.height)):
-    #         for col in range(0, self.width - 1):
-    #             if not mask[row, col]:
-    #                 continue
-    #
-    #             cell = self.get(row=row, col=col)
-    #             if cell and not cell.see_behind():
-    #                 continue
-    #
-    #             mask[row, col + 1] = True
-    #             if row > 0:
-    #                 mask[row - 1, col + 1] = True
-    #                 mask[row - 1, col] = True
-    #
-    #         for col in reversed(range(1, self.width)):
-    #             if not mask[row, col]:
-    #                 continue
-    #
-    #             cell = self.get(row=row, col=col)
-    #             if cell and not cell.see_behind():
-    #                 continue
-    #
-    #             mask[row, col - 1] = True
-    #             if row > 0:
-    #                 mask[row - 1, col - 1] = True
-    #                 mask[row - 1, col] = True
-    #
-    #     for row in range(0, self.height):
-    #         for col in range(0, self.width):
-    #             if not mask[row, col]:
-    #                 self.set(row=row, col=col, v=None)
-    #
-    #     return mask
-
     def get_obj_count(self, grid_obj: GridObj | None) -> int:
         """Get the number of a particular object that exists in the grid.
 
@@ -583,40 +525,3 @@ class Grid:
 
         mask = np.transpose(mask, axes=(1, 0))
         return mask
-        # mask = np.zeros(shape=(self.height, self.width), dtype=bool)
-        #
-        # mask[agent_pos[0], agent_pos[1]] = True
-        #
-        # for j in reversed(range(0, self.height)):
-        #     for i in range(0, self.width - 1):
-        #         if not mask[j, i]:
-        #             continue
-        #
-        #         cell = self.get(j, i)
-        #         if cell and not cell.see_behind():
-        #             continue
-        #
-        #         mask[j, i + 1] = True
-        #         if j > 0:
-        #             mask[j - 1, i + 1] = True
-        #             mask[j - 1, i] = True
-        #
-        #     for i in reversed(range(1, self.width)):
-        #         if not mask[j, i]:
-        #             continue
-        #
-        #         cell = self.get(j, i)
-        #         if cell and not cell.see_behind():
-        #             continue
-        #
-        #         mask[j, i - 1] = True
-        #         if j > 0:
-        #             mask[j - 1, i - 1] = True
-        #             mask[j - 1, i] = True
-        #
-        # for j in range(0, self.height):
-        #     for i in range(0, self.width):
-        #         if not mask[j, i]:
-        #             self.set(j, i, None)
-        #
-        # return mask
