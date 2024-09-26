@@ -284,7 +284,7 @@ Layouts can be predefined as ASCII strings and registered via ``register_layout`
 
     register_layout("search_rescue_layout", layout)
 
-Optionally, you can also pass the object states to the registration as an array of integers that represents the unique state of all objects. It defaults to all ``0``s if not provided.
+Optionally, you can also pass the object states to the registration as an array of integers that represents the unique state of all objects. It defaults to all ``0`` if not provided.
 
 Environment Registration
 -------------------------
