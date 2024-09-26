@@ -37,7 +37,7 @@ CoGrid utilizes the parallel PettingZoo API to standardize the multi-agent envir
 .. raw:: html
 
    <div style="display: flex; justify-content: center; margin-top: 20px;">
-      <img src="docs/_static/images/sr_example.gif" alt="Example GIF" style="width: 75%; display: block;">
+      <img src="_static/images/sr_example.gif" alt="Example GIF" style="width: 75%; display: block;">
    </div>
 
 Installation
