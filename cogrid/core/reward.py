@@ -55,9 +55,9 @@ REWARD_REGISTRY: dict[str, Reward] = {}
 
 def register_reward(reward_id: str, reward_class: Reward) -> None:
     if reward_id in REWARD_REGISTRY:
-        raise ValueError(
+        print(
             f"A reward is already registered with the ID {reward_id}. "
-            "Please select another."
+            "Overwriting it."
         )
 
     REWARD_REGISTRY[reward_id] = reward_class
