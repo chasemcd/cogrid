@@ -4,6 +4,7 @@ from cogrid.feature_space import feature
 from cogrid.feature_space import features
 from cogrid.feature_space import feature_space
 from cogrid.core import grid_utils
+from cogrid.core import agent
 from cogrid import cogrid_env
 from cogrid.core import grid_object
 from cogrid.envs.overcooked import overcooked_grid_objects
@@ -333,6 +334,56 @@ class ClosestObj(feature.Feature):
         return encoding
 
 
+def _calc_pot_features(pot: overcooked_grid_objects.Pot, agent: agent.Agent):
+    # Encode if the pot is reachable (size 1)
+    pot_reachable = [1]  # TODO(chase): use search to determine
+
+    # Encode if the pot is empty, cooking, or ready (size 4)
+    pot_status = np.zeros((4,), dtype=np.int32)  # empty, cooking, ready, ptr
+    if pot.dish_ready:
+        pot_status[0] = 1
+    elif len(pot.objects_in_pot) == 0:
+        pot_status[1] = 1
+    elif len(pot.objects_in_pot) == pot.capacity:
+        pot_status[2] = 1
+    else:
+        pot_status[3] = 1
+
+    # Encode the number of each legal content in the pot (size legal_contents)
+    pot_contents = np.zeros((len(pot.legal_contents),))
+    item_types_in_pot = [
+        pot.legal_contents.index(type(pot_content_obj))
+        for pot_content_obj in pot.objects_in_pot
+    ]
+    for obj_index, obj_count in collections.Counter(item_types_in_pot).items():
+        pot_contents[obj_index] = obj_count
+
+    # Encode cooking time (size 1)
+    pot_cooking_time = np.array(
+        (pot.cooking_timer if pot.is_cooking else -1,),
+        dtype=np.int32,
+    )
+
+    # encode the distance from agent to pot (size 2)
+    pot_distance = np.asarray(agent.pos) - np.asarray(pot.pos)
+
+    # encode the pot location (size 2)
+    pot_location = np.asarray(pot.pos)
+
+    pot_features = np.hstack(
+        [
+            pot_reachable,
+            pot_status,
+            pot_contents,
+            pot_cooking_time,
+            pot_distance,
+            pot_location,
+        ]
+    )
+
+    return pot_features
+
+
 class OrderedPotFeatures(feature.Feature):
     """Encode features related to the pot. Note that this assumes the number of pots is fixed,
     otherwise the feature size will vary and will cause errors. For each pot, calculate:
@@ -359,75 +410,62 @@ class OrderedPotFeatures(feature.Feature):
         pot_feature_dict = {}
         agent = env.grid.grid_agents[player_id]
         count = 0
-        pot_features = np.zeros(self.shape, dtype=np.float32)
         for grid_obj in env.grid.grid:
             if not isinstance(grid_obj, overcooked_grid_objects.Pot):
                 continue
             count += 1
-
-            # Encode if the pot is reachable (size 1)
-            pot_reachable = [1]  # TODO(chase): use search to determine
-
-            # Encode if the pot is empty, cooking, or ready (size 4)
-            pot_status = np.zeros(
-                (4,), dtype=np.int32
-            )  # empty, cooking, ready, ptr
-            if grid_obj.dish_ready:
-                pot_status[0] = 1
-            elif len(grid_obj.objects_in_pot) == 0:
-                pot_status[1] = 1
-            elif len(grid_obj.objects_in_pot) == grid_obj.capacity:
-                pot_status[2] = 1
-            else:
-                pot_status[3] = 1
-
-            # Encode the number of each legal content in the pot (size legal_contents)
-            pot_contents = np.zeros((len(grid_obj.legal_contents),))
-            item_types_in_pot = [
-                grid_obj.legal_contents.index(type(pot_content_obj))
-                for pot_content_obj in grid_obj.objects_in_pot
-            ]
-            for obj_index, obj_count in collections.Counter(
-                item_types_in_pot
-            ).items():
-                pot_contents[obj_index] = obj_count
-
-            # Encode cooking time (size 1)
-            pot_cooking_time = np.array(
-                (grid_obj.cooking_timer if grid_obj.is_cooking else -1,),
-                dtype=np.int32,
-            )
-
-            # encode the distance from agent to pot (size 2)
-            pot_distance = np.asarray(agent.pos) - np.asarray(grid_obj.pos)
-
-            # encode the pot location (size 2)
-            pot_location = np.asarray(grid_obj.pos)
-
             # concatenate all features and store distance
-            euc_dist = euclidian_distance(agent.pos, grid_obj.pos)
-
-            pot_features = np.hstack(
-                [
-                    pot_reachable,
-                    pot_status,
-                    pot_contents,
-                    pot_cooking_time,
-                    pot_distance,
-                    pot_location,
-                ]
+            pot_feature_dict[grid_obj.uuid] = _calc_pot_features(
+                grid_obj, agent
             )
-            pot_feature_dict[grid_obj.uuid] = (euc_dist, pot_features)
+            if count >= self.num_pots:
+                break
 
-        # sort based on euclidian distance
-        # 1 indexes the value, 0 the euc_distance from above
-        # pot_feature_dict = dict(
-        #     sorted(pot_feature_dict.items(), key=lambda item: item[1][0])
-        # )
-
-        pot_feature_values = [v[1] for v in pot_feature_dict.values()]
+        pot_feature_values = [*pot_feature_dict.values()]
         encoding = np.hstack(pot_feature_values)
 
+        padded_encoding = np.zeros(self.shape, dtype=np.float32)
+        padded_encoding[: len(encoding)] = encoding
+
+        return padded_encoding
+
+
+class NClosestPotFeatures(feature.Feature):
+    def __init__(self, num_pots=2, **kwargs):
+        super().__init__(
+            low=-np.inf,
+            high=np.inf,
+            shape=(num_pots * 11,),
+            name="n_closest_pot_features",
+            **kwargs,
+        )
+        self.num_pots = num_pots
+
+    def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
+        agent = env.grid.grid_agents[player_id]
+        pots_and_dists = []
+        for grid_obj in env.grid.grid:
+            if not isinstance(grid_obj, overcooked_grid_objects.Pot):
+                continue
+
+            euc_dist = euclidian_distance(agent.pos, grid_obj.pos)
+            pots_and_dists.append((euc_dist, grid_obj))
+
+        # Retrieve the N closest pots
+        closest_pots = [
+            pot[1]
+            for pot in sorted(pots_and_dists, key=lambda x: x[0])[
+                : self.num_pots
+            ]
+        ]
+
+        pot_features = []
+        for pot in closest_pots:
+            pot_features.append(_calc_pot_features(pot, agent))
+
+        encoding = np.hstack(pot_features)
+
+        # If we're in an environment with less than N pots, pad with zeros
         padded_encoding = np.zeros(self.shape, dtype=np.float32)
         padded_encoding[: len(encoding)] = encoding
 
