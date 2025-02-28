@@ -493,11 +493,16 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             agent = self.env_agents[a_id]
             attempted_pos = attempted_positions[a_id]
 
-            # If another agent is already moving to the desired position,
-            # keep them at the current position
-            if tuple(attempted_pos) in [
+            # Enhanced collision check - check both new_positions and current positions of other agents
+            position_blocked = tuple(attempted_pos) in [
                 tuple(npos) for npos in new_positions.values()
-            ]:
+            ] or tuple(attempted_pos) in [
+                tuple(other.pos)
+                for other_id, other in self.env_agents.items()
+                if other_id != a_id and other_id not in new_positions
+            ]
+
+            if position_blocked:
                 new_positions[a_id] = agent.pos
             else:
                 new_positions[a_id] = attempted_pos
