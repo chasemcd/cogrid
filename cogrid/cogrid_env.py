@@ -416,7 +416,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def update_grid_agents(self) -> None:
         """Update the grid agents to reflect the current state of each Agent."""
         self.grid.grid_agents = {
-            a_id: grid_object.GridAgent(agent)
+            a_id: grid_object.GridAgent(
+                agent, num_agents=self.config["num_agents"]
+            )
             for a_id, agent in self.env_agents.items()
         }
 

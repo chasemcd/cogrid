@@ -37,6 +37,11 @@ class ObjectColors:
     AgentTwo = Colors.Lavender
     AgentThree = Colors.YellowGrey
     AgentFour = Colors.PukeGreen
+    AgentFive = Colors.LightPink
+    AgentSix = Colors.Orange
+    AgentSeven = Colors.PaleBlue
+    AgentEight = Colors.Blue
+    AgentNine = Colors.LightBrown
 
 
 # Map of color names to RGB values

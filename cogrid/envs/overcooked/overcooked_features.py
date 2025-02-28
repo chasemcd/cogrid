@@ -405,6 +405,7 @@ class OrderedPotFeatures(feature.Feature):
             name="pot_features",
             **kwargs,
         )
+        self.num_pots = num_pots
 
     def generate(self, env: cogrid_env.CoGridEnv, player_id, **kwargs):
         pot_feature_dict = {}

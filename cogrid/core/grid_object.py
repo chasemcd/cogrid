@@ -287,17 +287,11 @@ def idx_to_object(idx: int):
 
 
 class GridAgent(GridObj):
-    def __init__(self, agent):
+    def __init__(self, agent, num_agents: int):
         """
         Grid agents are initialized slightly differently. State corresponds to the object they are holding
         and char/colors are unique for each agent.
         """
-        self.color = {
-            1: ObjectColors.AgentOne,
-            2: ObjectColors.AgentTwo,
-            3: ObjectColors.AgentThree,
-            4: ObjectColors.AgentFour,
-        }[agent.agent_number]
 
         self.char = {
             Directions.Up: "^",
@@ -327,6 +321,14 @@ class GridAgent(GridObj):
         self.agent_id = agent.id
         self.inventory: list[GridObj] = deepcopy(agent.inventory)
         assert self.pos is not None
+
+        # Generate high-contrast colors based on HSV color space
+        # Hue values are evenly spaced around the color wheel
+        hue = (agent.agent_number - 1) * (360 / num_agents)
+        # Use high saturation (0.7-1.0) and value (0.8-1.0) for vibrant colors
+        # This avoids whites (high V, low S), blacks (low V), and greys (low S)
+        rgb_color = self._hsv_to_rgb(hue, 0.35, 0.99)
+        self.color = rgb_color
 
     def rotate_left(self):
         self.char = {"^": "<", "<": "v", "v": ">", ">": "^"}[self.char]
@@ -396,6 +398,29 @@ class GridAgent(GridObj):
         state = int(state)
 
         return make_object(object_id, state=state)
+
+    @staticmethod
+    def _hsv_to_rgb(h: float, s: float, v: float) -> tuple[float, float, float]:
+        """Convert HSV color values to RGB tuple."""
+        h = h % 360
+        c = v * s
+        x = c * (1 - abs((h / 60) % 2 - 1))
+        m = v - c
+
+        if 0 <= h < 60:
+            r, g, b = c, x, 0
+        elif 60 <= h < 120:
+            r, g, b = x, c, 0
+        elif 120 <= h < 180:
+            r, g, b = 0, c, x
+        elif 180 <= h < 240:
+            r, g, b = 0, x, c
+        elif 240 <= h < 300:
+            r, g, b = x, 0, c
+        else:
+            r, g, b = c, 0, x
+
+        return ((r + m) * 255.0, (g + m) * 255.0, (b + m) * 255.0)
 
 
 class Wall(GridObj):
