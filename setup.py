@@ -17,7 +17,7 @@ setuptools.setup(
     python_requires=">=3.10",
     install_requires=[
         "numpy==1.26.4",
-        "gymnasium==1.0.0",
+        "gymnasium",
         "pettingzoo==1.24.3",
     ],
 )

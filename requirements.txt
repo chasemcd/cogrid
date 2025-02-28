@@ -1,4 +1,4 @@
-gymnasium==1.0.0
+gymnasium
 numpy==1.26.4
 pettingzoo==1.24.3
 setuptools==68.2.2
