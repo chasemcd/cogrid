@@ -107,31 +107,6 @@ def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
     )
 
 
-# TODO(chase): This is temporary and needs to be retrieved from the registry.
-OBJECT_NAMES = [
-    None,
-    "free_space",
-    "wall",
-    "door",
-    "key",
-    "pickaxe",
-    "medkit",
-    "rubble",
-    "green_victim",
-    "purple_victim",
-    "yellow_victim",
-    "red_victim",
-    "pot",
-    "plate",
-    "plate_stack",
-    "onion_soup",
-    "onion_stack",
-    "onion",
-    "delivery_zone",
-    "counter",
-] + [f"agent_{direction}" for direction in "^>v<"]
-
-
 class GridObj:
     object_id: str = None
     color: str | tuple = None
@@ -187,7 +162,7 @@ class GridObj:
 
     def place_on(self, agent: GridAgent, cell: GridObj) -> None:
         self.obj_placed_on = cell
-        self.state = object_to_idx(cell)
+        self.state = hash(cell.__class__.__name__) % (2**31 - 1)
 
     def pick_up_from(self, agent: GridAgent) -> GridObj:
         assert (
@@ -212,9 +187,9 @@ class GridObj:
         """
         return False
 
-    def encode(self, encode_char=True):
+    def encode(self, encode_char=True, scope: str = "global"):
         return (
-            self.char if encode_char else object_to_idx(self),
+            self.char if encode_char else object_to_idx(self, scope=scope),
             0,  # TODO(chase): Remove. This used to be color, but we're no longer using it.
             int(self.state),
         )
@@ -270,24 +245,69 @@ def _is_int(chk):
     return isinstance(chk, int) or isinstance(chk, np.int)
 
 
-def object_to_idx(object: GridObj | str | None):
+def get_object_names(scope: str = "global") -> list[str]:
+    """Get a list of all registered object IDs in a consistent order.
+
+    The order is important for encoding/decoding and must remain stable.
+    Returns a list starting with [None, "free_space"] followed by global objects,
+    then scope-specific objects, and finally agent directions.
+
+    Args:
+        scope: The scope to include objects from, in addition to global scope
+    """
+    # Start with None and free_space which are special cases
+    names = [None, "free_space"]
+
+    # Add all registered global objects in sorted order (except free_space which we already added)
+    global_objects = sorted(
+        [
+            obj_id
+            for obj_id in OBJECT_REGISTRY.get("global", {}).keys()
+            if obj_id != "free_space"
+        ]
+    )
+    names.extend(global_objects)
+
+    # Add scope-specific objects if a non-global scope is specified
+    if scope != "global" and scope in OBJECT_REGISTRY:
+        scope_objects = sorted(
+            [
+                obj_id
+                for obj_id in OBJECT_REGISTRY[scope].keys()
+                # Skip any objects that might overlap with global scope
+                if obj_id not in OBJECT_REGISTRY.get("global", {})
+            ]
+        )
+        names.extend(scope_objects)
+
+    # Add agent directions last
+    names.extend([f"agent_{direction}" for direction in "^>v<"])
+
+    return names
+
+
+def object_to_idx(object: GridObj | str | None, scope: str = "global") -> int:
+    """Convert an object or object_id to its integer index."""
     if isinstance(object, GridObj):
         object_id = object.object_id
     else:
         object_id = object
 
-    return OBJECT_NAMES.index(object_id)
+    return get_object_names(scope=scope).index(object_id)
 
 
-def idx_to_object(idx: int):
-    for name in OBJECT_NAMES:
-        if OBJECT_NAMES.index(name) == idx:
-            return name
-    raise ValueError(f"Object index {idx} not in OBJECT_LIST.")
+def idx_to_object(idx: int, scope: str = "global") -> str:
+    """Convert an integer index back to its object_id."""
+    names = get_object_names(scope=scope)
+    if idx >= len(names):
+        raise ValueError(
+            f"Object index {idx} not in object registry (checked global and {scope} scopes)."
+        )
+    return names[idx]
 
 
 class GridAgent(GridObj):
-    def __init__(self, agent, num_agents: int):
+    def __init__(self, agent, num_agents: int, scope: str = "global"):
         """
         Grid agents are initialized slightly differently. State corresponds to the object they are holding
         and char/colors are unique for each agent.
@@ -311,7 +331,7 @@ class GridAgent(GridObj):
         state = (
             0
             if len(agent.inventory) == 0
-            else object_to_idx(agent.inventory[0])
+            else object_to_idx(agent.inventory[0], scope=scope)
         )
 
         super().__init__(state=state)
@@ -376,7 +396,7 @@ class GridAgent(GridObj):
             tile_subset[nonzero_entries] = inventory_tile[nonzero_entries]
 
     @staticmethod
-    def decode(char_or_idx: str | int, state: int):
+    def decode(char_or_idx: str | int, state: int, scope: str = "global"):
 
         if char_or_idx in [
             None,
@@ -391,7 +411,7 @@ class GridAgent(GridObj):
         elif _is_str(char_or_idx):
             object_id = get_object_id_from_char(char_or_idx)
         elif _is_int(char_or_idx):
-            object_id = OBJECT_NAMES[char_or_idx]
+            object_id = get_object_names(scope=scope)[char_or_idx]
         else:
             raise ValueError(f"Invalid identifier for decoding: {char_or_idx}")
 
@@ -468,7 +488,7 @@ class Counter(GridObj):
         )
 
     def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        return self.state == 0
+        return self.obj_placed_on is None
 
     def render(self, tile_img):
         super().render(tile_img)

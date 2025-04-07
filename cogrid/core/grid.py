@@ -403,7 +403,10 @@ class Grid:
         return img
 
     def encode(
-        self, vis_mask: np.ndarray | None = None, encode_char=False
+        self,
+        vis_mask: np.ndarray | None = None,
+        encode_char=False,
+        scope: str = "global",
     ) -> np.ndarray:
         """Produce an ASCII/int representation of the grid."""
         if vis_mask is None:
@@ -423,13 +426,13 @@ class Grid:
                         (
                             GridConstants.FreeSpace
                             if encode_char
-                            else object_to_idx(None)
+                            else object_to_idx(None, scope=scope)
                         ),
                         0,
                         0,
                     )
                 else:
-                    encoding = v.encode(encode_char=encode_char)
+                    encoding = v.encode(encode_char=encode_char, scope=scope)
 
                 array[row, col] = encoding
 

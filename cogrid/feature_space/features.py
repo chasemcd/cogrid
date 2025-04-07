@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium import spaces
 from collections import deque
 
-from cogrid.core.grid_object import OBJECT_NAMES
+from cogrid.core.grid_object import get_object_names
 from cogrid.feature_space import feature, feature_space
 from cogrid.core import grid_utils
 
@@ -366,7 +366,7 @@ class Inventory(feature.Feature):
         if inventory_capacity == 1:
             super().__init__(
                 low=0,
-                high=len(OBJECT_NAMES),
+                high=np.inf,
                 shape=(inventory_capacity,),
                 name="inventory",
                 **kwargs
@@ -375,14 +375,16 @@ class Inventory(feature.Feature):
             raise NotImplementedError(
                 "RLLib has a deserializing bug with the multi-discrete shape."
             )
-            # space = MultiDiscrete([len(OBJECT_NAMES) for _ in range(inventory_capacity)])
-            # super().__init__(low=0, high=len(OBJECT_NAMES), shape=space.shape, space=space, name="inventory", **kwargs)
+            # space = MultiDiscrete([len(get_object_names(scope=env.scope)) for _ in range(inventory_capacity)])
+            # super().__init__(low=0, high=len(get_object_names(scope=env.scope)), shape=space.shape, space=space, name="inventory", **kwargs)
 
     def generate(self, env, player_id, **kwargs):
         agent = env.env_agents[player_id]
         idxs = []
         for obj in agent.inventory:
-            idxs.append(OBJECT_NAMES.index(obj.object_id) + 1)
+            idxs.append(
+                get_object_names(scope=env.scope).index(obj.object_id) + 1
+            )
         sorted_idxs = sorted(idxs)
 
         encoding = np.zeros(self.shape, dtype=np.uint8)

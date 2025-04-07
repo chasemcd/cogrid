@@ -417,7 +417,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Update the grid agents to reflect the current state of each Agent."""
         self.grid.grid_agents = {
             a_id: grid_object.GridAgent(
-                agent, num_agents=self.config["num_agents"]
+                agent, num_agents=self.config["num_agents"], scope=self.scope
             )
             for a_id, agent in self.env_agents.items()
         }
@@ -626,6 +626,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 ):
                     drop_cell = agent.inventory.pop(0)
                     drop_cell.pos = fwd_pos
+
                     fwd_cell.place_on(cell=drop_cell, agent=agent)
                     agent.cell_placed_on = fwd_cell
 
@@ -783,7 +784,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :rtype: np.ndarray
         """
 
-        grid_encoding = self.grid.encode(encode_char=True)
+        grid_encoding = self.grid.encode(encode_char=True, scope=self.scope)
         grid = grid_encoding[:, :, 0]
 
         for a_id, agent in self.env_agents.items():
