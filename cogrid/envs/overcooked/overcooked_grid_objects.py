@@ -46,6 +46,32 @@ class Onion(grid_object.GridObj):
 grid_object.register_object(Onion.object_id, Onion, scope="overcooked")
 
 
+class Tomato(grid_object.GridObj):
+    object_id = "tomato"
+    color = constants.Colors.Red
+    char = "t"
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            state=0,
+            inventory_value=0.0,
+        )
+
+    def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        return True
+
+    def render(self, tile_img):
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color
+        )
+
+grid_object.register_object(Tomato.object_id, Tomato, scope="overcooked")
+
+
 class OnionStack(grid_object.GridObj):
     """An OnionStack is just an (infinite) pile of onions."""
 
@@ -76,6 +102,36 @@ grid_object.register_object(
 )
 
 
+class TomatoStack(grid_object.GridObj):
+    """A TomatoStack is just an (infinite) pile of tomatoes."""
+
+    object_id = "tomato_stack"
+    color = constants.Colors.Red
+    char = "T"
+
+    def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
+        return True
+
+    def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        return Tomato()
+
+    def render(self, tile_img: np.ndarray):
+        fill_coords(
+            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
+        )
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
+        )
+
+
+grid_object.register_object(
+    TomatoStack.object_id, TomatoStack, scope="overcooked"
+)
+
+
 class Pot(grid_object.GridObj):
     object_id = "pot"
     color = constants.Colors.Grey
@@ -86,7 +142,7 @@ class Pot(grid_object.GridObj):
         self,
         state: int = 0,
         capacity: int = 3,
-        legal_contents: list[grid_object.GridObj] = [Onion],
+        legal_contents: list[grid_object.GridObj] = [Onion, Tomato],
         *args,
         **kwargs,
     ):
@@ -307,3 +363,35 @@ class OnionSoup(grid_object.GridObj):
 
 
 grid_object.register_object(OnionSoup.object_id, OnionSoup, scope="overcooked")
+
+
+class TomatoSoup(grid_object.GridObj):
+    object_id = "tomato_soup"
+    color = constants.Colors.Red
+    char = "!"
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            state=0,
+            inventory_value=0.0,
+        )
+
+    def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        return True
+
+    def render(self, tile_img):
+        # Draw plate
+        fill_coords(
+            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color
+        )
+
+        # draw soup inside plate
+        fill_coords(
+            tile_img,
+            point_in_circle(cx=0.5, cy=0.5, r=0.3),
+            self.color,
+        )
