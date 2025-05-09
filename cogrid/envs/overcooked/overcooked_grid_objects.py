@@ -162,21 +162,33 @@ class Pot(grid_object.GridObj):
         )
 
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        # if all ingredients are tomatoes, return TomatoSoup
+        soup = OnionSoup()
+        if all(
+            [isinstance(grid_obj, Tomato) for grid_obj in self.objects_in_pot]
+        ):
+            soup = TomatoSoup()
+
         self.objects_in_pot = []
         self.cooking_timer = self.cooking_time
         agent.inventory.pop(0)  # TODO(chase): assumes size 1 inventory
-        return OnionSoup()
+        return soup
 
     def can_place_on(
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
     ) -> bool:
-        """Can only place onions in the soup!"""
-        if not any(
-            [isinstance(cell, grid_obj) for grid_obj in self.legal_contents]
-        ):
-            return False
 
-        return len(self.objects_in_pot) < self.capacity
+        is_legal_ingredient = any(
+            [isinstance(cell, grid_obj) for grid_obj in self.legal_contents]
+        )
+
+        # return true if cell is the same ingredient type as other ingredients in the pot
+        is_same_type = all(
+            [isinstance(cell, grid_obj) for grid_obj in self.objects_in_pot]
+        )  # return true even if pot is empty
+
+        return len(self.objects_in_pot) < self.capacity and \
+                is_legal_ingredient and is_same_type
 
     def place_on(
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
