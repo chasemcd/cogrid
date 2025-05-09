@@ -162,7 +162,7 @@ class LayoutID(feature.Feature):
 
 
 class OvercookedInventory(feature.Feature):
-    shape = (3,)
+    shape = (5,)
 
     def __init__(self, **kwargs):
         super().__init__(low=0, high=1, name="overcooked_inventory", **kwargs)
@@ -178,6 +178,8 @@ class OvercookedInventory(feature.Feature):
             overcooked_grid_objects.Onion,
             overcooked_grid_objects.OnionSoup,
             overcooked_grid_objects.Plate,
+            overcooked_grid_objects.Tomato,
+            overcooked_grid_objects.TomatoSoup
         ]
         encoding[objs.index(type(agent.inventory[0]))] = 1
         assert np.array_equal(self.shape, encoding.shape)
