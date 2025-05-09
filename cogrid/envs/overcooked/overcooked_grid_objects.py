@@ -311,7 +311,7 @@ class DeliveryZone(grid_object.GridObj):
     ) -> bool:
         """Delivery can be toggled by an agent with Soup"""
         toggling_agent_has_soup = any(
-            [isinstance(grid_obj, OnionSoup) for grid_obj in agent.inventory]
+            [isinstance(grid_obj, (OnionSoup, TomatoSoup)) for grid_obj in agent.inventory]
         )
 
         if toggling_agent_has_soup:
