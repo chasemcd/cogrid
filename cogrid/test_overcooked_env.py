@@ -205,7 +205,9 @@ class TestOvercookedEnv(unittest.TestCase):
     
     def test_tomato_in_pot(self):
         """
-        Test that we can get tomato from the stack and put it in the pot 
+        Test that we can get tomato from the stack and put it in the pot.
+
+        Tests Pot.can_place_on() for Tomato objects
         """
         self.pick_tomato_and_move_to_pot()
 
@@ -234,6 +236,13 @@ class TestOvercookedEnv(unittest.TestCase):
         return
     
     def test_cooking_tomato_soup(self):
+        """
+        Test tat puts 3 tomatoes in the pot and then simulates cooking.
+        Lastly, check if the soup is ready and can be picked up.
+
+        Tests Pot.can_pickup_from() for TomatoSoup objects
+        Tests Pot.pick_up_from() for TomatoSoup objects
+        """
         # put a tomato in the pot
         self.pick_tomato_and_move_to_pot()
         self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
