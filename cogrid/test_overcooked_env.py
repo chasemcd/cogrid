@@ -191,20 +191,23 @@ class TestOvercookedEnv(unittest.TestCase):
         self.env = make_env(num_agents=2, layout="overcooked_cramped_room_v1", render_mode="human")
         self.env.reset()
     
+    def pick_tomato_and_move_to_pot(self):
+        """
+        Move agent 0 to the pot
+        agent 0 assume to start next to the tomato facing up. in cramped room
+        TODO: how to set orientation and position of the agent?
+        """
+
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveUp, 1: Actions.Noop})
+    
     def test_tomato_in_pot(self):
         """
         Test that we can get tomato from the stack and put it in the pot 
         """
-        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
-        time.sleep(1)
-        obs, reward, _, _, _ = self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
-        # agent 0 move right
-        time.sleep(1)
-        obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
-        time.sleep(1)
-        # agent 0 move up
-        obs, reward, _, _, _ = self.env.step({0: Actions.MoveUp, 1: Actions.Noop})
-        time.sleep(1)
+        self.pick_tomato_and_move_to_pot()
 
         # now agent 0 is in front of the pot and facing the pot
         agent_0 = self.env.grid.grid_agents[0]
@@ -215,18 +218,59 @@ class TestOvercookedEnv(unittest.TestCase):
 
         can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())  
 
+        # testing can_place_on to return the rigt boolean
         self.assertTrue(can_place_tomato)
 
-        # agent 0 PickupDrop
+        # agent 0 Drop the tomato in the pot
         obs, reward, _, _, _ = self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
         pot_tile = self.env.grid.get(*agent_0_forward_pos)
 
-        self.assertTrue(any(  # assert that tomato is in the pot
+        # assert that tomato is in the pot
+        self.assertTrue(any(  
             isinstance(obj, overcooked_grid_objects.Tomato)
             for obj in pot_tile.objects_in_pot
         ))
 
         return
+    
+    def test_cooking_tomato_soup(self):
+        # put a tomato in the pot
+        self.pick_tomato_and_move_to_pot()
+        self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
+        # go back initial position
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
+
+        # put 2nd tomato in the pot
+        self.pick_tomato_and_move_to_pot()
+        self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
+        # go back to initial position
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveLeft, 1: Actions.Noop})
+
+        # put 3rd tomato in the pot
+        self.pick_tomato_and_move_to_pot()
+        self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
+
+        # simulate cooking
+        agent_0 = self.env.grid.grid_agents[0]
+        agent_0.inventory.append(overcooked_grid_objects.Plate())  # just to make sure the agent has a plate in inventory
+        while True:
+            # ticks cooking_timer down per step
+            obs, reward, _, _, _ = self.env.step({0: Actions.Noop, 1: Actions.Noop})  
+            # check if the pot is cooking
+            pot_tile = self.env.grid.get(*agent_0.front_pos)
+            if pot_tile.can_pickup_from(agent_0):  # true if pot timer is 0 and agent has plate in inventory
+                # FOOD IS READY
+                break
+        soup = pot_tile.pick_up_from(agent_0)
+        self.assertIsInstance(soup, overcooked_grid_objects.TomatoSoup)
+
+
+        self.assertEqual(1, 1)
+        return
+
+    
 
 
 if __name__ == "__main__":
