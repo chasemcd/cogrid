@@ -184,7 +184,7 @@ class Pot(grid_object.GridObj):
 
         # return true if cell is the same ingredient type as other ingredients in the pot
         is_same_type = all(
-            [isinstance(cell, grid_obj) for grid_obj in self.objects_in_pot]
+            [isinstance(cell, type(grid_obj)) for grid_obj in self.objects_in_pot]
         )  # return true even if pot is empty
 
         return len(self.objects_in_pot) < self.capacity and \
