@@ -315,6 +315,36 @@ class TestOvercookedEnv(unittest.TestCase):
         self.assertFalse(can_place_onion)
 
         return
+
+    def test_delivery_zone(self):
+        # agent 0 move right 2 times
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
+        # agent 0 move down 1 time
+        obs, reward, _, _, _ = self.env.step({0: Actions.MoveDown, 1: Actions.Noop})
+
+
+        # now agent 0 is in front of the delivery zone
+        agent_0 = self.env.grid.grid_agents[0]
+        agent_0_forward_pos = agent_0.front_pos
+        delivery_zone_tile = self.env.grid.get(*agent_0_forward_pos)
+
+        # make sure that object in front is a pot
+        self.assertIsInstance(delivery_zone_tile, overcooked_grid_objects.DeliveryZone)
+
+        # put Tomato soup agent inventory
+        agent_0.inventory.append(overcooked_grid_objects.TomatoSoup())
+
+        # test that we can place a tomato soup on the delivery zone
+        can_place_tomato_soup = delivery_zone_tile.can_place_on(agent_0, overcooked_grid_objects.TomatoSoup())
+        self.assertTrue(can_place_tomato_soup)
+
+        # put onion soup agent inventory
+        agent_0.inventory[0] = overcooked_grid_objects.OnionSoup()
+        # test that we can place a onion soup on the delivery zone
+        can_place_onion_soup = delivery_zone_tile.can_place_on(agent_0, overcooked_grid_objects.OnionSoup())
+        self.assertTrue(can_place_onion_soup)
+        return
     
     def test_random_actions(self):
         """
