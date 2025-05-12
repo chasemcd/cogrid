@@ -316,7 +316,7 @@ class TestOvercookedEnv(unittest.TestCase):
 
         return
 
-    def test_delivery_zone(self):
+    def test_delivery_zone_can_place_on(self):
         # agent 0 move right 2 times
         obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
         obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
@@ -329,7 +329,7 @@ class TestOvercookedEnv(unittest.TestCase):
         agent_0_forward_pos = agent_0.front_pos
         delivery_zone_tile = self.env.grid.get(*agent_0_forward_pos)
 
-        # make sure that object in front is a pot
+        # make sure that object in front is a delivery zone
         self.assertIsInstance(delivery_zone_tile, overcooked_grid_objects.DeliveryZone)
 
         # put Tomato soup agent inventory
