@@ -202,6 +202,14 @@ class TestOvercookedEnv(unittest.TestCase):
         obs, reward, _, _, _ = self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
         obs, reward, _, _, _ = self.env.step({0: Actions.MoveRight, 1: Actions.Noop})
         obs, reward, _, _, _ = self.env.step({0: Actions.MoveUp, 1: Actions.Noop})
+
+        # now agent 0 is in front of the pot and facing the pot
+        agent_0 = self.env.grid.grid_agents[0]
+        agent_0_forward_pos = agent_0.front_pos
+        pot_tile = self.env.grid.get(*agent_0_forward_pos)
+
+        # make sure that object in front is a pot
+        self.assertIsInstance(pot_tile, overcooked_grid_objects.Pot)
     
     def test_tomato_in_pot(self):
         """
@@ -279,6 +287,42 @@ class TestOvercookedEnv(unittest.TestCase):
         self.assertEqual(1, 1)
         return
 
+    def test_pot_can_place_on(self):
+        self.pick_tomato_and_move_to_pot()
+
+        # now agent 0 is in front of the pot and facing the pot
+        agent_0 = self.env.grid.grid_agents[0]
+        agent_0_forward_pos = agent_0.front_pos
+        pot_tile = self.env.grid.get(*agent_0_forward_pos)
+
+        # make sure that object in front is a pot
+        self.assertIsInstance(pot_tile, overcooked_grid_objects.Pot)
+
+        # test that we can place a tomato on the pot
+        can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())
+        
+        self.assertTrue(can_place_tomato)
+
+        # place the tomato on the pot
+        self.env.step({0: Actions.PickupDrop, 1: Actions.Noop})
+
+        # assert that we can place more tomatoes on the pot
+        can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())
+        self.assertTrue(can_place_tomato)
+
+        # assert that we can't place onion since tomato is already on the pot
+        can_place_onion = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Onion())
+        self.assertFalse(can_place_onion)
+
+        return
+    
+    def test_random_actions(self):
+        """
+        Test that random actions are valid and do not crash the environment.
+        """
+        for _ in range(100):
+            action = {0: self.env.action_spaces[0].sample(), 1: self.env.action_spaces[1].sample()}
+            obs, reward, _, _, _ = self.env.step(action)
     
 
 
