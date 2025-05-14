@@ -407,3 +407,5 @@ class TomatoSoup(grid_object.GridObj):
             point_in_circle(cx=0.5, cy=0.5, r=0.3),
             self.color,
         )
+
+grid_object.register_object(TomatoSoup.object_id, TomatoSoup, scope="overcooked")
