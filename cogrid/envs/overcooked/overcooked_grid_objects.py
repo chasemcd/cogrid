@@ -69,6 +69,7 @@ class Tomato(grid_object.GridObj):
             tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color
         )
 
+
 grid_object.register_object(Tomato.object_id, Tomato, scope="overcooked")
 
 
@@ -184,11 +185,17 @@ class Pot(grid_object.GridObj):
 
         # return true if cell is the same ingredient type as other ingredients in the pot
         is_same_type = all(
-            [isinstance(cell, type(grid_obj)) for grid_obj in self.objects_in_pot]
+            [
+                isinstance(cell, type(grid_obj))
+                for grid_obj in self.objects_in_pot
+            ]
         )  # return true even if pot is empty
 
-        return len(self.objects_in_pot) < self.capacity and \
-                is_legal_ingredient and is_same_type
+        return (
+            len(self.objects_in_pot) < self.capacity
+            and is_legal_ingredient
+            and is_same_type
+        )
 
     def place_on(
         self, agent: grid_object.GridAgent, cell: grid_object.GridObj
@@ -232,6 +239,14 @@ class Pot(grid_object.GridObj):
             add_text_to_image(
                 tile_img, text=str(self.cooking_timer), position=(50, 75)
             )
+
+    def encode(self, encode_char: bool = True, scope: str = "global"):
+        """Allow encoding to account for the type of soup in the pot"""
+        char, _, state = super().encode(encode_char=encode_char, scope=scope)
+        extra_state_encoding = int(
+            any(isinstance(obj, Tomato) for obj in self.objects_in_pot)
+        )
+        return (char, extra_state_encoding, state)
 
 
 grid_object.register_object(Pot.object_id, Pot, scope="overcooked")
@@ -323,7 +338,10 @@ class DeliveryZone(grid_object.GridObj):
     ) -> bool:
         """Delivery can be toggled by an agent with Soup"""
         toggling_agent_has_soup = any(
-            [isinstance(grid_obj, (OnionSoup, TomatoSoup)) for grid_obj in agent.inventory]
+            [
+                isinstance(grid_obj, (OnionSoup, TomatoSoup))
+                for grid_obj in agent.inventory
+            ]
         )
 
         if toggling_agent_has_soup:
@@ -408,4 +426,7 @@ class TomatoSoup(grid_object.GridObj):
             self.color,
         )
 
-grid_object.register_object(TomatoSoup.object_id, TomatoSoup, scope="overcooked")
+
+grid_object.register_object(
+    TomatoSoup.object_id, TomatoSoup, scope="overcooked"
+)
