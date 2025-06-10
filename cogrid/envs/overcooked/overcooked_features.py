@@ -188,7 +188,7 @@ class OvercookedInventory(feature.Feature):
 
 class NextToCounter(feature.Feature):
     """A feature that represents a multi-hot encoding of whether or not there is a counter
-    immediately in each of the four cardinal directions.
+    immediately in each of the four cardinal directions [E, W, S, N].
 
     For example, let '#' be the counter and '@' be the player. The following situation
         ####
@@ -196,7 +196,7 @@ class NextToCounter(feature.Feature):
         # @#
         ####
 
-    would result in the feature [0, 1, 1, 0], corresponding to having a counter
+    would result in the feature [1, 0, 1, 0], corresponding to having a counter
     immediately to the east and south, but not north and west.
     """
 
