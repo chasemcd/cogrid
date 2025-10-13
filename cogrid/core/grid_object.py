@@ -213,6 +213,8 @@ class GridObj:
             object_id = char_or_idx
         elif _is_str(char_or_idx):
             object_id = get_object_id_from_char(char_or_idx, scope=scope)
+        elif _is_int(char_or_idx):
+            object_id = get_object_names(scope=scope)[char_or_idx]
         else:
             raise ValueError(f"Invalid identifier for decoding: {char_or_idx}")
 
@@ -231,6 +233,47 @@ class GridObj:
         """
         pass
 
+    def get_extra_state(self, scope: str = "global") -> dict | None:
+        """Override in subclasses to serialize complex internal state beyond the basic 'state' integer.
+
+        This method is called during environment serialization to capture any additional
+        state that cannot be represented in the standard encode() method.
+
+        :param scope: The scope of the object registry to use for serialization.
+        :type scope: str
+        :return: Dictionary of serializable state, or None if no extra state is needed.
+        :rtype: dict | None
+
+        Example:
+            def get_extra_state(self, scope: str = "global") -> dict:
+                return {
+                    "custom_field": self.custom_field,
+                    "nested_objects": [obj.object_id for obj in self.nested_objects]
+                }
+        """
+        return None
+
+    def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+        """Override in subclasses to restore complex internal state from serialization.
+
+        This method is called during environment deserialization to restore any additional
+        state that was captured in get_extra_state().
+
+        :param state_dict: The dictionary returned by get_extra_state().
+        :type state_dict: dict
+        :param scope: The scope of the object registry to use for deserialization.
+        :type scope: str
+
+        Example:
+            def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+                self.custom_field = state_dict["custom_field"]
+                self.nested_objects = [
+                    make_object(obj_id, scope=scope)
+                    for obj_id in state_dict["nested_objects"]
+                ]
+        """
+        pass
+
     def _remove_from_grid(self, grid):
         cell = grid.get(*self.pos)
         assert self is cell
@@ -238,11 +281,11 @@ class GridObj:
 
 
 def _is_str(chk):
-    return isinstance(chk, str) or isinstance(chk, np.str)
+    return isinstance(chk, str)
 
 
 def _is_int(chk):
-    return isinstance(chk, int) or isinstance(chk, np.int)
+    return isinstance(chk, (int, np.integer))
 
 
 def get_object_names(scope: str = "global") -> list[str]:
@@ -495,6 +538,41 @@ class Counter(GridObj):
 
         if self.obj_placed_on is not None:
             self.obj_placed_on.render(tile_img)
+
+    def get_extra_state(self, scope: str = "global") -> dict | None:
+        """Serialize counter's obj_placed_on state.
+
+        :param scope: The scope of the object registry to use for serialization.
+        :type scope: str
+        :return: Dictionary containing counter state, or None if no object placed on it.
+        :rtype: dict | None
+        """
+        if self.obj_placed_on is None:
+            return None
+
+        return {
+            "obj_placed_on": {
+                "object_id": self.obj_placed_on.object_id,
+                "state": self.obj_placed_on.state,
+                "extra_state": self.obj_placed_on.get_extra_state(scope),
+            }
+        }
+
+    def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+        """Restore counter's obj_placed_on state from serialization.
+
+        :param state_dict: The dictionary returned by get_extra_state().
+        :type state_dict: dict
+        :param scope: The scope of the object registry to use for deserialization.
+        :type scope: str
+        """
+        if state_dict and "obj_placed_on" in state_dict:
+            obj_data = state_dict["obj_placed_on"]
+            self.obj_placed_on = make_object(
+                obj_data["object_id"], state=obj_data["state"], scope=scope
+            )
+            if obj_data["extra_state"]:
+                self.obj_placed_on.set_extra_state(obj_data["extra_state"], scope)
 
 
 register_object(Counter.object_id, Counter, scope="global")

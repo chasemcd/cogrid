@@ -248,6 +248,37 @@ class Pot(grid_object.GridObj):
         )
         return (char, extra_state_encoding, state)
 
+    def get_extra_state(self, scope: str = "global") -> dict:
+        """Serialize pot's internal state including ingredients and cooking timer.
+
+        :param scope: The scope of the object registry to use for serialization.
+        :type scope: str
+        :return: Dictionary containing pot state.
+        :rtype: dict
+        """
+        return {
+            "objects_in_pot": [obj.object_id for obj in self.objects_in_pot],
+            "cooking_timer": self.cooking_timer,
+            "capacity": self.capacity,
+        }
+
+    def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+        """Restore pot's internal state from serialization.
+
+        :param state_dict: The dictionary returned by get_extra_state().
+        :type state_dict: dict
+        :param scope: The scope of the object registry to use for deserialization.
+        :type scope: str
+        """
+        from cogrid.core.grid_object import make_object
+
+        self.objects_in_pot = [
+            make_object(obj_id, scope=scope)
+            for obj_id in state_dict["objects_in_pot"]
+        ]
+        self.cooking_timer = state_dict["cooking_timer"]
+        self.capacity = state_dict.get("capacity", 3)
+
 
 grid_object.register_object(Pot.object_id, Pot, scope="overcooked")
 

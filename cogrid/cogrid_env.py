@@ -1137,3 +1137,179 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         agent = self.env_agents[agent_id]
         return str(agent.agent_number)
+
+    def get_state(self) -> dict:
+        """Get complete environment state for serialization.
+
+        This method captures all state necessary to fully restore the environment
+        to its current condition, including grid state, agent states, RNG state,
+        and all environment variables.
+
+        :return: Dictionary containing complete environment state.
+        :rtype: dict
+
+        The returned dictionary contains:
+            - version: State format version for compatibility
+            - config: Environment configuration
+            - scope: Object registry scope (e.g., "global", "overcooked")
+            - timestep: Current timestep
+            - cumulative_score: Cumulative score so far
+            - current_layout_id: ID of the current layout
+            - rng_state: NumPy random state for determinism
+            - grid: Grid state with object metadata
+            - agents: Agent states including inventory
+            - spawn_points: Remaining spawn points
+            - prev_actions: Previous actions taken
+            - per_agent_reward: Rewards per agent
+            - per_component_reward: Rewards per component per agent
+        """
+        # Get RNG state for deterministic restoration
+        rng_state = None
+        if self._np_random is not None:
+            rng_state = {"bit_generator": self._np_random.bit_generator.state}
+
+        # Serialize grid (objects only, agents handled separately)
+        grid_state = self.grid.get_state_dict(scope=self.scope)
+
+        # Serialize all agents
+        agents_state = {
+            agent_id: agent.get_state(scope=self.scope)
+            for agent_id, agent in self.env_agents.items()
+        }
+
+        # Collect all state into a single dictionary
+        state = {
+            "version": "1.0",  # For future compatibility
+            "config": self.config,
+            "scope": self.scope,
+            "timestep": self.t,
+            "cumulative_score": self.cumulative_score,
+            "current_layout_id": self.current_layout_id,
+            "rng_state": rng_state,
+            "grid": grid_state,
+            "agents": agents_state,
+            "spawn_points": self.spawn_points.copy(),
+            "prev_actions": (
+                {str(k): v for k, v in self.prev_actions.items()}
+                if self.prev_actions
+                else None
+            ),
+            "per_agent_reward": {
+                str(k): v for k, v in self.per_agent_reward.items()
+            },
+            "per_component_reward": {
+                component: {str(k): v for k, v in rewards.items()}
+                for component, rewards in self.per_component_reward.items()
+            },
+        }
+
+        return state
+
+    def set_state(self, state: dict) -> None:
+        """Restore environment from state dictionary.
+
+        This method restores the complete environment state from a dictionary
+        created by get_state(). The environment should typically be initialized
+        (via __init__) before calling this method, though reset() is not required.
+
+        :param state: State dictionary from get_state().
+        :type state: dict
+        :raises ValueError: If state version is unsupported.
+
+        Example:
+            # Save state from one environment
+            env1 = CoGridEnv(config)
+            env1.reset()
+            # ... run some steps ...
+            saved_state = env1.get_state()
+
+            # Restore state to another environment
+            env2 = CoGridEnv(config)
+            env2.set_state(saved_state)
+            # env2 is now identical to env1 at the time of get_state()
+        """
+        # Validate state version
+        if state.get("version") != "1.0":
+            raise ValueError(f"Unsupported state version: {state.get('version')}")
+
+        # Restore basic environment state
+        self.t = state["timestep"]
+        self.cumulative_score = state["cumulative_score"]
+        self.current_layout_id = state["current_layout_id"]
+        self.spawn_points = state["spawn_points"].copy()
+
+        # Restore RNG state for determinism
+        if state["rng_state"] is not None:
+            self._np_random = np.random.Generator(np.random.PCG64())
+            self._np_random.bit_generator.state = state["rng_state"][
+                "bit_generator"
+            ]
+
+        # Restore grid state
+        grid_state = state["grid"]
+        self.grid = grid.Grid(
+            height=grid_state["height"], width=grid_state["width"]
+        )
+        self.grid.set_state_dict(grid_state, scope=self.scope)
+
+        # Restore agents
+        self.env_agents = {}
+        for agent_id, agent_data in state["agents"].items():
+            # Convert string keys back to integers if they were agent IDs
+            # Handle both int (direct dict) and str (from JSON) keys
+            if isinstance(agent_id, int):
+                agent_key = agent_id
+            elif isinstance(agent_id, str) and agent_id.isdigit():
+                agent_key = int(agent_id)
+            else:
+                agent_key = agent_id
+
+            restored_agent = self.agent_class.from_state(agent_data, scope=self.scope)
+            self.env_agents[agent_key] = restored_agent
+
+        # Update grid_agents to reflect current agent positions
+        self.update_grid_agents()
+
+        # Restore previous actions
+        if state["prev_actions"] is not None:
+            self.prev_actions = {}
+            for k, v in state["prev_actions"].items():
+                if isinstance(k, int):
+                    key = k
+                elif isinstance(k, str) and k.isdigit():
+                    key = int(k)
+                else:
+                    key = k
+                self.prev_actions[key] = v
+        else:
+            self.prev_actions = None
+
+        # Restore reward state
+        self.per_agent_reward = {}
+        for k, v in state["per_agent_reward"].items():
+            if isinstance(k, int):
+                key = k
+            elif isinstance(k, str) and k.isdigit():
+                key = int(k)
+            else:
+                key = k
+            self.per_agent_reward[key] = v
+
+        self.per_component_reward = {}
+        for component, rewards in state["per_component_reward"].items():
+            self.per_component_reward[component] = {}
+            for k, v in rewards.items():
+                if isinstance(k, int):
+                    key = k
+                elif isinstance(k, str) and k.isdigit():
+                    key = int(k)
+                else:
+                    key = k
+                self.per_component_reward[component][key] = v
+
+        # Update agents list (currently active, non-terminated agents)
+        self.agents = [
+            agent_id
+            for agent_id in self.possible_agents
+            if not self.env_agents[agent_id].terminated
+        ]

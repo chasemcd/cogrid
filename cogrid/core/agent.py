@@ -105,3 +105,72 @@ class Agent:
         e.g., agent-0 -> 1, agent-1 -> 2, etc.
         """
         return int(self.id[-1]) + 1 if isinstance(self.id, str) else self.id + 1
+
+    def get_state(self, scope: str = "global") -> dict:
+        """Serialize agent state to a dictionary.
+
+        :param scope: The scope of the object registry to use for serialization.
+        :type scope: str
+        :return: Dictionary containing complete agent state.
+        :rtype: dict
+        """
+        return {
+            "id": self.id,
+            "pos": tuple(self.pos),
+            "dir": int(self.dir),
+            "role": self.role,
+            "role_idx": self.role_idx,
+            "terminated": self.terminated,
+            "collision": self.collision,
+            "orientation": self.orientation,
+            "inventory_capacity": self.inventory_capacity,
+            "inventory": [
+                {
+                    "object_id": obj.object_id,
+                    "state": obj.state,
+                    "extra_state": obj.get_extra_state(scope),
+                }
+                for obj in self.inventory
+            ],
+        }
+
+    @classmethod
+    def from_state(cls, state_dict: dict, scope: str = "global"):
+        """Reconstruct an agent from serialized state.
+
+        :param state_dict: Serialized agent state from get_state().
+        :type state_dict: dict
+        :param scope: The scope of the object registry to use for deserialization.
+        :type scope: str
+        :return: Reconstructed agent instance.
+        :rtype: Agent
+        """
+        from cogrid.core.grid_object import make_object
+        from cogrid.core.directions import Directions
+
+        # Create new agent instance
+        agent = cls(
+            agent_id=state_dict["id"],
+            start_position=state_dict["pos"],
+            start_direction=Directions(state_dict["dir"]),
+            inventory_capacity=state_dict.get("inventory_capacity", 1),
+        )
+
+        # Restore agent state
+        agent.role = state_dict.get("role")
+        agent.role_idx = state_dict.get("role_idx")
+        agent.terminated = state_dict["terminated"]
+        agent.collision = state_dict["collision"]
+        agent.orientation = state_dict["orientation"]
+
+        # Restore inventory
+        agent.inventory = []
+        for obj_data in state_dict["inventory"]:
+            obj = make_object(
+                obj_data["object_id"], state=obj_data["state"], scope=scope
+            )
+            if obj_data["extra_state"]:
+                obj.set_extra_state(obj_data["extra_state"], scope)
+            agent.inventory.append(obj)
+
+        return agent

@@ -142,7 +142,7 @@ class FullMapEncoding(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         encoding = np.zeros(self.shape, dtype=np.uint8)
-        encoded_map = env.grid.encode(encode_char=False)
+        encoded_map = env.grid.encode(encode_char=False, scope=env.scope)
 
         # Fill out the encoding with the encoded map, the encoding will be 0 padded if the map is smaller than the max map size
         encoding[: encoded_map.shape[0], : encoded_map.shape[1], :] = (
@@ -167,7 +167,7 @@ class FoVEncoding(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
-        encoded_agent_grid = agent_grid.encode(encode_char=False)
+        encoded_agent_grid = agent_grid.encode(encode_char=False, scope=env.scope)
         return encoded_agent_grid
 
 
@@ -185,7 +185,7 @@ class FullMapASCII(feature.Feature):
         )
 
     def generate(self, env, player_id, **kwargs):
-        encoded_map = env.grid.encode(encode_char=True)
+        encoded_map = env.grid.encode(encode_char=True, scope=env.scope)
         return encoded_map
 
 
@@ -204,7 +204,7 @@ class FoVASCII(feature.Feature):
 
     def generate(self, env, player_id, **kwargs):
         agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
-        encoded_agent_grid = agent_grid.encode(encode_char=True)
+        encoded_agent_grid = agent_grid.encode(encode_char=True, scope=env.scope)
 
         # TODO(chase): Confirm that this shouldn't already be correct
         # assert encoded_agent_grid[0, -1, agent_grid.width // 2] == "^"

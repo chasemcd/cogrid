@@ -438,7 +438,7 @@ class Grid:
 
         for grid_agent in self.grid_agents.values():
             row, col = grid_agent.pos
-            array[row, col] = grid_agent.encode(encode_char=encode_char)
+            array[row, col] = grid_agent.encode(encode_char=encode_char, scope=scope)
 
         if not encode_char:
             array = array.astype(np.int8)
@@ -528,3 +528,89 @@ class Grid:
 
         mask = np.transpose(mask, axes=(1, 0))
         return mask
+
+    def get_state_dict(self, scope: str = "global") -> dict:
+        """Serialize grid to a complete state dictionary.
+
+        This method creates a comprehensive serialization of the grid state,
+        including both the standard encoding and any extra state needed by
+        complex objects (like Pot or Counter).
+
+        Note: This method does NOT serialize agents - agents are handled separately
+        in the environment serialization and restored via update_grid_agents().
+
+        :param scope: The scope of the object registry to use for serialization.
+        :type scope: str
+        :return: Dictionary containing complete grid state.
+        :rtype: dict
+
+        The returned dictionary contains:
+            - height: Grid height
+            - width: Grid width
+            - encoding: Standard numpy encoding from self.encode() (objects only, no agents)
+            - object_metadata: Extra state for complex objects, keyed by position
+        """
+        # Temporarily remove agents from grid_agents so they're not included in encoding
+        # Agents are handled separately in environment serialization
+        saved_grid_agents = self.grid_agents
+        self.grid_agents = {}
+
+        try:
+            # Grid.encode returns (height, width, 3) where channels are [object_id, color, state]
+            # Grid.decode expects (2, height, width) where channels are [object_id, state]
+            encoding = self.encode(encode_char=False, scope=scope)
+
+            # Transpose to (3, height, width) and take first 2 channels (skip unused color channel)
+            encoding_transposed = np.transpose(encoding, (2, 0, 1))[:2]
+
+            # Collect extra state for complex objects
+            object_metadata = {}
+            for row in range(self.height):
+                for col in range(self.width):
+                    obj = self.get(row, col)
+                    if obj is not None:
+                        extra_state = obj.get_extra_state(scope)
+                        if extra_state is not None:
+                            object_metadata[f"{row},{col}"] = {
+                                "object_id": obj.object_id,
+                                "extra_state": extra_state,
+                            }
+
+            return {
+                "height": self.height,
+                "width": self.width,
+                "encoding": encoding_transposed.tolist(),  # Convert to list for JSON serialization
+                "object_metadata": object_metadata,
+            }
+        finally:
+            # Always restore grid_agents
+            self.grid_agents = saved_grid_agents
+
+    def set_state_dict(self, state_dict: dict, scope: str = "global") -> None:
+        """Restore grid from state dictionary.
+
+        This method restores the grid from a state dictionary created by
+        get_state_dict(), including both the standard grid encoding and
+        any extra state for complex objects.
+
+        :param state_dict: State dictionary from get_state_dict().
+        :type state_dict: dict
+        :param scope: The scope of the object registry to use for deserialization.
+        :type scope: str
+        """
+        # Restore basic grid structure from encoding
+        encoding = np.array(state_dict["encoding"])
+
+        # Decode uses a static method that returns a new Grid, so we need to
+        # extract the grid data and copy it into self
+        decoded_grid, _ = Grid.decode(encoding, scope=scope)
+        self.height = decoded_grid.height
+        self.width = decoded_grid.width
+        self.grid = decoded_grid.grid
+
+        # Restore extra state for complex objects
+        for pos_key, metadata in state_dict.get("object_metadata", {}).items():
+            row, col = map(int, pos_key.split(","))
+            obj = self.get(row, col)
+            if obj is not None and metadata.get("extra_state"):
+                obj.set_extra_state(metadata["extra_state"], scope)
