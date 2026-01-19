@@ -32,7 +32,7 @@ Plans:
 
 ### Phase 2: Overcooked Objects
 
-**Goal:** All Overcooked domain objects serialize their complete internal state.
+**Goal:** Verify all Overcooked domain objects serialize their complete internal state (most already implemented or stateless).
 **Depends on:** Phase 1 (recursive serialization pattern must exist)
 **Requirements:** OVER-01, OVER-02, OVER-03, OVER-04, OVER-05, OVER-06
 
@@ -43,7 +43,10 @@ Plans:
 4. OnionStack and TomatoStack roundtrip correctly: remaining count matches after restore
 5. All Overcooked objects can be individually roundtripped without data loss
 
-**Plans:** (created by /gsd:plan-phase)
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Verify all Overcooked objects via comprehensive roundtrip tests
 
 ---
 
@@ -113,8 +116,8 @@ Plans:
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| 1 - Framework Foundation | ✅ Complete | 2026-01-19 |
-| 2 - Overcooked Objects | Not started | - |
+| 1 - Framework Foundation | Complete | 2026-01-19 |
+| 2 - Overcooked Objects | Planned | - |
 | 3 - Search & Rescue Objects | Not started | - |
 | 4 - Agent Serialization | Not started | - |
 | 5 - Environment Serialization | Not started | - |
