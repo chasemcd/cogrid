@@ -11,6 +11,8 @@ import copy
 
 from cogrid.core.actions import Actions
 from cogrid.core.directions import Directions
+from cogrid.core.agent import Agent
+from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked import overcooked_grid_objects
 from cogrid.envs.overcooked import overcooked_features
 from cogrid.core import grid_object
@@ -684,6 +686,286 @@ class TestEdgeCases(unittest.TestCase):
         env2 = cogrid_env.CoGridEnv(config=self.config)
         with self.assertRaises(ValueError):
             env2.set_state(state)
+
+
+class TestAgentSerializationRoundtrip(unittest.TestCase):
+    """Test agent serialization roundtrips for AGNT-01 and AGNT-02.
+
+    This class verifies that agent state (including inventory with various object
+    types) roundtrips correctly through get_state() and from_state(), and that
+    domain-specific agent types (OvercookedAgent) are preserved after roundtrip.
+    """
+
+    def setUp(self):
+        """Create an Overcooked test environment for agent tests."""
+        self.config = {
+            "name": "OvercookedStateTest",
+            "num_agents": 2,
+            "action_set": "cardinal_actions",
+            "features": ["full_map_encoding"],
+            "rewards": ["onion_in_pot_reward", "soup_in_dish_reward"],
+            "scope": "overcooked",
+            "grid": {"layout": "state_test_overcooked"},
+            "max_steps": 1000,
+        }
+        # Environment may already be registered from other tests
+        try:
+            registry.register(
+                "OvercookedStateTest",
+                functools.partial(overcooked.Overcooked, config=self.config),
+            )
+        except Exception:
+            pass  # Already registered
+        self.env = registry.make("OvercookedStateTest")
+
+    def test_agent_holding_onion_soup_roundtrip(self):
+        """Test agent holding OnionSoup roundtrips correctly (AGNT-01).
+
+        Verifies that:
+        - get_state captures inventory with correct object_id
+        - from_state restores OnionSoup instance
+        - object_id matches after roundtrip
+        """
+        self.env.reset(seed=42)
+
+        # Give agent an OnionSoup
+        agent = self.env.env_agents[0]
+        soup = overcooked_grid_objects.OnionSoup()
+        agent.inventory = [soup]
+
+        # Serialize
+        state = agent.get_state(scope="overcooked")
+        self.assertEqual(len(state["inventory"]), 1)
+        self.assertEqual(state["inventory"][0]["object_id"], "onion_soup")
+
+        # Restore via from_state
+        restored_agent = Agent.from_state(state, scope="overcooked")
+
+        # Verify restored inventory
+        self.assertEqual(len(restored_agent.inventory), 1)
+        self.assertIsInstance(
+            restored_agent.inventory[0], overcooked_grid_objects.OnionSoup
+        )
+        self.assertEqual(restored_agent.inventory[0].object_id, soup.object_id)
+
+    def test_agent_holding_tomato_soup_roundtrip(self):
+        """Test agent holding TomatoSoup roundtrips correctly (AGNT-01).
+
+        Verifies TomatoSoup with different object_id roundtrips correctly.
+        """
+        self.env.reset(seed=42)
+
+        # Give agent a TomatoSoup
+        agent = self.env.env_agents[0]
+        soup = overcooked_grid_objects.TomatoSoup()
+        agent.inventory = [soup]
+
+        # Serialize
+        state = agent.get_state(scope="overcooked")
+        self.assertEqual(len(state["inventory"]), 1)
+        self.assertEqual(state["inventory"][0]["object_id"], "tomato_soup")
+
+        # Restore via from_state
+        restored_agent = Agent.from_state(state, scope="overcooked")
+
+        # Verify restored inventory
+        self.assertEqual(len(restored_agent.inventory), 1)
+        self.assertIsInstance(
+            restored_agent.inventory[0], overcooked_grid_objects.TomatoSoup
+        )
+        self.assertEqual(restored_agent.inventory[0].object_id, soup.object_id)
+
+    def test_agent_holding_simple_objects_roundtrip(self):
+        """Test agent holding stateless objects (Onion, Tomato, Plate) roundtrips (AGNT-01).
+
+        Verifies that simple stateless objects roundtrip correctly via object_id.
+        """
+        self.env.reset(seed=42)
+
+        # Test each simple object type
+        simple_objects = [
+            (overcooked_grid_objects.Onion, "onion"),
+            (overcooked_grid_objects.Tomato, "tomato"),
+            (overcooked_grid_objects.Plate, "plate"),
+        ]
+
+        for obj_class, expected_id in simple_objects:
+            with self.subTest(object_type=expected_id):
+                agent = self.env.env_agents[0]
+                obj = obj_class()
+                agent.inventory = [obj]
+
+                # Serialize
+                state = agent.get_state(scope="overcooked")
+                self.assertEqual(len(state["inventory"]), 1)
+                self.assertEqual(state["inventory"][0]["object_id"], expected_id)
+
+                # Restore
+                restored_agent = Agent.from_state(state, scope="overcooked")
+
+                # Verify
+                self.assertEqual(len(restored_agent.inventory), 1)
+                self.assertIsInstance(restored_agent.inventory[0], obj_class)
+                self.assertEqual(restored_agent.inventory[0].object_id, expected_id)
+
+    def test_agent_empty_inventory_roundtrip(self):
+        """Test agent with empty inventory roundtrips correctly (AGNT-01).
+
+        Verifies that empty inventory [] is preserved after roundtrip.
+        """
+        self.env.reset(seed=42)
+
+        agent = self.env.env_agents[0]
+        agent.inventory = []
+
+        # Serialize
+        state = agent.get_state(scope="overcooked")
+        self.assertEqual(len(state["inventory"]), 0)
+        self.assertEqual(state["inventory"], [])
+
+        # Restore
+        restored_agent = Agent.from_state(state, scope="overcooked")
+
+        # Verify empty inventory preserved
+        self.assertEqual(len(restored_agent.inventory), 0)
+        self.assertEqual(restored_agent.inventory, [])
+
+    def test_agent_full_inventory_roundtrip(self):
+        """Test agent with multiple items in inventory roundtrips correctly (AGNT-01).
+
+        Verifies that agents with inventory_capacity > 1 holding multiple items
+        have all items restored in correct order.
+        """
+        self.env.reset(seed=42)
+
+        agent = self.env.env_agents[0]
+        # Set higher capacity for this test
+        agent.inventory_capacity = 3
+
+        # Add multiple items
+        items = [
+            overcooked_grid_objects.Onion(),
+            overcooked_grid_objects.Tomato(),
+            overcooked_grid_objects.Plate(),
+        ]
+        agent.inventory = items
+
+        # Serialize
+        state = agent.get_state(scope="overcooked")
+        self.assertEqual(len(state["inventory"]), 3)
+        self.assertEqual(state["inventory"][0]["object_id"], "onion")
+        self.assertEqual(state["inventory"][1]["object_id"], "tomato")
+        self.assertEqual(state["inventory"][2]["object_id"], "plate")
+
+        # Restore
+        restored_agent = Agent.from_state(state, scope="overcooked")
+
+        # Verify all items restored in correct order
+        self.assertEqual(len(restored_agent.inventory), 3)
+        self.assertIsInstance(restored_agent.inventory[0], overcooked_grid_objects.Onion)
+        self.assertIsInstance(restored_agent.inventory[1], overcooked_grid_objects.Tomato)
+        self.assertIsInstance(restored_agent.inventory[2], overcooked_grid_objects.Plate)
+        self.assertEqual(restored_agent.inventory_capacity, 3)
+
+    def test_overcooked_agent_type_preserved(self):
+        """Test OvercookedAgent type is preserved after roundtrip (AGNT-02).
+
+        Verifies that serializing and restoring via OvercookedAgent.from_state()
+        returns an OvercookedAgent instance, not a base Agent.
+        """
+        self.env.reset(seed=42)
+
+        # Create OvercookedAgent directly
+        agent = OvercookedAgent(
+            agent_id="test-agent-0",
+            start_position=(2, 2),
+            start_direction=Directions.Down,
+        )
+        agent.inventory = [overcooked_grid_objects.Plate()]
+
+        # Serialize
+        state = agent.get_state(scope="overcooked")
+
+        # Restore via OvercookedAgent.from_state (not base Agent)
+        restored_agent = OvercookedAgent.from_state(state, scope="overcooked")
+
+        # Verify type is preserved
+        self.assertIsInstance(restored_agent, OvercookedAgent)
+        # Also verify it's not just a base Agent
+        self.assertTrue(type(restored_agent).__name__ == "OvercookedAgent")
+
+    def test_overcooked_agent_can_pickup_behavior(self):
+        """Test OvercookedAgent can_pickup behavior works after roundtrip (AGNT-02).
+
+        Verifies that the domain-specific can_pickup() behavior of OvercookedAgent
+        is preserved after serialization/deserialization. Specifically tests that
+        an agent with a Plate can still pick up from a Pot (special Overcooked rule).
+        """
+        self.env.reset(seed=42)
+
+        # Create OvercookedAgent with a Plate
+        agent = OvercookedAgent(
+            agent_id="test-agent-0",
+            start_position=(2, 2),
+            start_direction=Directions.Down,
+            inventory_capacity=1,
+        )
+        agent.inventory = [overcooked_grid_objects.Plate()]
+
+        # Verify can_pickup behavior before roundtrip
+        pot = overcooked_grid_objects.Pot()
+        # OvercookedAgent with Plate can pickup from Pot (special rule)
+        self.assertTrue(agent.can_pickup(pot))
+        # Base Agent cannot (inventory full)
+        base_agent = Agent(
+            agent_id="base-agent",
+            start_position=(2, 2),
+            start_direction=Directions.Down,
+            inventory_capacity=1,
+        )
+        base_agent.inventory = [overcooked_grid_objects.Plate()]
+        self.assertFalse(base_agent.can_pickup(pot))
+
+        # Serialize and restore OvercookedAgent
+        state = agent.get_state(scope="overcooked")
+        restored_agent = OvercookedAgent.from_state(state, scope="overcooked")
+
+        # Verify can_pickup behavior preserved after roundtrip
+        self.assertTrue(restored_agent.can_pickup(pot))
+        self.assertEqual(len(restored_agent.inventory), 1)
+        self.assertIsInstance(restored_agent.inventory[0], overcooked_grid_objects.Plate)
+
+    def test_full_env_agent_type_preserved(self):
+        """Test environment agents are correct type after set_state (AGNT-02).
+
+        Verifies that after using set_state() on an Overcooked environment,
+        the env_agents contain OvercookedAgent instances (not base Agent).
+        """
+        self.env.reset(seed=42)
+
+        # Give an agent an item to verify full state restoration
+        self.env.env_agents[0].inventory = [overcooked_grid_objects.OnionSoup()]
+
+        # Save state
+        state = self.env.get_state()
+
+        # Restore to new environment
+        env2 = registry.make("OvercookedStateTest")
+        env2.set_state(state)
+
+        # Verify agents are OvercookedAgent type
+        for agent_id, agent in env2.env_agents.items():
+            self.assertIsInstance(
+                agent,
+                OvercookedAgent,
+                f"Agent {agent_id} should be OvercookedAgent, got {type(agent).__name__}",
+            )
+
+        # Verify inventory also restored
+        self.assertEqual(len(env2.env_agents[0].inventory), 1)
+        self.assertIsInstance(
+            env2.env_agents[0].inventory[0], overcooked_grid_objects.OnionSoup
+        )
 
 
 if __name__ == "__main__":
