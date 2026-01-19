@@ -458,6 +458,53 @@ class TestOvercookedStateSerialization(unittest.TestCase):
         for obj in restored_pot_ready.objects_in_pot:
             self.assertIsInstance(obj, overcooked_grid_objects.Tomato)
 
+    def test_counter_with_pot_soup_roundtrip(self):
+        """Test Counter with nested soup object roundtrips with full state (OVER-02).
+
+        Verifies that Counter.obj_placed_on preserves the full object state,
+        including the nested object's object_id.
+        """
+        # Create counter with OnionSoup on it
+        counter = grid_object.Counter()
+        soup = overcooked_grid_objects.OnionSoup()
+        counter.obj_placed_on = soup
+
+        # Serialize
+        extra_state = counter.get_extra_state(scope="overcooked")
+        self.assertIsNotNone(extra_state)
+        self.assertIn("obj_placed_on", extra_state)
+        self.assertEqual(extra_state["obj_placed_on"]["object_id"], "onion_soup")
+
+        # Create new counter and restore state
+        restored_counter = grid_object.Counter()
+        restored_counter.set_extra_state(extra_state, scope="overcooked")
+
+        # Verify obj_placed_on is OnionSoup instance with matching object_id
+        self.assertIsNotNone(restored_counter.obj_placed_on)
+        self.assertIsInstance(
+            restored_counter.obj_placed_on, overcooked_grid_objects.OnionSoup
+        )
+        self.assertEqual(restored_counter.obj_placed_on.object_id, soup.object_id)
+
+    def test_counter_empty_roundtrip(self):
+        """Test Counter with nothing on it returns None from get_extra_state.
+
+        An empty counter has no extra state to serialize - it can be
+        reconstructed purely from its object_id and state integer.
+        """
+        counter = grid_object.Counter()
+
+        # Empty counter should return None from get_extra_state
+        extra_state = counter.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        # Verify we can still create a counter and it has no obj_placed_on
+        restored_counter = grid_object.make_object(
+            counter.object_id, scope="overcooked"
+        )
+        self.assertIsInstance(restored_counter, grid_object.Counter)
+        self.assertIsNone(restored_counter.obj_placed_on)
+
 
 class TestStatelessObjectsRoundtrip(unittest.TestCase):
     """Test roundtrip serialization for stateless Overcooked objects.
