@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md
 
 **Core value:** Any environment state can be saved and restored with byte-perfect fidelity - the restored environment behaves identically to the original.
-**Current focus:** Phase 4 - Agent Serialization (COMPLETE)
+**Current focus:** Phase 5 - Environment Serialization (IN PROGRESS)
 
 ## Current Position
 
-Phase: 4 of 6 (Agent Serialization) - COMPLETE
-Plan: 04-01 complete (all Phase 4 plans done)
-Status: Phase 4 complete, ready for Phase 5
-Last activity: 2026-01-19 - Completed 04-01-PLAN.md (agent serialization verification tests)
+Phase: 5 of 6 (Environment Serialization)
+Plan: 05-01 complete
+Status: In progress
+Last activity: 2026-01-19 - Completed 05-01-PLAN.md (ENVR-03 termination/truncation tests)
 
-Progress: ██████░░░░ 60%
+Progress: ███████░░░ 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: ~2.7 minutes
+- Total plans completed: 7
+- Average duration: ~2.4 minutes
 
 **By Phase:**
 
@@ -30,6 +30,7 @@ Progress: ██████░░░░ 60%
 | 2 | 1/1 | ~3 min | ~3 min |
 | 3 | 1/1 | ~3 min | ~3 min |
 | 4 | 1/1 | ~3 min | ~3 min |
+| 5 | 1/1 | ~1 min | ~1 min |
 
 ## Accumulated Context
 
@@ -44,6 +45,7 @@ Progress: ██████░░░░ 60%
 | S&R verification-only phase | Research confirmed 6/7 S&R objects are stateless, RedVictim already done in Phase 1 - added tests only | 03-01 |
 | Agent serialization verification-only | Research confirmed Agent.get_state/from_state already complete, OvercookedAgent has no additional state | 04-01 |
 | GridAgent intentionally not serialized | GridAgent is ephemeral, regenerated from Agent state via update_grid_agents() each step | 04-01 |
+| ENVR-03 verification-only | Research confirmed termination/truncation flags implemented but lacked tests - added explicit tests | 05-01 |
 
 ### Pending Todos
 
@@ -57,5 +59,5 @@ Progress: ██████░░░░ 60%
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 04-01-PLAN.md (Phase 4 complete)
+Stopped at: Completed 05-01-PLAN.md (Phase 5 plan 1 complete)
 Resume file: None
