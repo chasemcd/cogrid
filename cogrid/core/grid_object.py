@@ -25,6 +25,22 @@ from cogrid.visualization.rendering import (
 )
 
 
+# Serialization Pattern
+# ====================
+# GridObj supports state serialization via get_extra_state()/set_extra_state().
+#
+# The base GridObj.state integer is automatically serialized by the Grid class.
+# Subclasses with additional internal state should override these methods.
+#
+# Quick reference:
+#   - Stateless objects (Wall, Floor, Onion): No override needed
+#   - State-from-integer objects (Door): No override needed if __init__ derives all state
+#   - Objects with extra attributes: Override both methods
+#   - Objects containing other objects: Use recursive serialization pattern
+#
+# Run `python -m cogrid.scripts.audit_serialization` to see which objects need work.
+
+
 # The OBJECT_REGISTRY holds all registered objects under a "scope" (e.g., "global", "search_rescue", "overcooked")
 # which allows us to re-use IDs and character representations across environments (e.g., P is a purple target in
 # search_rescue and a plate in overcooked).
