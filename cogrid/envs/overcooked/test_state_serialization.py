@@ -392,6 +392,72 @@ class TestOvercookedStateSerialization(unittest.TestCase):
             restored_counter.obj_placed_on, overcooked_grid_objects.Onion
         )
 
+    def test_pot_cooking_state_roundtrip(self):
+        """Test Pot cooking state roundtrip preserves all properties (OVER-01).
+
+        Verifies:
+        - cooking_timer value preserved after roundtrip
+        - is_cooking property returns same value after roundtrip
+        - dish_ready (is_ready) property returns same value after roundtrip
+        - objects_in_pot list length and ingredient types match after roundtrip
+        """
+        # Test mid-cooking state (timer > 0, pot full)
+        pot = overcooked_grid_objects.Pot()
+        pot.objects_in_pot = [
+            overcooked_grid_objects.Onion(),
+            overcooked_grid_objects.Onion(),
+            overcooked_grid_objects.Onion(),
+        ]
+        pot.cooking_timer = 15  # Mid-cooking
+
+        # Verify is_cooking is True before roundtrip
+        self.assertTrue(pot.is_cooking)
+        self.assertFalse(pot.dish_ready)
+
+        # Serialize
+        extra_state = pot.get_extra_state(scope="overcooked")
+        self.assertIsNotNone(extra_state)
+        self.assertEqual(extra_state["cooking_timer"], 15)
+        self.assertEqual(len(extra_state["objects_in_pot"]), 3)
+
+        # Create new pot and restore state
+        restored_pot = overcooked_grid_objects.Pot()
+        restored_pot.set_extra_state(extra_state, scope="overcooked")
+
+        # Verify all properties match
+        self.assertEqual(restored_pot.cooking_timer, 15)
+        self.assertEqual(len(restored_pot.objects_in_pot), 3)
+        self.assertTrue(restored_pot.is_cooking)
+        self.assertFalse(restored_pot.dish_ready)
+        for obj in restored_pot.objects_in_pot:
+            self.assertIsInstance(obj, overcooked_grid_objects.Onion)
+
+        # Test ready state (timer == 0, pot full)
+        pot_ready = overcooked_grid_objects.Pot()
+        pot_ready.objects_in_pot = [
+            overcooked_grid_objects.Tomato(),
+            overcooked_grid_objects.Tomato(),
+            overcooked_grid_objects.Tomato(),
+        ]
+        pot_ready.cooking_timer = 0  # Ready
+
+        # Verify dish_ready is True before roundtrip
+        self.assertFalse(pot_ready.is_cooking)
+        self.assertTrue(pot_ready.dish_ready)
+
+        # Serialize and restore
+        extra_state_ready = pot_ready.get_extra_state(scope="overcooked")
+        restored_pot_ready = overcooked_grid_objects.Pot()
+        restored_pot_ready.set_extra_state(extra_state_ready, scope="overcooked")
+
+        # Verify ready state preserved
+        self.assertEqual(restored_pot_ready.cooking_timer, 0)
+        self.assertEqual(len(restored_pot_ready.objects_in_pot), 3)
+        self.assertFalse(restored_pot_ready.is_cooking)
+        self.assertTrue(restored_pot_ready.dish_ready)
+        for obj in restored_pot_ready.objects_in_pot:
+            self.assertIsInstance(obj, overcooked_grid_objects.Tomato)
+
 
 class TestEdgeCases(unittest.TestCase):
     """Test edge cases and error conditions for state serialization."""
