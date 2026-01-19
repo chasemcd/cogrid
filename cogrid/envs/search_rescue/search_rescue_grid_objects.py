@@ -267,5 +267,38 @@ class RedVictim(grid_object.GridObj):
     def render(self, tile_img):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
+    def get_extra_state(self, scope: str = "global") -> dict | None:
+        """Serialize RedVictim's toggle countdown state.
+
+        :param scope: The scope of the object registry (unused but kept for interface consistency).
+        :type scope: str
+        :return: Dictionary containing toggle state, or None if at default state.
+        :rtype: dict | None
+        """
+        # Only serialize if not in default state
+        if self.toggle_countdown == 0 and not hasattr(self, "first_toggle_agent"):
+            return None
+
+        first_toggle = getattr(self, "first_toggle_agent", None)
+        if self.toggle_countdown == 0 and first_toggle is None:
+            return None
+
+        return {
+            "toggle_countdown": self.toggle_countdown,
+            "first_toggle_agent": first_toggle,
+        }
+
+    def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+        """Restore RedVictim's toggle countdown state from serialization.
+
+        :param state_dict: The dictionary returned by get_extra_state().
+        :type state_dict: dict
+        :param scope: The scope of the object registry (unused but kept for interface consistency).
+        :type scope: str
+        """
+        if state_dict:
+            self.toggle_countdown = state_dict.get("toggle_countdown", 0)
+            self.first_toggle_agent = state_dict.get("first_toggle_agent")
+
 
 grid_object.register_object(RedVictim.object_id, RedVictim, scope="search_rescue")
