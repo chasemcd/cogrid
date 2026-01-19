@@ -688,6 +688,117 @@ class TestEdgeCases(unittest.TestCase):
             env2.set_state(state)
 
 
+class TestEnvironmentTerminationSerialization(unittest.TestCase):
+    """Test environment termination and truncation state preservation (ENVR-03).
+
+    Verifies that:
+    - Terminated agents remain terminated after get_state/set_state roundtrip
+    - Active agents list excludes terminated agents after restoration
+    - Environment truncates at correct timestep after restoration near max_steps
+    """
+
+    def setUp(self):
+        """Create a simple test environment."""
+        self.config = {
+            "name": "TerminationStateTest",
+            "num_agents": 2,
+            "action_set": "cardinal_actions",
+            "features": ["full_map_encoding"],
+            "rewards": [],
+            "scope": "global",
+            "grid": {"layout": "state_test_simple"},
+            "max_steps": 100,
+        }
+        self.env = cogrid_env.CoGridEnv(config=self.config)
+
+    def test_terminated_agent_preserved(self):
+        """Test that terminated agent flag is preserved through roundtrip.
+
+        Verifies ENVR-03: A terminated agent remains terminated after
+        get_state/set_state roundtrip, and is excluded from active agents list.
+        """
+        self.env.reset(seed=42)
+
+        # Manually terminate agent 0
+        self.env.env_agents[0].terminated = True
+
+        # Remove from active agents list (as would happen during normal termination)
+        if 0 in self.env.agents:
+            del self.env.agents[0]
+
+        # Verify pre-roundtrip state
+        self.assertTrue(self.env.env_agents[0].terminated)
+        self.assertNotIn(0, self.env.agents)
+        self.assertIn(1, self.env.agents)
+
+        # Save state
+        state = self.env.get_state()
+
+        # Verify terminated flag is in serialized state
+        self.assertTrue(state["agents"][0]["terminated"])
+        self.assertFalse(state["agents"][1]["terminated"])
+
+        # Restore to new environment
+        env2 = cogrid_env.CoGridEnv(config=self.config)
+        env2.set_state(state)
+
+        # Verify terminated agent remains terminated
+        self.assertTrue(env2.env_agents[0].terminated)
+        self.assertFalse(env2.env_agents[1].terminated)
+
+        # Verify agent 0 is NOT in active agents list
+        self.assertNotIn(0, env2.agents)
+        # Verify agent 1 IS in active agents list
+        self.assertIn(1, env2.agents)
+
+    def test_truncation_after_restore_near_max_steps(self):
+        """Test that environment truncates at correct timestep after restoration.
+
+        Verifies ENVR-03: An environment restored near max_steps correctly
+        truncates at the expected timestep.
+        """
+        # Create environment with low max_steps for easy testing
+        config = {
+            "name": "TruncationTest",
+            "num_agents": 2,
+            "action_set": "cardinal_actions",
+            "features": ["full_map_encoding"],
+            "rewards": [],
+            "scope": "global",
+            "grid": {"layout": "state_test_simple"},
+            "max_steps": 10,
+        }
+        env1 = cogrid_env.CoGridEnv(config=config)
+        env1.reset(seed=42)
+
+        # Step to t=9 (one step from truncation)
+        actions = {0: Actions.Noop, 1: Actions.Noop}
+        for _ in range(9):
+            env1.step(actions)
+
+        # Verify we're at timestep 9
+        self.assertEqual(env1.t, 9)
+
+        # Save state
+        state = env1.get_state()
+        self.assertEqual(state["timestep"], 9)
+
+        # Restore to new environment
+        env2 = cogrid_env.CoGridEnv(config=config)
+        env2.set_state(state)
+
+        # Verify timestep restored correctly
+        self.assertEqual(env2.t, 9)
+
+        # Take one more step - should trigger truncation
+        _, _, terminateds, truncateds, _ = env2.step(actions)
+
+        # Verify truncation occurred for all agents
+        self.assertTrue(all(truncateds.values()))
+        # Verify it was truncation (not termination)
+        self.assertFalse(any(terminateds.values()))
+
+
 class TestAgentSerializationRoundtrip(unittest.TestCase):
     """Test agent serialization roundtrips for AGNT-01 and AGNT-02.
 
