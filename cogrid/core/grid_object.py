@@ -707,7 +707,7 @@ class Door(GridObj):
         self.is_open = not self.is_open
         return True
 
-    def encode(self, encode_char=False):
+    def encode(self, encode_char=False, scope: str = "global"):
         """Encode the a description of this object as a 3-tuple of integers"""
 
         # State, 0: open, 1: closed, 2: locked
@@ -723,7 +723,7 @@ class Door(GridObj):
                 f"There is no possible state encoding for the state:\n -Door Open: {self.is_open}\n -Door Closed: {not self.is_open}\n -Door Locked: {self.is_locked}"
             )
 
-        return super().encode(encode_char=encode_char)
+        return super().encode(encode_char=encode_char, scope=scope)
 
     def render(self, tile_img):
 
