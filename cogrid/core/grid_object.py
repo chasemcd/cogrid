@@ -234,22 +234,51 @@ class GridObj:
         pass
 
     def get_extra_state(self, scope: str = "global") -> dict | None:
-        """Override in subclasses to serialize complex internal state beyond the basic 'state' integer.
+        """Serialize any internal state beyond the basic `state` integer.
 
-        This method is called during environment serialization to capture any additional
-        state that cannot be represented in the standard encode() method.
+        Override this method when your GridObj subclass has internal state that:
+        1. Cannot be reconstructed from the `state` integer alone
+        2. Changes during environment execution (not just class constants)
+        3. Affects object behavior (not just rendering)
 
-        :param scope: The scope of the object registry to use for serialization.
+        When to implement:
+        - Object holds other objects (like Counter.obj_placed_on, Pot.objects_in_pot)
+        - Object has counters/timers (like RedVictim.toggle_countdown)
+        - Object has dynamic flags not encoded in `state` int
+
+        When NOT to implement:
+        - Object has only class-level constants (color, char, object_id)
+        - Object's state is fully captured by `self.state` integer
+        - Object's attributes are derived from `state` in __init__ (like Door.is_open)
+
+        For nested objects, serialize recursively::
+
+            def get_extra_state(self, scope: str = "global") -> dict | None:
+                if self.held_object is None:
+                    return None
+                return {
+                    "held_object": {
+                        "object_id": self.held_object.object_id,
+                        "state": self.held_object.state,
+                        "extra_state": self.held_object.get_extra_state(scope),
+                    }
+                }
+
+        :param scope: The object registry scope for serialization (e.g., "global",
+                      "overcooked", "search_rescue"). Pass through to nested objects.
         :type scope: str
-        :return: Dictionary of serializable state, or None if no extra state is needed.
+        :return: Dictionary of extra state, or None if no extra state exists.
         :rtype: dict | None
 
-        Example:
-            def get_extra_state(self, scope: str = "global") -> dict:
-                return {
-                    "custom_field": self.custom_field,
-                    "nested_objects": [obj.object_id for obj in self.nested_objects]
-                }
+        Example implementations:
+            - Counter: Serializes obj_placed_on with full recursive state
+            - Pot: Serializes objects_in_pot list and cooking_timer
+            - RedVictim: Serializes toggle_countdown and first_toggle_agent
+
+        See Also:
+            - :meth:`set_extra_state`: Restore state from this dict
+            - :meth:`Counter.get_extra_state`: Example with nested object
+            - :meth:`Pot.get_extra_state`: Example with object list
         """
         return None
 
