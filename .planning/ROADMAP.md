@@ -117,7 +117,11 @@ Plans:
 3. Determinism test exists: restored environment produces identical trajectories when given identical action sequences
 4. All tests pass in CI/pytest run
 
-**Plans:** (created by /gsd:plan-phase)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Create S&R environment integration tests (TEST-02)
+- [ ] 06-02-PLAN.md — Extended determinism and cross-environment tests (TEST-03)
 
 ---
 
