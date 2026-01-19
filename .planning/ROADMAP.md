@@ -80,7 +80,10 @@ Plans:
 2. OvercookedAgent-specific state roundtrips correctly: any domain-specific fields preserved
 3. Agent serialization works regardless of what object type is being held
 
-**Plans:** (created by /gsd:plan-phase)
+**Plans:** 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Verify agent serialization via comprehensive roundtrip tests
 
 ---
 
