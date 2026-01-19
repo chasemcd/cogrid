@@ -40,7 +40,7 @@
 
 ### Testing
 
-- [ ] **TEST-01**: Roundtrip tests for each object type (create → get_state → set_state → verify)
+- [ ] **TEST-01**: Roundtrip tests for each object type (create -> get_state -> set_state -> verify)
 - [ ] **TEST-02**: Full environment roundtrip test (run episode, checkpoint, restore, verify)
 - [ ] **TEST-03**: Determinism test (restored env produces identical trajectories)
 
@@ -61,33 +61,33 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FRAM-01 | Phase 1 | Pending |
-| FRAM-02 | Phase 1 | Pending |
-| FRAM-03 | Phase 1 | Pending |
-| OVER-01 | Phase 2 | Pending |
-| OVER-02 | Phase 2 | Pending |
-| OVER-03 | Phase 2 | Pending |
-| OVER-04 | Phase 2 | Pending |
-| OVER-05 | Phase 2 | Pending |
-| OVER-06 | Phase 2 | Pending |
-| SRCH-01 | Phase 3 | Pending |
-| SRCH-02 | Phase 3 | Pending |
-| SRCH-03 | Phase 3 | Pending |
-| SRCH-04 | Phase 3 | Pending |
-| AGNT-01 | Phase 4 | Pending |
-| AGNT-02 | Phase 4 | Pending |
-| ENVR-01 | Phase 5 | Pending |
-| ENVR-02 | Phase 5 | Pending |
-| ENVR-03 | Phase 5 | Pending |
-| TEST-01 | Phase 6 | Pending |
-| TEST-02 | Phase 6 | Pending |
-| TEST-03 | Phase 6 | Pending |
+| FRAM-01 | Phase 1 - Framework Foundation | Pending |
+| FRAM-02 | Phase 1 - Framework Foundation | Pending |
+| FRAM-03 | Phase 1 - Framework Foundation | Pending |
+| OVER-01 | Phase 2 - Overcooked Objects | Pending |
+| OVER-02 | Phase 2 - Overcooked Objects | Pending |
+| OVER-03 | Phase 2 - Overcooked Objects | Pending |
+| OVER-04 | Phase 2 - Overcooked Objects | Pending |
+| OVER-05 | Phase 2 - Overcooked Objects | Pending |
+| OVER-06 | Phase 2 - Overcooked Objects | Pending |
+| SRCH-01 | Phase 3 - Search & Rescue Objects | Pending |
+| SRCH-02 | Phase 3 - Search & Rescue Objects | Pending |
+| SRCH-03 | Phase 3 - Search & Rescue Objects | Pending |
+| SRCH-04 | Phase 3 - Search & Rescue Objects | Pending |
+| AGNT-01 | Phase 4 - Agent Serialization | Pending |
+| AGNT-02 | Phase 4 - Agent Serialization | Pending |
+| ENVR-01 | Phase 5 - Environment Serialization | Pending |
+| ENVR-02 | Phase 5 - Environment Serialization | Pending |
+| ENVR-03 | Phase 5 - Environment Serialization | Pending |
+| TEST-01 | Phase 6 - Testing | Pending |
+| TEST-02 | Phase 6 - Testing | Pending |
+| TEST-03 | Phase 6 - Testing | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
 - Mapped to phases: 21
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-19*
-*Last updated: 2026-01-19 after initial definition*
+*Last updated: 2026-01-19 after roadmap creation*
