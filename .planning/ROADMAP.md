@@ -21,7 +21,12 @@ This roadmap delivers complete state serialization for CoGrid environments throu
 2. Objects containing other objects (e.g., Counter holding a Plate) correctly serialize their nested contents when `get_extra_state()` is called
 3. Documentation exists showing a developer how to implement `get_extra_state()`/`set_extra_state()` for a new object type
 
-**Plans:** (created by /gsd:plan-phase)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Create audit script for GridObj serialization status
+- [ ] 01-02-PLAN.md — Implement RedVictim serialization + verify Door
+- [ ] 01-03-PLAN.md — Document serialization pattern in docstrings
 
 ---
 
@@ -108,7 +113,7 @@ This roadmap delivers complete state serialization for CoGrid environments throu
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| 1 - Framework Foundation | Not started | - |
+| 1 - Framework Foundation | Planned | - |
 | 2 - Overcooked Objects | Not started | - |
 | 3 - Search & Rescue Objects | Not started | - |
 | 4 - Agent Serialization | Not started | - |
