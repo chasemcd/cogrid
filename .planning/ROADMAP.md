@@ -101,7 +101,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — Verify environment termination/truncation via explicit tests
+- [x] 05-01-PLAN.md — Verify environment termination/truncation via explicit tests
 
 ---
 
@@ -129,7 +129,7 @@ Plans:
 | 2 - Overcooked Objects | ✅ Complete | 2026-01-19 |
 | 3 - Search & Rescue Objects | ✅ Complete | 2026-01-19 |
 | 4 - Agent Serialization | ✅ Complete | 2026-01-19 |
-| 5 - Environment Serialization | Not started | - |
+| 5 - Environment Serialization | ✅ Complete | 2026-01-19 |
 | 6 - Testing | Not started | - |
 
 ---
