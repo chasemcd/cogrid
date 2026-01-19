@@ -98,7 +98,10 @@ Plans:
 2. RNG state restoration produces identical random sequences: same actions after restore yield same outcomes as before checkpoint
 3. Termination and truncation flags are preserved: a terminated environment restored from checkpoint is still terminated
 
-**Plans:** (created by /gsd:plan-phase)
+**Plans:** 1 plan
+
+Plans:
+- [ ] 05-01-PLAN.md — Verify environment termination/truncation via explicit tests
 
 ---
 
