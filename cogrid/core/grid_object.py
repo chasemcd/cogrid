@@ -283,23 +283,48 @@ class GridObj:
         return None
 
     def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
-        """Override in subclasses to restore complex internal state from serialization.
+        """Restore internal state from a dictionary produced by get_extra_state().
 
-        This method is called during environment deserialization to restore any additional
-        state that was captured in get_extra_state().
+        Override this method alongside get_extra_state() to restore any internal
+        state that was serialized. The state_dict will be exactly what get_extra_state()
+        returned.
 
-        :param state_dict: The dictionary returned by get_extra_state().
+        Implementation checklist:
+        1. Check if state_dict is not None/empty before accessing
+        2. Use .get() with defaults for optional fields
+        3. For nested objects, use make_object() to reconstruct::
+
+            from cogrid.core.grid_object import make_object
+
+            def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
+                if state_dict and "held_object" in state_dict:
+                    obj_data = state_dict["held_object"]
+                    self.held_object = make_object(
+                        obj_data["object_id"],
+                        state=obj_data["state"],
+                        scope=scope
+                    )
+                    if obj_data["extra_state"]:
+                        self.held_object.set_extra_state(obj_data["extra_state"], scope)
+
+        Important:
+        - Always pass `scope` through recursive calls to maintain registry context
+        - Import make_object locally to avoid circular imports
+        - Handle None values gracefully for optional state fields
+
+        :param state_dict: The dictionary returned by get_extra_state(). May be None.
         :type state_dict: dict
-        :param scope: The scope of the object registry to use for deserialization.
+        :param scope: The object registry scope for deserialization.
         :type scope: str
 
-        Example:
-            def set_extra_state(self, state_dict: dict, scope: str = "global") -> None:
-                self.custom_field = state_dict["custom_field"]
-                self.nested_objects = [
-                    make_object(obj_id, scope=scope)
-                    for obj_id in state_dict["nested_objects"]
-                ]
+        Example implementations:
+            - Counter: Reconstructs obj_placed_on from nested state
+            - Pot: Reconstructs objects_in_pot list and restores cooking_timer
+            - RedVictim: Restores toggle_countdown and first_toggle_agent
+
+        See Also:
+            - :meth:`get_extra_state`: Produces the dict this method consumes
+            - :func:`make_object`: Factory function for object reconstruction
         """
         pass
 
