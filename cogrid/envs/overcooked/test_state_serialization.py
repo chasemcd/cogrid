@@ -459,6 +459,140 @@ class TestOvercookedStateSerialization(unittest.TestCase):
             self.assertIsInstance(obj, overcooked_grid_objects.Tomato)
 
 
+class TestStatelessObjectsRoundtrip(unittest.TestCase):
+    """Test roundtrip serialization for stateless Overcooked objects.
+
+    These objects have no internal state beyond their type - they can be
+    reconstructed purely from their object_id. Their get_extra_state() should
+    return None.
+
+    Verifies requirements OVER-03, OVER-04, OVER-05, OVER-06.
+    """
+
+    def test_onion_roundtrip(self):
+        """Test Onion is stateless and roundtrips via object_id."""
+        onion = overcooked_grid_objects.Onion()
+
+        # Stateless objects should return None from get_extra_state
+        extra_state = onion.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        # Recreate via object_id
+        restored = grid_object.make_object(onion.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.Onion)
+        self.assertEqual(restored.object_id, onion.object_id)
+
+    def test_tomato_roundtrip(self):
+        """Test Tomato is stateless and roundtrips via object_id."""
+        tomato = overcooked_grid_objects.Tomato()
+
+        extra_state = tomato.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        restored = grid_object.make_object(tomato.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.Tomato)
+        self.assertEqual(restored.object_id, tomato.object_id)
+
+    def test_plate_roundtrip(self):
+        """Test Plate is stateless and roundtrips via object_id (OVER-03).
+
+        Plate is stateless - soup is a separate object (OnionSoup/TomatoSoup),
+        not a state of the plate.
+        """
+        plate = overcooked_grid_objects.Plate()
+
+        extra_state = plate.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        restored = grid_object.make_object(plate.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.Plate)
+        self.assertEqual(restored.object_id, plate.object_id)
+
+    def test_onion_soup_roundtrip(self):
+        """Test OnionSoup is stateless and roundtrips via object_id."""
+        soup = overcooked_grid_objects.OnionSoup()
+
+        extra_state = soup.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        restored = grid_object.make_object(soup.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.OnionSoup)
+        self.assertEqual(restored.object_id, soup.object_id)
+
+    def test_tomato_soup_roundtrip(self):
+        """Test TomatoSoup is stateless and roundtrips via object_id."""
+        soup = overcooked_grid_objects.TomatoSoup()
+
+        extra_state = soup.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        restored = grid_object.make_object(soup.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.TomatoSoup)
+        self.assertEqual(restored.object_id, soup.object_id)
+
+    def test_delivery_zone_roundtrip(self):
+        """Test DeliveryZone is stateless and roundtrips via object_id (OVER-06)."""
+        zone = overcooked_grid_objects.DeliveryZone()
+
+        extra_state = zone.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        restored = grid_object.make_object(zone.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.DeliveryZone)
+        self.assertEqual(restored.object_id, zone.object_id)
+
+    def test_onion_stack_stateless(self):
+        """Test OnionStack has no count state - infinite source by design (OVER-04).
+
+        OnionStack represents an infinite pile of onions. There is no
+        'remaining count' to track - agents can always pick up onions from it.
+        """
+        stack = overcooked_grid_objects.OnionStack()
+
+        # Should return None - no state to serialize
+        extra_state = stack.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        # Verify it's an infinite source (can_pickup_from returns True)
+        # This is a design property, not a serialization property
+        self.assertTrue(stack.can_pickup_from(agent=None))
+
+        restored = grid_object.make_object(stack.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.OnionStack)
+
+    def test_tomato_stack_stateless(self):
+        """Test TomatoStack has no count state - infinite source by design (OVER-05).
+
+        TomatoStack represents an infinite pile of tomatoes. There is no
+        'remaining count' to track - agents can always pick up tomatoes from it.
+        """
+        stack = overcooked_grid_objects.TomatoStack()
+
+        extra_state = stack.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        self.assertTrue(stack.can_pickup_from(agent=None))
+
+        restored = grid_object.make_object(stack.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.TomatoStack)
+
+    def test_plate_stack_stateless(self):
+        """Test PlateStack has no count state - infinite source by design.
+
+        PlateStack represents an infinite pile of plates. There is no
+        'remaining count' to track - agents can always pick up plates from it.
+        """
+        stack = overcooked_grid_objects.PlateStack()
+
+        extra_state = stack.get_extra_state(scope="overcooked")
+        self.assertIsNone(extra_state)
+
+        self.assertTrue(stack.can_pickup_from(agent=None))
+
+        restored = grid_object.make_object(stack.object_id, scope="overcooked")
+        self.assertIsInstance(restored, overcooked_grid_objects.PlateStack)
+
+
 class TestEdgeCases(unittest.TestCase):
     """Test edge cases and error conditions for state serialization."""
 
