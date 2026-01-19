@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md
 
 **Core value:** Any environment state can be saved and restored with byte-perfect fidelity - the restored environment behaves identically to the original.
-**Current focus:** Phase 5 - Environment Serialization (IN PROGRESS)
+**Current focus:** Phase 6 - Testing (IN PROGRESS)
 
 ## Current Position
 
-Phase: 5 of 6 (Environment Serialization)
-Plan: 05-01 complete
+Phase: 6 of 6 (Testing)
+Plan: 06-02 complete
 Status: In progress
-Last activity: 2026-01-19 - Completed 05-01-PLAN.md (ENVR-03 termination/truncation tests)
+Last activity: 2026-01-19 - Completed 06-02-PLAN.md (integration tests)
 
-Progress: ███████░░░ 70%
+Progress: ████████░░ 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: ~2.4 minutes
+- Total plans completed: 8
+- Average duration: ~2.3 minutes
 
 **By Phase:**
 
@@ -31,6 +31,7 @@ Progress: ███████░░░ 70%
 | 3 | 1/1 | ~3 min | ~3 min |
 | 4 | 1/1 | ~3 min | ~3 min |
 | 5 | 1/1 | ~1 min | ~1 min |
+| 6 | 1/2 | ~2 min | ~2 min |
 
 ## Accumulated Context
 
@@ -46,6 +47,7 @@ Progress: ███████░░░ 70%
 | Agent serialization verification-only | Research confirmed Agent.get_state/from_state already complete, OvercookedAgent has no additional state | 04-01 |
 | GridAgent intentionally not serialized | GridAgent is ephemeral, regenerated from Agent state via update_grid_agents() each step | 04-01 |
 | ENVR-03 verification-only | Research confirmed termination/truncation flags implemented but lacked tests - added explicit tests | 05-01 |
+| Door.encode scope fix | Bug fix - Door.encode() was missing scope parameter, blocking S&R serialization | 06-02 |
 
 ### Pending Todos
 
@@ -55,9 +57,10 @@ Progress: ███████░░░ 70%
 
 - Door confirmed to work via state integer (is_open/is_locked derived in __init__) - RESOLVED
 - GridAgent serialization confirmed NOT needed - ephemeral, regenerated from Agent state - RESOLVED
+- Door.encode() scope parameter bug - RESOLVED in 06-02
 
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 05-01-PLAN.md (Phase 5 plan 1 complete)
+Stopped at: Completed 06-02-PLAN.md (integration tests)
 Resume file: None
