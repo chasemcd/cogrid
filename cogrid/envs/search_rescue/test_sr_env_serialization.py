@@ -184,3 +184,90 @@ class TestSearchRescueEnvSerialization:
         restored_agent = env2.env_agents[0]
         assert len(restored_agent.inventory) == 1
         assert isinstance(restored_agent.inventory[0], MedKit)
+
+    def test_termination_preserved_after_restore(self, env):
+        """Verify that termination state is preserved after roundtrip.
+
+        S&R terminates when all victims are rescued (removed from grid).
+        This tests the S&R-specific termination logic in SearchRescueEnv.get_terminateds_truncateds().
+        """
+        env.reset(seed=42)
+
+        # Remove all victims from grid (simulating they were rescued)
+        # Find and remove GreenVictim, YellowVictim, and any RedVictim
+        from cogrid.envs.search_rescue.search_rescue_grid_objects import (
+            GreenVictim,
+            YellowVictim,
+        )
+
+        victims_to_remove = []
+        for row in range(env.grid.height):
+            for col in range(env.grid.width):
+                obj = env.grid.get(row, col)
+                if isinstance(obj, (GreenVictim, YellowVictim, RedVictim)):
+                    victims_to_remove.append((row, col))
+
+        for row, col in victims_to_remove:
+            env.grid.set(row, col, None)
+
+        # Take a step to trigger termination check
+        # All victims removed means environment should terminate
+        obs, rewards, terminateds, truncateds, infos = env.step(
+            {0: Actions.Noop, 1: Actions.Noop}
+        )
+
+        # Verify all agents have terminated
+        assert all(terminateds.values()), "Expected all agents to terminate after all victims rescued"
+
+        # Save state after termination
+        state = env.get_state()
+
+        # Restore to new environment
+        env2 = registry.make("SearchRescue-Test-V0")
+        env2.set_state(state)
+
+        # Verify terminated state was restored for all agents
+        for agent_id, agent in env2.env_agents.items():
+            assert agent.terminated, f"Agent {agent_id} should still be terminated after restore"
+
+    def test_rng_state_preservation_sr(self, env):
+        """Verify RNG state is preserved across roundtrip for reproducibility.
+
+        After restoring from saved state, environment should produce the same
+        random sequences as the original (important for MCTS and other planners).
+        """
+        env.reset(seed=42)
+
+        # Take some steps to advance the state
+        actions = {0: Actions.MoveRight, 1: Actions.MoveDown}
+        for _ in range(5):
+            env.step(actions)
+
+        # Save state
+        state = env.get_state()
+
+        # Verify RNG state is captured
+        assert "rng_state" in state
+        assert state["rng_state"] is not None
+
+        # Continue taking steps in env1 and record observations
+        env1_observations = []
+        for _ in range(5):
+            obs, _, _, _, _ = env.step(actions)
+            env1_observations.append(obs[0].copy())
+
+        # Restore to new environment
+        env2 = registry.make("SearchRescue-Test-V0")
+        env2.set_state(state)
+
+        # Take same steps in env2 and record observations
+        env2_observations = []
+        for _ in range(5):
+            obs, _, _, _, _ = env2.step(actions)
+            env2_observations.append(obs[0].copy())
+
+        # Observations should match exactly (deterministic behavior from same RNG state)
+        for i, (obs1, obs2) in enumerate(zip(env1_observations, env2_observations)):
+            np.testing.assert_array_equal(
+                obs1, obs2, err_msg=f"Observation mismatch at step {i+1} after restore"
+            )
