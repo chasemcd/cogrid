@@ -116,7 +116,7 @@ class Agent:
         """
         return {
             "id": self.id,
-            "pos": tuple(self.pos),
+            "pos": (int(self.pos[0]), int(self.pos[1])),
             "dir": int(self.dir),
             "role": self.role,
             "role_idx": self.role_idx,
@@ -127,7 +127,7 @@ class Agent:
             "inventory": [
                 {
                     "object_id": obj.object_id,
-                    "state": obj.state,
+                    "state": int(obj.state) if hasattr(obj.state, 'item') else obj.state,
                     "extra_state": obj.get_extra_state(scope),
                 }
                 for obj in self.inventory
