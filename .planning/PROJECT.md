@@ -20,37 +20,37 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 - ✓ `Agent.get_state()`/`from_state()` for agent serialization — existing
 - ✓ `GridObj.get_extra_state()`/`set_extra_state()` hooks — existing
 - ✓ State version field ("1.0") for compatibility — existing
+- ✓ All GridObj subclasses implement complete `get_extra_state()`/`set_extra_state()` — v0.1.0
+- ✓ Pot object serializes: contents, cooking progress, ready status — v0.1.0
+- ✓ Counter object serializes: held items with their full state — v0.1.0
+- ✓ All Overcooked objects serialize completely — v0.1.0
+- ✓ All Search & Rescue objects serialize completely — v0.1.0
+- ✓ Agent inventory contents serialize with full object state — v0.1.0
+- ✓ Environment state captures: timestep, RNG state, termination flags — v0.1.0
+- ✓ Roundtrip test: get_state → set_state produces identical behavior — v0.1.0
+- ✓ Clear pattern/documentation for future objects to follow — v0.1.0
 
 ### Active
 
-- [ ] All GridObj subclasses implement complete `get_extra_state()`/`set_extra_state()`
-- [ ] Pot object serializes: contents, cooking progress, ready status
-- [ ] Counter object serializes: held items with their full state
-- [ ] All Overcooked objects serialize completely (Onion, Tomato, Plate, Soup, DeliveryZone, etc.)
-- [ ] All Search & Rescue objects serialize completely (Victims, Rubble, Tools)
-- [ ] Agent inventory contents serialize with full object state
-- [ ] Environment state captures: timestep, RNG state, episode info
-- [ ] Roundtrip test: get_state → set_state produces identical behavior
-- [ ] Clear pattern/documentation for future objects to follow
+(None — v0.1.0 complete, next milestone TBD)
 
 ### Out of Scope
 
 - Rendering state (pygame window position, display buffers) — not needed for replay
 - Feature space caching — regenerated on demand
-- Cross-version state migration — v1.0 states only need to work with v1.0
+- Cross-version state migration — v0.1.0 states only need to work with v0.1.0
+- Goal Seeking environment serialization — lower priority domain, can add later
 
-## Context
+## Current State
 
-**Existing serialization infrastructure:**
-- `CoGridEnv.get_state()` and `set_state()` exist but may not capture all object internal state
-- `GridObj` has `get_extra_state()` and `set_extra_state()` hooks but not all subclasses implement them
-- `Grid.encode()` captures object type and basic state but complex objects (Pot with contents) need extra handling
-- Tests exist in `cogrid/envs/overcooked/test_state_serialization.py` but coverage may be incomplete
+**Shipped:** v0.1.0 State Serialization (2026-01-19)
 
-**Key objects needing audit:**
-- Overcooked: Pot (cooking state), Counter (held items), Plate, Soup, OnionStack, TomatoStack, DeliveryZone
-- Search & Rescue: Victims (rescue state), Rubble, Tools (MedKit, Pickaxe)
-- Global: Door (open/closed), Key, any object with internal state beyond position
+**Codebase:**
+- 10,173 lines of Python
+- 76 serialization tests passing
+- Supports Overcooked and Search & Rescue environments
+
+**Tech stack:** Python 3.10+, NumPy, PettingZoo
 
 ## Constraints
 
@@ -62,7 +62,11 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Use existing `get_extra_state`/`set_extra_state` pattern | Already established, just needs complete implementation | — Pending |
+| Use existing `get_extra_state`/`set_extra_state` pattern | Already established, just needs complete implementation | ✓ Good |
+| AST-based parsing for audit script | Reliable, doesn't require importing code | ✓ Good |
+| GridAgent intentionally not serialized | Ephemeral, regenerated from Agent state each step | ✓ Good |
+| Door uses state integer (no extra_state needed) | is_open/is_locked derived in __init__ | ✓ Good |
+| Verification-only phases for most objects | Research found serialization already implemented | ✓ Good — saved implementation time |
 
 ---
-*Last updated: 2026-01-19 after initialization*
+*Last updated: 2026-01-19 after v0.1.0 milestone*
