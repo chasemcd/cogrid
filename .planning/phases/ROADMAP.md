@@ -19,7 +19,9 @@ Ensure all CoGrid environments are fully deterministic: same seed → identical 
 
 ---
 
-### Phase 2: Fix Unseeded Layout Randomization
+### Phase 2: Fix Unseeded Layout Randomization ✓
+
+**Status:** Complete (2026-01-20)
 
 **Goal:** Ensure `Overcooked-RandomizedLayout-V0` uses the environment's seeded RNG.
 
