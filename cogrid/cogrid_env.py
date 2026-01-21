@@ -489,8 +489,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 if a_id in agents_to_move:
                     agents_to_move.remove(a_id)
 
-        # Randomize agent priority and move agents to new positions
-        self.np_random.shuffle(agents_to_move)
+        # Deterministic agent priority (lower ID = higher priority)
+        agents_to_move.sort()
         for a_id in agents_to_move:
             agent = self.env_agents[a_id]
             attempted_pos = attempted_positions[a_id]
