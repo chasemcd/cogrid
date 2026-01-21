@@ -216,7 +216,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             layout, state_encoding = layouts.get_layout(layout_name)
             self.current_layout_id = layout_name
         elif layout_fn is not None:
-            layout_name, layout, state_encoding = layout_fn(**grid_config)
+            layout_name, layout, state_encoding = layout_fn(np_random=self.np_random, **grid_config)
             self.current_layout_id = layout_name
 
         return layout, state_encoding
