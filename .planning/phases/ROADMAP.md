@@ -6,7 +6,9 @@ Ensure all CoGrid environments are fully deterministic: same seed → identical 
 
 ## Phases
 
-### Phase 1: Fix Step Dynamics Determinism
+### Phase 1: Fix Step Dynamics Determinism ✓
+
+**Status:** Complete (2026-01-20)
 
 **Goal:** Remove randomness from step() — agent move priority must be deterministic.
 

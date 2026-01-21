@@ -36,7 +36,7 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 
 - [x] Audit all sources of randomness in the codebase
 - [ ] All randomness flows from a single seed at reset()
-- [ ] Step dynamics are fully deterministic (no stochastic transitions)
+- [x] Step dynamics are fully deterministic (no stochastic transitions)
 - [ ] Same seed produces identical trajectories across runs
 - [ ] Restored states produce identical behavior (replay fidelity)
 
