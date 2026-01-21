@@ -48,14 +48,11 @@ Ensure all CoGrid environments are fully deterministic: same seed → identical 
 
 ---
 
-### Phase 4: Determinism Verification Tests
+### Phase 4: Determinism Verification Tests ✓
+
+**Status:** Complete (2026-01-20)
 
 **Goal:** Add tests that verify determinism guarantees.
-
-**Plans:** 1 plan
-
-Plans:
-- [ ] 04-01-PLAN.md — Extend trajectory test to 100 steps, add restored state continuation test
 
 **Scope:**
 - Test: Same seed → identical 100-step trajectory
