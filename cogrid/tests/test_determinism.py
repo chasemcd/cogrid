@@ -4,6 +4,29 @@ from cogrid.envs import registry
 from cogrid.core.actions import Actions
 
 
+class TestRandomizedLayoutDeterminism(unittest.TestCase):
+    """Verify RandomizedLayout environment selects layouts deterministically."""
+
+    def test_randomized_layout_deterministic(self):
+        """Same seed produces same layout selection."""
+        layouts_run1 = []
+        layouts_run2 = []
+
+        for _ in range(5):
+            env = registry.make("Overcooked-RandomizedLayout-V0")
+            env.reset(seed=42)
+            layouts_run1.append(env.current_layout_id)
+            env.close()
+
+        for _ in range(5):
+            env = registry.make("Overcooked-RandomizedLayout-V0")
+            env.reset(seed=42)
+            layouts_run2.append(env.current_layout_id)
+            env.close()
+
+        self.assertEqual(layouts_run1, layouts_run2, "RandomizedLayout not deterministic")
+
+
 class TestStepDeterminism(unittest.TestCase):
     """Verify step() is deterministic for identical inputs."""
 
