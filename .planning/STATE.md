@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 
 ## Current Position
 
-Phase: 2 of 4 (Fix Unseeded Layout Randomization) — COMPLETE
+Phase: 3 of 4 (Fix SR Utils Legacy RandomState) — COMPLETE
 Plan: 1/1 complete
-Status: Phase 2 verified
-Last activity: 2026-01-20 — Completed 02-01-PLAN.md
+Status: Phase 3 verified
+Last activity: 2026-01-20 — Completed 03-01-PLAN.md
 
-Progress: ████░░░░░░ 50%
+Progress: ██████░░░░ 75%
 
 ## Performance Metrics
 
@@ -54,12 +54,12 @@ None identified.
 
 **Bugs:**
 - ~~envs/__init__.py:128 — uses unseeded stdlib `random`~~ FIXED in 02-01
-- envs/search_rescue/sr_utils.py:21 — legacy RandomState fallback
+- ~~envs/search_rescue/sr_utils.py:21 — legacy RandomState fallback~~ FIXED in 03-01
 
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 02-01-PLAN.md
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
 
 ## Milestone Complete
