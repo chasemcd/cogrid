@@ -1,6 +1,5 @@
 import functools
 import copy
-import random
 
 from cogrid.core import grid_object
 from cogrid.envs.overcooked import overcooked
@@ -124,16 +123,19 @@ registry.register(
 )
 
 
-def randomized_layout_fn(**kwargs):
-    layout_name = random.choice(
-        [
-            "overcooked_cramped_room_v0",
-            "overcooked_asymmetric_advantages_v0",
-            "overcooked_coordination_ring_v0",
-            "overcooked_forced_coordination_v0",
-            "overcooked_counter_circuit_v0",
-        ]
-    )
+def randomized_layout_fn(np_random=None, **kwargs):
+    layout_choices = [
+        "overcooked_cramped_room_v0",
+        "overcooked_asymmetric_advantages_v0",
+        "overcooked_coordination_ring_v0",
+        "overcooked_forced_coordination_v0",
+        "overcooked_counter_circuit_v0",
+    ]
+    if np_random is None:
+        import random as stdlib_random
+        layout_name = stdlib_random.choice(layout_choices)  # Fallback for backwards compat
+    else:
+        layout_name = np_random.choice(layout_choices)
     return layout_name, *layouts.get_layout(layout_name)
 
 
