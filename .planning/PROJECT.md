@@ -1,8 +1,8 @@
-# CoGrid State Serialization
+# CoGrid
 
 ## What This Is
 
-Complete state serialization for CoGrid environments — ensuring `get_state()` and `set_state()` perfectly capture and restore any environment state for checkpointing, replay, and debugging. This is an enhancement to an existing multi-agent reinforcement learning framework built on PettingZoo.
+A multi-agent reinforcement learning framework built on PettingZoo, featuring grid world environments (Overcooked, Search & Rescue, Goal Seeking) with complete state serialization for checkpointing, replay, and debugging.
 
 ## Core Value
 
@@ -32,7 +32,13 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 
 ### Active
 
-(None — v0.1.0 complete, next milestone TBD)
+**v0.2.0 Determinism Audit**
+
+- [x] Audit all sources of randomness in the codebase
+- [ ] All randomness flows from a single seed at reset()
+- [ ] Step dynamics are fully deterministic (no stochastic transitions)
+- [ ] Same seed produces identical trajectories across runs
+- [ ] Restored states produce identical behavior (replay fidelity)
 
 ### Out of Scope
 
@@ -69,4 +75,4 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 | Verification-only phases for most objects | Research found serialization already implemented | ✓ Good — saved implementation time |
 
 ---
-*Last updated: 2026-01-19 after v0.1.0 milestone*
+*Last updated: 2026-01-20 after v0.2.0 milestone started*

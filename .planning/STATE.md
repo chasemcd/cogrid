@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-19)
+See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Any environment state can be saved and restored with byte-perfect fidelity — the restored environment behaves identically to the original.
-**Current focus:** v0.1.0 Complete — planning next milestone
+**Current focus:** v0.2.0 Determinism Audit
 
 ## Current Position
 
-Phase: 6 of 6 (Testing) — MILESTONE COMPLETE
-Plan: All complete
-Status: v0.1.0 shipped
-Last activity: 2026-01-19 — v0.1.0 milestone complete
+Phase: 1 of 4 (Fix Step Dynamics Determinism)
+Plan: Not started
+Status: Roadmap created
+Last activity: 2026-01-20 — Audit complete, roadmap created
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 
@@ -41,14 +41,20 @@ Archived to PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-(None — milestone complete)
+(None)
 
 ### Blockers/Concerns
 
-All resolved:
-- Door confirmed to work via state integer
-- GridAgent serialization confirmed NOT needed
-- Door.encode() scope parameter bug fixed
+None identified.
+
+### Randomness Audit Summary
+
+**Critical (step dynamics):**
+- cogrid_env.py:493 — agent move shuffle breaks determinism
+
+**Bugs:**
+- envs/__init__.py:128 — uses unseeded stdlib `random`
+- envs/search_rescue/sr_utils.py:21 — legacy RandomState fallback
 
 ## Session Continuity
 
