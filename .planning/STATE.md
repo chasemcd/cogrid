@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 1 of 4 (Fix Step Dynamics Determinism)
-Plan: Not started
-Status: Roadmap created
-Last activity: 2026-01-20 — Audit complete, roadmap created
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-01-20 — Completed 01-01-PLAN.md
 
-Progress: ░░░░░░░░░░ 0%
+Progress: █░░░░░░░░░ 10%
 
 ## Performance Metrics
 
@@ -50,7 +50,7 @@ None identified.
 ### Randomness Audit Summary
 
 **Critical (step dynamics):**
-- cogrid_env.py:493 — agent move shuffle breaks determinism
+- ~~cogrid_env.py:493 — agent move shuffle breaks determinism~~ FIXED in 01-01
 
 **Bugs:**
 - envs/__init__.py:128 — uses unseeded stdlib `random`
@@ -58,8 +58,8 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-01-19
-Stopped at: v0.1.0 milestone complete
+Last session: 2026-01-20
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
 
 ## Milestone Complete
