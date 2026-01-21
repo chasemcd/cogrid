@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 
 ## Current Position
 
-Phase: 1 of 4 (Fix Step Dynamics Determinism) — COMPLETE
+Phase: 2 of 4 (Fix Unseeded Layout Randomization) — COMPLETE
 Plan: 1/1 complete
-Status: Phase 1 verified ✓
-Last activity: 2026-01-20 — Phase 1 complete
+Status: Phase 2 verified
+Last activity: 2026-01-20 — Completed 02-01-PLAN.md
 
-Progress: ██░░░░░░░░ 25%
+Progress: ████░░░░░░ 50%
 
 ## Performance Metrics
 
@@ -53,13 +53,13 @@ None identified.
 - ~~cogrid_env.py:493 — agent move shuffle breaks determinism~~ FIXED in 01-01
 
 **Bugs:**
-- envs/__init__.py:128 — uses unseeded stdlib `random`
+- ~~envs/__init__.py:128 — uses unseeded stdlib `random`~~ FIXED in 02-01
 - envs/search_rescue/sr_utils.py:21 — legacy RandomState fallback
 
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
 
 ## Milestone Complete
