@@ -18,7 +18,7 @@ def generate_sr_grid(
     np_random=None,
 ):
     if np_random is None:
-        np_random = np.random.RandomState(seed=42)
+        raise ValueError("np_random is required for deterministic grid generation")
 
     if load is not None:
         return getattr(FixedGrids, load)
