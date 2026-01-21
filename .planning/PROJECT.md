@@ -30,15 +30,15 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 - ✓ Roundtrip test: get_state → set_state produces identical behavior — v0.1.0
 - ✓ Clear pattern/documentation for future objects to follow — v0.1.0
 
+- ✓ Audit all sources of randomness in the codebase — v0.2.0
+- ✓ All randomness flows from a single seed at reset() — v0.2.0
+- ✓ Step dynamics are fully deterministic (no stochastic transitions) — v0.2.0
+- ✓ Same seed produces identical trajectories across runs — v0.2.0
+- ✓ Restored states produce identical behavior (replay fidelity) — v0.2.0
+
 ### Active
 
-**v0.2.0 Determinism Audit**
-
-- [x] Audit all sources of randomness in the codebase
-- [x] All randomness flows from a single seed at reset()
-- [x] Step dynamics are fully deterministic (no stochastic transitions)
-- [ ] Same seed produces identical trajectories across runs
-- [ ] Restored states produce identical behavior (replay fidelity)
+(No active requirements — next milestone TBD)
 
 ### Out of Scope
 
@@ -49,12 +49,13 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 
 ## Current State
 
-**Shipped:** v0.1.0 State Serialization (2026-01-19)
+**Shipped:** v0.2.0 Determinism Audit (2026-01-20)
 
 **Codebase:**
-- 10,173 lines of Python
-- 76 serialization tests passing
+- 10,546 lines of Python
+- 87 tests passing (76 serialization + 11 determinism)
 - Supports Overcooked and Search & Rescue environments
+- Full determinism: same seed → identical trajectories
 
 **Tech stack:** Python 3.10+, NumPy, PettingZoo
 
@@ -73,6 +74,8 @@ Any environment state can be saved and restored with byte-perfect fidelity — t
 | GridAgent intentionally not serialized | Ephemeral, regenerated from Agent state each step | ✓ Good |
 | Door uses state integer (no extra_state needed) | is_open/is_locked derived in __init__ | ✓ Good |
 | Verification-only phases for most objects | Research found serialization already implemented | ✓ Good — saved implementation time |
+| Sort agents by ID for collision resolution | Deterministic priority without changing behavior | ✓ Good |
+| Require explicit np_random parameter | Fail-fast prevents silent unseeded randomness | ✓ Good |
 
 ---
-*Last updated: 2026-01-20 after v0.2.0 milestone started*
+*Last updated: 2026-01-20 after v0.2.0 milestone complete*
