@@ -19,19 +19,19 @@ Progress: [██████----] 67%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 7min
-- Total execution time: 0.9 hours
+- Total plans completed: 9
+- Average duration: 6min
+- Total execution time: 0.95 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 7 | 51min | 7min |
-| 01.1 | 1 | 3min | 3min |
+| 01.1 | 2 | 6min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 9min, 7min, 2min, 6min, 3min
+- Last 5 plans: 7min, 2min, 6min, 3min, 3min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -69,6 +69,8 @@ Recent decisions affecting current work:
 - [01.1-01]: Scope config uses callable builder (not dict) so tables are built lazily at first get_scope_config() call, avoiding import-time backend dependency
 - [01.1-01]: xp imported inside functions (not at module level) in array_config.py matching existing codebase pattern
 - [01.1-01]: interaction_handler takes action_type string ('pickup_from' or 'place_on') to dispatch scope-specific sub-cases from generic priority chain
+- [01.1-02]: Backward-compatible re-exports in core/array_rewards.py with TODO marker for removal after Plan 03 wiring
+- [01.1-02]: test_interaction_parity kept as standalone callable (not pytest) to match existing usage pattern
 - [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
@@ -90,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01.1-01-PLAN.md (Scope Config Registry)
+Stopped at: Completed 01.1-02-PLAN.md (Move Overcooked Rewards and Tests)
 Resume file: None
