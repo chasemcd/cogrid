@@ -30,6 +30,10 @@ from cogrid.visualization.rendering import (
 # search_rescue and a plate in overcooked).
 OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 
+# Maps (scope, object_id) -> dict of static boolean properties for lookup table generation.
+# Populated by the @register_object_type decorator.
+_OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
+
 
 def make_object(
     object_id: str | None, scope: str = "global", **kwargs
@@ -80,6 +84,150 @@ def register_object(
         OBJECT_REGISTRY[scope] = {}
 
     OBJECT_REGISTRY[scope][object_id] = obj_class
+
+
+def register_object_type(
+    object_id: str,
+    scope: str = "global",
+    can_pickup: bool = False,
+    can_overlap: bool = False,
+    can_place_on: bool = False,
+    can_pickup_from: bool = False,
+    is_wall: bool = False,
+):
+    """Decorator that registers a GridObj subclass with static property metadata.
+
+    This replaces the manual ``register_object(id, cls, scope)`` pattern.
+    The decorator calls ``register_object()`` internally for backward
+    compatibility and additionally stores boolean properties in
+    ``_OBJECT_TYPE_PROPERTIES`` for use by ``build_lookup_tables()``.
+
+    Usage::
+
+        @register_object_type("wall", is_wall=True)
+        class Wall(GridObj):
+            ...
+
+    Args:
+        object_id: Unique string identifier for this object type.
+        scope: Registry scope (e.g. "global", "overcooked").
+        can_pickup: Whether agents can pick up this object.
+        can_overlap: Whether agents can walk over this object.
+        can_place_on: Whether another object can be placed on this one.
+        can_pickup_from: Whether agents can pick up an item from this object.
+        is_wall: Whether this object acts as a wall (blocks movement and sight).
+    """
+
+    def decorator(cls):
+        # Store static properties for lookup table generation
+        _OBJECT_TYPE_PROPERTIES[(scope, object_id)] = {
+            "can_pickup": can_pickup,
+            "can_overlap": can_overlap,
+            "can_place_on": can_place_on,
+            "can_pickup_from": can_pickup_from,
+            "is_wall": is_wall,
+        }
+
+        # Set object_id on the class
+        cls.object_id = object_id
+
+        # Delegate to existing register_object for backward compatibility
+        register_object(object_id, cls, scope=scope)
+
+        return cls
+
+    return decorator
+
+
+def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
+    """Build integer-indexed property lookup tables from the type registry.
+
+    Returns a dict of 1-D ``int32`` arrays, one per boolean property. Each
+    array is indexed by the same integer encoding produced by
+    ``object_to_idx()`` / ``get_object_names()``.
+
+    The arrays are created with the backend array library (``xp``) so they
+    work on both numpy and JAX backends.
+
+    Args:
+        scope: The registry scope to build tables for.
+
+    Returns:
+        Dict with keys ``"CAN_PICKUP"``, ``"CAN_OVERLAP"``, ``"CAN_PLACE_ON"``,
+        ``"CAN_PICKUP_FROM"``, ``"IS_WALL"``, each mapping to an array of
+        shape ``(n_types,)`` with dtype ``int32``.
+    """
+    from cogrid.backend import xp  # import at call time to avoid circular imports
+
+    type_names = get_object_names(scope=scope)
+    n_types = len(type_names)
+
+    property_keys = [
+        "CAN_PICKUP",
+        "CAN_OVERLAP",
+        "CAN_PLACE_ON",
+        "CAN_PICKUP_FROM",
+        "IS_WALL",
+    ]
+
+    tables = {key: xp.zeros(n_types, dtype=xp.int32) for key in property_keys}
+
+    for idx, name in enumerate(type_names):
+        if name is None:
+            # Index 0: empty cell -- overlappable
+            tables["CAN_OVERLAP"] = tables["CAN_OVERLAP"].at[idx].set(1) if hasattr(tables["CAN_OVERLAP"], 'at') else _np_set(tables["CAN_OVERLAP"], idx, 1)
+            continue
+
+        if name == "free_space":
+            # Index 1: free_space -- overlappable (not in OBJECT_REGISTRY, hardcoded)
+            tables["CAN_OVERLAP"] = tables["CAN_OVERLAP"].at[idx].set(1) if hasattr(tables["CAN_OVERLAP"], 'at') else _np_set(tables["CAN_OVERLAP"], idx, 1)
+            continue
+
+        if name.startswith("agent_"):
+            # Agent direction placeholders -- skip, leave all-zero
+            continue
+
+        # Look up properties: try (scope, name) first, then ("global", name)
+        props = _OBJECT_TYPE_PROPERTIES.get((scope, name))
+        if props is None:
+            props = _OBJECT_TYPE_PROPERTIES.get(("global", name))
+
+        if props is None:
+            # Object registered via old register_object() without decorator.
+            # Default to all-False properties.
+            import warnings
+            warnings.warn(
+                f"Object '{name}' in scope '{scope}' has no static properties "
+                f"(not registered via @register_object_type). "
+                f"Defaulting to all-False in lookup tables.",
+                stacklevel=2,
+            )
+            continue
+
+        prop_map = {
+            "can_pickup": "CAN_PICKUP",
+            "can_overlap": "CAN_OVERLAP",
+            "can_place_on": "CAN_PLACE_ON",
+            "can_pickup_from": "CAN_PICKUP_FROM",
+            "is_wall": "IS_WALL",
+        }
+
+        for prop_name, table_key in prop_map.items():
+            if props.get(prop_name, False):
+                if hasattr(tables[table_key], 'at'):
+                    # JAX arrays: use .at[].set() for immutable update
+                    tables[table_key] = tables[table_key].at[idx].set(1)
+                else:
+                    # numpy arrays: direct mutation
+                    tables[table_key][idx] = 1
+
+    return tables
+
+
+def _np_set(arr, idx, val):
+    """Helper: mutate a numpy array at index and return it (for consistent API with JAX .at[].set())."""
+    arr[idx] = val
+    return arr
 
 
 def get_registered_object_ids(scope: str = "global") -> list[str]:
@@ -443,6 +591,7 @@ class GridAgent(GridObj):
         return ((r + m) * 255.0, (g + m) * 255.0, (b + m) * 255.0)
 
 
+@register_object_type("wall", is_wall=True)
 class Wall(GridObj):
     object_id = "wall"
     color = constants.Colors.Grey
@@ -455,9 +604,7 @@ class Wall(GridObj):
         return False
 
 
-register_object(Wall.object_id, Wall, scope="global")
-
-
+@register_object_type("floor", can_overlap=True)
 class Floor(GridObj):
     object_id = "floor"
     color = constants.Colors.PaleBlue
@@ -472,9 +619,7 @@ class Floor(GridObj):
         return True
 
 
-register_object(Floor.object_id, Floor, scope="global")
-
-
+@register_object_type("counter", can_place_on=True)
 class Counter(GridObj):
     object_id = "counter"
     color = constants.Colors.LightBrown
@@ -497,9 +642,7 @@ class Counter(GridObj):
             self.obj_placed_on.render(tile_img)
 
 
-register_object(Counter.object_id, Counter, scope="global")
-
-
+@register_object_type("key", can_pickup=True)
 class Key(GridObj):
     object_id = "key"
     color = constants.Colors.Yellow
@@ -528,9 +671,7 @@ class Key(GridObj):
         )
 
 
-register_object(Key.object_id, Key, scope="global")
-
-
+@register_object_type("door")
 class Door(GridObj):
     object_id = "door"
     color = constants.Colors.DarkGrey
@@ -621,6 +762,3 @@ class Door(GridObj):
             fill_coords(
                 tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), self.color
             )
-
-
-register_object(Door.object_id, Door, scope="global")

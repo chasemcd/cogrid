@@ -17,8 +17,10 @@ from cogrid.visualization.rendering import (
 )
 
 from cogrid.core import grid_object
+from cogrid.core.grid_object import register_object_type
 
 
+@register_object_type("onion", scope="overcooked", can_pickup=True)
 class Onion(grid_object.GridObj):
     object_id = "onion"
     color = constants.Colors.Yellow
@@ -43,9 +45,7 @@ class Onion(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Onion.object_id, Onion, scope="overcooked")
-
-
+@register_object_type("tomato", scope="overcooked", can_pickup=True)
 class Tomato(grid_object.GridObj):
     object_id = "tomato"
     color = constants.Colors.Red
@@ -70,9 +70,7 @@ class Tomato(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Tomato.object_id, Tomato, scope="overcooked")
-
-
+@register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
 class OnionStack(grid_object.GridObj):
     """An OnionStack is just an (infinite) pile of onions."""
 
@@ -98,11 +96,7 @@ class OnionStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    OnionStack.object_id, OnionStack, scope="overcooked"
-)
-
-
+@register_object_type("tomato_stack", scope="overcooked", can_pickup_from=True)
 class TomatoStack(grid_object.GridObj):
     """A TomatoStack is just an (infinite) pile of tomatoes."""
 
@@ -128,11 +122,7 @@ class TomatoStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    TomatoStack.object_id, TomatoStack, scope="overcooked"
-)
-
-
+@register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
 class Pot(grid_object.GridObj):
     object_id = "pot"
     color = constants.Colors.Grey
@@ -249,9 +239,7 @@ class Pot(grid_object.GridObj):
         return (char, extra_state_encoding, state)
 
 
-grid_object.register_object(Pot.object_id, Pot, scope="overcooked")
-
-
+@register_object_type("plate_stack", scope="overcooked", can_pickup_from=True)
 class PlateStack(grid_object.GridObj):
     object_id = "plate_stack"
     color = constants.Colors.White
@@ -287,11 +275,7 @@ class PlateStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    PlateStack.object_id, PlateStack, scope="overcooked"
-)
-
-
+@register_object_type("plate", scope="overcooked", can_pickup=True)
 class Plate(grid_object.GridObj):
     object_id = "plate"
     color = constants.Colors.White
@@ -318,9 +302,7 @@ class Plate(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Plate.object_id, Plate, scope="overcooked")
-
-
+@register_object_type("delivery_zone", scope="overcooked", can_place_on=True)
 class DeliveryZone(grid_object.GridObj):
     object_id = "delivery_zone"
     color = constants.Colors.Green
@@ -355,11 +337,7 @@ class DeliveryZone(grid_object.GridObj):
         del cell
 
 
-grid_object.register_object(
-    DeliveryZone.object_id, DeliveryZone, scope="overcooked"
-)
-
-
+@register_object_type("onion_soup", scope="overcooked", can_pickup=True)
 class OnionSoup(grid_object.GridObj):
     object_id = "onion_soup"
     color = constants.Colors.LightBrown
@@ -392,9 +370,7 @@ class OnionSoup(grid_object.GridObj):
         )
 
 
-grid_object.register_object(OnionSoup.object_id, OnionSoup, scope="overcooked")
-
-
+@register_object_type("tomato_soup", scope="overcooked", can_pickup=True)
 class TomatoSoup(grid_object.GridObj):
     object_id = "tomato_soup"
     color = constants.Colors.Red
@@ -425,8 +401,3 @@ class TomatoSoup(grid_object.GridObj):
             point_in_circle(cx=0.5, cy=0.5, r=0.3),
             self.color,
         )
-
-
-grid_object.register_object(
-    TomatoSoup.object_id, TomatoSoup, scope="overcooked"
-)
