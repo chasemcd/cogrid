@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 1 of 4 (Dual Backend & Vectorized Core Rewrite)
-Plan: 1 of 7 in current phase
+Plan: 2 of 7 in current phase
 Status: Executing
-Last activity: 2026-02-11 -- Completed 01-01-PLAN.md (Backend Dispatch & Type Registry)
+Last activity: 2026-02-11 -- Completed 01-02-PLAN.md (Array State Representation)
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [██░░░░░░░░] 29%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 25min
-- Total execution time: 0.4 hours
+- Total plans completed: 2
+- Average duration: 14min
+- Total execution time: 0.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 25min | 25min |
+| 01 | 2 | 28min | 14min |
 
 **Recent Trend:**
-- Last 5 plans: 25min
-- Trend: --
+- Last 5 plans: 25min, 3min
+- Trend: accelerating
 
 *Updated after each plan completion*
 
@@ -45,6 +45,10 @@ Recent decisions affecting current work:
 - [01-01]: Used __getattr__ lazy resolution in cogrid/backend/__init__.py so 'from cogrid.backend import xp' always returns current backend
 - [01-01]: Separate 1D int32 arrays per property in build_lookup_tables (CAN_PICKUP, CAN_OVERLAP, etc.) rather than single matrix
 - [01-01]: free_space handled as hardcoded overlappable entry in build_lookup_tables since it is not in OBJECT_REGISTRY
+- [01-02]: Empty grid cells use type_id=0 in object_type_map (matching object_to_idx(None)==0), NOT -1
+- [01-02]: pot_contents and agent_inv use -1 sentinel for empty slots per locked encoding conventions
+- [01-02]: DIR_VEC_TABLE lazily initialized via get_dir_vec_table() to avoid import-time backend dependency
+- [01-02]: Agent arrays sorted by agent_id for deterministic ordering; agent_ids list maps index to AgentID
 - [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
@@ -62,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
