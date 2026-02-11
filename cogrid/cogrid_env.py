@@ -29,6 +29,13 @@ from cogrid.core import reward
 
 from cogrid.core import layouts
 
+# Vectorized components (Plans 01-06)
+from cogrid.backend import set_backend
+from cogrid.core.grid_object import build_lookup_tables
+from cogrid.core.grid_utils import layout_to_array_state
+from cogrid.core.agent import create_agent_arrays, sync_arrays_to_agents, get_dir_vec_table
+from cogrid.core.movement import move_agents_array
+
 
 RNG = RandomNumberGenerator = np.random.Generator
 
@@ -63,6 +70,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         config: dict,
         render_mode: str | None = None,
         agent_class: agent.Agent | None = None,
+        backend: str = "numpy",
         **kwargs,
     ):
         """_summary_
@@ -73,10 +81,17 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :type render_mode: str | None, optional
         :param agent_class: _description_, defaults to None
         :type agent_class: agent.Agent | None, optional
+        :param backend: Array backend name ('numpy' or 'jax'). The first
+            environment created sets the global backend; subsequent envs
+            must use the same backend or a RuntimeError is raised.
+        :type backend: str
         :raises ValueError: _description_
         """
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
+
+        # Backend dispatch: first env sets global backend, subsequent verify match
+        set_backend(backend)
 
         # TODO(chase): Move PyGame/rendering logic outside of this class.
         self.clock = None
@@ -179,6 +194,48 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         }
 
         self.prev_actions = None
+
+        # -------------------------------------------------------------------
+        # Vectorized infrastructure (Plans 01-06 integration)
+        # -------------------------------------------------------------------
+        # Build lookup tables for the current scope
+        self._lookup_tables = build_lookup_tables(scope=self.scope)
+
+        # Build type ID mapping for interaction/reward functions.
+        # Only compute for types that exist in the current scope.
+        self._type_ids = self._build_type_ids()
+
+        # Build interaction tables (only for overcooked scope)
+        self._interaction_tables = None
+        if self.scope == "overcooked":
+            from cogrid.core.interactions import build_interaction_tables
+            self._interaction_tables = build_interaction_tables(scope=self.scope)
+
+        # Array state is built in reset() after agents are placed
+        self._array_state = None
+
+        # Enable shadow parity validation (set to False for performance)
+        self._validate_array_parity = False
+
+    def _build_type_ids(self) -> dict:
+        """Build a mapping of type name -> type_id for the current scope.
+
+        Only includes types that exist in the current scope. Returns -1 for
+        types that don't exist (e.g., pot/onion in non-Overcooked scopes).
+        """
+        from cogrid.core.grid_object import object_to_idx, get_object_names
+        names = get_object_names(self.scope)
+        type_ids = {}
+        type_names_needed = [
+            'pot', 'onion', 'tomato', 'plate', 'onion_soup', 'tomato_soup',
+            'onion_stack', 'tomato_stack', 'plate_stack', 'counter', 'delivery_zone',
+        ]
+        for name in type_names_needed:
+            if name in names:
+                type_ids[name] = object_to_idx(name, scope=self.scope)
+            else:
+                type_ids[name] = -1
+        return type_ids
 
     def _gen_grid(self) -> None:
         """Generates the grid for the environment.
@@ -318,6 +375,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.update_grid_agents()
 
+        # Build array state from grid and agents
+        self._array_state = layout_to_array_state(self.grid, scope=self.scope)
+        agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
+        self._array_state.update(agent_arrays)
+
         self.cumulative_score = 0
 
         self.render()
@@ -374,20 +436,39 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Track the previous state so that we have the delta for computing rewards
         self.prev_grid = copy.deepcopy(self.grid)
 
+        # Save previous array state for reward computation
+        if self._array_state is not None:
+            self._prev_array_state = {
+                k: v.copy() if hasattr(v, 'copy') else v
+                for k, v in self._array_state.items()
+            }
+        else:
+            self._prev_array_state = None
+
         # Update attributes of the grid objects that are timestep dependent
         self.grid.tick()
 
         # Convert the integer actions to strings (helpful for debugging!)
         actions = self._action_idx_to_str(actions)
 
-        # Agents who are moving have their positions updated (and conflicts resolved)
-        self.move_agents(actions)
+        # -------------------------------------------------------------------
+        # Vectorized movement (PRIMARY path) -- replaces self.move_agents()
+        # -------------------------------------------------------------------
+        if self._array_state is not None:
+            self._vectorized_move(actions)
+        else:
+            # Fallback to original if array state not initialized
+            self.move_agents(actions)
 
         # Given any new position(s), agents interact with the environment
         self.interact(actions)
 
         # Updates the GridAgent objects to reflect new positions/interactions
         self.update_grid_agents()
+
+        # Sync array state from objects after interactions
+        if self._array_state is not None:
+            self._sync_array_state_from_objects()
 
         # Store the actions taken by the agents
         self.prev_actions = actions.copy()
@@ -421,6 +502,72 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             )
             for a_id, agent in self.env_agents.items()
         }
+
+    def _vectorized_move(self, actions: dict) -> None:
+        """Use vectorized movement as the primary path, then sync back to Agent objects.
+
+        Replaces :meth:`move_agents` with ``move_agents_array()`` for the position
+        computation, then writes the results back to Agent objects so that the rest
+        of the step loop (interact, get_obs, compute_rewards) works unchanged.
+        """
+        # Build action array in the same order as agent_arrays
+        agent_ids = self._array_state["agent_ids"]
+        n_agents = self._array_state["n_agents"]
+
+        # Map string actions to integer indices for vectorized path
+        action_to_idx = {name: i for i, name in enumerate(self.action_set)}
+        actions_arr = np.array(
+            [action_to_idx.get(actions.get(a_id, grid_actions.Actions.Noop),
+                               len(self.action_set) - 1)
+             for a_id in agent_ids],
+            dtype=np.int32,
+        )
+
+        # Determine action set type for move_agents_array
+        if self.action_set == grid_actions.ActionSets.CardinalActions:
+            action_set_str = "cardinal"
+        else:
+            action_set_str = "rotation"
+
+        # Run vectorized movement
+        new_pos, new_dir = move_agents_array(
+            self._array_state["agent_pos"],
+            self._array_state["agent_dir"],
+            actions_arr,
+            self._array_state["wall_map"],
+            self._array_state["object_type_map"],
+            self._lookup_tables["CAN_OVERLAP"],
+            self.np_random,
+            action_set_str,
+        )
+
+        # Update array state
+        self._array_state["agent_pos"] = new_pos
+        self._array_state["agent_dir"] = new_dir
+
+        # Sync results back to Agent objects
+        sync_arrays_to_agents(self._array_state, self.env_agents)
+
+        # Call on_move hooks for each agent
+        for a_id in self.agent_ids:
+            self.on_move(a_id)
+
+        # Verify unique positions (matching original assertion)
+        assert len(self.agent_pos) == len(
+            set(self.agent_pos)
+        ), "Agents do not have unique positions!"
+
+    def _sync_array_state_from_objects(self) -> None:
+        """Rebuild array state from Grid and Agent objects after interactions.
+
+        Called after interact() and update_grid_agents() to ensure the array
+        state reflects any changes made by the object-based interaction code.
+        This is the Phase 1 sync approach -- Phase 2 will remove the object
+        path entirely.
+        """
+        self._array_state = layout_to_array_state(self.grid, scope=self.scope)
+        agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
+        self._array_state.update(agent_arrays)
 
     def setup_agents(self):
         self._setup_agents()

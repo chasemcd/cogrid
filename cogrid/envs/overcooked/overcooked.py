@@ -17,11 +17,17 @@ class Overcooked(cogrid_env.CoGridEnv):
     https://github.com/HumanCompatibleAI/overcooked_ai
     """
 
-    def __init__(self, config, render_mode=None, **kwargs):
-        """Constructor method"""
+    def __init__(self, config, render_mode=None, backend="numpy", **kwargs):
+        """Constructor method
+
+        :param config: Environment configuration dictionary.
+        :param render_mode: Rendering method for local visualization, defaults to None.
+        :param backend: Array backend name ('numpy' or 'jax'), defaults to 'numpy'.
+        """
         super().__init__(
             config=config,
             render_mode=render_mode,
             agent_class=agent.OvercookedAgent,
+            backend=backend,
             **kwargs,
         )
