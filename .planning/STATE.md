@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 1 of 4 (Dual Backend & Vectorized Core Rewrite)
-Plan: 4 of 7 in current phase
+Plan: 7 of 7 in current phase
 Status: Executing
-Last activity: 2026-02-11 -- Completed 01-04-PLAN.md (Vectorized Interaction Processing)
+Last activity: 2026-02-11 -- Completed 01-05-PLAN.md (Array-Based Feature Extractors)
 
-Progress: [██████░░░░] 57%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 11min
-- Total execution time: 0.7 hours
+- Total plans completed: 6
+- Average duration: 8min
+- Total execution time: 0.8 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 4 | 43min | 11min |
+| 01 | 6 | 45min | 8min |
 
 **Recent Trend:**
-- Last 5 plans: 25min, 3min, 6min, 9min
-- Trend: consistent
+- Last 5 plans: 3min, 6min, 9min, 7min, 2min
+- Trend: consistent, fast
 
 *Updated after each plan completion*
 
@@ -55,6 +55,11 @@ Recent decisions affecting current work:
 - [01-04]: Dynamic can_pickup_from evaluation: static lookup table + inline instance-level condition check prevents false-positive elif matching
 - [01-04]: OvercookedAgent.can_pickup() pot special override replicated as separate sub-case in branch 2 (plate required for pot, empty inv for stacks)
 - [01-04]: Counter placed-on tracked in object_state_map[r,c] as type_id integer (0=empty); delivery zone consumes soup silently
+- [01-05]: Agent overlays in full_map_encoding use scope='global' matching Grid.encode() behavior where grid_agent.encode() called without scope
+- [01-05]: CAN_OVERLAP static lookup table used for can_move_direction -- sufficient for Overcooked (no Door objects with dynamic overlap)
+- [01-05]: Channel 1 (color) left as 0 in array full_map_encoding -- Pot.encode() tomato flag not replicated from arrays
+- [01-06]: Reward functions use prev_state dict exclusively (matching existing pattern where state=self.prev_grid)
+- [01-06]: Pot index lookup uses linear scan over pot_positions list; int() casts on array elements for numpy/JAX scalar compatibility
 - [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
@@ -72,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01-04-PLAN.md
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
