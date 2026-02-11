@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 1 of 4 (Dual Backend & Vectorized Core Rewrite)
-Plan: 7 of 7 in current phase
-Status: Executing
-Last activity: 2026-02-11 -- Completed 01-05-PLAN.md (Array-Based Feature Extractors)
+Plan: 7 of 7 in current phase (COMPLETE)
+Status: Phase 1 Complete
+Last activity: 2026-02-11 -- Completed 01-07-PLAN.md (Integration)
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 8min
-- Total execution time: 0.8 hours
+- Total plans completed: 7
+- Average duration: 7min
+- Total execution time: 0.85 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 6 | 45min | 8min |
+| 01 | 7 | 51min | 7min |
 
 **Recent Trend:**
-- Last 5 plans: 3min, 6min, 9min, 7min, 2min
+- Last 5 plans: 6min, 9min, 7min, 2min, 6min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -60,6 +60,11 @@ Recent decisions affecting current work:
 - [01-05]: Channel 1 (color) left as 0 in array full_map_encoding -- Pot.encode() tomato flag not replicated from arrays
 - [01-06]: Reward functions use prev_state dict exclusively (matching existing pattern where state=self.prev_grid)
 - [01-06]: Pot index lookup uses linear scan over pot_positions list; int() casts on array elements for numpy/JAX scalar compatibility
+- [01-07]: Vectorized movement as primary path with sync back to Agent objects; existing interact/features/rewards run on synced objects
+- [01-07]: Array state fully rebuilt from objects after interact() each step for Phase 1 safety
+- [01-07]: Type IDs computed defensively with -1 sentinel for non-existent types to support non-Overcooked scopes
+- [01-07]: Interaction tables only built for overcooked scope (None for other scopes)
+- [01-07]: Shadow parity validation disabled by default (_validate_array_parity = False)
 - [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
@@ -77,5 +82,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01-05-PLAN.md
+Stopped at: Completed 01-07-PLAN.md (Phase 1 Complete)
 Resume file: None
