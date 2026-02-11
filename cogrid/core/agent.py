@@ -105,3 +105,107 @@ class Agent:
         e.g., agent-0 -> 1, agent-1 -> 2, etc.
         """
         return int(self.id[-1]) + 1 if isinstance(self.id, str) else self.id + 1
+
+
+# Direction vectors as an array for vectorized lookups.
+# Indexed by direction enum: Right=0, Down=1, Left=2, Up=3
+# Each row is [delta_row, delta_col].
+# PHASE2: DIR_VEC_TABLE will be a constant in the EnvState module
+DIR_VEC_TABLE = None  # Initialized lazily after backend is set
+
+
+def get_dir_vec_table():
+    """Return the (4, 2) direction vector lookup table, creating it lazily.
+
+    The table is indexed by the direction integer (Right=0, Down=1, Left=2,
+    Up=3). Each row is ``[delta_row, delta_col]``, matching the existing
+    ``Agent.dir_vec`` property.
+    """
+    global DIR_VEC_TABLE
+    if DIR_VEC_TABLE is None:
+        from cogrid.backend import xp
+
+        DIR_VEC_TABLE = xp.array(
+            [
+                [0, 1],  # Right (0) -- increase col
+                [1, 0],  # Down  (1) -- increase row
+                [0, -1],  # Left  (2) -- decrease col
+                [-1, 0],  # Up    (3) -- decrease row
+            ],
+            dtype=xp.int32,
+        )
+    return DIR_VEC_TABLE
+
+
+def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
+    """Convert Agent objects to array-based representation.
+
+    Takes the existing ``env_agents`` dict (mapping AgentID -> Agent) and
+    creates parallel array representations for use by vectorized operations.
+
+    Args:
+        env_agents: Dict mapping AgentID -> Agent instance.
+        scope: Object registry scope for inventory type ID lookups.
+
+    Returns:
+        Dict containing:
+        - ``"agent_pos"``: int32 array of shape ``(n_agents, 2)`` with ``[row, col]``.
+        - ``"agent_dir"``: int32 array of shape ``(n_agents,)`` with direction integers.
+        - ``"agent_inv"``: int32 array of shape ``(n_agents, 1)`` with held item type IDs,
+          or -1 if inventory is empty.
+        - ``"agent_ids"``: list of AgentID in array index order.
+        - ``"n_agents"``: integer agent count.
+    """
+    from cogrid.backend import xp
+    from cogrid.core.grid_object import object_to_idx
+
+    # Sort by agent_id for deterministic array ordering
+    sorted_items = sorted(env_agents.items(), key=lambda x: x[0])
+    n_agents = len(sorted_items)
+
+    agent_pos = xp.zeros((n_agents, 2), dtype=xp.int32)
+    agent_dir = xp.zeros((n_agents,), dtype=xp.int32)
+    agent_inv = xp.full((n_agents, 1), -1, dtype=xp.int32)
+    agent_ids = []
+
+    for i, (a_id, agent) in enumerate(sorted_items):
+        agent_ids.append(a_id)
+        agent_pos[i, 0] = agent.pos[0]
+        agent_pos[i, 1] = agent.pos[1]
+        agent_dir[i] = int(agent.dir)
+
+        if len(agent.inventory) > 0:
+            agent_inv[i, 0] = object_to_idx(
+                agent.inventory[0].object_id, scope=scope
+            )
+
+    return {
+        "agent_pos": agent_pos,
+        "agent_dir": agent_dir,
+        "agent_inv": agent_inv,
+        "agent_ids": agent_ids,
+        "n_agents": n_agents,
+    }
+
+
+# PHASE2: This function will be removed when Grid/Agent objects are replaced by EnvState
+def sync_arrays_to_agents(agent_arrays: dict, env_agents: dict) -> None:
+    """Update Agent objects from array state.
+
+    Inverse of :func:`create_agent_arrays`. Updates position and direction
+    on each Agent from the corresponding array entries. Inventory sync is
+    deferred to Plan 04 (interactions) since mapping type IDs back to
+    GridObj instances requires more context.
+
+    Args:
+        agent_arrays: Dict produced by :func:`create_agent_arrays`.
+        env_agents: Dict mapping AgentID -> Agent instance.
+    """
+    sorted_items = sorted(env_agents.items(), key=lambda x: x[0])
+
+    for i, (a_id, agent) in enumerate(sorted_items):
+        agent.pos = (
+            int(agent_arrays["agent_pos"][i, 0]),
+            int(agent_arrays["agent_pos"][i, 1]),
+        )
+        agent.dir = int(agent_arrays["agent_dir"][i])
