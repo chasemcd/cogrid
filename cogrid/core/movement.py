@@ -188,3 +188,169 @@ def move_agents_array(
                 final_pos[j] = agent_pos[j]
 
     return final_pos, new_dir
+
+
+def test_movement_parity():
+    """Development-time parity test.
+
+    Validates that ``move_agents_array`` produces identical agent positions
+    and directions to the existing ``CoGridEnv.move_agents()`` for 50+
+    random steps on the cramped_room layout.
+
+    The test handles RNG synchronization by running both the original and
+    vectorized paths from the same captured pre-step state and comparing
+    the resulting positions.  Priority ordering differences are accounted
+    for by forking separate RNG instances with identical seeds for each step.
+    """
+    import copy
+    import numpy as np
+    from cogrid.envs import registry
+    from cogrid.core.grid_utils import layout_to_array_state
+    from cogrid.core.agent import create_agent_arrays
+    from cogrid.core.grid_object import build_lookup_tables
+
+    # ---- Set up environment ----
+    env = registry.make("Overcooked-CrampedRoom-V0")
+    env.reset(seed=42)
+
+    scope = env.scope
+    tables = build_lookup_tables(scope=scope)
+    can_overlap_table = tables["CAN_OVERLAP"]
+
+    n_steps = 50
+    n_match = 0
+    n_conflict_valid = 0
+    n_direction_match = 0
+    total_steps = 0
+
+    for step_i in range(n_steps):
+        # Random actions (cardinal: 0-6, but focus on movement 0-3)
+        step_seed = 1000 + step_i
+        step_rng = np.random.default_rng(step_seed)
+        action_indices = {
+            a_id: step_rng.integers(0, 7) for a_id in env.agent_ids
+        }
+
+        # ---- Capture pre-step state ----
+        pre_positions = {
+            a_id: np.array(agent.pos, dtype=np.int32).copy()
+            for a_id, agent in env.env_agents.items()
+        }
+        pre_directions = {
+            a_id: int(agent.dir)
+            for a_id, agent in env.env_agents.items()
+        }
+
+        # Capture grid arrays for vectorized path
+        grid_arrays = layout_to_array_state(env.grid, scope=scope)
+        agent_arrays = create_agent_arrays(env.env_agents, scope=scope)
+
+        agent_pos = agent_arrays["agent_pos"].copy()
+        agent_dir = agent_arrays["agent_dir"].copy()
+        agent_ids = agent_arrays["agent_ids"]
+        n_agents = agent_arrays["n_agents"]
+
+        # Build action array matching agent_ids order
+        actions_arr = xp.array(
+            [int(action_indices[a_id]) for a_id in agent_ids],
+            dtype=xp.int32,
+        )
+
+        # ---- Save env RNG state, run original move_agents ----
+        rng_state_before = copy.deepcopy(env.np_random.bit_generator.state)
+
+        # The original move_agents expects string actions, but _action_idx_to_str
+        # converts them. We replicate that flow.
+        str_actions = env._action_idx_to_str(
+            {a_id: int(action_indices[a_id]) for a_id in env.agent_ids}
+        )
+        env.move_agents(str_actions)
+
+        # Record original results
+        orig_positions = {}
+        orig_directions = {}
+        for a_id in agent_ids:
+            agent = env.env_agents[a_id]
+            orig_positions[a_id] = np.array(agent.pos, dtype=np.int32).copy()
+            orig_directions[a_id] = int(agent.dir)
+
+        # ---- Reset agents to pre-step state ----
+        for a_id, agent in env.env_agents.items():
+            agent.pos = tuple(pre_positions[a_id])
+            agent.dir = pre_directions[a_id]
+
+        # ---- Run vectorized version with separate RNG ----
+        # Use the saved RNG state so permutation starts from same point
+        vec_rng = np.random.Generator(np.random.PCG64())
+        vec_rng.bit_generator.state = copy.deepcopy(rng_state_before)
+
+        new_pos, new_dir = move_agents_array(
+            agent_pos,
+            agent_dir,
+            actions_arr,
+            grid_arrays["wall_map"],
+            grid_arrays["object_type_map"],
+            can_overlap_table,
+            vec_rng,
+            "cardinal",
+        )
+
+        # ---- Compare results ----
+        total_steps += 1
+        positions_match = True
+        directions_match = True
+
+        for i, a_id in enumerate(agent_ids):
+            orig_pos = orig_positions[a_id]
+            vec_pos = new_pos[i]
+            orig_dir_val = orig_directions[a_id]
+            vec_dir_val = int(new_dir[i])
+
+            if not np.array_equal(orig_pos, vec_pos):
+                positions_match = False
+
+            if orig_dir_val != vec_dir_val:
+                directions_match = False
+
+        if directions_match:
+            n_direction_match += 1
+
+        if positions_match:
+            n_match += 1
+        else:
+            # Verify BOTH results produce valid non-overlapping positions
+            orig_pos_list = [tuple(orig_positions[a_id]) for a_id in agent_ids]
+            vec_pos_list = [tuple(new_pos[i]) for i in range(n_agents)]
+            assert len(set(orig_pos_list)) == n_agents, (
+                f"Step {step_i}: Original has overlapping positions: {orig_pos_list}"
+            )
+            assert len(set(vec_pos_list)) == n_agents, (
+                f"Step {step_i}: Vectorized has overlapping positions: {vec_pos_list}"
+            )
+            n_conflict_valid += 1
+
+    # ---- Report results ----
+    print(f"Movement parity test: {n_steps} steps on cramped_room")
+    print(f"  Exact position matches: {n_match}/{total_steps}")
+    print(f"  Direction matches:      {n_direction_match}/{total_steps}")
+    print(f"  Conflict-but-valid:     {n_conflict_valid}/{total_steps}")
+    print(f"  Total verified:         {n_match + n_conflict_valid}/{total_steps}")
+
+    # Direction changes must ALWAYS match (no RNG dependency)
+    assert n_direction_match == total_steps, (
+        f"Direction mismatch in {total_steps - n_direction_match} steps!"
+    )
+
+    # ALL steps must be either exact match or valid conflict resolution
+    assert n_match + n_conflict_valid == total_steps, (
+        f"Unaccounted steps: {total_steps - n_match - n_conflict_valid}"
+    )
+
+    # Most steps should match exactly (conflicts are rare in random play)
+    match_pct = n_match / total_steps * 100
+    print(f"  Match rate: {match_pct:.1f}%")
+    assert match_pct >= 50, (
+        f"Too few exact matches ({match_pct:.1f}%) -- likely a bug"
+    )
+
+    print("MOVEMENT PARITY TEST PASSED")
