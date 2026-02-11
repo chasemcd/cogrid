@@ -201,41 +201,17 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Build lookup tables for the current scope
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
-        # Build type ID mapping for interaction/reward functions.
-        # Only compute for types that exist in the current scope.
-        self._type_ids = self._build_type_ids()
-
-        # Build interaction tables (only for overcooked scope)
-        self._interaction_tables = None
-        if self.scope == "overcooked":
-            from cogrid.core.interactions import build_interaction_tables
-            self._interaction_tables = build_interaction_tables(scope=self.scope)
+        # Build scope config for environment-specific array logic
+        from cogrid.core.scope_config import get_scope_config
+        self._scope_config = get_scope_config(self.scope)
+        self._type_ids = self._scope_config["type_ids"]
+        self._interaction_tables = self._scope_config["interaction_tables"]
 
         # Array state is built in reset() after agents are placed
         self._array_state = None
 
         # Enable shadow parity validation (set to False for performance)
         self._validate_array_parity = False
-
-    def _build_type_ids(self) -> dict:
-        """Build a mapping of type name -> type_id for the current scope.
-
-        Only includes types that exist in the current scope. Returns -1 for
-        types that don't exist (e.g., pot/onion in non-Overcooked scopes).
-        """
-        from cogrid.core.grid_object import object_to_idx, get_object_names
-        names = get_object_names(self.scope)
-        type_ids = {}
-        type_names_needed = [
-            'pot', 'onion', 'tomato', 'plate', 'onion_soup', 'tomato_soup',
-            'onion_stack', 'tomato_stack', 'plate_stack', 'counter', 'delivery_zone',
-        ]
-        for name in type_names_needed:
-            if name in names:
-                type_ids[name] = object_to_idx(name, scope=self.scope)
-            else:
-                type_ids[name] = -1
-        return type_ids
 
     def _gen_grid(self) -> None:
         """Generates the grid for the environment.
@@ -376,7 +352,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.update_grid_agents()
 
         # Build array state from grid and agents
-        self._array_state = layout_to_array_state(self.grid, scope=self.scope)
+        self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
         self._array_state.update(agent_arrays)
 
@@ -565,7 +541,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         This is the Phase 1 sync approach -- Phase 2 will remove the object
         path entirely.
         """
-        self._array_state = layout_to_array_state(self.grid, scope=self.scope)
+        self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
         self._array_state.update(agent_arrays)
 

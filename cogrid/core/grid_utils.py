@@ -20,7 +20,7 @@ def adjacent_positions(row, col):
 
 
 # PHASE2: This function will operate on EnvState pytree instead of Grid object
-def layout_to_array_state(grid, scope: str = "global") -> dict:
+def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dict:
     """Convert a Grid object into the array-based state representation.
 
     Takes an existing Grid instance (already created from an ASCII layout via
