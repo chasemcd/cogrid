@@ -12,7 +12,8 @@ This roadmap transforms CoGrid from a pure-Python grid-world environment into a 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Dual Backend & Vectorized Core Rewrite** - Backend dispatch module, array-based state representation, and rewrite of all simulation logic (movement, collision, interactions, observations, rewards) from Python loops to parallel array operations
+- [x] **Phase 1: Dual Backend & Vectorized Core Rewrite** - Backend dispatch module, array-based state representation, and rewrite of all simulation logic (movement, collision, interactions, observations, rewards) from Python loops to parallel array operations
+- [ ] **Phase 1.1: Fix environment separation of concerns** - No environment-specific logic in core methods (INSERTED)
 - [ ] **Phase 2: Functional State Model & JIT Compatibility** - Immutable EnvState pytree, PRNG key threading, JAX-specific control flow primitives, JIT-compilability of all sub-functions
 - [ ] **Phase 3: End-to-End Integration & Parity** - Full step() JIT compilation, PettingZoo wrapper, functional API, cross-backend parity verification
 - [ ] **Phase 4: vmap Batching & Benchmarks** - Batched parallel rollouts and performance verification
@@ -45,6 +46,17 @@ Plans:
 - [ ] 01-05-PLAN.md -- Array-based feature extractors with init-time composition
 - [ ] 01-06-PLAN.md -- Array-based reward functions with init-time composition
 - [ ] 01-07-PLAN.md -- Integration into CoGridEnv + regression verification
+
+### Phase 01.1: Fix environment separation of concerns (no environment-specific logic in core methods) (INSERTED)
+
+**Goal:** Remove all Overcooked-specific logic from core modules (cogrid_env.py, core/interactions.py, core/grid_utils.py, core/array_rewards.py) by introducing a scope config registry pattern where environments register their array-based configuration and handlers, consumed by generic core infrastructure
+**Depends on:** Phase 1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01.1-01-PLAN.md -- Scope config registry + Overcooked array config module
+- [ ] 01.1-02-PLAN.md -- Move Overcooked array rewards and interaction test to envs/overcooked/
+- [ ] 01.1-03-PLAN.md -- Wire scope config into cogrid_env.py, core/interactions.py, core/grid_utils.py (cleanup)
 
 ### Phase 2: Functional State Model & JIT Compatibility
 **Goal**: All vectorized code from Phase 1 is wrapped in an immutable EnvState pytree with PRNG key threading, all control flow uses JAX-compatible primitives, and every sub-function JIT-compiles without error
@@ -95,11 +107,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dual Backend & Vectorized Core Rewrite | 0/7 | Planning complete | - |
+| 1. Dual Backend & Vectorized Core Rewrite | 7/7 | Complete | 2026-02-11 |
+| 1.1. Fix environment separation of concerns | 0/3 | Not started | - |
 | 2. Functional State Model & JIT Compatibility | 0/TBD | Not started | - |
 | 3. End-to-End Integration & Parity | 0/TBD | Not started | - |
 | 4. vmap Batching & Benchmarks | 0/TBD | Not started | - |
