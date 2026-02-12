@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 3 of 4 (End-to-End Integration & Parity)
-Plan: 1 of 3 in current phase (COMPLETE)
+Plan: 2 of 3 in current phase (COMPLETE)
 Status: Executing Phase 3
-Last activity: 2026-02-11 -- Completed 03-01 (end-to-end JAX step/reset)
+Last activity: 2026-02-11 -- Completed 03-02 (PettingZoo JAX backend integration)
 
-Progress: [██████░░░░] 56%
+Progress: [███████░░░] 63%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 6min
-- Total execution time: 1.31 hours
+- Total execution time: 1.39 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [██████░░░░] 56%
 | 01 | 7 | 51min | 7min |
 | 01.1 | 3 | 14min | 5min |
 | 02 | 3 | 9min | 3min |
-| 03 | 1 | 5min | 5min |
+| 03 | 2 | 10min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 3min, 8min, 4min, 5min, 5min
+- Last 5 plans: 8min, 4min, 5min, 5min, 5min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -100,6 +100,10 @@ Recent decisions affecting current work:
 - [03-01]: Smoke test uses numpy env to extract layout then converts to JAX arrays, avoiding backend conflict
 - [03-01]: scope_config static_tables numpy arrays must be explicitly converted to jnp.array before JIT tracing
 - [03-01]: Step ordering verified: prev_state capture -> tick -> move -> interact -> obs -> rewards -> dones
+- [03-02]: Layout parsing (layout_to_array_state, create_agent_arrays, _extract_overcooked_state) always uses numpy -- JAX arrays are immutable, can't do in-place assignment
+- [03-02]: JAX feature names hard-coded to [agent_position, agent_dir, full_map_encoding, can_move_direction, inventory] regardless of config feature space name
+- [03-02]: Reward name mapping: strip _reward suffix from config names (delivery_reward -> delivery) to match JAX fn_map
+- [03-02]: Static tables and interaction tables converted from numpy to jnp at __init__ time for JIT compatibility
 
 ### Pending Todos
 
@@ -117,5 +121,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 03-01-PLAN.md (end-to-end JAX step/reset)
+Stopped at: Completed 03-02-PLAN.md (PettingZoo JAX backend integration)
 Resume file: None
