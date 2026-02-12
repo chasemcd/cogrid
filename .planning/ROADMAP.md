@@ -44,7 +44,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 5: Foundation -- State Model & Backend Helpers** - Generic EnvState with extra_state, array mutation helpers, array-based layout parser
 - [x] **Phase 6: Core Algorithms** - Unified movement, collision, interaction, and feature functions using xp
-- [ ] **Phase 7: Rewards & Scope Config** - Unified reward functions and Overcooked-specific handlers using xp
+- [x] **Phase 7: Rewards & Scope Config** - Unified reward functions and Overcooked-specific handlers using xp
 - [ ] **Phase 8: Step Pipeline** - Functional step/reset composition with init-time function wiring
 - [ ] **Phase 9: Integration & Cleanup** - PettingZoo wrapper, functional API exposure, old code deletion, final verification
 
@@ -96,8 +96,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Unify reward functions, compute_rewards, jax_step.py lax.fori_loop elimination
-- [ ] 07-02-PLAN.md -- Cross-backend reward parity tests, update existing test imports
+- [x] 07-01-PLAN.md -- Unify reward functions, compute_rewards, jax_step.py lax.fori_loop elimination
+- [x] 07-02-PLAN.md -- Cross-backend reward parity tests, update existing test imports
 
 ### Phase 8: Step Pipeline
 **Goal**: A complete functional `step()` and `reset()` compose all unified sub-functions into a pure pipeline, with init-time function wiring that eliminates per-step dispatch overhead
@@ -108,7 +108,11 @@ Plans:
   2. `reset(rng)` returns `(state, obs)` as a pure function using `xp` -- creating initial EnvState from layout and computing initial observations
   3. Init-time function composition (`build_step_fn`, `build_feature_fn`, `build_reward_fn`) wires scope-specific handlers and feature/reward selections at environment creation time, so the step function has zero dispatch overhead at runtime
   4. `jax.jit(step)(state, actions)` compiles and executes without error on the JAX backend
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md -- Unified step_pipeline.py with step(), reset(), envstate_to_dict()
+- [ ] 08-02-PLAN.md -- Build factories, backward-compat shim, end-to-end tests
 
 ### Phase 9: Integration & Cleanup
 **Goal**: The PettingZoo wrapper delegates to the functional core, the functional API is directly accessible for JIT/vmap usage, all old duplicate code is deleted, and the full test suite verifies correctness
@@ -135,6 +139,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 | 4. vmap Batching & Benchmarks | v1.0 | 2/2 | Complete | 2026-02-12 |
 | 5. Foundation -- State Model & Backend Helpers | v1.1 | 3/3 | Complete | 2026-02-12 |
 | 6. Core Algorithms | v1.1 | 4/4 | Complete | 2026-02-12 |
-| 7. Rewards & Scope Config | v1.1 | 0/2 | In progress | - |
+| 7. Rewards & Scope Config | v1.1 | 2/2 | Complete | 2026-02-12 |
 | 8. Step Pipeline | v1.1 | 0/TBD | Not started | - |
 | 9. Integration & Cleanup | v1.1 | 0/TBD | Not started | - |
