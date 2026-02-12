@@ -35,12 +35,3 @@ def compose_rewards(reward_configs: list) -> callable:
         return total
 
     return composed_reward
-
-
-# Backward-compatible re-exports (moved to cogrid.envs.overcooked.array_rewards)
-# TODO: Remove after Phase 01.1 Plan 03 completes wiring
-from cogrid.envs.overcooked.array_rewards import (
-    delivery_reward_array,
-    onion_in_pot_reward_array,
-    soup_in_dish_reward_array,
-)
