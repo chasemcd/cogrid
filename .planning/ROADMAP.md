@@ -101,10 +101,11 @@ Plans:
   2. Each environment in the vmap batch produces identical results to running that environment individually (verified by comparing single-env output to corresponding slice of batched output)
   3. A benchmark suite measures and reports: numpy single-env steps/sec, JAX single-env JIT steps/sec, JAX vmap at 1024 parallel envs steps/sec -- with measurable speedup documented
   4. Benchmark results are reproducible: running the suite twice produces consistent measurements (within 10% variance)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md -- vmap correctness tests (reset/step at 1024 envs + single-env vs batched parity)
+- [ ] 04-02-PLAN.md -- Benchmark suite (numpy single, JAX single JIT, JAX vmap@1024 + reproducibility)
 
 ## Progress
 
@@ -116,5 +117,5 @@ Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
 | 1. Dual Backend & Vectorized Core Rewrite | 7/7 | Complete | 2026-02-11 |
 | 1.1. Fix environment separation of concerns | 3/3 | Complete | 2026-02-11 |
 | 2. Functional State Model & JIT Compatibility | 3/3 | Complete | 2026-02-11 |
-| 3. End-to-End Integration & Parity | 0/TBD | Not started | - |
-| 4. vmap Batching & Benchmarks | 0/TBD | Not started | - |
+| 3. End-to-End Integration & Parity | 3/3 | Complete | 2026-02-11 |
+| 4. vmap Batching & Benchmarks | 0/2 | Not started | - |
