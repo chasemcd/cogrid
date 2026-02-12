@@ -76,7 +76,13 @@ Plans:
   3. `process_interactions()` handles pickup, drop, and object interactions via priority-masked vectorization using `xp` -- a single function, no `_jax` variant
   4. Feature extractors (agent_pos, agent_dir, full_map_encoding, can_move_direction, inventory) are consolidated into a single set of functions using `xp`, with no duplicate implementations
   5. Zero `int()` casts on array values exist anywhere in the movement, interaction, or feature extraction code paths
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 06-01-PLAN.md -- Unified move_agents() with vectorized collision resolution
+- [ ] 06-02-PLAN.md -- Unified process_interactions(), overcooked_tick(), overcooked_interaction_body()
+- [ ] 06-03-PLAN.md -- Unified feature extractors, build_feature_fn(), get_all_agent_obs()
+- [ ] 06-04-PLAN.md -- Collision resolution tests, int() cast elimination, jax_step.py wiring
 
 ### Phase 7: Rewards & Scope Config
 **Goal**: Reward functions and Overcooked-specific tick/interaction handlers each exist as a single function using `xp`, with scope config registration using the new `extra_state` schema
