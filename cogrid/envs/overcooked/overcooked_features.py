@@ -399,11 +399,16 @@ class OrderedPotFeatures(feature.Feature):
     We will sort based on the euclidian distance to the player's location and then concatenate all pot features.
     """
 
+    # Per-pot feature size: 1 (reachable) + 4 (status) + 2 (legal_contents
+    # count for [Onion, Tomato]) + 1 (cooking_timer) + 2 (distance) +
+    # 2 (location) = 12.
+    PER_POT_FEATURE_SIZE = 12
+
     def __init__(self, num_pots=1, **kwargs):
         super().__init__(
             low=-np.inf,
             high=np.inf,
-            shape=(num_pots * 11,),
+            shape=(num_pots * OrderedPotFeatures.PER_POT_FEATURE_SIZE,),
             name="pot_features",
             **kwargs,
         )
@@ -438,7 +443,7 @@ class NClosestPotFeatures(feature.Feature):
         super().__init__(
             low=-np.inf,
             high=np.inf,
-            shape=(num_pots * 11,),
+            shape=(num_pots * OrderedPotFeatures.PER_POT_FEATURE_SIZE,),
             name="n_closest_pot_features",
             **kwargs,
         )

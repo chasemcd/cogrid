@@ -85,6 +85,8 @@ def _reset_backend_for_testing() -> None:
     _backend_set = False
     xp = numpy
 
-    # Reset EnvState pytree registration
-    from cogrid.backend import env_state
-    env_state._pytree_registered = False
+    # NOTE: Do NOT reset _pytree_registered here. JAX's internal pytree
+    # registry is process-global and cannot be un-registered. Setting
+    # _pytree_registered = False would cause a duplicate registration
+    # error on the next call to register_envstate_pytree(). The flag
+    # stays True after the first successful registration.
