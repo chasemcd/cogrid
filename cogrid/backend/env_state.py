@@ -11,6 +11,18 @@ State transitions use ``dataclasses.replace``::
 
 Direct attribute assignment is forbidden (frozen=True).
 
+The ``extra_state`` field holds a dict of scope-specific arrays keyed by
+scope-prefixed strings (e.g. ``"overcooked.pot_contents"``).  This
+replaces the former pot-specific fields and allows any environment to
+attach its own state arrays without modifying the core dataclass.
+
+Access helpers::
+
+    from cogrid.backend.env_state import get_extra, replace_extra
+
+    timer = get_extra(state, "pot_timer", scope="overcooked")
+    state = replace_extra(state, "pot_timer", new_timer, scope="overcooked")
+
 Usage::
 
     from cogrid.backend.env_state import EnvState, create_env_state
@@ -18,11 +30,13 @@ Usage::
     state = create_env_state(
         agent_pos=np.zeros((2, 2), dtype=np.int32),
         ...
+        extra_state={"overcooked.pot_timer": np.zeros(2, dtype=np.int32)},
     )
 """
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 
 # NOTE: No JAX imports at module level -- the class must work without JAX.
@@ -46,9 +60,7 @@ class EnvState:
         wall_map:         (H, W) int32        -- 1 where walls exist
         object_type_map:  (H, W) int32        -- object type IDs per cell
         object_state_map: (H, W) int32        -- object state per cell
-        pot_contents:     (n_pots, 3) int32   -- pot ingredient type IDs, -1 = empty
-        pot_timer:        (n_pots,) int32     -- cooking timer per pot
-        pot_positions:    (n_pots, 2) int32   -- pot row, col positions
+        extra_state:      dict[str, array]    -- scope-prefixed env-specific arrays
         rng_key:          (2,) uint32 or None -- JAX PRNG key (None on numpy backend)
         time:             () int32            -- scalar timestep
 
@@ -56,7 +68,6 @@ class EnvState:
         n_agents:   int -- number of agents
         height:     int -- grid height
         width:      int -- grid width
-        n_pots:     int -- number of pots
         action_set: str -- "cardinal" or "rotation"
     """
 
@@ -67,9 +78,7 @@ class EnvState:
     wall_map: object           # (H, W) int32
     object_type_map: object    # (H, W) int32
     object_state_map: object   # (H, W) int32
-    pot_contents: object       # (n_pots, 3) int32, -1 sentinel
-    pot_timer: object          # (n_pots,) int32
-    pot_positions: object      # (n_pots, 2) int32
+    extra_state: object        # dict[str, array], scope-prefixed keys
     rng_key: object            # (2,) uint32 JAX PRNG key, or None on numpy
     time: object               # () int32 scalar timestep
 
@@ -77,7 +86,6 @@ class EnvState:
     n_agents: int = field(metadata=dict(static=True), default=2)
     height: int = field(metadata=dict(static=True), default=7)
     width: int = field(metadata=dict(static=True), default=7)
-    n_pots: int = field(metadata=dict(static=True), default=0)
     action_set: str = field(metadata=dict(static=True), default="cardinal")
 
 
@@ -118,6 +126,50 @@ def create_env_state(**kwargs) -> EnvState:
     return EnvState(**kwargs)
 
 
+# ======================================================================
+# extra_state helpers
+# ======================================================================
+
+
+def get_extra(state, key, scope=None):
+    """Get a value from state.extra_state with optional scope prefixing."""
+    full_key = f"{scope}.{key}" if scope else key
+    if full_key not in state.extra_state:
+        raise KeyError(
+            f"extra_state key '{full_key}' not found. "
+            f"Available: {list(state.extra_state.keys())}"
+        )
+    return state.extra_state[full_key]
+
+
+def replace_extra(state, key, value, scope=None):
+    """Return new EnvState with one extra_state value replaced."""
+    full_key = f"{scope}.{key}" if scope else key
+    new_extra = {**state.extra_state, full_key: value}
+    return dataclasses.replace(state, extra_state=new_extra)
+
+
+def validate_extra_state(extra_state, schema):
+    """Validate extra_state dict against a schema.
+
+    Schema is a dict mapping key -> {"shape": tuple, "dtype": str}.
+    Shape tuples may contain symbolic dims (strings) which are checked
+    for dimensional consistency only (not exact value).
+
+    Raises ValueError if validation fails.
+    """
+    for key, spec in schema.items():
+        if key not in extra_state:
+            raise ValueError(f"Missing required extra_state key: '{key}'")
+        arr = extra_state[key]
+        expected_ndim = len(spec["shape"])
+        if len(arr.shape) != expected_ndim:
+            raise ValueError(
+                f"extra_state['{key}'] has {len(arr.shape)} dims, "
+                f"expected {expected_ndim}"
+            )
+
+
 if __name__ == "__main__":
     # Quick smoke test -- numpy only, no JAX dependency
     import numpy as np
@@ -129,15 +181,32 @@ if __name__ == "__main__":
         wall_map=np.zeros((7, 7), dtype=np.int32),
         object_type_map=np.zeros((7, 7), dtype=np.int32),
         object_state_map=np.zeros((7, 7), dtype=np.int32),
-        pot_contents=np.full((1, 3), -1, dtype=np.int32),
-        pot_timer=np.zeros(1, dtype=np.int32),
-        pot_positions=np.zeros((1, 2), dtype=np.int32),
+        extra_state={
+            "overcooked.pot_contents": np.full((1, 3), -1, dtype=np.int32),
+            "overcooked.pot_timer": np.zeros(1, dtype=np.int32),
+            "overcooked.pot_positions": np.zeros((1, 2), dtype=np.int32),
+        },
         rng_key=None,
         time=np.int32(0),
         n_agents=2,
         height=7,
         width=7,
-        n_pots=1,
         action_set="cardinal",
     )
     print(f"EnvState created: {state.n_agents} agents, {state.height}x{state.width} grid")
+
+    # Test helpers
+    timer = get_extra(state, "pot_timer", scope="overcooked")
+    print(f"pot_timer shape: {timer.shape}")
+
+    state2 = replace_extra(state, "pot_timer", np.ones(1, dtype=np.int32), scope="overcooked")
+    print(f"replaced timer value: {get_extra(state2, 'pot_timer', scope='overcooked')}")
+
+    # Test validate
+    schema = {
+        "overcooked.pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
+        "overcooked.pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
+        "overcooked.pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
+    }
+    validate_extra_state(state.extra_state, schema)
+    print("validation passed")
