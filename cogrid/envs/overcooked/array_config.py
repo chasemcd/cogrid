@@ -20,6 +20,7 @@ Functions:
 
 from __future__ import annotations
 
+from cogrid.backend.array_ops import set_at
 from cogrid.core.grid_object import object_to_idx, get_object_names
 
 
@@ -95,23 +96,13 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
     delivery_zone_id = object_to_idx("delivery_zone", scope=scope)
 
     # What each pickup-from source produces (stacks only; pot is special-cased)
-    # Use .at[].set() for JAX compatibility, direct assignment for numpy
-    if hasattr(pickup_from_produces, 'at'):
-        pickup_from_produces = pickup_from_produces.at[onion_stack_id].set(onion_id)
-        pickup_from_produces = pickup_from_produces.at[tomato_stack_id].set(tomato_id)
-        pickup_from_produces = pickup_from_produces.at[plate_stack_id].set(plate_id)
-    else:
-        pickup_from_produces[onion_stack_id] = onion_id
-        pickup_from_produces[tomato_stack_id] = tomato_id
-        pickup_from_produces[plate_stack_id] = plate_id
+    pickup_from_produces = set_at(pickup_from_produces, onion_stack_id, onion_id)
+    pickup_from_produces = set_at(pickup_from_produces, tomato_stack_id, tomato_id)
+    pickup_from_produces = set_at(pickup_from_produces, plate_stack_id, plate_id)
 
     # Legal pot ingredients
-    if hasattr(legal_pot_ingredients, 'at'):
-        legal_pot_ingredients = legal_pot_ingredients.at[onion_id].set(1)
-        legal_pot_ingredients = legal_pot_ingredients.at[tomato_id].set(1)
-    else:
-        legal_pot_ingredients[onion_id] = 1
-        legal_pot_ingredients[tomato_id] = 1
+    legal_pot_ingredients = set_at(legal_pot_ingredients, onion_id, 1)
+    legal_pot_ingredients = set_at(legal_pot_ingredients, tomato_id, 1)
 
     type_ids = {
         "onion": onion_id,

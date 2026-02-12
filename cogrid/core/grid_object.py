@@ -158,6 +158,7 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
         shape ``(n_types,)`` with dtype ``int32``.
     """
     from cogrid.backend import xp  # import at call time to avoid circular imports
+    from cogrid.backend.array_ops import set_at
 
     type_names = get_object_names(scope=scope)
     n_types = len(type_names)
@@ -175,12 +176,12 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
     for idx, name in enumerate(type_names):
         if name is None:
             # Index 0: empty cell -- overlappable
-            tables["CAN_OVERLAP"] = tables["CAN_OVERLAP"].at[idx].set(1) if hasattr(tables["CAN_OVERLAP"], 'at') else _np_set(tables["CAN_OVERLAP"], idx, 1)
+            tables["CAN_OVERLAP"] = set_at(tables["CAN_OVERLAP"], idx, 1)
             continue
 
         if name == "free_space":
             # Index 1: free_space -- overlappable (not in OBJECT_REGISTRY, hardcoded)
-            tables["CAN_OVERLAP"] = tables["CAN_OVERLAP"].at[idx].set(1) if hasattr(tables["CAN_OVERLAP"], 'at') else _np_set(tables["CAN_OVERLAP"], idx, 1)
+            tables["CAN_OVERLAP"] = set_at(tables["CAN_OVERLAP"], idx, 1)
             continue
 
         if name.startswith("agent_"):
@@ -214,20 +215,9 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
 
         for prop_name, table_key in prop_map.items():
             if props.get(prop_name, False):
-                if hasattr(tables[table_key], 'at'):
-                    # JAX arrays: use .at[].set() for immutable update
-                    tables[table_key] = tables[table_key].at[idx].set(1)
-                else:
-                    # numpy arrays: direct mutation
-                    tables[table_key][idx] = 1
+                tables[table_key] = set_at(tables[table_key], idx, 1)
 
     return tables
-
-
-def _np_set(arr, idx, val):
-    """Helper: mutate a numpy array at index and return it (for consistent API with JAX .at[].set())."""
-    arr[idx] = val
-    return arr
 
 
 def get_registered_object_ids(scope: str = "global") -> list[str]:
