@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 5 -- Foundation (State Model & Backend Helpers)
+**Current focus:** Phase 6 -- Core Algorithms
 
 ## Current Position
 
-Phase: 5 of 9 (Foundation -- State Model & Backend Helpers) -- COMPLETE
-Plan: 3 of 3 in current phase (all complete)
-Status: Phase complete
-Last activity: 2026-02-12 -- Completed 05-03 (jax_step integration with extra_state)
+Phase: 6 of 9 (Core Algorithms)
+Plan: 3 of 4 in current phase
+Status: Plan 06-03 complete
+Last activity: 2026-02-12 -- Completed 06-03 (unified feature extractors with xp)
 
-Progress: [############################............] 70% (v1.0 complete, v1.1 phase 5 complete)
+Progress: [################################........] 80% (v1.0 complete, v1.1 phase 5 complete + 06-01..03)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21 (18 v1.0 + 3 v1.1)
+- Total plans completed: 24 (18 v1.0 + 6 v1.1)
 - Average duration: --
 - Total execution time: --
 
@@ -33,6 +33,7 @@ Progress: [############################............] 70% (v1.0 complete, v1.1 ph
 | 3 | 3 | -- | -- |
 | 4 | 2 | -- | -- |
 | 5 | 3 | 9min | 3min |
+| 6 | 3/4 | 9min | 3min |
 
 *Updated after each plan completion*
 
@@ -56,6 +57,13 @@ Recent decisions affecting current work:
 - [05-02]: Spawn positions ('+' chars) populate agent_pos but NOT object_type_map
 - [05-03]: envstate_to_dict strips scope prefix for backward compat (transitional for Phases 6-7)
 - [05-03]: n_pots derived from extra_state array shape[0] instead of removed static field
+- [06-01]: move_agents() accepts pre-computed priority array instead of RNG (caller handles backend-specific RNG)
+- [06-01]: Cascade blocking pass for propagating blocked-agent positions to lower-priority agents
+- [06-01]: Double argsort for vectorized priority rank computation
+- [06-03]: full_map_encoding uses xp.pad + xp.stack instead of backend-branching slice assignment
+- [06-03]: Agent scatter uses set_at_2d loop over n_agents (static/tiny) instead of fancy indexing
+- [06-03]: get_all_agent_obs uses Python loop + xp.stack; vmap deferred to Phase 8
+- [06-03]: Backward-compat aliases (build_feature_fn_jax, get_all_agent_obs_jax) for caller migration
 
 ### Pending Todos
 
@@ -63,11 +71,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Collision resolution must be rewritten as fully vectorized array ops -- may need new algorithms (Phase 6)
 - Mutation bugs where `.copy()` + in-place assignment passes numpy but fails under JAX JIT -- mitigated by `set_at()` helper (Phase 5)
+- Callers of old move_agents_array/move_agents_jax must be updated (cogrid_env.py, jax_step.py, tests)
+- Feature function callers use backward-compat aliases; full migration needed in step pipeline phase
 
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 05-03-PLAN.md (jax_step integration with extra_state -- Phase 5 complete)
+Stopped at: Completed 06-03-PLAN.md (unified feature extractors with xp)
 Resume file: None
