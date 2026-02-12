@@ -72,4 +72,8 @@ def default_scope_config() -> dict:
         "interaction_handler": None,
         "tick_handler": None,
         "place_on_handlers": {},
+        # v1.1 additions
+        "symbol_table": {},           # char -> {"object_id": str, "is_wall": bool, ...}
+        "extra_state_schema": {},     # key -> {"shape": tuple, "dtype": str}
+        "extra_state_builder": None,  # callable(parsed_arrays, scope) -> dict
     }
