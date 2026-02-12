@@ -13,7 +13,7 @@ This roadmap transforms CoGrid from a pure-Python grid-world environment into a 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Dual Backend & Vectorized Core Rewrite** - Backend dispatch module, array-based state representation, and rewrite of all simulation logic (movement, collision, interactions, observations, rewards) from Python loops to parallel array operations
-- [ ] **Phase 1.1: Fix environment separation of concerns** - No environment-specific logic in core methods (INSERTED)
+- [x] **Phase 1.1: Fix environment separation of concerns** - No environment-specific logic in core methods (INSERTED)
 - [ ] **Phase 2: Functional State Model & JIT Compatibility** - Immutable EnvState pytree, PRNG key threading, JAX-specific control flow primitives, JIT-compilability of all sub-functions
 - [ ] **Phase 3: End-to-End Integration & Parity** - Full step() JIT compilation, PettingZoo wrapper, functional API, cross-backend parity verification
 - [ ] **Phase 4: vmap Batching & Benchmarks** - Batched parallel rollouts and performance verification
@@ -68,11 +68,12 @@ Plans:
   3. Toggle action dispatches to type-specific behavior via `jax.lax.switch` on object type ID -- no Python isinstance or virtual method dispatch on traced values
   4. All interaction logic uses `jnp.where` or `jax.lax.cond/switch` instead of Python if/else on traced values -- no ConcretizationTypeError under JIT
   5. `jax.jit(move_agents)(state, actions, key)`, `jax.jit(process_interactions)(state, actions)`, `jax.jit(get_obs)(state)`, and `jax.jit(compute_rewards)(prev_state, state, actions)` all execute without error
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- EnvState frozen dataclass + JAX-path movement with lax.fori_loop
+- [ ] 02-02-PLAN.md -- JAX-path interactions (core + Overcooked handlers)
+- [ ] 02-03-PLAN.md -- JAX-path observations (vmap) + rewards (vectorized)
 
 ### Phase 3: End-to-End Integration & Parity
 **Goal**: A complete step(state, actions) -> (new_state, obs, rewards, dones, infos) function that JIT-compiles end-to-end, wrapped in both PettingZoo interface and raw functional API, with verified cross-backend parity
@@ -112,7 +113,7 @@ Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Dual Backend & Vectorized Core Rewrite | 7/7 | Complete | 2026-02-11 |
-| 1.1. Fix environment separation of concerns | 0/3 | Not started | - |
-| 2. Functional State Model & JIT Compatibility | 0/TBD | Not started | - |
+| 1.1. Fix environment separation of concerns | 3/3 | Complete | 2026-02-11 |
+| 2. Functional State Model & JIT Compatibility | 0/3 | Not started | - |
 | 3. End-to-End Integration & Parity | 0/TBD | Not started | - |
 | 4. vmap Batching & Benchmarks | 0/TBD | Not started | - |
