@@ -18,244 +18,22 @@ State dicts contain:
     object_state_map: (H, W) int32        -- state value at each cell
     pot_contents:     (n_pots, 3) int32   -- ingredient type_ids, -1 = empty slot
     pot_timer:        (n_pots,)   int32   -- cooking timer (0 = ready)
-    pot_positions:    list of (row, col) OR (n_pots, 2) int32 -- pot locations
+    pot_positions:    (n_pots, 2) int32   -- pot locations
 
-Numpy-path functions use Python loops over agents with int() casts.
-JAX-path functions (_jax suffix) use fully vectorized ops across all agents
-simultaneously, with array-based pot position matching instead of Python loops.
+All functions use ``from cogrid.backend import xp`` for backend-agnostic
+array operations. Fully vectorized across agents -- no Python loops, no
+int() casts.
 """
 
-from cogrid.core.agent import get_dir_vec_table
 
+def _compute_fwd_positions(prev_state):
+    """Compute forward positions for all agents.
 
-def delivery_reward_array(
-    prev_state: dict,
-    state: dict,
-    actions,
-    type_ids: dict,
-    n_agents: int,
-    coefficient: float = 1.0,
-    common_reward: bool = True,
-    action_pickup_drop_idx: int = 4,
-):
-    """Reward for delivering OnionSoup to a DeliveryZone.
-
-    Mirrors SoupDeliveryReward.calculate_reward():
-    - Agent must be performing PickupDrop action
-    - Agent must hold OnionSoup (prev_state inventory)
-    - Agent must face a DeliveryZone (prev_state grid)
-    - If common_reward: all agents receive the reward
-
-    Uses prev_state for both inventory and grid checks, matching the
-    existing implementation where ``state`` is ``self.prev_grid``.
-    """
-    from cogrid.backend import xp
-
-    rewards = xp.zeros(n_agents, dtype=xp.float32)
-    dir_vec_table = get_dir_vec_table()
-
-    # PHASE2: vectorize across agents
-    for i in range(n_agents):
-        if int(actions[i]) != action_pickup_drop_idx:
-            continue
-
-        # Check if agent holds OnionSoup (prev_state inventory)
-        agent_holds_soup = int(prev_state['agent_inv'][i, 0]) == type_ids['onion_soup']
-
-        # Check if agent faces DeliveryZone
-        fwd_pos = prev_state['agent_pos'][i] + dir_vec_table[int(prev_state['agent_dir'][i])]
-        fwd_r, fwd_c = int(fwd_pos[0]), int(fwd_pos[1])
-
-        # Bounds check
-        h, w = prev_state['object_type_map'].shape
-        if fwd_r < 0 or fwd_r >= h or fwd_c < 0 or fwd_c >= w:
-            continue
-
-        fwd_type = int(prev_state['object_type_map'][fwd_r, fwd_c])
-        facing_delivery = fwd_type == type_ids['delivery_zone']
-
-        if agent_holds_soup and facing_delivery:
-            if common_reward:
-                rewards = rewards + coefficient  # all agents get it
-            else:
-                rewards[i] += coefficient
-
-    return rewards
-
-
-def onion_in_pot_reward_array(
-    prev_state: dict,
-    state: dict,
-    actions,
-    type_ids: dict,
-    n_agents: int,
-    coefficient: float = 0.1,
-    common_reward: bool = False,
-    action_pickup_drop_idx: int = 4,
-):
-    """Reward for placing an onion into a pot with capacity.
-
-    Mirrors OnionInPotReward.calculate_reward():
-    - Agent must be performing PickupDrop action
-    - Agent must hold Onion (prev_state inventory)
-    - Agent must face a Pot (prev_state grid)
-    - Pot must have capacity (< 3 ingredients)
-    - Pot contents must be compatible (all same type or empty)
-
-    The can_place_on logic for Pot checks:
-    1. len(objects_in_pot) < capacity (capacity = 3)
-    2. ingredient is legal (Onion or Tomato)
-    3. ingredient matches type already in pot (or pot is empty)
-    """
-    from cogrid.backend import xp
-
-    rewards = xp.zeros(n_agents, dtype=xp.float32)
-    dir_vec_table = get_dir_vec_table()
-
-    # PHASE2: vectorize across agents
-    for i in range(n_agents):
-        if int(actions[i]) != action_pickup_drop_idx:
-            continue
-
-        # Check if agent holds Onion
-        agent_inv_type = int(prev_state['agent_inv'][i, 0])
-        agent_holds_onion = agent_inv_type == type_ids['onion']
-        if not agent_holds_onion:
-            continue
-
-        # Check if agent faces a Pot
-        fwd_pos = prev_state['agent_pos'][i] + dir_vec_table[int(prev_state['agent_dir'][i])]
-        fwd_r, fwd_c = int(fwd_pos[0]), int(fwd_pos[1])
-
-        # Bounds check
-        h, w = prev_state['object_type_map'].shape
-        if fwd_r < 0 or fwd_r >= h or fwd_c < 0 or fwd_c >= w:
-            continue
-
-        fwd_type = int(prev_state['object_type_map'][fwd_r, fwd_c])
-        if fwd_type != type_ids['pot']:
-            continue
-
-        # Find pot index by position
-        pot_idx = _find_pot_index(prev_state['pot_positions'], fwd_r, fwd_c)
-        if pot_idx < 0:
-            continue
-
-        # Check pot has capacity (< 3 filled slots)
-        pot_row = prev_state['pot_contents'][pot_idx]
-        n_filled = int(xp.sum(pot_row != -1))
-        if n_filled >= 3:
-            continue
-
-        # Check ingredient type compatibility:
-        # All existing contents must be the same type as what we're adding,
-        # or the pot must be empty. Onion type_id is what the agent holds.
-        compatible = True
-        for slot in range(3):
-            slot_val = int(pot_row[slot])
-            if slot_val != -1 and slot_val != type_ids['onion']:
-                compatible = False
-                break
-
-        if not compatible:
-            continue
-
-        if common_reward:
-            rewards = rewards + coefficient
-        else:
-            rewards[i] += coefficient
-
-    return rewards
-
-
-def soup_in_dish_reward_array(
-    prev_state: dict,
-    state: dict,
-    actions,
-    type_ids: dict,
-    n_agents: int,
-    coefficient: float = 0.3,
-    common_reward: bool = False,
-    action_pickup_drop_idx: int = 4,
-):
-    """Reward for picking up a ready soup from a pot with a plate.
-
-    Mirrors SoupInDishReward.calculate_reward():
-    - Agent must be performing PickupDrop action
-    - Agent must hold Plate (prev_state inventory)
-    - Agent must face a Pot (prev_state grid)
-    - Pot must be ready (cooking_timer == 0, i.e. dish_ready)
-    """
-    from cogrid.backend import xp
-
-    rewards = xp.zeros(n_agents, dtype=xp.float32)
-    dir_vec_table = get_dir_vec_table()
-
-    # PHASE2: vectorize across agents
-    for i in range(n_agents):
-        if int(actions[i]) != action_pickup_drop_idx:
-            continue
-
-        # Check if agent holds Plate
-        agent_holds_plate = int(prev_state['agent_inv'][i, 0]) == type_ids['plate']
-        if not agent_holds_plate:
-            continue
-
-        # Check if agent faces a Pot
-        fwd_pos = prev_state['agent_pos'][i] + dir_vec_table[int(prev_state['agent_dir'][i])]
-        fwd_r, fwd_c = int(fwd_pos[0]), int(fwd_pos[1])
-
-        # Bounds check
-        h, w = prev_state['object_type_map'].shape
-        if fwd_r < 0 or fwd_r >= h or fwd_c < 0 or fwd_c >= w:
-            continue
-
-        fwd_type = int(prev_state['object_type_map'][fwd_r, fwd_c])
-        if fwd_type != type_ids['pot']:
-            continue
-
-        # Find pot index by position
-        pot_idx = _find_pot_index(prev_state['pot_positions'], fwd_r, fwd_c)
-        if pot_idx < 0:
-            continue
-
-        # Check pot is ready (timer == 0 means dish_ready)
-        pot_timer_val = int(prev_state['pot_timer'][pot_idx])
-        if pot_timer_val != 0:
-            continue
-
-        if common_reward:
-            rewards = rewards + coefficient
-        else:
-            rewards[i] += coefficient
-
-    return rewards
-
-
-def _find_pot_index(pot_positions, row: int, col: int) -> int:
-    """Find the index of a pot at the given (row, col) position.
-
-    Returns -1 if not found.
-    """
-    for idx, pos in enumerate(pot_positions):
-        if int(pos[0]) == row and int(pos[1]) == col:
-            return idx
-    return -1
-
-
-# ---------------------------------------------------------------------------
-# JAX-path reward functions (JIT-compatible, fully vectorized)
-# ---------------------------------------------------------------------------
-
-
-def _compute_fwd_positions_jax(prev_state):
-    """Compute forward positions for all agents (JAX path).
-
-    Shared helper used by all JAX reward functions. Returns the forward position,
+    Shared helper used by all reward functions. Returns the forward position,
     clipped coordinates for safe indexing, in-bounds mask, and forward type IDs.
 
     Args:
-        prev_state: dict of jnp state arrays.
+        prev_state: dict of state arrays.
 
     Returns:
         Tuple of (fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types) where:
@@ -265,17 +43,17 @@ def _compute_fwd_positions_jax(prev_state):
             in_bounds: (n_agents,) bool -- whether forward position is in grid
             fwd_types: (n_agents,) int32 -- object type IDs at forward positions
     """
-    import jax.numpy as jnp
+    from cogrid.backend import xp
 
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
-    dir_vec_table = jnp.array(
-        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=jnp.int32
+    dir_vec_table = xp.array(
+        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
     )
 
     fwd_pos = prev_state['agent_pos'] + dir_vec_table[prev_state['agent_dir']]  # (n_agents, 2)
     H, W = prev_state['object_type_map'].shape
-    fwd_r = jnp.clip(fwd_pos[:, 0], 0, H - 1)
-    fwd_c = jnp.clip(fwd_pos[:, 1], 0, W - 1)
+    fwd_r = xp.clip(fwd_pos[:, 0], 0, H - 1)
+    fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
     in_bounds = (
         (fwd_pos[:, 0] >= 0)
         & (fwd_pos[:, 0] < H)
@@ -287,7 +65,7 @@ def _compute_fwd_positions_jax(prev_state):
     return fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types
 
 
-def delivery_reward_jax(
+def delivery_reward(
     prev_state,
     state,
     actions,
@@ -297,16 +75,16 @@ def delivery_reward_jax(
     common_reward=True,
     action_pickup_drop_idx=4,
 ):
-    """Reward for delivering OnionSoup to a DeliveryZone (JAX path).
+    """Reward for delivering OnionSoup to a DeliveryZone.
 
     Fully vectorized across all agents. No Python loops or int() casts.
     type_ids is a Python dict used at trace time (not traced).
     common_reward and coefficient are Python values used at trace time.
 
     Args:
-        prev_state: dict of jnp state arrays (agent_pos, agent_dir, agent_inv,
+        prev_state: dict of state arrays (agent_pos, agent_dir, agent_inv,
             object_type_map).
-        state: dict of jnp state arrays after step (unused, matches numpy signature).
+        state: dict of state arrays after step (unused, matches signature).
         actions: (n_agents,) int32 action indices.
         type_ids: Python dict mapping type names to int IDs.
         n_agents: int (Python, not traced).
@@ -317,9 +95,9 @@ def delivery_reward_jax(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    import jax.numpy as jnp
+    from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions_jax(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = (actions == action_pickup_drop_idx)  # (n_agents,)
     holds_soup = (prev_state['agent_inv'][:, 0] == type_ids['onion_soup'])  # (n_agents,)
@@ -328,17 +106,17 @@ def delivery_reward_jax(
     earns_reward = is_interact & holds_soup & faces_delivery & in_bounds  # (n_agents,)
 
     # Apply reward: in common_reward mode, every earning agent adds coefficient
-    # to ALL agents. This matches numpy: `rewards = rewards + coefficient` per earner.
+    # to ALL agents. This matches: `rewards = rewards + coefficient` per earner.
     if common_reward:
-        n_earners = jnp.sum(earns_reward.astype(jnp.float32))
-        rewards = jnp.full(n_agents, n_earners * coefficient, dtype=jnp.float32)
+        n_earners = xp.sum(earns_reward.astype(xp.float32))
+        rewards = xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
     else:
-        rewards = earns_reward.astype(jnp.float32) * coefficient
+        rewards = earns_reward.astype(xp.float32) * coefficient
 
     return rewards
 
 
-def onion_in_pot_reward_jax(
+def onion_in_pot_reward(
     prev_state,
     state,
     actions,
@@ -348,17 +126,17 @@ def onion_in_pot_reward_jax(
     common_reward=False,
     action_pickup_drop_idx=4,
 ):
-    """Reward for placing an onion into a pot with capacity (JAX path).
+    """Reward for placing an onion into a pot with capacity.
 
     Fully vectorized across all agents. Uses array-based pot position matching
-    instead of _find_pot_index Python loop.
+    instead of Python loop pot index lookup.
 
-    pot_positions must be a (n_pots, 2) jnp.array (not a Python list).
+    pot_positions must be a (n_pots, 2) array (not a Python list).
 
     Args:
-        prev_state: dict of jnp state arrays including pot_positions (n_pots, 2),
+        prev_state: dict of state arrays including pot_positions (n_pots, 2),
             pot_contents (n_pots, 3).
-        state: dict (unused, matches numpy signature).
+        state: dict (unused, matches signature).
         actions: (n_agents,) int32 action indices.
         type_ids: Python dict mapping type names to int IDs.
         n_agents: int.
@@ -369,9 +147,9 @@ def onion_in_pot_reward_jax(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    import jax.numpy as jnp
+    from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions_jax(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = (actions == action_pickup_drop_idx)
     holds_onion = (prev_state['agent_inv'][:, 0] == type_ids['onion'])
@@ -380,26 +158,26 @@ def onion_in_pot_reward_jax(
     # Array-based pot position matching:
     # For each agent, check which pot (if any) their forward position matches.
     # fwd_pos[:, :] is (n_agents, 2), pot_positions is (n_pots, 2)
-    agent_fwd = jnp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2) clipped
+    agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2) clipped
     pot_positions = prev_state['pot_positions']  # (n_pots, 2)
 
     # pos_match[i, j] = True iff agent i faces pot j
-    pos_match = jnp.all(
+    pos_match = xp.all(
         pot_positions[None, :, :] == agent_fwd[:, None, :],
         axis=2,
     )  # (n_agents, n_pots)
-    facing_any_pot = jnp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = jnp.argmax(pos_match, axis=1)  # (n_agents,) -- index of matched pot
+    facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
+    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,) -- index of matched pot
 
     # Check pot capacity and type compatibility for each agent's matched pot.
     # pot_contents[pot_idx] gives (n_agents, 3) -- the contents of each agent's pot.
     pot_row = prev_state['pot_contents'][pot_idx]  # (n_agents, 3)
-    n_filled = jnp.sum(pot_row != -1, axis=1)  # (n_agents,)
+    n_filled = xp.sum(pot_row != -1, axis=1)  # (n_agents,)
     has_capacity = n_filled < 3
 
     # Same-type check: all non-empty slots must be onion (or empty)
     is_onion_or_empty = (pot_row == -1) | (pot_row == type_ids['onion'])
-    compatible = jnp.all(is_onion_or_empty, axis=1)  # (n_agents,)
+    compatible = xp.all(is_onion_or_empty, axis=1)  # (n_agents,)
 
     earns_reward = (
         is_interact & holds_onion & faces_pot & in_bounds
@@ -407,15 +185,15 @@ def onion_in_pot_reward_jax(
     )
 
     if common_reward:
-        n_earners = jnp.sum(earns_reward.astype(jnp.float32))
-        rewards = jnp.full(n_agents, n_earners * coefficient, dtype=jnp.float32)
+        n_earners = xp.sum(earns_reward.astype(xp.float32))
+        rewards = xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
     else:
-        rewards = earns_reward.astype(jnp.float32) * coefficient
+        rewards = earns_reward.astype(xp.float32) * coefficient
 
     return rewards
 
 
-def soup_in_dish_reward_jax(
+def soup_in_dish_reward(
     prev_state,
     state,
     actions,
@@ -425,14 +203,14 @@ def soup_in_dish_reward_jax(
     common_reward=False,
     action_pickup_drop_idx=4,
 ):
-    """Reward for picking up a ready soup from a pot with a plate (JAX path).
+    """Reward for picking up a ready soup from a pot with a plate.
 
     Fully vectorized across all agents. Uses array-based pot position matching.
 
     Args:
-        prev_state: dict of jnp state arrays including pot_positions (n_pots, 2),
+        prev_state: dict of state arrays including pot_positions (n_pots, 2),
             pot_timer (n_pots,).
-        state: dict (unused, matches numpy signature).
+        state: dict (unused, matches signature).
         actions: (n_agents,) int32 action indices.
         type_ids: Python dict mapping type names to int IDs.
         n_agents: int.
@@ -443,24 +221,24 @@ def soup_in_dish_reward_jax(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    import jax.numpy as jnp
+    from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions_jax(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = (actions == action_pickup_drop_idx)
     holds_plate = (prev_state['agent_inv'][:, 0] == type_ids['plate'])
     faces_pot = (fwd_types == type_ids['pot'])
 
     # Array-based pot position matching
-    agent_fwd = jnp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2)
+    agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2)
     pot_positions = prev_state['pot_positions']  # (n_pots, 2)
 
-    pos_match = jnp.all(
+    pos_match = xp.all(
         pot_positions[None, :, :] == agent_fwd[:, None, :],
         axis=2,
     )  # (n_agents, n_pots)
-    facing_any_pot = jnp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = jnp.argmax(pos_match, axis=1)  # (n_agents,)
+    facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
+    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,)
 
     # Check pot is ready: timer == 0
     pot_timer_vals = prev_state['pot_timer'][pot_idx]  # (n_agents,)
@@ -472,19 +250,18 @@ def soup_in_dish_reward_jax(
     )
 
     if common_reward:
-        n_earners = jnp.sum(earns_reward.astype(jnp.float32))
-        rewards = jnp.full(n_agents, n_earners * coefficient, dtype=jnp.float32)
+        n_earners = xp.sum(earns_reward.astype(xp.float32))
+        rewards = xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
     else:
-        rewards = earns_reward.astype(jnp.float32) * coefficient
+        rewards = earns_reward.astype(xp.float32) * coefficient
 
     return rewards
 
 
-def compute_rewards_jax(prev_state, state, actions, reward_config):
-    """Compute combined rewards from all configured reward functions (JAX path).
+def compute_rewards(prev_state, state, actions, reward_config):
+    """Compute combined rewards from all configured reward functions.
 
-    This is the `compute_rewards` function referenced in Phase 2 success criteria #5.
-    Composes individual JAX reward functions and sums their outputs.
+    Composes individual reward functions and sums their outputs.
 
     The Python for loop over reward_config["rewards"] is fine because reward_config
     is a static Python dict (not traced). Each iteration adds a traced computation
@@ -492,8 +269,8 @@ def compute_rewards_jax(prev_state, state, actions, reward_config):
     individual reward computations.
 
     Args:
-        prev_state: dict of jnp state arrays before step.
-        state: dict of jnp state arrays after step.
+        prev_state: dict of state arrays before step.
+        state: dict of state arrays after step.
         actions: (n_agents,) int32 action indices.
         reward_config: Python dict with keys:
             - "type_ids": dict mapping type names to int IDs
@@ -507,20 +284,20 @@ def compute_rewards_jax(prev_state, state, actions, reward_config):
     Returns:
         (n_agents,) float32 array of combined rewards.
     """
-    import jax.numpy as jnp
+    from cogrid.backend import xp
 
     n_agents = reward_config["n_agents"]
     type_ids = reward_config["type_ids"]
     action_idx = reward_config["action_pickup_drop_idx"]
 
-    # Map function name strings to JAX reward functions
+    # Map function name strings to unified reward functions
     fn_map = {
-        "delivery": delivery_reward_jax,
-        "onion_in_pot": onion_in_pot_reward_jax,
-        "soup_in_dish": soup_in_dish_reward_jax,
+        "delivery": delivery_reward,
+        "onion_in_pot": onion_in_pot_reward,
+        "soup_in_dish": soup_in_dish_reward,
     }
 
-    total_rewards = jnp.zeros(n_agents, dtype=jnp.float32)
+    total_rewards = xp.zeros(n_agents, dtype=xp.float32)
     for reward_spec in reward_config["rewards"]:
         fn = fn_map[reward_spec["fn"]]
         r = fn(
@@ -532,3 +309,7 @@ def compute_rewards_jax(prev_state, state, actions, reward_config):
         total_rewards = total_rewards + r
 
     return total_rewards
+
+
+# Backward-compat alias for callers that import the old name during migration
+compute_rewards_jax = compute_rewards
