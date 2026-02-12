@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Existing trained agents produce identical behavior after upgrade while unlocking 100x+ throughput via JAX JIT and vmap.
-**Current focus:** Phase 4 - vmap Batching & Benchmarks
+**Current focus:** Phase 4 - vmap Batching & Benchmarks -- COMPLETE
 
 ## Current Position
 
-Phase: 4 of 4 (vmap Batching & Benchmarks)
-Plan: 1 of 2 in current phase (04-01 COMPLETE)
-Status: Executing Phase 4
-Last activity: 2026-02-12 -- Completed 04-01 (vmap correctness test suite)
+Phase: 4 of 4 (vmap Batching & Benchmarks) -- COMPLETE
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase 4 Complete -- All phases complete
+Last activity: 2026-02-12 -- Completed 04-02 (Benchmark suite)
 
-Progress: [████████▓░] 85%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 6min
-- Total execution time: 1.54 hours
+- Total plans completed: 18
+- Average duration: 5min
+- Total execution time: 1.57 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [████████▓░] 85%
 | 01.1 | 3 | 14min | 5min |
 | 02 | 3 | 9min | 3min |
 | 03 | 3 | 17min | 6min |
-| 04 | 1 | 2min | 2min |
+| 04 | 2 | 4min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 5min, 5min, 5min, 7min, 2min
+- Last 5 plans: 5min, 5min, 7min, 2min, 2min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -111,6 +111,8 @@ Recent decisions affecting current work:
 - [03-03]: OrderedPotFeatures per-pot feature size corrected from 11 to 12 (1+4+2+1+2+2) fixing crashes on 2-pot layouts
 - [04-01]: Spot-check 8 sample indices [0,1,2,3,512,1021,1022,1023] for parity instead of all 1024 for test speed
 - [04-01]: rng_key comparison uses jax.random.key_data() to extract underlying integer data from opaque JAX key types
+- [04-02]: Variance assertion only on vmap config (most consistent); other configs logged informally
+- [04-02]: Noop actions (action=6) for throughput measurement; 500 steps/trial, 3 trials, median reporting
 
 ### Pending Todos
 
@@ -128,5 +130,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 04-01-PLAN.md (vmap correctness test suite)
+Stopped at: Completed 04-02-PLAN.md (Benchmark suite) -- Phase 4 complete, all phases complete
 Resume file: None
