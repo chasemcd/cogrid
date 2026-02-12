@@ -2,40 +2,37 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-10)
+See: .planning/PROJECT.md (updated 2026-02-12)
 
-**Core value:** Existing trained agents produce identical behavior after upgrade while unlocking 100x+ throughput via JAX JIT and vmap.
-**Current focus:** Phase 4 - vmap Batching & Benchmarks -- COMPLETE
+**Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
+**Current focus:** Phase 5 -- Foundation (State Model & Backend Helpers)
 
 ## Current Position
 
-Phase: 4 of 4 (vmap Batching & Benchmarks) -- COMPLETE
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase 4 Complete -- All phases complete
-Last activity: 2026-02-12 -- Completed 04-02 (Benchmark suite)
+Phase: 5 of 9 (Foundation -- State Model & Backend Helpers)
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-02-12 -- Completed 05-01 (array_ops + EnvState rewrite)
 
-Progress: [██████████] 100%
+Progress: [######################..................] 55% (v1.0 complete, v1.1 phase 5 plan 1/3)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: 5min
-- Total execution time: 1.57 hours
+- Total plans completed: 19 (18 v1.0 + 1 v1.1)
+- Average duration: --
+- Total execution time: --
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 7 | 51min | 7min |
-| 01.1 | 3 | 14min | 5min |
-| 02 | 3 | 9min | 3min |
-| 03 | 3 | 17min | 6min |
-| 04 | 2 | 4min | 2min |
-
-**Recent Trend:**
-- Last 5 plans: 5min, 5min, 7min, 2min, 2min
-- Trend: consistent, fast
+| 1 | 7 | -- | -- |
+| 1.1 | 3 | -- | -- |
+| 2 | 3 | -- | -- |
+| 3 | 3 | -- | -- |
+| 4 | 2 | -- | -- |
+| 5 | 1 | 3min | 3min |
 
 *Updated after each plan completion*
 
@@ -46,89 +43,26 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [01-01]: Used __getattr__ lazy resolution in cogrid/backend/__init__.py so 'from cogrid.backend import xp' always returns current backend
-- [01-01]: Separate 1D int32 arrays per property in build_lookup_tables (CAN_PICKUP, CAN_OVERLAP, etc.) rather than single matrix
-- [01-01]: free_space handled as hardcoded overlappable entry in build_lookup_tables since it is not in OBJECT_REGISTRY
-- [01-02]: Empty grid cells use type_id=0 in object_type_map (matching object_to_idx(None)==0), NOT -1
-- [01-02]: pot_contents and agent_inv use -1 sentinel for empty slots per locked encoding conventions
-- [01-02]: DIR_VEC_TABLE lazily initialized via get_dir_vec_table() to avoid import-time backend dependency
-- [01-02]: Agent arrays sorted by agent_id for deterministic ordering; agent_ids list maps index to AgentID
-- [01-03]: ACTION_TO_DIR lazy-initialized as xp.array([3, 1, 2, 0, -1, -1, -1]) mapping CardinalActions indices to Directions enum values
-- [01-03]: Collision resolution and swap detection use Python loops marked PHASE2 for lax.fori_loop conversion
-- [01-03]: Parity test uses RNG bit_generator.state forking for identical priority ordering between original and vectorized
-- [01-04]: Dynamic can_pickup_from evaluation: static lookup table + inline instance-level condition check prevents false-positive elif matching
-- [01-04]: OvercookedAgent.can_pickup() pot special override replicated as separate sub-case in branch 2 (plate required for pot, empty inv for stacks)
-- [01-04]: Counter placed-on tracked in object_state_map[r,c] as type_id integer (0=empty); delivery zone consumes soup silently
-- [01-05]: Agent overlays in full_map_encoding use scope='global' matching Grid.encode() behavior where grid_agent.encode() called without scope
-- [01-05]: CAN_OVERLAP static lookup table used for can_move_direction -- sufficient for Overcooked (no Door objects with dynamic overlap)
-- [01-05]: Channel 1 (color) left as 0 in array full_map_encoding -- Pot.encode() tomato flag not replicated from arrays
-- [01-06]: Reward functions use prev_state dict exclusively (matching existing pattern where state=self.prev_grid)
-- [01-06]: Pot index lookup uses linear scan over pot_positions list; int() casts on array elements for numpy/JAX scalar compatibility
-- [01-07]: Vectorized movement as primary path with sync back to Agent objects; existing interact/features/rewards run on synced objects
-- [01-07]: Array state fully rebuilt from objects after interact() each step for Phase 1 safety
-- [01-07]: Type IDs computed defensively with -1 sentinel for non-existent types to support non-Overcooked scopes
-- [01-07]: Interaction tables only built for overcooked scope (None for other scopes)
-- [01-07]: Shadow parity validation disabled by default (_validate_array_parity = False)
-- [01.1-01]: Scope config uses callable builder (not dict) so tables are built lazily at first get_scope_config() call, avoiding import-time backend dependency
-- [01.1-01]: xp imported inside functions (not at module level) in array_config.py matching existing codebase pattern
-- [01.1-01]: interaction_handler takes action_type string ('pickup_from' or 'place_on') to dispatch scope-specific sub-cases from generic priority chain
-- [01.1-02]: Backward-compatible re-exports in core/array_rewards.py with TODO marker for removal after Plan 03 wiring
-- [01.1-02]: test_interaction_parity kept as standalone callable (not pytest) to match existing usage pattern
-- [01.1-03]: Handler delegation with fallthrough: interaction_handler returns True/False, False allows generic fallback (e.g. counter place_on)
-- [01.1-03]: tick_objects_array() removed from core entirely -- Overcooked tick handler accessed directly via scope_config["tick_handler"]
-- [01.1-03]: extra_state passed as **kwargs to process_interactions_array for scope-specific arrays (pot_contents, pot_timer, etc.)
-- [01.1-03]: Docstring references to Overcooked kept as informational examples -- only code logic removed from core
-- [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
-- [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
-- [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
-- [Roadmap]: Integration constraint honored -- all phases refactor existing code, new files limited to backend module and EnvState definition
-- [02-01]: EnvState uses object type hints (not jax.Array) so class definition works without JAX installed
-- [02-01]: register_envstate_pytree() is idempotent and separate from class definition -- called only when backend is jax
-- [02-01]: move_agents_jax() returns (new_pos, new_dir, new_key) -- 3-tuple with consumed PRNG key, unlike numpy path's 2-tuple
-- [02-01]: Direction vector table created inline in JAX path as jnp.array rather than using shared lazy-init global
-- [02-01]: JAX 0.4.38 required for numpy 1.26.4 compatibility (JAX 0.9.0 requires numpy>=2.0)
-- [02-02]: process_interactions_jax designed for call from JIT context, not direct jax.jit wrapping -- non-array args (scope_config, lookup_tables) closed over at trace time via functools.partial or closure
-- [02-02]: All 4 interaction branches computed unconditionally with jnp.where selection -- no Python if/else on traced values
-- [02-02]: Pot position lookup via jnp.all(pot_positions == target, axis=1) + jnp.argmax replaces dict-based pot_pos_to_idx
-- [02-02]: Toggle dispatch uses lax.switch with n_types branches (default no-op, door toggle at door type ID) -- extensible via scope config toggle_branches_jax
-- [02-02]: Static tables built at scope config init time, closed over by interaction body -- not passed as traced args
-- [02-02]: Fixed _build_interaction_tables to use .at[].set() for JAX array compatibility
-- [02-03]: full_map_encoding_feature_jax takes pre-computed agent_type_ids array instead of scope string to avoid string lookup under JIT
-- [02-03]: compute_rewards_jax uses closure pattern for JIT (reward_config captured, not passed as arg) since dicts with strings not hashable
-- [02-03]: Direction vector table created inline in JAX reward helper as jnp.array (matching 02-01 pattern)
-- [02-03]: Shared _compute_fwd_positions_jax helper extracts forward position computation used by all three JAX reward functions
-- [03-01]: JAX imports at function level in jax_step.py to avoid cogrid/core/typing.py shadowing stdlib typing
-- [03-01]: Smoke test uses numpy env to extract layout then converts to JAX arrays, avoiding backend conflict
-- [03-01]: scope_config static_tables numpy arrays must be explicitly converted to jnp.array before JIT tracing
-- [03-01]: Step ordering verified: prev_state capture -> tick -> move -> interact -> obs -> rewards -> dones
-- [03-02]: Layout parsing (layout_to_array_state, create_agent_arrays, _extract_overcooked_state) always uses numpy -- JAX arrays are immutable, can't do in-place assignment
-- [03-02]: JAX feature names hard-coded to [agent_position, agent_dir, full_map_encoding, can_move_direction, inventory] regardless of config feature space name
-- [03-02]: Reward name mapping: strip _reward suffix from config names (delivery_reward -> delivery) to match JAX fn_map
-- [03-02]: Static tables and interaction tables converted from numpy to jnp at __init__ time for JIT compatibility
-- [03-03]: Cross-backend parity verified at array state level (agent_pos, agent_dir, agent_inv, object_type_map, etc.) not observation level -- backends use different feature encodings
-- [03-03]: Initial agent_dir excluded from parity check at step 0 -- numpy PCG64 and JAX ThreeFry produce different random directions; cardinal actions make directions deterministic from step 1
-- [03-03]: _pytree_registered flag must NOT be reset in _reset_backend_for_testing -- JAX pytree registry is process-global and cannot be un-registered
-- [03-03]: OrderedPotFeatures per-pot feature size corrected from 11 to 12 (1+4+2+1+2+2) fixing crashes on 2-pot layouts
-- [04-01]: Spot-check 8 sample indices [0,1,2,3,512,1021,1022,1023] for parity instead of all 1024 for test speed
-- [04-01]: rng_key comparison uses jax.random.key_data() to extract underlying integer data from opaque JAX key types
-- [04-02]: Variance assertion only on vmap config (most consistent); other configs logged informally
-- [04-02]: Noop actions (action=6) for throughput measurement; 500 steps/trial, 3 trials, median reporting
+- [v1.1]: Single code path with `xp` dispatch -- no `_jax`/`_numpy` function pairs
+- [v1.1]: Pure array ops only -- no Python loops or JAX loop primitives (fori_loop)
+- [v1.1]: Generic extra_state dict in EnvState for environment-specific arrays
+- [v1.1]: Delete object-based sim code -- rewrite layout parsing without Grid/Agent objects
+- [v1.1]: Overcooked scope only for this milestone
+- [05-01]: array_ops.set_at uses get_backend() string check (not hasattr) for cleaner dispatch
+- [05-01]: extra_state keys use scope-prefix convention (e.g. "overcooked.pot_timer")
+- [05-01]: Removed n_pots static field from EnvState (pot count encoded in extra_state array shapes)
 
 ### Pending Todos
 
 None yet.
 
-### Roadmap Evolution
-
-- Phase 1.1 inserted after Phase 1: Fix environment separation of concerns (no environment-specific logic in core methods) (URGENT)
-
 ### Blockers/Concerns
 
-- Research flags interactions (pot cooking state machine) as MEDIUM research confidence -- may need phase-specific research during Phase 1 planning
-- Byte-identity contract may need relaxation to allclose(atol=1e-7) for float values -- to be determined empirically in Phase 3
+- Collision resolution must be rewritten as fully vectorized array ops -- may need new algorithms (Phase 6)
+- Mutation bugs where `.copy()` + in-place assignment passes numpy but fails under JAX JIT -- mitigated by `set_at()` helper (Phase 5)
 
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 04-02-PLAN.md (Benchmark suite) -- Phase 4 complete, all phases complete
+Stopped at: Completed 05-01-PLAN.md (array_ops + EnvState rewrite + hasattr cleanup)
 Resume file: None
