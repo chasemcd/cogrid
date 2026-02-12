@@ -34,7 +34,7 @@ from cogrid.backend import set_backend
 from cogrid.core.grid_object import build_lookup_tables
 from cogrid.core.grid_utils import layout_to_array_state
 from cogrid.core.agent import create_agent_arrays, sync_arrays_to_agents, get_dir_vec_table
-from cogrid.core.movement import move_agents_array
+from cogrid.core.movement import move_agents
 
 
 RNG = RandomNumberGenerator = np.random.Generator
@@ -670,14 +670,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             action_set_str = "rotation"
 
         # Run vectorized movement
-        new_pos, new_dir = move_agents_array(
+        priority = self.np_random.permutation(n_agents).astype(np.int32)
+        new_pos, new_dir = move_agents(
             self._array_state["agent_pos"],
             self._array_state["agent_dir"],
             actions_arr,
             self._array_state["wall_map"],
             self._array_state["object_type_map"],
             self._lookup_tables["CAN_OVERLAP"],
-            self.np_random,
+            priority,
             action_set_str,
         )
 
