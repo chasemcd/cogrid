@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 7 -- Rewards & Scope Config
+**Current focus:** Phase 8 -- Step Pipeline
 
 ## Current Position
 
-Phase: 7 of 9 (Rewards & Scope Config) -- COMPLETE
-Plan: 2 of 2 in current phase (07-02 complete)
-Status: Phase 7 complete, ready for Phase 8
-Last activity: 2026-02-12 -- Completed 07-02 (cross-backend reward parity tests)
+Phase: 8 of 9 (Step Pipeline) -- IN PROGRESS
+Plan: 1 of 2 in current phase (08-01 complete)
+Status: 08-01 complete, ready for 08-02
+Last activity: 2026-02-12 -- Completed 08-01 (unified step_pipeline.py)
 
-Progress: [####################################....] 90% (v1.0 complete, v1.1 phases 5-7 complete)
+Progress: [#####################################...] 93% (v1.0 complete, v1.1 phases 5-7 complete, 08-01 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27 (18 v1.0 + 9 v1.1)
+- Total plans completed: 28 (18 v1.0 + 10 v1.1)
 - Average duration: --
 - Total execution time: --
 
@@ -35,6 +35,7 @@ Progress: [####################################....] 90% (v1.0 complete, v1.1 ph
 | 5 | 3 | 9min | 3min |
 | 6 | 4 | 17min | 4min |
 | 7 | 2/2 | 7min | 3.5min |
+| 8 | 1/2 | 3min | 3min |
 
 *Updated after each plan completion*
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [07-01]: Backward-compat alias compute_rewards_jax = compute_rewards for migration period
 - [07-01]: Deleted all _array/_jax reward function variants -- unified functions use xp throughout
 - [07-02]: importlib.import_module for cross-backend test module loading (avoids package name collision)
+- [08-01]: step() and reset() use inline get_backend() branching for RNG and stop_gradient
+- [08-01]: numpy RNG uses np.random.default_rng() without seed for priority (reproducible seeding deferred to Phase 9)
+- [08-01]: envstate_to_dict copied unchanged from jax_step.py (already backend-agnostic)
 
 ### Pending Todos
 
@@ -86,5 +90,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 07-02-PLAN.md (cross-backend reward parity tests, Phase 7 complete)
+Stopped at: Completed 08-01-PLAN.md (unified step_pipeline.py with step/reset/envstate_to_dict)
 Resume file: None
