@@ -17,10 +17,15 @@ Public API:
   dones.
 - :func:`reset` -- build initial EnvState and compute initial
   observations.
+- :func:`build_step_fn` -- init-time factory: closes over static config,
+  returns ``(state, actions) -> ...`` closure (auto-JIT on JAX).
+- :func:`build_reset_fn` -- init-time factory: closes over layout config,
+  returns ``(rng) -> (state, obs)`` closure (auto-JIT on JAX).
 
 Usage::
 
     from cogrid.core.step_pipeline import step, reset, envstate_to_dict
+    from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
 """
 
 from __future__ import annotations
@@ -351,3 +356,104 @@ def reset(
         obs = lax.stop_gradient(obs)
 
     return state, obs
+
+
+def build_step_fn(
+    scope_config,
+    lookup_tables,
+    feature_fn,
+    reward_config,
+    action_pickup_drop_idx,
+    action_toggle_idx,
+    max_steps,
+    jit_compile=None,
+):
+    """Build a step function with all static config closed over.
+
+    Returns a function with signature
+    ``(state, actions) -> (state, obs, rewards, done, infos)``.
+
+    Args:
+        scope_config: Scope config dict.
+        lookup_tables: Dict of property arrays.
+        feature_fn: Composed feature function.
+        reward_config: Reward config dict.
+        action_pickup_drop_idx: int, PickupDrop action index.
+        action_toggle_idx: int, Toggle action index.
+        max_steps: int, maximum timesteps per episode.
+        jit_compile: If None, auto-detect from backend. If True/False, force.
+
+    Returns:
+        Step function (optionally JIT-compiled on JAX backend).
+    """
+    from cogrid.backend._dispatch import get_backend
+
+    def step_fn(state, actions):
+        return step(
+            state,
+            actions,
+            scope_config=scope_config,
+            lookup_tables=lookup_tables,
+            feature_fn=feature_fn,
+            reward_config=reward_config,
+            action_pickup_drop_idx=action_pickup_drop_idx,
+            action_toggle_idx=action_toggle_idx,
+            max_steps=max_steps,
+        )
+
+    should_jit = jit_compile if jit_compile is not None else (get_backend() == "jax")
+    if should_jit:
+        import jax
+
+        return jax.jit(step_fn)
+    return step_fn
+
+
+def build_reset_fn(
+    layout_arrays,
+    spawn_positions,
+    n_agents,
+    feature_fn,
+    scope_config,
+    action_set,
+    jit_compile=None,
+    **kwargs,
+):
+    """Build a reset function with all layout config closed over.
+
+    Returns a function with signature ``(rng) -> (state, obs)``.
+
+    Args:
+        layout_arrays: Dict of pre-computed layout arrays.
+        spawn_positions: int32 array of shape (n_agents, 2).
+        n_agents: Number of agents.
+        feature_fn: Composed feature function.
+        scope_config: Scope config dict.
+        action_set: "cardinal" or "rotation".
+        jit_compile: If None, auto-detect from backend. If True/False, force.
+        **kwargs: Additional keyword args forwarded to reset()
+            (e.g., max_inv_size, pot_capacity, cooking_time).
+
+    Returns:
+        Reset function (optionally JIT-compiled on JAX backend).
+    """
+    from cogrid.backend._dispatch import get_backend
+
+    def reset_fn(rng):
+        return reset(
+            rng,
+            layout_arrays=layout_arrays,
+            spawn_positions=spawn_positions,
+            n_agents=n_agents,
+            feature_fn=feature_fn,
+            scope_config=scope_config,
+            action_set=action_set,
+            **kwargs,
+        )
+
+    should_jit = jit_compile if jit_compile is not None else (get_backend() == "jax")
+    if should_jit:
+        import jax
+
+        return jax.jit(reset_fn)
+    return reset_fn
