@@ -24,6 +24,46 @@ from cogrid.backend.array_ops import set_at
 from cogrid.core.grid_object import object_to_idx, get_object_names
 
 
+def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
+    """Build extra_state dict for Overcooked from parsed layout arrays.
+
+    Called by the layout parser when scope='overcooked'. Finds pot
+    positions from object_type_map and creates the pot state arrays.
+
+    Args:
+        parsed_arrays: Dict with "object_type_map" and other grid arrays.
+        scope: Scope name for type ID lookups.
+
+    Returns:
+        Dict with scope-prefixed keys: overcooked.pot_contents,
+        overcooked.pot_timer, overcooked.pot_positions.
+    """
+    import numpy as _np
+
+    pot_type_id = object_to_idx("pot", scope=scope)
+    otm = parsed_arrays["object_type_map"]
+
+    # Find pot positions from object_type_map.
+    pot_mask = (otm == pot_type_id)
+    pot_positions_list = list(zip(*_np.where(pot_mask)))  # list of (row, col)
+    n_pots = len(pot_positions_list)
+
+    if n_pots > 0:
+        pot_positions = _np.array(pot_positions_list, dtype=_np.int32)
+        pot_contents = _np.full((n_pots, 3), -1, dtype=_np.int32)
+        pot_timer = _np.full((n_pots,), 30, dtype=_np.int32)
+    else:
+        pot_positions = _np.zeros((0, 2), dtype=_np.int32)
+        pot_contents = _np.full((0, 3), -1, dtype=_np.int32)
+        pot_timer = _np.zeros((0,), dtype=_np.int32)
+
+    return {
+        "overcooked.pot_contents": pot_contents,
+        "overcooked.pot_timer": pot_timer,
+        "overcooked.pot_positions": pot_positions,
+    }
+
+
 def build_overcooked_scope_config() -> dict:
     """Build the complete Overcooked scope configuration.
 
@@ -33,8 +73,8 @@ def build_overcooked_scope_config() -> dict:
     Returns:
         Dict with keys: ``interaction_tables``, ``type_ids``,
         ``state_extractor``, ``interaction_handler``, ``tick_handler``,
-        ``place_on_handlers``, ``interaction_body_jax``,
-        ``tick_handler_jax``, ``static_tables``, ``toggle_branches_jax``.
+        ``place_on_handlers``, ``symbol_table``, ``extra_state_schema``,
+        ``extra_state_builder``, plus JAX-specific entries.
     """
     scope = "overcooked"
     itables = _build_interaction_tables(scope)
@@ -57,6 +97,23 @@ def build_overcooked_scope_config() -> dict:
         "tick_handler_jax": overcooked_tick_jax,
         "static_tables": static_tables,
         "toggle_branches_jax": [],  # Overcooked has no toggle types
+        # v1.1: layout parser support
+        "symbol_table": {
+            "#": {"object_id": "wall", "is_wall": True},
+            "C": {"object_id": "counter"},
+            "U": {"object_id": "pot"},
+            "O": {"object_id": "onion_stack"},
+            "=": {"object_id": "plate_stack"},
+            "@": {"object_id": "delivery_zone"},
+            "+": {"object_id": None, "is_spawn": True},
+            " ": {"object_id": None},
+        },
+        "extra_state_schema": {
+            "overcooked.pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
+            "overcooked.pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
+            "overcooked.pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
+        },
+        "extra_state_builder": build_overcooked_extra_state,
     }
 
 
