@@ -85,6 +85,12 @@ Recent decisions affecting current work:
 - [02-01]: move_agents_jax() returns (new_pos, new_dir, new_key) -- 3-tuple with consumed PRNG key, unlike numpy path's 2-tuple
 - [02-01]: Direction vector table created inline in JAX path as jnp.array rather than using shared lazy-init global
 - [02-01]: JAX 0.4.38 required for numpy 1.26.4 compatibility (JAX 0.9.0 requires numpy>=2.0)
+- [02-02]: process_interactions_jax designed for call from JIT context, not direct jax.jit wrapping -- non-array args (scope_config, lookup_tables) closed over at trace time via functools.partial or closure
+- [02-02]: All 4 interaction branches computed unconditionally with jnp.where selection -- no Python if/else on traced values
+- [02-02]: Pot position lookup via jnp.all(pot_positions == target, axis=1) + jnp.argmax replaces dict-based pot_pos_to_idx
+- [02-02]: Toggle dispatch uses lax.switch with n_types branches (default no-op, door toggle at door type ID) -- extensible via scope config toggle_branches_jax
+- [02-02]: Static tables built at scope config init time, closed over by interaction body -- not passed as traced args
+- [02-02]: Fixed _build_interaction_tables to use .at[].set() for JAX array compatibility
 - [02-03]: full_map_encoding_feature_jax takes pre-computed agent_type_ids array instead of scope string to avoid string lookup under JIT
 - [02-03]: compute_rewards_jax uses closure pattern for JIT (reward_config captured, not passed as arg) since dicts with strings not hashable
 - [02-03]: Direction vector table created inline in JAX reward helper as jnp.array (matching 02-01 pattern)
@@ -106,5 +112,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 02-03-PLAN.md (Observations & Rewards JAX Path)
+Stopped at: Completed 02-02-PLAN.md (JAX Interactions)
 Resume file: None
