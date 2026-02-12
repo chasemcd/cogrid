@@ -16,8 +16,6 @@ implementation serves both paths.
 
 from __future__ import annotations
 
-from cogrid.backend import xp
-
 
 # ---------------------------------------------------------------------------
 # Core feature extractors
@@ -34,6 +32,7 @@ def agent_pos_feature(agent_pos, agent_idx):
     Returns:
         ndarray of shape (2,), dtype int32.
     """
+    from cogrid.backend import xp
     return agent_pos[agent_idx].astype(xp.int32)
 
 
@@ -47,6 +46,7 @@ def agent_dir_feature(agent_dir, agent_idx):
     Returns:
         ndarray of shape (4,), dtype int32 with exactly one 1.
     """
+    from cogrid.backend import xp
     return (xp.arange(4) == agent_dir[agent_idx]).astype(xp.int32)
 
 
@@ -83,6 +83,7 @@ def full_map_encoding_feature(
     Returns:
         ndarray of shape (max_H, max_W, 3), dtype int8.
     """
+    from cogrid.backend import xp
     from cogrid.backend.array_ops import set_at_2d
 
     max_H, max_W = max_map_size
@@ -130,6 +131,7 @@ def can_move_direction_feature(agent_pos, agent_idx, wall_map, object_type_map, 
     Returns:
         ndarray of shape (4,), dtype int32.
     """
+    from cogrid.backend import xp
     H, W = wall_map.shape
 
     # 4 directions matching adjacent_positions order: Right, Left, Down, Up
@@ -163,6 +165,7 @@ def inventory_feature(agent_inv, agent_idx):
     Returns:
         ndarray of shape (1,), dtype int32.
     """
+    from cogrid.backend import xp
     inv_val = agent_inv[agent_idx, 0]
     feature_val = xp.where(inv_val == -1, 0, inv_val + 1)
     return xp.array([feature_val], dtype=xp.int32)
@@ -187,6 +190,7 @@ def compose_features(feature_fns, state_dict, agent_idx):
     Returns:
         ndarray: Flat 1D observation array.
     """
+    from cogrid.backend import xp
     features = [fn(state_dict, agent_idx) for fn in feature_fns]
     return xp.concatenate([f.ravel() for f in features])
 
@@ -205,6 +209,7 @@ def build_feature_fn(feature_names, scope="global", **kwargs):
     Returns:
         Callable with signature (state_dict: dict, agent_idx: int) -> ndarray.
     """
+    from cogrid.backend import xp
     from cogrid.core.grid_object import build_lookup_tables, object_to_idx
 
     tables = build_lookup_tables(scope=scope)
@@ -276,6 +281,7 @@ def get_all_agent_obs(feature_fn, state_dict, n_agents):
     Returns:
         ndarray of shape (n_agents, obs_dim).
     """
+    from cogrid.backend import xp
     return xp.stack([feature_fn(state_dict, i) for i in range(n_agents)])
 
 

@@ -1,9 +1,9 @@
 """End-to-end JAX step and reset functions for CoGrid environments.
 
-Composes all Phase 2 JAX sub-functions (move_agents_jax,
-process_interactions_jax, get_all_agent_obs_jax, compute_rewards_jax,
-overcooked_tick_jax) into pure functions that operate on
-:class:`~cogrid.backend.env_state.EnvState` pytrees.
+Composes unified sub-functions (move_agents, process_interactions,
+get_all_agent_obs, compute_rewards_jax, overcooked_tick) into pure
+functions that operate on :class:`~cogrid.backend.env_state.EnvState`
+pytrees.
 
 The main API consists of five functions:
 
@@ -39,7 +39,7 @@ def envstate_to_dict(state) -> dict:
 
     Creates Python-level aliases for EnvState fields. This is zero-cost
     under JIT -- no array copies occur. The returned dict has the keys
-    expected by :func:`get_all_agent_obs_jax` and
+    expected by :func:`get_all_agent_obs` and
     :func:`compute_rewards_jax`.
 
     Extra_state entries are flattened into the dict with their scope
@@ -98,9 +98,9 @@ def jax_step(
 
     1. Capture ``prev_state`` before any mutations
     2. Tick (pot cooking timers via scope config handler)
-    3. Movement (``move_agents_jax``)
-    4. Interactions (``process_interactions_jax``)
-    5. Observations (``get_all_agent_obs_jax``)
+    3. Movement (``move_agents``)
+    4. Interactions (``process_interactions``)
+    5. Observations (``get_all_agent_obs``)
     6. Rewards (``compute_rewards_jax`` using prev_state)
     7. Done check (``time >= max_steps``)
     8. ``lax.stop_gradient`` on obs, rewards, done (JaxMARL pattern)
@@ -125,25 +125,26 @@ def jax_step(
         - ``done``: scalar bool.
         - ``infos``: empty dict ``{}``.
     """
+    import jax
     import jax.numpy as jnp
     import jax.lax as lax
-    from cogrid.core.movement import move_agents_jax
-    from cogrid.core.interactions import process_interactions_jax
-    from cogrid.feature_space.array_features import get_all_agent_obs_jax
+    from cogrid.core.movement import move_agents
+    from cogrid.core.interactions import process_interactions
+    from cogrid.feature_space.array_features import get_all_agent_obs
     from cogrid.envs.overcooked.array_rewards import compute_rewards_jax
 
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
 
     # b. Tick: update pot cooking timers
-    tick_handler_jax = scope_config.get("tick_handler_jax") if scope_config else None
-    if tick_handler_jax is not None:
+    tick_handler = scope_config.get("tick_handler") if scope_config else None
+    if tick_handler is not None:
         pot_contents = state.extra_state["overcooked.pot_contents"]
         pot_timer = state.extra_state["overcooked.pot_timer"]
         pot_positions = state.extra_state["overcooked.pot_positions"]
         n_pots = pot_positions.shape[0]
 
-        pot_contents, pot_timer, pot_state = tick_handler_jax(
+        pot_contents, pot_timer, pot_state = tick_handler(
             pot_contents, pot_timer
         )
         # Write pot_state into object_state_map at pot positions
@@ -164,26 +165,29 @@ def jax_step(
             state, object_state_map=osm, extra_state=new_extra
         )
 
-    # c. Movement
-    new_pos, new_dir, new_key = move_agents_jax(
+    # c. Movement -- compute priority from RNG, then call unified move_agents
+    key, subkey = jax.random.split(state.rng_key)
+    priority = jax.random.permutation(subkey, state.n_agents)
+
+    new_pos, new_dir = move_agents(
         state.agent_pos,
         state.agent_dir,
         actions,
         state.wall_map,
         state.object_type_map,
         lookup_tables["CAN_OVERLAP"],
-        state.rng_key,
+        priority,
         state.action_set,
     )
     state = dataclasses.replace(
-        state, agent_pos=new_pos, agent_dir=new_dir, rng_key=new_key
+        state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key
     )
 
     # d. Interactions
     dir_vec_table = jnp.array(
         [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=jnp.int32
     )
-    agent_inv, otm, osm, pc, pt = process_interactions_jax(
+    agent_inv, otm, osm, extra_out = process_interactions(
         state.agent_pos,
         state.agent_dir,
         state.agent_inv,
@@ -201,8 +205,8 @@ def jax_step(
     )
     new_extra = {
         **state.extra_state,
-        "overcooked.pot_contents": pc,
-        "overcooked.pot_timer": pt,
+        "overcooked.pot_contents": extra_out["pot_contents"],
+        "overcooked.pot_timer": extra_out["pot_timer"],
     }
     state = dataclasses.replace(
         state,
@@ -215,7 +219,7 @@ def jax_step(
 
     # e. Observations
     state_dict = envstate_to_dict(state)
-    obs = get_all_agent_obs_jax(feature_fn, state_dict, state.n_agents)
+    obs = get_all_agent_obs(feature_fn, state_dict, state.n_agents)
 
     # f. Rewards
     prev_dict = envstate_to_dict(prev_state)
@@ -277,7 +281,7 @@ def jax_reset(
     import jax.numpy as jnp
     import jax.lax as lax
     from cogrid.backend.env_state import create_env_state
-    from cogrid.feature_space.array_features import get_all_agent_obs_jax
+    from cogrid.feature_space.array_features import get_all_agent_obs
 
     # Split key for agent directions and future use
     key, subkey = jax.random.split(rng_key)
@@ -327,7 +331,7 @@ def jax_reset(
 
     # Compute initial observations
     state_dict = envstate_to_dict(state)
-    obs = get_all_agent_obs_jax(feature_fn, state_dict, n_agents)
+    obs = get_all_agent_obs(feature_fn, state_dict, n_agents)
     obs = lax.stop_gradient(obs)
 
     return state, obs
@@ -427,6 +431,7 @@ if __name__ == "__main__":
     # needed arrays and configs, then convert to JAX arrays for JIT testing.
     # The scope config's static tables (numpy arrays) are auto-converted
     # by JAX during tracing.
+    from cogrid.backend import set_backend
     import cogrid.envs  # trigger registration
     from cogrid.envs import registry
     from cogrid.core.grid_object import build_lookup_tables
@@ -441,7 +446,11 @@ if __name__ == "__main__":
     scope_config = build_overcooked_scope_config()
     lookup_tables = build_lookup_tables(scope="overcooked")
 
-    # --- Step 2: Convert everything to JAX arrays ---
+    # --- Step 2: Switch backend to JAX and convert arrays ---
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    _reset_backend_for_testing()
+    set_backend("jax")
+
     import jax
     import jax.numpy as jnp
 
@@ -496,12 +505,11 @@ if __name__ == "__main__":
     n_agents = array_state["n_agents"]
 
     # --- Step 3: Build feature function ---
-    # build_feature_fn_jax imports jax internally, works regardless of backend
-    from cogrid.feature_space.array_features import build_feature_fn_jax
+    from cogrid.feature_space.array_features import build_feature_fn
 
     feature_names = ["agent_position", "agent_dir", "full_map_encoding",
                      "can_move_direction", "inventory"]
-    feature_fn = build_feature_fn_jax(feature_names, scope="overcooked")
+    feature_fn = build_feature_fn(feature_names, scope="overcooked")
 
     # --- Step 4: Build reward config ---
     type_ids = scope_config["type_ids"]

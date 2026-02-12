@@ -21,7 +21,6 @@ Usage::
 
 from __future__ import annotations
 
-from cogrid.backend import xp
 from cogrid.core.agent import get_dir_vec_table
 
 
@@ -59,6 +58,8 @@ def move_agents(
         - ``new_pos``: int32 array of shape ``(n_agents, 2)``
         - ``new_dir``: int32 array of shape ``(n_agents,)``
     """
+    from cogrid.backend import xp
+
     n_agents = agent_pos.shape[0]
     H, W = wall_map.shape
 

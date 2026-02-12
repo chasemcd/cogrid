@@ -20,7 +20,6 @@ Key function:
 
 from __future__ import annotations
 
-from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 
 
@@ -73,6 +72,8 @@ def process_interactions(
         where extra_state is the dict of scope-specific arrays (potentially
         mutated by the interaction_body).
     """
+    from cogrid.backend import xp
+
     n_agents = agent_pos.shape[0]
     H, W = object_type_map.shape
 
