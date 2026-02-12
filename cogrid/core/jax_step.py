@@ -42,25 +42,35 @@ def envstate_to_dict(state) -> dict:
     expected by :func:`get_all_agent_obs_jax` and
     :func:`compute_rewards_jax`.
 
+    Extra_state entries are flattened into the dict with their scope
+    prefix stripped (e.g. ``"overcooked.pot_contents"`` becomes
+    ``"pot_contents"``). This maintains backward compatibility with
+    sub-functions that expect pot arrays as top-level keys.
+
     Args:
         state: An :class:`EnvState` instance.
 
     Returns:
         Dict with keys: ``agent_pos``, ``agent_dir``, ``agent_inv``,
         ``wall_map``, ``object_type_map``, ``object_state_map``,
-        ``pot_contents``, ``pot_timer``, ``pot_positions``.
+        plus any extra_state entries with scope prefix stripped.
     """
-    return {
+    result = {
         "agent_pos": state.agent_pos,
         "agent_dir": state.agent_dir,
         "agent_inv": state.agent_inv,
         "wall_map": state.wall_map,
         "object_type_map": state.object_type_map,
         "object_state_map": state.object_state_map,
-        "pot_contents": state.pot_contents,
-        "pot_timer": state.pot_timer,
-        "pot_positions": state.pot_positions,
     }
+    # Merge extra_state into the dict for backward compatibility
+    # with sub-functions that expect pot_contents, pot_timer, pot_positions
+    # as top-level keys. Strip the scope prefix for now.
+    for key, val in state.extra_state.items():
+        # "overcooked.pot_contents" -> "pot_contents"
+        short_key = key.split(".", 1)[-1] if "." in key else key
+        result[short_key] = val
+    return result
 
 
 def jax_step(
@@ -128,23 +138,30 @@ def jax_step(
     # b. Tick: update pot cooking timers
     tick_handler_jax = scope_config.get("tick_handler_jax") if scope_config else None
     if tick_handler_jax is not None:
+        pot_contents = state.extra_state["overcooked.pot_contents"]
+        pot_timer = state.extra_state["overcooked.pot_timer"]
+        pot_positions = state.extra_state["overcooked.pot_positions"]
+        n_pots = pot_positions.shape[0]
+
         pot_contents, pot_timer, pot_state = tick_handler_jax(
-            state.pot_contents, state.pot_timer
+            pot_contents, pot_timer
         )
         # Write pot_state into object_state_map at pot positions
         osm = state.object_state_map
 
         def set_pot_state_fn(i, osm):
-            r = state.pot_positions[i, 0]
-            c = state.pot_positions[i, 1]
+            r = pot_positions[i, 0]
+            c = pot_positions[i, 1]
             return osm.at[r, c].set(pot_state[i])
 
-        osm = lax.fori_loop(0, state.n_pots, set_pot_state_fn, osm)
+        osm = lax.fori_loop(0, n_pots, set_pot_state_fn, osm)
+        new_extra = {
+            **state.extra_state,
+            "overcooked.pot_contents": pot_contents,
+            "overcooked.pot_timer": pot_timer,
+        }
         state = dataclasses.replace(
-            state,
-            pot_contents=pot_contents,
-            pot_timer=pot_timer,
-            object_state_map=osm,
+            state, object_state_map=osm, extra_state=new_extra
         )
 
     # c. Movement
@@ -178,17 +195,21 @@ def jax_step(
         dir_vec_table,
         action_pickup_drop_idx,
         action_toggle_idx,
-        pot_contents=state.pot_contents,
-        pot_timer=state.pot_timer,
-        pot_positions=state.pot_positions,
+        pot_contents=state.extra_state["overcooked.pot_contents"],
+        pot_timer=state.extra_state["overcooked.pot_timer"],
+        pot_positions=state.extra_state["overcooked.pot_positions"],
     )
+    new_extra = {
+        **state.extra_state,
+        "overcooked.pot_contents": pc,
+        "overcooked.pot_timer": pt,
+    }
     state = dataclasses.replace(
         state,
         agent_inv=agent_inv,
         object_type_map=otm,
         object_state_map=osm,
-        pot_contents=pc,
-        pot_timer=pt,
+        extra_state=new_extra,
         time=state.time + 1,
     )
 
@@ -277,12 +298,15 @@ def jax_reset(
     wall_map = layout_arrays["wall_map"]
     object_type_map = layout_arrays["object_type_map"]
     object_state_map = layout_arrays["object_state_map"]
-    pot_contents = layout_arrays["pot_contents"]
-    pot_timer = layout_arrays["pot_timer"]
-    pot_positions = layout_arrays["pot_positions"]
 
     H, W = wall_map.shape
-    n_pots = pot_positions.shape[0]
+
+    # Build extra_state from pot arrays in layout_arrays
+    extra_state = {
+        "overcooked.pot_contents": layout_arrays["pot_contents"],
+        "overcooked.pot_timer": layout_arrays["pot_timer"],
+        "overcooked.pot_positions": layout_arrays["pot_positions"],
+    }
 
     # Build EnvState
     state = create_env_state(
@@ -292,15 +316,12 @@ def jax_reset(
         wall_map=wall_map,
         object_type_map=object_type_map,
         object_state_map=object_state_map,
-        pot_contents=pot_contents,
-        pot_timer=pot_timer,
-        pot_positions=pot_positions,
+        extra_state=extra_state,
         rng_key=key,
         time=time,
         n_agents=n_agents,
         height=H,
         width=W,
-        n_pots=n_pots,
         action_set=action_set,
     )
 
