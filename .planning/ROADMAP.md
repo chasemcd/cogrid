@@ -42,7 +42,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 5: Foundation -- State Model & Backend Helpers** - Generic EnvState with extra_state, array mutation helpers, array-based layout parser
+- [x] **Phase 5: Foundation -- State Model & Backend Helpers** - Generic EnvState with extra_state, array mutation helpers, array-based layout parser
 - [ ] **Phase 6: Core Algorithms** - Unified movement, collision, interaction, and feature functions using xp
 - [ ] **Phase 7: Rewards & Scope Config** - Unified reward functions and Overcooked-specific handlers using xp
 - [ ] **Phase 8: Step Pipeline** - Functional step/reset composition with init-time function wiring
@@ -62,9 +62,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- array_ops.py, EnvState rewrite with extra_state, hasattr cleanup
-- [ ] 05-02-PLAN.md -- Layout parser, scope_config extensions, Overcooked symbol/schema registration
-- [ ] 05-03-PLAN.md -- jax_step.py migration to extra_state, JIT round-trip verification
+- [x] 05-01-PLAN.md -- array_ops.py, EnvState rewrite with extra_state, hasattr cleanup
+- [x] 05-02-PLAN.md -- Layout parser, scope_config extensions, Overcooked symbol/schema registration
+- [x] 05-03-PLAN.md -- jax_step.py migration to extra_state, JIT round-trip verification
 
 ### Phase 6: Core Algorithms
 **Goal**: The core simulation algorithms -- movement, collision resolution, interactions, and feature extraction -- each exist as a single function using `xp` array operations, replacing all duplicate `_jax`/`_array` function pairs
@@ -123,7 +123,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 | 2. Functional State Model & JIT Compatibility | v1.0 | 3/3 | Complete | 2026-02-11 |
 | 3. End-to-End Integration & Parity | v1.0 | 3/3 | Complete | 2026-02-11 |
 | 4. vmap Batching & Benchmarks | v1.0 | 2/2 | Complete | 2026-02-12 |
-| 5. Foundation -- State Model & Backend Helpers | v1.1 | 0/3 | Planned | - |
+| 5. Foundation -- State Model & Backend Helpers | v1.1 | 3/3 | Complete | 2026-02-12 |
 | 6. Core Algorithms | v1.1 | 0/TBD | Not started | - |
 | 7. Rewards & Scope Config | v1.1 | 0/TBD | Not started | - |
 | 8. Step Pipeline | v1.1 | 0/TBD | Not started | - |
