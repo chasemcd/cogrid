@@ -9,38 +9,24 @@ Run with:
 
 from __future__ import annotations
 
-from cogrid.core.interactions import process_interactions_array
+from cogrid.core.interactions import process_interactions
 from cogrid.envs.overcooked.array_config import (
     build_overcooked_scope_config,
-    _overcooked_tick_handler,
+    overcooked_tick,
 )
 from cogrid.core.scope_config import get_scope_config
 
 
-def _build_extra_state(scope_config, pot_contents, pot_timer, pot_positions):
-    """Build the extra_state dict for process_interactions_array calls.
+def _build_extra_state(pot_contents, pot_timer, pot_positions):
+    """Build the extra_state dict for process_interactions calls.
 
-    Constructs pot_pos_to_idx mapping and bundles all scope-specific arrays
-    and tables needed by the Overcooked interaction handler.
+    The unified process_interactions expects pot arrays directly in
+    extra_state (no pot_pos_to_idx or type_ids -- those are in static_tables).
     """
-    import numpy as np
-
-    n_pots = pot_positions.shape[0] if pot_positions.ndim > 0 and pot_positions.shape[0] > 0 else 0
-    pot_pos_to_idx = {}
-    for p in range(n_pots):
-        r, c = int(pot_positions[p, 0]), int(pot_positions[p, 1])
-        pot_pos_to_idx[(r, c)] = p
-
-    itables = scope_config["interaction_tables"]
     return {
         "pot_contents": pot_contents,
         "pot_timer": pot_timer,
         "pot_positions": pot_positions,
-        "pot_pos_to_idx": pot_pos_to_idx,
-        "type_ids": scope_config["type_ids"],
-        "pickup_from_produces": itables["pickup_from_produces"],
-        "legal_pot_ingredients": itables["legal_pot_ingredients"],
-        "cooking_time": 30,
     }
 
 
@@ -49,8 +35,8 @@ def test_interaction_parity():
     """Validate array-based interactions match existing object-based interactions.
 
     Tests deterministic scenarios covering all interaction branches and the
-    pot cooking state machine, comparing ``process_interactions_array`` and
-    ``_overcooked_tick_handler`` results against the existing ``CoGridEnv.interact``
+    pot cooking state machine, comparing ``process_interactions`` and
+    ``overcooked_tick`` results against the existing ``CoGridEnv.interact``
     and ``Grid.tick`` behavior.
 
     Run with::
@@ -119,8 +105,8 @@ def test_interaction_parity():
     pt_empty = np.array([30], dtype=np.int32)
     pp_dummy = np.array([[0, 0]], dtype=np.int32)
 
-    # ---- Test 1: _overcooked_tick_handler parity with Pot.tick() ----
-    print("Parity test 1: _overcooked_tick_handler vs Pot.tick()")
+    # ---- Test 1: overcooked_tick parity with Pot.tick() ----
+    print("Parity test 1: overcooked_tick vs Pot.tick()")
 
     from cogrid.envs.overcooked.overcooked_grid_objects import Pot, Onion
 
@@ -130,7 +116,7 @@ def test_interaction_parity():
     pt = np.array([30], dtype=np.int32)
 
     pot_obj.tick()
-    _, new_pt, new_ps = _overcooked_tick_handler(pc, pt)
+    _, new_pt, new_ps = overcooked_tick(pc, pt)
     assert pot_obj.cooking_timer == int(new_pt[0]), \
         f"Empty pot timer mismatch: obj={pot_obj.cooking_timer} arr={int(new_pt[0])}"
     assert pot_obj.state == int(new_ps[0]), \
@@ -143,7 +129,7 @@ def test_interaction_parity():
     pt2 = np.array([30], dtype=np.int32)
 
     pot_obj2.tick()
-    _, new_pt2, new_ps2 = _overcooked_tick_handler(pc2, pt2)
+    _, new_pt2, new_ps2 = overcooked_tick(pc2, pt2)
     assert pot_obj2.cooking_timer == int(new_pt2[0]), \
         f"Partial pot timer mismatch: obj={pot_obj2.cooking_timer} arr={int(new_pt2[0])}"
     assert pot_obj2.state == int(new_ps2[0]), \
@@ -157,7 +143,7 @@ def test_interaction_parity():
 
     for _ in range(35):  # more than needed to fully cook
         pot_obj3.tick()
-        _, pt3, ps3 = _overcooked_tick_handler(pc3, pt3)
+        _, pt3, ps3 = overcooked_tick(pc3, pt3)
         assert pot_obj3.cooking_timer == int(pt3[0]), \
             f"Cooking timer mismatch at step: obj={pot_obj3.cooking_timer} arr={int(pt3[0])}"
         assert pot_obj3.state == int(ps3[0]), \
@@ -178,9 +164,9 @@ def test_interaction_parity():
     osm = np.zeros((7, 7), dtype=np.int32)
     otm[2, 4] = type_ids["onion_stack"]
 
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
 
-    new_inv, new_otm, _, extra = process_interactions_array(
+    new_inv, new_otm, _, extra = process_interactions(
         agent_pos, agent_dir, agent_inv, actions_arr, otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
         **es,
@@ -207,8 +193,8 @@ def test_interaction_parity():
     for step_num in range(3):
         agent_inv = np.array([[onion_id]], dtype=np.int32)
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
-        es = _build_extra_state(scope_cfg, pc, pt, pp)
-        new_inv, otm, osm, extra = process_interactions_array(
+        es = _build_extra_state(pc, pt, pp)
+        new_inv, otm, osm, extra = process_interactions(
             agent_pos, agent_dir, agent_inv, actions_arr, otm, osm,
             tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
             **es,
@@ -221,14 +207,14 @@ def test_interaction_parity():
 
     # Step B: Cook for 30 ticks
     for _ in range(30):
-        _, pt, ps = _overcooked_tick_handler(pc, pt)
+        _, pt, ps = overcooked_tick(pc, pt)
     assert int(pt[0]) == 0, f"Pot should be done: {pt[0]}"
 
     # Step C: Pickup with plate
     agent_inv = np.array([[plate_id]], dtype=np.int32)
     actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
-    es = _build_extra_state(scope_cfg, pc, pt, pp)
-    new_inv, _, _, extra = process_interactions_array(
+    es = _build_extra_state(pc, pt, pp)
+    new_inv, _, _, extra = process_interactions(
         agent_pos, agent_dir, agent_inv, actions_arr, otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
         **es,
@@ -247,8 +233,8 @@ def test_interaction_parity():
     otm[2, 4] = type_ids["delivery_zone"]
 
     # Soup: accepted
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv, _, _, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv, _, _, _ = process_interactions(
         agent_pos, agent_dir, np.array([[onion_soup_id]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -257,8 +243,8 @@ def test_interaction_parity():
     assert new_inv[0, 0] == -1, "Soup should be delivered"
 
     # Non-soup: rejected
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv, _, _, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv, _, _, _ = process_interactions(
         agent_pos, agent_dir, np.array([[onion_id]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -274,8 +260,8 @@ def test_interaction_parity():
     otm[2, 4] = type_ids["counter"]
 
     # Place onion on counter
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv, new_otm, new_osm, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv, new_otm, new_osm, _ = process_interactions(
         agent_pos, agent_dir, np.array([[onion_id]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -285,8 +271,8 @@ def test_interaction_parity():
     assert new_osm[2, 4] == onion_id, "Counter should store onion in state"
 
     # Try to place another item on occupied counter
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv2, _, new_osm2, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv2, _, new_osm2, _ = process_interactions(
         agent_pos, agent_dir, np.array([[tomato_id]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), new_otm, new_osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -304,8 +290,8 @@ def test_interaction_parity():
     pc = np.array([[tomato_id, tomato_id, tomato_id]], dtype=np.int32)
     pt = np.array([0], dtype=np.int32)  # ready
 
-    es = _build_extra_state(scope_cfg, pc, pt, pp)
-    new_inv, _, _, _ = process_interactions_array(
+    es = _build_extra_state(pc, pt, pp)
+    new_inv, _, _, _ = process_interactions(
         agent_pos, agent_dir, np.array([[plate_id]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -322,8 +308,8 @@ def test_interaction_parity():
     osm = np.zeros((7, 7), dtype=np.int32)
     otm[2, 4] = onion_id  # pickupable
 
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv, new_otm, _, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv, new_otm, _, _ = process_interactions(
         agent_pos, agent_dir, np.array([[-1]], dtype=np.int32),
         np.array([PICKUP_DROP], dtype=np.int32), otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
@@ -345,8 +331,8 @@ def test_interaction_parity():
     # Even though there's something at (2,4), agent 1 is there too
     otm[2, 4] = onion_id
 
-    es = _build_extra_state(scope_cfg, pc_empty, pt_empty, pp_dummy)
-    new_inv, _, _, _ = process_interactions_array(
+    es = _build_extra_state(pc_empty, pt_empty, pp_dummy)
+    new_inv, _, _, _ = process_interactions(
         agent_pos2, agent_dir2, agent_inv2, actions2, otm, osm,
         tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
         **es,
