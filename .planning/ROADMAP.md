@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Dual Backend & Vectorized Core Rewrite** - Backend dispatch module, array-based state representation, and rewrite of all simulation logic (movement, collision, interactions, observations, rewards) from Python loops to parallel array operations
 - [x] **Phase 1.1: Fix environment separation of concerns** - No environment-specific logic in core methods (INSERTED)
-- [ ] **Phase 2: Functional State Model & JIT Compatibility** - Immutable EnvState pytree, PRNG key threading, JAX-specific control flow primitives, JIT-compilability of all sub-functions
+- [x] **Phase 2: Functional State Model & JIT Compatibility** - Immutable EnvState pytree, PRNG key threading, JAX-specific control flow primitives, JIT-compilability of all sub-functions
 - [ ] **Phase 3: End-to-End Integration & Parity** - Full step() JIT compilation, PettingZoo wrapper, functional API, cross-backend parity verification
 - [ ] **Phase 4: vmap Batching & Benchmarks** - Batched parallel rollouts and performance verification
 
@@ -85,11 +85,12 @@ Plans:
   3. `env.jax_step` and `env.jax_reset` are exposed as the raw functional API for direct JIT/vmap usage, bypassing PettingZoo overhead
   4. Cross-backend parity: running the same seed and action sequence on both backends produces array-equal observations (or allclose with documented tolerance for floats) and identical reward values, verified across at least 100 steps on 3 layouts
   5. Every test runs both eagerly and under jax.jit to catch silent mutation bugs -- at least the core step/reset/obs/reward tests have JIT variants
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- End-to-end jax_step and jax_reset functional API on EnvState
+- [ ] 03-02-PLAN.md -- PettingZoo wrapper for JAX backend + functional API exposure
+- [ ] 03-03-PLAN.md -- Cross-backend parity test suite (scripted + random + eager vs JIT)
 
 ### Phase 4: vmap Batching & Benchmarks
 **Goal**: Batched parallel environment rollouts via jax.vmap verified at scale, with benchmark suite quantifying the speedup
@@ -114,6 +115,6 @@ Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Dual Backend & Vectorized Core Rewrite | 7/7 | Complete | 2026-02-11 |
 | 1.1. Fix environment separation of concerns | 3/3 | Complete | 2026-02-11 |
-| 2. Functional State Model & JIT Compatibility | 0/3 | Not started | - |
+| 2. Functional State Model & JIT Compatibility | 3/3 | Complete | 2026-02-11 |
 | 3. End-to-End Integration & Parity | 0/TBD | Not started | - |
 | 4. vmap Batching & Benchmarks | 0/TBD | Not started | - |
