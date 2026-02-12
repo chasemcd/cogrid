@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 Phase: 6 of 9 (Core Algorithms)
 Plan: 3 of 4 in current phase
-Status: Plan 06-03 complete
-Last activity: 2026-02-12 -- Completed 06-03 (unified feature extractors with xp)
+Status: Plans 06-01, 06-02, 06-03 complete (06-04 remaining)
+Last activity: 2026-02-12 -- Completed 06-02 (unified interaction pipeline with xp)
 
 Progress: [################################........] 80% (v1.0 complete, v1.1 phase 5 complete + 06-01..03)
 
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [06-03]: Agent scatter uses set_at_2d loop over n_agents (static/tiny) instead of fancy indexing
 - [06-03]: get_all_agent_obs uses Python loop + xp.stack; vmap deferred to Phase 8
 - [06-03]: Backward-compat aliases (build_feature_fn_jax, get_all_agent_obs_jax) for caller migration
+- [06-02]: Static-range Python loop over n_agents for sequential interaction processing (JIT-compatible, handles any agent count)
+- [06-02]: Scope config drops _jax keys -- single function per role (tick_handler, interaction_body)
 
 ### Pending Todos
 
@@ -72,11 +74,12 @@ None yet.
 ### Blockers/Concerns
 
 - Mutation bugs where `.copy()` + in-place assignment passes numpy but fails under JAX JIT -- mitigated by `set_at()` helper (Phase 5)
-- Callers of old move_agents_array/move_agents_jax must be updated (cogrid_env.py, jax_step.py, tests)
+- cogrid_env.py move_agents import fixed; jax_step.py still imports old function names (deferred to Phase 8)
 - Feature function callers use backward-compat aliases; full migration needed in step pipeline phase
+- jax_step.py still imports process_interactions_jax -- needs update when step pipeline is unified
 
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 06-03-PLAN.md (unified feature extractors with xp)
+Stopped at: Completed 06-02-PLAN.md (unified interaction pipeline with xp)
 Resume file: None
