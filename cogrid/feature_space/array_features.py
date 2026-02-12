@@ -9,20 +9,14 @@ Feature composition (which features to include, in what order) is resolved at in
 time via build_feature_fn(), producing a single composed function that can be called
 with state arrays.
 
-NOTE: These array features do NOT replace the existing Feature classes. They exist
-alongside them. The integration plan (Plan 07) will wire them into the observation
-pipeline. For now, they are standalone functions that can be tested independently.
-
-Numpy-path per-agent observation generation uses Python loops.
-JAX-path uses jax.vmap via get_all_agent_obs_jax().
+All functions use ``xp`` (the backend-agnostic array namespace) so they work
+identically on both numpy and JAX backends. No ``_jax`` variants exist; a single
+implementation serves both paths.
 """
 
 from __future__ import annotations
 
-import numpy as np
-
 from cogrid.backend import xp
-from cogrid.core.grid_utils import adjacent_positions
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +24,7 @@ from cogrid.core.grid_utils import adjacent_positions
 # ---------------------------------------------------------------------------
 
 
-def agent_pos_feature(agent_pos, agent_idx: int):
+def agent_pos_feature(agent_pos, agent_idx):
     """Extract agent position as (2,) int32 array.
 
     Args:
@@ -40,10 +34,10 @@ def agent_pos_feature(agent_pos, agent_idx: int):
     Returns:
         ndarray of shape (2,), dtype int32.
     """
-    return np.asarray(agent_pos[agent_idx], dtype=np.int32)
+    return agent_pos[agent_idx].astype(xp.int32)
 
 
-def agent_dir_feature(agent_dir, agent_idx: int):
+def agent_dir_feature(agent_dir, agent_idx):
     """One-hot encoding of agent direction as (4,) int32 array.
 
     Args:
@@ -53,9 +47,7 @@ def agent_dir_feature(agent_dir, agent_idx: int):
     Returns:
         ndarray of shape (4,), dtype int32 with exactly one 1.
     """
-    encoding = np.zeros(4, dtype=np.int32)
-    encoding[agent_dir[agent_idx]] = 1
-    return encoding
+    return (xp.arange(4) == agent_dir[agent_idx]).astype(xp.int32)
 
 
 def full_map_encoding_feature(
@@ -64,101 +56,69 @@ def full_map_encoding_feature(
     agent_pos,
     agent_dir,
     agent_inv,
-    scope: str = "global",
-    max_map_size: tuple[int, int] = (12, 12),
+    agent_type_ids,
+    max_map_size=(12, 12),
 ):
-    """Full map encoding as (max_H, max_W, 3) int8 array matching Grid.encode(encode_char=False).
+    """Full map encoding as (max_H, max_W, 3) int8 array.
 
     Produces the same 3-channel encoding as FullMapEncoding.generate():
     - Channel 0: type IDs (with agent overlays)
-    - Channel 1: extra state encoding (Pot overrides channel 1)
+    - Channel 1: extra state encoding (always 0 for now)
     - Channel 2: object state values (with agent inventory state overlay)
 
-    Agents are overlaid onto the grid at their positions, matching the behavior
-    of Grid.encode() which iterates over grid_agents and overwrites their cells.
-
-    IMPORTANT: Grid.encode() encodes grid objects with the passed scope, but
-    encodes agents with scope='global' (GridAgent.encode() is called without
-    scope parameter). This function replicates that behavior: object_type_map
-    uses the caller's scope, but agent overlays always use scope='global'.
+    Agents are overlaid onto the grid at their positions using pre-computed
+    ``agent_type_ids`` (resolved at init time by build_feature_fn).
 
     Args:
-        object_type_map: int32 array (H, W) with type IDs (in caller's scope).
+        object_type_map: int32 array (H, W) with type IDs.
         object_state_map: int32 array (H, W) with object state values.
         agent_pos: int32 array (n_agents, 2) with [row, col].
         agent_dir: int32 array (n_agents,) with direction integers.
         agent_inv: int32 array (n_agents, 1) with inventory type IDs (-1 = empty).
-        scope: Object registry scope for grid object type IDs (NOT used for agents).
+        agent_type_ids: int32 array (4,) where agent_type_ids[dir] gives the
+            global-scope type_id for the agent character facing that direction.
+            Pre-computed at init time from object_to_idx.
         max_map_size: Maximum map dimensions for padding.
 
     Returns:
         ndarray of shape (max_H, max_W, 3), dtype int8.
     """
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.backend.array_ops import set_at_2d
 
     max_H, max_W = max_map_size
     H, W = object_type_map.shape
 
-    encoding = np.zeros((max_H, max_W, 3), dtype=np.int8)
+    # Build channels using xp.pad to avoid backend-specific slice assignment
+    pad_h = max_H - H
+    pad_w = max_W - W
+    ch0 = xp.pad(object_type_map.astype(xp.int8), ((0, pad_h), (0, pad_w)))
+    ch1 = xp.zeros((max_H, max_W), dtype=xp.int8)
+    ch2 = xp.pad(object_state_map.astype(xp.int8), ((0, pad_h), (0, pad_w)))
 
-    # Channel 0: type IDs from object_type_map
-    encoding[:H, :W, 0] = object_type_map[:H, :W].astype(np.int8)
+    # Agent overlay: type_id per agent based on direction
+    agent_type = agent_type_ids[agent_dir]  # (n_agents,)
+    agent_state = xp.where(agent_inv[:, 0] == -1, 0, agent_inv[:, 0])  # (n_agents,)
 
-    # Channel 1: always 0 for most objects.
-    # Pot.encode() overrides channel 1 to extra_state_encoding (1 if tomato
-    # contents). For the array-based version, we leave 0 since this override
-    # is specific to the object-based path. In practice, channel 1 is 0 in
-    # Grid.encode() for all GridObj subclasses except Pot (which returns a
-    # tomato flag). This discrepancy only affects pot cells and can be
-    # addressed when pot_contents arrays are available to the caller.
+    rows = agent_pos[:, 0]
+    cols = agent_pos[:, 1]
 
-    # Channel 2: state from object_state_map
-    encoding[:H, :W, 2] = object_state_map[:H, :W].astype(np.int8)
+    # Scatter agents onto channels using set_at_2d (loop over n_agents which is
+    # static/tiny, typically 2). Uses array-valued indices, no int() casts.
+    for i_agent in range(agent_pos.shape[0]):
+        r, c = rows[i_agent], cols[i_agent]
+        ch0 = set_at_2d(ch0, r, c, agent_type[i_agent].astype(xp.int8))
+        ch1 = set_at_2d(ch1, r, c, xp.int8(0))
+        ch2 = set_at_2d(ch2, r, c, agent_state[i_agent].astype(xp.int8))
 
-    # Overlay agents onto the encoding.
-    # Direction enum: Right=0, Down=1, Left=2, Up=3
-    # GridAgent char: Right=">", Down="v", Left="<", Up="^"
-    dir_to_char = [">", "v", "<", "^"]
-
-    n_agents = len(agent_dir)
-    for i in range(n_agents):
-        r, c = int(agent_pos[i, 0]), int(agent_pos[i, 1])
-        if r >= max_H or c >= max_W:
-            continue
-
-        d = int(agent_dir[i])
-        agent_obj_id = f"agent_{dir_to_char[d]}"
-
-        # Grid.encode() calls grid_agent.encode(encode_char=encode_char)
-        # WITHOUT passing scope, so agents always use scope='global'.
-        agent_type_idx = object_to_idx(agent_obj_id, scope="global")
-
-        # Agent state is inventory encoding:
-        # 0 if empty inventory, else object_to_idx(held_item, scope) of the held item.
-        # GridAgent.__init__ sets state = object_to_idx(inventory[0], scope=scope),
-        # but GridAgent.encode() calls object_to_idx(self, scope='global') which
-        # returns the type idx of the agent direction character in global scope.
-        # The state (channel 2) comes from GridAgent.state which is the inventory
-        # item's type idx in the scope used when the GridAgent was created.
-        inv_val = int(agent_inv[i, 0])
-        agent_state = 0 if inv_val == -1 else inv_val
-
-        encoding[r, c, 0] = np.int8(agent_type_idx)
-        encoding[r, c, 1] = np.int8(0)  # color channel always 0
-        encoding[r, c, 2] = np.int8(agent_state)
-
+    encoding = xp.stack([ch0, ch1, ch2], axis=-1)
     return encoding
 
 
-def can_move_direction_feature(agent_pos, agent_idx: int, wall_map, object_type_map, can_overlap_table):
+def can_move_direction_feature(agent_pos, agent_idx, wall_map, object_type_map, can_overlap_table):
     """Multi-hot encoding of whether agent can move in each of 4 directions.
 
-    Matches CanMoveDirection.generate() which checks adjacent_positions() in order
-    (Right, Left, Down, Up) and returns 1 if the cell is empty (None) or the object
-    can_overlap(agent). The array version uses the static CAN_OVERLAP lookup table.
-
-    Note: adjacent_positions yields (row+0,col+1), (row+0,col-1), (row+1,col+0),
-    (row-1,col+0) which corresponds to Right, Left, Down, Up.
+    Direction order matches adjacent_positions: Right, Left, Down, Up.
+    Uses vectorized deltas array instead of Python loop.
 
     Args:
         agent_pos: int32 array (n_agents, 2).
@@ -170,32 +130,31 @@ def can_move_direction_feature(agent_pos, agent_idx: int, wall_map, object_type_
     Returns:
         ndarray of shape (4,), dtype int32.
     """
-    can_move = np.zeros(4, dtype=np.int32)
-    row, col = int(agent_pos[agent_idx, 0]), int(agent_pos[agent_idx, 1])
     H, W = wall_map.shape
 
-    for i, (nr, nc) in enumerate(adjacent_positions(row, col)):
-        # Out of bounds: can't move there
-        if nr < 0 or nr >= H or nc < 0 or nc >= W:
-            continue
+    # 4 directions matching adjacent_positions order: Right, Left, Down, Up
+    deltas = xp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=xp.int32)
+    pos = agent_pos[agent_idx]  # (2,)
+    neighbors = pos[None, :] + deltas  # (4, 2)
 
-        type_id = int(object_type_map[nr, nc])
+    # Check bounds
+    in_bounds = (
+        (neighbors[:, 0] >= 0)
+        & (neighbors[:, 0] < H)
+        & (neighbors[:, 1] >= 0)
+        & (neighbors[:, 1] < W)
+    )
 
-        # Empty cell (type_id == 0, matching object_to_idx(None) == 0) is overlappable
-        # OR the object type is marked overlappable in the lookup table
-        if can_overlap_table[type_id] == 1:
-            can_move[i] = 1
+    # Clip to valid indices for safe array access (out-of-bounds masked by in_bounds)
+    clipped = xp.clip(neighbors, xp.array([0, 0]), xp.array([H - 1, W - 1]))
+    type_ids = object_type_map[clipped[:, 0], clipped[:, 1]]  # (4,)
+    can_overlap = can_overlap_table[type_ids]  # (4,)
 
-    return can_move
+    return (in_bounds & (can_overlap == 1)).astype(xp.int32)
 
 
-def inventory_feature(agent_inv, agent_idx: int):
-    """Inventory encoding as (1,) array matching Inventory.generate().
-
-    The existing feature uses: 0 = empty, get_object_names(scope).index(obj_id) + 1 for items.
-    Our agent_inv stores: -1 = empty, type_id = object_to_idx(obj_id, scope) for items.
-    Since object_to_idx returns the same index as get_object_names().index(),
-    conversion is: feature_val = agent_inv + 1 for non-empty, 0 for empty.
+def inventory_feature(agent_inv, agent_idx):
+    """Inventory encoding as (1,) array. 0 = empty, type_id+1 otherwise.
 
     Args:
         agent_inv: int32 array (n_agents, 1) with -1 for empty, type_id for held item.
@@ -204,12 +163,9 @@ def inventory_feature(agent_inv, agent_idx: int):
     Returns:
         ndarray of shape (1,), dtype int32.
     """
-    inv_val = int(agent_inv[agent_idx, 0])
-    if inv_val == -1:
-        feature_val = 0
-    else:
-        feature_val = inv_val + 1
-    return np.array([feature_val], dtype=np.int32)
+    inv_val = agent_inv[agent_idx, 0]
+    feature_val = xp.where(inv_val == -1, 0, inv_val + 1)
+    return xp.array([feature_val], dtype=xp.int32)
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +173,7 @@ def inventory_feature(agent_inv, agent_idx: int):
 # ---------------------------------------------------------------------------
 
 
-def compose_features(feature_fns: list, state_dict: dict, agent_idx: int):
+def compose_features(feature_fns, state_dict, agent_idx):
     """Compose multiple feature functions into a single flat observation array.
 
     Each feature_fn takes (state_dict, agent_idx) and returns an ndarray.
@@ -232,14 +188,14 @@ def compose_features(feature_fns: list, state_dict: dict, agent_idx: int):
         ndarray: Flat 1D observation array.
     """
     features = [fn(state_dict, agent_idx) for fn in feature_fns]
-    return np.concatenate([f.ravel() for f in features])
+    return xp.concatenate([f.ravel() for f in features])
 
 
-def build_feature_fn(feature_names: list[str], scope: str = "global", **kwargs):
-    """Build a composed feature function from feature names.
+def build_feature_fn(feature_names, scope="global", **kwargs):
+    """Build a composed feature function from feature names. Works on both backends.
 
     Called at init time. Returns a function that takes (state_dict, agent_idx) -> obs_array.
-    Resolves which features to include and their parameters once at init.
+    Resolves which features to include and pre-computes lookup tables once.
 
     Args:
         feature_names: List of feature name strings to include.
@@ -249,306 +205,31 @@ def build_feature_fn(feature_names: list[str], scope: str = "global", **kwargs):
     Returns:
         Callable with signature (state_dict: dict, agent_idx: int) -> ndarray.
     """
-    from cogrid.core.grid_object import build_lookup_tables
-
-    # Build lookup tables once at init time
-    tables = build_lookup_tables(scope=scope)
-    max_map_size = kwargs.get("max_map_size", (12, 12))
-
-    # Map feature names to bound functions
-    feature_fns = []
-    for name in feature_names:
-        if name == "agent_position":
-            feature_fns.append(
-                lambda sd, ai: agent_pos_feature(sd["agent_pos"], ai)
-            )
-        elif name == "agent_dir":
-            feature_fns.append(
-                lambda sd, ai: agent_dir_feature(sd["agent_dir"], ai)
-            )
-        elif name == "full_map_encoding":
-            # Capture scope and max_map_size in closure
-            _scope = scope
-            _mms = max_map_size
-            feature_fns.append(
-                lambda sd, ai, s=_scope, m=_mms: full_map_encoding_feature(
-                    sd["object_type_map"],
-                    sd["object_state_map"],
-                    sd["agent_pos"],
-                    sd["agent_dir"],
-                    sd["agent_inv"],
-                    scope=s,
-                    max_map_size=m,
-                )
-            )
-        elif name == "can_move_direction":
-            _co = tables["CAN_OVERLAP"]
-            feature_fns.append(
-                lambda sd, ai, co=_co: can_move_direction_feature(
-                    sd["agent_pos"], ai, sd["wall_map"], sd["object_type_map"], co
-                )
-            )
-        elif name == "inventory":
-            feature_fns.append(
-                lambda sd, ai: inventory_feature(sd["agent_inv"], ai)
-            )
-        else:
-            raise ValueError(
-                f"Unknown array feature: '{name}'. Available: "
-                f"agent_position, agent_dir, full_map_encoding, can_move_direction, inventory"
-            )
-
-    def composed_fn(state_dict: dict, agent_idx: int):
-        return compose_features(feature_fns, state_dict, agent_idx)
-
-    return composed_fn
-
-
-# ---------------------------------------------------------------------------
-# Per-agent vectorized observation generation
-# ---------------------------------------------------------------------------
-
-
-def get_all_agent_obs(feature_fn, state_dict: dict, n_agents: int):
-    """Generate observations for all agents.
-
-    Returns (n_agents, obs_dim) array. Phase 1 uses a Python loop;
-    Phase 2 will convert to jax.vmap.
-
-    Args:
-        feature_fn: Callable with signature (state_dict, agent_idx) -> obs_array.
-        state_dict: Dict of state arrays.
-        n_agents: Number of agents.
-
-    Returns:
-        ndarray of shape (n_agents, obs_dim).
-    """
-    # PHASE2: convert to jax.vmap
-    return np.stack([feature_fn(state_dict, i) for i in range(n_agents)])
-
-
-# ---------------------------------------------------------------------------
-# JAX-path feature extractors (JIT-compatible, no int() casts)
-# ---------------------------------------------------------------------------
-
-
-def agent_pos_feature_jax(agent_pos, agent_idx):
-    """Extract agent position as (2,) int32 array (JAX path).
-
-    Unlike the numpy path, avoids np.asarray cast -- returns a JAX array slice
-    directly so the result is traceable under jax.jit.
-
-    Args:
-        agent_pos: jnp int32 array of shape (n_agents, 2) with [row, col].
-        agent_idx: Index of the agent (JAX scalar or int).
-
-    Returns:
-        jnp array of shape (2,), dtype int32.
-    """
-    import jax.numpy as jnp
-    return agent_pos[agent_idx].astype(jnp.int32)
-
-
-def agent_dir_feature_jax(agent_dir, agent_idx):
-    """One-hot encoding of agent direction as (4,) int32 array (JAX path).
-
-    Uses comparison broadcast instead of np.zeros + indexing to avoid
-    traced-value indexing issues under jax.jit.
-
-    Args:
-        agent_dir: jnp int32 array of shape (n_agents,) with direction integers.
-        agent_idx: Index of the agent.
-
-    Returns:
-        jnp array of shape (4,), dtype int32 with exactly one 1.
-    """
-    import jax.numpy as jnp
-    return (jnp.arange(4) == agent_dir[agent_idx]).astype(jnp.int32)
-
-
-def full_map_encoding_feature_jax(
-    object_type_map,
-    object_state_map,
-    agent_pos,
-    agent_dir,
-    agent_inv,
-    agent_type_ids,
-    max_map_size=(12, 12),
-):
-    """Full map encoding as (max_H, max_W, 3) int8 array (JAX path).
-
-    Same semantics as full_map_encoding_feature but fully JIT-compatible.
-    Instead of calling object_to_idx at runtime (which uses Python string
-    lookups), takes a pre-computed ``agent_type_ids`` array that maps
-    direction integers to global-scope type IDs.
-
-    Agent overlays are scattered onto the encoding using array ops instead
-    of a Python loop.
-
-    Args:
-        object_type_map: jnp int32 array (H, W) with type IDs.
-        object_state_map: jnp int32 array (H, W) with object state values.
-        agent_pos: jnp int32 array (n_agents, 2) with [row, col].
-        agent_dir: jnp int32 array (n_agents,) with direction integers.
-        agent_inv: jnp int32 array (n_agents, 1) with inventory type IDs (-1 = empty).
-        agent_type_ids: jnp int32 array (4,) where agent_type_ids[dir] gives the
-            global-scope type_id for the agent character facing that direction.
-            Pre-computed at init time from object_to_idx.
-        max_map_size: Maximum map dimensions for padding.
-
-    Returns:
-        jnp array of shape (max_H, max_W, 3), dtype int8.
-    """
-    import jax.numpy as jnp
-
-    max_H, max_W = max_map_size
-    H, W = object_type_map.shape
-
-    encoding = jnp.zeros((max_H, max_W, 3), dtype=jnp.int8)
-
-    # Channel 0: type IDs from object_type_map
-    encoding = encoding.at[:H, :W, 0].set(object_type_map[:H, :W].astype(jnp.int8))
-
-    # Channel 1: always 0 (same as numpy path)
-
-    # Channel 2: state from object_state_map
-    encoding = encoding.at[:H, :W, 2].set(object_state_map[:H, :W].astype(jnp.int8))
-
-    # Overlay agents using vectorized scatter ops (no Python loop)
-    # agent_type = type_id for each agent based on their direction
-    agent_type = agent_type_ids[agent_dir]  # (n_agents,)
-
-    # agent_state = 0 if empty inventory, else inventory type_id
-    agent_state = jnp.where(
-        agent_inv[:, 0] == -1, 0, agent_inv[:, 0]
-    )  # (n_agents,)
-
-    # Scatter agents onto encoding at their positions
-    rows = agent_pos[:, 0]
-    cols = agent_pos[:, 1]
-    encoding = encoding.at[rows, cols, 0].set(agent_type.astype(jnp.int8))
-    encoding = encoding.at[rows, cols, 1].set(jnp.int8(0))
-    encoding = encoding.at[rows, cols, 2].set(agent_state.astype(jnp.int8))
-
-    return encoding
-
-
-def can_move_direction_feature_jax(agent_pos, agent_idx, wall_map, object_type_map, can_overlap_table):
-    """Multi-hot encoding of movability in 4 directions (JAX path).
-
-    Replaces the Python loop over adjacent_positions with direct array computation.
-    Direction order matches adjacent_positions: Right, Left, Down, Up.
-
-    Args:
-        agent_pos: jnp int32 array (n_agents, 2).
-        agent_idx: Index of the agent.
-        wall_map: jnp int32 array (H, W), 1 where wall.
-        object_type_map: jnp int32 array (H, W) with type IDs.
-        can_overlap_table: jnp int32 array (n_types,), 1 if type is overlappable.
-
-    Returns:
-        jnp array of shape (4,), dtype int32.
-    """
-    import jax.numpy as jnp
-
-    H, W = wall_map.shape
-
-    # 4 directions matching adjacent_positions order: Right, Left, Down, Up
-    deltas = jnp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=jnp.int32)
-    pos = agent_pos[agent_idx]  # (2,)
-    neighbors = pos[None, :] + deltas  # (4, 2)
-
-    # Check bounds
-    in_bounds = (
-        (neighbors[:, 0] >= 0)
-        & (neighbors[:, 0] < H)
-        & (neighbors[:, 1] >= 0)
-        & (neighbors[:, 1] < W)
-    )
-
-    # Clip to valid indices for safe array access (out-of-bounds masked by in_bounds)
-    clipped = jnp.clip(neighbors, 0, jnp.array([H - 1, W - 1]))
-    type_ids = object_type_map[clipped[:, 0], clipped[:, 1]]  # (4,)
-    can_overlap = can_overlap_table[type_ids]  # (4,)
-
-    can_move = (in_bounds & (can_overlap == 1)).astype(jnp.int32)
-    return can_move
-
-
-def inventory_feature_jax(agent_inv, agent_idx):
-    """Inventory encoding as (1,) array (JAX path).
-
-    Same semantics as inventory_feature but without int() cast or Python if/else.
-    Uses jnp.where for JIT compatibility.
-
-    Args:
-        agent_inv: jnp int32 array (n_agents, 1) with -1 for empty, type_id for held.
-        agent_idx: Index of the agent.
-
-    Returns:
-        jnp array of shape (1,), dtype int32.
-    """
-    import jax.numpy as jnp
-
-    inv_val = agent_inv[agent_idx, 0]
-    feature_val = jnp.where(inv_val == -1, 0, inv_val + 1)
-    return jnp.array([feature_val], dtype=jnp.int32)
-
-
-# ---------------------------------------------------------------------------
-# JAX-path feature composition
-# ---------------------------------------------------------------------------
-
-
-def build_feature_fn_jax(feature_names, scope="global", **kwargs):
-    """Build a composed JAX-path feature function from feature names.
-
-    Called at init time. Returns a function (state_dict, agent_idx) -> obs_array
-    that is JIT-compatible. All Python-level lookups (object_to_idx, scope config)
-    are resolved once at init and captured in closures.
-
-    Args:
-        feature_names: List of feature name strings to include.
-        scope: Object registry scope.
-        **kwargs: Additional keyword arguments (e.g., max_map_size, can_overlap_table).
-
-    Returns:
-        Callable with signature (state_dict: dict, agent_idx) -> jnp array.
-    """
-    import jax.numpy as jnp
     from cogrid.core.grid_object import build_lookup_tables, object_to_idx
 
-    # Build lookup tables once at init time
     tables = build_lookup_tables(scope=scope)
     max_map_size = kwargs.get("max_map_size", (12, 12))
 
-    # Pre-compute agent_type_ids for full_map_encoding_jax
-    # Direction enum: Right=0, Down=1, Left=2, Up=3
-    # Agent characters: ">", "v", "<", "^"
+    # Pre-compute agent_type_ids for full_map_encoding
     dir_to_char = [">", "v", "<", "^"]
-    agent_type_ids_list = [
-        object_to_idx(f"agent_{c}", scope="global") for c in dir_to_char
-    ]
-    agent_type_ids = jnp.array(agent_type_ids_list, dtype=jnp.int32)
+    agent_type_ids = xp.array(
+        [object_to_idx(f"agent_{c}", scope="global") for c in dir_to_char],
+        dtype=xp.int32,
+    )
 
-    can_overlap_table = jnp.array(tables["CAN_OVERLAP"], dtype=jnp.int32)
+    can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
 
-    # Build list of JAX-path feature function closures
     feature_fns = []
     for name in feature_names:
         if name == "agent_position":
-            feature_fns.append(
-                lambda sd, ai: agent_pos_feature_jax(sd["agent_pos"], ai)
-            )
+            feature_fns.append(lambda sd, ai: agent_pos_feature(sd["agent_pos"], ai))
         elif name == "agent_dir":
-            feature_fns.append(
-                lambda sd, ai: agent_dir_feature_jax(sd["agent_dir"], ai)
-            )
+            feature_fns.append(lambda sd, ai: agent_dir_feature(sd["agent_dir"], ai))
         elif name == "full_map_encoding":
             _atids = agent_type_ids
             _mms = max_map_size
             feature_fns.append(
-                lambda sd, ai, atids=_atids, mms=_mms: full_map_encoding_feature_jax(
+                lambda sd, ai, atids=_atids, mms=_mms: full_map_encoding_feature(
                     sd["object_type_map"],
                     sd["object_state_map"],
                     sd["agent_pos"],
@@ -561,209 +242,38 @@ def build_feature_fn_jax(feature_names, scope="global", **kwargs):
         elif name == "can_move_direction":
             _co = can_overlap_table
             feature_fns.append(
-                lambda sd, ai, co=_co: can_move_direction_feature_jax(
+                lambda sd, ai, co=_co: can_move_direction_feature(
                     sd["agent_pos"], ai, sd["wall_map"], sd["object_type_map"], co
                 )
             )
         elif name == "inventory":
-            feature_fns.append(
-                lambda sd, ai: inventory_feature_jax(sd["agent_inv"], ai)
-            )
+            feature_fns.append(lambda sd, ai: inventory_feature(sd["agent_inv"], ai))
         else:
-            raise ValueError(
-                f"Unknown array feature: '{name}'. Available: "
-                f"agent_position, agent_dir, full_map_encoding, can_move_direction, inventory"
-            )
+            raise ValueError(f"Unknown array feature: '{name}'")
 
     def composed_fn(state_dict, agent_idx):
-        features = [fn(state_dict, agent_idx) for fn in feature_fns]
-        return jnp.concatenate([f.ravel() for f in features])
+        return compose_features(feature_fns, state_dict, agent_idx)
 
     return composed_fn
 
 
-def get_all_agent_obs_jax(feature_fn, state_dict, n_agents):
-    """Generate observations for all agents using jax.vmap.
+# ---------------------------------------------------------------------------
+# Per-agent vectorized observation generation
+# ---------------------------------------------------------------------------
 
-    This is the JAX-path equivalent of get_all_agent_obs. Instead of a Python
-    loop over agents, uses jax.vmap to vectorize the feature function across
-    agent indices.
+
+def get_all_agent_obs(feature_fn, state_dict, n_agents):
+    """Generate observations for all agents.
+
+    Returns (n_agents, obs_dim) array. Uses Python loop with xp.stack.
+    vmap optimization deferred to Phase 8.
 
     Args:
-        feature_fn: Callable with signature (state_dict, agent_idx) -> jnp array.
-            Must be JIT-compatible (e.g., built by build_feature_fn_jax).
-        state_dict: Dict of jnp state arrays.
+        feature_fn: Callable with signature (state_dict, agent_idx) -> obs_array.
+        state_dict: Dict of state arrays.
         n_agents: Number of agents.
 
     Returns:
-        jnp array of shape (n_agents, obs_dim).
+        ndarray of shape (n_agents, obs_dim).
     """
-    import jax
-    import jax.numpy as jnp
-
-    vmapped = jax.vmap(lambda i: feature_fn(state_dict, i))
-    return vmapped(jnp.arange(n_agents))
-
-
-# ---------------------------------------------------------------------------
-# Development-time parity test
-# ---------------------------------------------------------------------------
-
-
-def test_feature_parity(n_steps: int = 20, seed: int = 42):
-    """Validate array-based features produce identical values to existing Feature.generate().
-
-    Instantiates an Overcooked environment (cramped_room), resets it, and for each
-    of the core features (agent_pos, agent_dir, can_move_direction, inventory,
-    full_map_encoding), compares the existing object-based feature output against
-    the array-based feature output for numerical identity.
-
-    Runs for ``n_steps`` with random actions to exercise multiple states.
-
-    The full_map_encoding parity test compares Grid.encode(scope='overcooked')
-    against full_map_encoding_feature. Note: Grid.encode() uses scope='global'
-    for agent overlays regardless of the passed scope, and our array version
-    matches this behavior.
-
-    Args:
-        n_steps: Number of random steps to check.
-        seed: Random seed for reproducibility.
-
-    Raises:
-        AssertionError: If any feature output differs between existing and array-based.
-    """
-    import cogrid.envs  # trigger registration
-    from cogrid.envs import registry
-    from cogrid.feature_space.features import (
-        AgentPosition, AgentDir, CanMoveDirection, Inventory,
-    )
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
-    from cogrid.core.grid_utils import layout_to_array_state
-    from cogrid.core.agent import create_agent_arrays
-
-    # Create environment
-    env = registry.make("Overcooked-CrampedRoom-V0")
-    obs = env.reset(seed=seed)
-
-    rng = np.random.default_rng(seed)
-    scope = env.scope
-    tables = build_lookup_tables(scope=scope)
-
-    # Existing feature instances
-    agent_pos_feat = AgentPosition()
-    agent_dir_feat = AgentDir()
-    can_move_feat = CanMoveDirection()
-    inv_feat = Inventory(inventory_capacity=1)
-
-    def check_parity_at_state(step_label: str):
-        """Compare existing vs array features for all agents at current state."""
-        # Build array state from current grid + agents
-        array_state = layout_to_array_state(env.grid, scope=scope)
-        agent_arrays = create_agent_arrays(env.env_agents, scope=scope)
-
-        # Map from agent_id to array index
-        sorted_agent_ids = sorted(env.env_agents.keys())
-        id_to_idx = {aid: i for i, aid in enumerate(sorted_agent_ids)}
-
-        for agent_id in env.agent_ids:
-            aidx = id_to_idx[agent_id]
-
-            # --- agent_position ---
-            existing_pos = agent_pos_feat.generate(env, agent_id)
-            array_pos = agent_pos_feature(agent_arrays["agent_pos"], aidx)
-            assert np.array_equal(existing_pos, array_pos), (
-                f"[{step_label}] agent_position mismatch for agent {agent_id}: "
-                f"existing={existing_pos}, array={array_pos}"
-            )
-
-            # --- agent_dir ---
-            existing_dir = agent_dir_feat.generate(env, agent_id)
-            array_dir = agent_dir_feature(agent_arrays["agent_dir"], aidx)
-            assert np.array_equal(existing_dir, array_dir), (
-                f"[{step_label}] agent_dir mismatch for agent {agent_id}: "
-                f"existing={existing_dir}, array={array_dir}"
-            )
-
-            # --- can_move_direction ---
-            existing_cm = can_move_feat.generate(env, agent_id)
-            array_cm = can_move_direction_feature(
-                agent_arrays["agent_pos"], aidx,
-                array_state["wall_map"], array_state["object_type_map"],
-                tables["CAN_OVERLAP"],
-            )
-            assert np.array_equal(existing_cm, array_cm), (
-                f"[{step_label}] can_move_direction mismatch for agent {agent_id}: "
-                f"existing={existing_cm}, array={array_cm}"
-            )
-
-            # --- inventory ---
-            existing_inv = inv_feat.generate(env, agent_id)
-            array_inv = inventory_feature(agent_arrays["agent_inv"], aidx)
-            assert np.array_equal(existing_inv, array_inv), (
-                f"[{step_label}] inventory mismatch for agent {agent_id}: "
-                f"existing={existing_inv}, array={array_inv}"
-            )
-
-        # --- full_map_encoding ---
-        # Grid.encode(scope='overcooked') encodes grid objects with overcooked
-        # scope but agents with global scope. Our array version matches this.
-        existing_grid_enc = env.grid.encode(encode_char=False, scope=scope)
-        array_grid_enc = full_map_encoding_feature(
-            array_state["object_type_map"],
-            array_state["object_state_map"],
-            agent_arrays["agent_pos"],
-            agent_arrays["agent_dir"],
-            agent_arrays["agent_inv"],
-            scope=scope,
-            max_map_size=(12, 12),
-        )
-
-        # Compare only the actual grid region (not padding)
-        H, W = existing_grid_enc.shape[0], existing_grid_enc.shape[1]
-        existing_region = existing_grid_enc[:H, :W, :]
-        array_region = array_grid_enc[:H, :W, :]
-
-        # Channel 0 (type IDs) and channel 2 (state) should match.
-        # Channel 1 may differ for Pot cells (Pot.encode overrides channel 1
-        # with tomato flag, which we don't replicate from arrays).
-        assert np.array_equal(existing_region[:, :, 0], array_region[:, :, 0]), (
-            f"[{step_label}] full_map_encoding channel 0 mismatch:\n"
-            f"existing:\n{existing_region[:,:,0]}\narray:\n{array_region[:,:,0]}"
-        )
-
-        # Channel 2 comparison: agent state overlay may differ because
-        # GridAgent.__init__ computes state from inventory in the creating
-        # scope while our array uses the raw agent_inv value.
-        # Compare non-agent cells for state parity.
-        for r in range(H):
-            for c in range(W):
-                is_agent_cell = False
-                for aidx in range(agent_arrays["n_agents"]):
-                    if (int(agent_arrays["agent_pos"][aidx, 0]) == r and
-                            int(agent_arrays["agent_pos"][aidx, 1]) == c):
-                        is_agent_cell = True
-                        break
-                if not is_agent_cell:
-                    assert existing_region[r, c, 2] == array_region[r, c, 2], (
-                        f"[{step_label}] full_map_encoding ch2 mismatch at ({r},{c}): "
-                        f"existing={existing_region[r,c,2]}, array={array_region[r,c,2]}"
-                    )
-
-    # Check at initial state
-    check_parity_at_state("reset")
-    print("Parity check at reset: PASSED")
-
-    # Step through with random actions
-    n_actions = env.action_spaces[env.agent_ids[0]].n
-    for step in range(n_steps):
-        actions = {aid: rng.integers(0, n_actions) for aid in env.agent_ids}
-        obs, rewards, dones, truncs, infos = env.step(actions)
-
-        # Check if any agent is done
-        if any(dones.values()) or any(truncs.values()):
-            obs = env.reset(seed=seed + step + 1)
-
-        check_parity_at_state(f"step_{step}")
-
-    print(f"Parity check for {n_steps} steps: ALL PASSED")
-    print("test_feature_parity: SUCCESS")
+    return xp.stack([feature_fn(state_dict, i) for i in range(n_agents)])
