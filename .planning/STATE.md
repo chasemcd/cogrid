@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 ## Current Position
 
 Phase: 1.1 of 4 (Fix Environment Separation of Concerns)
-Plan: 2 of 3 in current phase (COMPLETE)
-Status: Executing Phase 1.1
-Last activity: 2026-02-11 -- Completed 01.1-02-PLAN.md (Move Overcooked Rewards and Tests)
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase 1.1 COMPLETE
+Last activity: 2026-02-12 -- Completed 01.1-03-PLAN.md (Wire Scope Config, Remove Overcooked from Core)
 
-Progress: [██████----] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 6min
-- Total execution time: 0.95 hours
+- Total execution time: 1.08 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 7 | 51min | 7min |
-| 01.1 | 2 | 6min | 3min |
+| 01.1 | 3 | 14min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 7min, 2min, 6min, 3min, 3min
+- Last 5 plans: 2min, 6min, 3min, 3min, 8min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -71,6 +71,10 @@ Recent decisions affecting current work:
 - [01.1-01]: interaction_handler takes action_type string ('pickup_from' or 'place_on') to dispatch scope-specific sub-cases from generic priority chain
 - [01.1-02]: Backward-compatible re-exports in core/array_rewards.py with TODO marker for removal after Plan 03 wiring
 - [01.1-02]: test_interaction_parity kept as standalone callable (not pytest) to match existing usage pattern
+- [01.1-03]: Handler delegation with fallthrough: interaction_handler returns True/False, False allows generic fallback (e.g. counter place_on)
+- [01.1-03]: tick_objects_array() removed from core entirely -- Overcooked tick handler accessed directly via scope_config["tick_handler"]
+- [01.1-03]: extra_state passed as **kwargs to process_interactions_array for scope-specific arrays (pot_contents, pot_timer, etc.)
+- [01.1-03]: Docstring references to Overcooked kept as informational examples -- only code logic removed from core
 - [Roadmap revision]: Restructured from 8 phases to 4 -- front-loading the vectorization rewrite (movement, interactions, obs, rewards) into Phase 1 alongside backend dispatch, rather than deferring it to phases 3-6
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Completed 01.1-02-PLAN.md (Move Overcooked Rewards and Tests)
+Last session: 2026-02-12
+Stopped at: Completed 01.1-03-PLAN.md (Wire Scope Config, Remove Overcooked from Core) -- Phase 1.1 COMPLETE
 Resume file: None
