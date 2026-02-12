@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Dual Backend & Vectorized Core Rewrite** - Backend dispatch module, array-based state representation, and rewrite of all simulation logic (movement, collision, interactions, observations, rewards) from Python loops to parallel array operations
 - [x] **Phase 1.1: Fix environment separation of concerns** - No environment-specific logic in core methods (INSERTED)
 - [x] **Phase 2: Functional State Model & JIT Compatibility** - Immutable EnvState pytree, PRNG key threading, JAX-specific control flow primitives, JIT-compilability of all sub-functions
-- [ ] **Phase 3: End-to-End Integration & Parity** - Full step() JIT compilation, PettingZoo wrapper, functional API, cross-backend parity verification
+- [x] **Phase 3: End-to-End Integration & Parity** - Full step() JIT compilation, PettingZoo wrapper, functional API, cross-backend parity verification
 - [ ] **Phase 4: vmap Batching & Benchmarks** - Batched parallel rollouts and performance verification
 
 ## Phase Details

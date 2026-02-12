@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 ## Current Position
 
-Phase: 3 of 4 (End-to-End Integration & Parity)
-Plan: 2 of 3 in current phase (COMPLETE)
-Status: Executing Phase 3
-Last activity: 2026-02-11 -- Completed 03-02 (PettingZoo JAX backend integration)
+Phase: 3 of 4 (End-to-End Integration & Parity) -- COMPLETE
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase 3 Complete -- Ready for Phase 4
+Last activity: 2026-02-11 -- Completed 03-03 (Cross-backend parity test suite)
 
-Progress: [███████░░░] 63%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
+- Total plans completed: 16
 - Average duration: 6min
-- Total execution time: 1.39 hours
+- Total execution time: 1.51 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [███████░░░] 63%
 | 01 | 7 | 51min | 7min |
 | 01.1 | 3 | 14min | 5min |
 | 02 | 3 | 9min | 3min |
-| 03 | 2 | 10min | 5min |
+| 03 | 3 | 17min | 6min |
 
 **Recent Trend:**
-- Last 5 plans: 8min, 4min, 5min, 5min, 5min
+- Last 5 plans: 4min, 5min, 5min, 5min, 7min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -104,6 +104,10 @@ Recent decisions affecting current work:
 - [03-02]: JAX feature names hard-coded to [agent_position, agent_dir, full_map_encoding, can_move_direction, inventory] regardless of config feature space name
 - [03-02]: Reward name mapping: strip _reward suffix from config names (delivery_reward -> delivery) to match JAX fn_map
 - [03-02]: Static tables and interaction tables converted from numpy to jnp at __init__ time for JIT compatibility
+- [03-03]: Cross-backend parity verified at array state level (agent_pos, agent_dir, agent_inv, object_type_map, etc.) not observation level -- backends use different feature encodings
+- [03-03]: Initial agent_dir excluded from parity check at step 0 -- numpy PCG64 and JAX ThreeFry produce different random directions; cardinal actions make directions deterministic from step 1
+- [03-03]: _pytree_registered flag must NOT be reset in _reset_backend_for_testing -- JAX pytree registry is process-global and cannot be un-registered
+- [03-03]: OrderedPotFeatures per-pot feature size corrected from 11 to 12 (1+4+2+1+2+2) fixing crashes on 2-pot layouts
 
 ### Pending Todos
 
@@ -121,5 +125,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 03-02-PLAN.md (PettingZoo JAX backend integration)
+Stopped at: Completed 03-03-PLAN.md (Cross-backend parity test suite) -- Phase 3 complete
 Resume file: None
