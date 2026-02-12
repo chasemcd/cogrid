@@ -277,3 +277,11 @@ def get_all_agent_obs(feature_fn, state_dict, n_agents):
         ndarray of shape (n_agents, obs_dim).
     """
     return xp.stack([feature_fn(state_dict, i) for i in range(n_agents)])
+
+
+# ---------------------------------------------------------------------------
+# Backward-compat aliases (callers migrated in later phases)
+# ---------------------------------------------------------------------------
+
+build_feature_fn_jax = build_feature_fn
+get_all_agent_obs_jax = get_all_agent_obs
