@@ -13,7 +13,8 @@ NOTE: These array features do NOT replace the existing Feature classes. They exi
 alongside them. The integration plan (Plan 07) will wire them into the observation
 pipeline. For now, they are standalone functions that can be tested independently.
 
-PHASE2: Per-agent observation generation uses Python loops; convert to jax.vmap.
+Numpy-path per-agent observation generation uses Python loops.
+JAX-path uses jax.vmap via get_all_agent_obs_jax().
 """
 
 from __future__ import annotations
@@ -324,6 +325,284 @@ def get_all_agent_obs(feature_fn, state_dict: dict, n_agents: int):
     """
     # PHASE2: convert to jax.vmap
     return np.stack([feature_fn(state_dict, i) for i in range(n_agents)])
+
+
+# ---------------------------------------------------------------------------
+# JAX-path feature extractors (JIT-compatible, no int() casts)
+# ---------------------------------------------------------------------------
+
+
+def agent_pos_feature_jax(agent_pos, agent_idx):
+    """Extract agent position as (2,) int32 array (JAX path).
+
+    Unlike the numpy path, avoids np.asarray cast -- returns a JAX array slice
+    directly so the result is traceable under jax.jit.
+
+    Args:
+        agent_pos: jnp int32 array of shape (n_agents, 2) with [row, col].
+        agent_idx: Index of the agent (JAX scalar or int).
+
+    Returns:
+        jnp array of shape (2,), dtype int32.
+    """
+    import jax.numpy as jnp
+    return agent_pos[agent_idx].astype(jnp.int32)
+
+
+def agent_dir_feature_jax(agent_dir, agent_idx):
+    """One-hot encoding of agent direction as (4,) int32 array (JAX path).
+
+    Uses comparison broadcast instead of np.zeros + indexing to avoid
+    traced-value indexing issues under jax.jit.
+
+    Args:
+        agent_dir: jnp int32 array of shape (n_agents,) with direction integers.
+        agent_idx: Index of the agent.
+
+    Returns:
+        jnp array of shape (4,), dtype int32 with exactly one 1.
+    """
+    import jax.numpy as jnp
+    return (jnp.arange(4) == agent_dir[agent_idx]).astype(jnp.int32)
+
+
+def full_map_encoding_feature_jax(
+    object_type_map,
+    object_state_map,
+    agent_pos,
+    agent_dir,
+    agent_inv,
+    agent_type_ids,
+    max_map_size=(12, 12),
+):
+    """Full map encoding as (max_H, max_W, 3) int8 array (JAX path).
+
+    Same semantics as full_map_encoding_feature but fully JIT-compatible.
+    Instead of calling object_to_idx at runtime (which uses Python string
+    lookups), takes a pre-computed ``agent_type_ids`` array that maps
+    direction integers to global-scope type IDs.
+
+    Agent overlays are scattered onto the encoding using array ops instead
+    of a Python loop.
+
+    Args:
+        object_type_map: jnp int32 array (H, W) with type IDs.
+        object_state_map: jnp int32 array (H, W) with object state values.
+        agent_pos: jnp int32 array (n_agents, 2) with [row, col].
+        agent_dir: jnp int32 array (n_agents,) with direction integers.
+        agent_inv: jnp int32 array (n_agents, 1) with inventory type IDs (-1 = empty).
+        agent_type_ids: jnp int32 array (4,) where agent_type_ids[dir] gives the
+            global-scope type_id for the agent character facing that direction.
+            Pre-computed at init time from object_to_idx.
+        max_map_size: Maximum map dimensions for padding.
+
+    Returns:
+        jnp array of shape (max_H, max_W, 3), dtype int8.
+    """
+    import jax.numpy as jnp
+
+    max_H, max_W = max_map_size
+    H, W = object_type_map.shape
+
+    encoding = jnp.zeros((max_H, max_W, 3), dtype=jnp.int8)
+
+    # Channel 0: type IDs from object_type_map
+    encoding = encoding.at[:H, :W, 0].set(object_type_map[:H, :W].astype(jnp.int8))
+
+    # Channel 1: always 0 (same as numpy path)
+
+    # Channel 2: state from object_state_map
+    encoding = encoding.at[:H, :W, 2].set(object_state_map[:H, :W].astype(jnp.int8))
+
+    # Overlay agents using vectorized scatter ops (no Python loop)
+    # agent_type = type_id for each agent based on their direction
+    agent_type = agent_type_ids[agent_dir]  # (n_agents,)
+
+    # agent_state = 0 if empty inventory, else inventory type_id
+    agent_state = jnp.where(
+        agent_inv[:, 0] == -1, 0, agent_inv[:, 0]
+    )  # (n_agents,)
+
+    # Scatter agents onto encoding at their positions
+    rows = agent_pos[:, 0]
+    cols = agent_pos[:, 1]
+    encoding = encoding.at[rows, cols, 0].set(agent_type.astype(jnp.int8))
+    encoding = encoding.at[rows, cols, 1].set(jnp.int8(0))
+    encoding = encoding.at[rows, cols, 2].set(agent_state.astype(jnp.int8))
+
+    return encoding
+
+
+def can_move_direction_feature_jax(agent_pos, agent_idx, wall_map, object_type_map, can_overlap_table):
+    """Multi-hot encoding of movability in 4 directions (JAX path).
+
+    Replaces the Python loop over adjacent_positions with direct array computation.
+    Direction order matches adjacent_positions: Right, Left, Down, Up.
+
+    Args:
+        agent_pos: jnp int32 array (n_agents, 2).
+        agent_idx: Index of the agent.
+        wall_map: jnp int32 array (H, W), 1 where wall.
+        object_type_map: jnp int32 array (H, W) with type IDs.
+        can_overlap_table: jnp int32 array (n_types,), 1 if type is overlappable.
+
+    Returns:
+        jnp array of shape (4,), dtype int32.
+    """
+    import jax.numpy as jnp
+
+    H, W = wall_map.shape
+
+    # 4 directions matching adjacent_positions order: Right, Left, Down, Up
+    deltas = jnp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=jnp.int32)
+    pos = agent_pos[agent_idx]  # (2,)
+    neighbors = pos[None, :] + deltas  # (4, 2)
+
+    # Check bounds
+    in_bounds = (
+        (neighbors[:, 0] >= 0)
+        & (neighbors[:, 0] < H)
+        & (neighbors[:, 1] >= 0)
+        & (neighbors[:, 1] < W)
+    )
+
+    # Clip to valid indices for safe array access (out-of-bounds masked by in_bounds)
+    clipped = jnp.clip(neighbors, 0, jnp.array([H - 1, W - 1]))
+    type_ids = object_type_map[clipped[:, 0], clipped[:, 1]]  # (4,)
+    can_overlap = can_overlap_table[type_ids]  # (4,)
+
+    can_move = (in_bounds & (can_overlap == 1)).astype(jnp.int32)
+    return can_move
+
+
+def inventory_feature_jax(agent_inv, agent_idx):
+    """Inventory encoding as (1,) array (JAX path).
+
+    Same semantics as inventory_feature but without int() cast or Python if/else.
+    Uses jnp.where for JIT compatibility.
+
+    Args:
+        agent_inv: jnp int32 array (n_agents, 1) with -1 for empty, type_id for held.
+        agent_idx: Index of the agent.
+
+    Returns:
+        jnp array of shape (1,), dtype int32.
+    """
+    import jax.numpy as jnp
+
+    inv_val = agent_inv[agent_idx, 0]
+    feature_val = jnp.where(inv_val == -1, 0, inv_val + 1)
+    return jnp.array([feature_val], dtype=jnp.int32)
+
+
+# ---------------------------------------------------------------------------
+# JAX-path feature composition
+# ---------------------------------------------------------------------------
+
+
+def build_feature_fn_jax(feature_names, scope="global", **kwargs):
+    """Build a composed JAX-path feature function from feature names.
+
+    Called at init time. Returns a function (state_dict, agent_idx) -> obs_array
+    that is JIT-compatible. All Python-level lookups (object_to_idx, scope config)
+    are resolved once at init and captured in closures.
+
+    Args:
+        feature_names: List of feature name strings to include.
+        scope: Object registry scope.
+        **kwargs: Additional keyword arguments (e.g., max_map_size, can_overlap_table).
+
+    Returns:
+        Callable with signature (state_dict: dict, agent_idx) -> jnp array.
+    """
+    import jax.numpy as jnp
+    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+
+    # Build lookup tables once at init time
+    tables = build_lookup_tables(scope=scope)
+    max_map_size = kwargs.get("max_map_size", (12, 12))
+
+    # Pre-compute agent_type_ids for full_map_encoding_jax
+    # Direction enum: Right=0, Down=1, Left=2, Up=3
+    # Agent characters: ">", "v", "<", "^"
+    dir_to_char = [">", "v", "<", "^"]
+    agent_type_ids_list = [
+        object_to_idx(f"agent_{c}", scope="global") for c in dir_to_char
+    ]
+    agent_type_ids = jnp.array(agent_type_ids_list, dtype=jnp.int32)
+
+    can_overlap_table = jnp.array(tables["CAN_OVERLAP"], dtype=jnp.int32)
+
+    # Build list of JAX-path feature function closures
+    feature_fns = []
+    for name in feature_names:
+        if name == "agent_position":
+            feature_fns.append(
+                lambda sd, ai: agent_pos_feature_jax(sd["agent_pos"], ai)
+            )
+        elif name == "agent_dir":
+            feature_fns.append(
+                lambda sd, ai: agent_dir_feature_jax(sd["agent_dir"], ai)
+            )
+        elif name == "full_map_encoding":
+            _atids = agent_type_ids
+            _mms = max_map_size
+            feature_fns.append(
+                lambda sd, ai, atids=_atids, mms=_mms: full_map_encoding_feature_jax(
+                    sd["object_type_map"],
+                    sd["object_state_map"],
+                    sd["agent_pos"],
+                    sd["agent_dir"],
+                    sd["agent_inv"],
+                    agent_type_ids=atids,
+                    max_map_size=mms,
+                )
+            )
+        elif name == "can_move_direction":
+            _co = can_overlap_table
+            feature_fns.append(
+                lambda sd, ai, co=_co: can_move_direction_feature_jax(
+                    sd["agent_pos"], ai, sd["wall_map"], sd["object_type_map"], co
+                )
+            )
+        elif name == "inventory":
+            feature_fns.append(
+                lambda sd, ai: inventory_feature_jax(sd["agent_inv"], ai)
+            )
+        else:
+            raise ValueError(
+                f"Unknown array feature: '{name}'. Available: "
+                f"agent_position, agent_dir, full_map_encoding, can_move_direction, inventory"
+            )
+
+    def composed_fn(state_dict, agent_idx):
+        features = [fn(state_dict, agent_idx) for fn in feature_fns]
+        return jnp.concatenate([f.ravel() for f in features])
+
+    return composed_fn
+
+
+def get_all_agent_obs_jax(feature_fn, state_dict, n_agents):
+    """Generate observations for all agents using jax.vmap.
+
+    This is the JAX-path equivalent of get_all_agent_obs. Instead of a Python
+    loop over agents, uses jax.vmap to vectorize the feature function across
+    agent indices.
+
+    Args:
+        feature_fn: Callable with signature (state_dict, agent_idx) -> jnp array.
+            Must be JIT-compatible (e.g., built by build_feature_fn_jax).
+        state_dict: Dict of jnp state arrays.
+        n_agents: Number of agents.
+
+    Returns:
+        jnp array of shape (n_agents, obs_dim).
+    """
+    import jax
+    import jax.numpy as jnp
+
+    vmapped = jax.vmap(lambda i: feature_fn(state_dict, i))
+    return vmapped(jnp.arange(n_agents))
 
 
 # ---------------------------------------------------------------------------
