@@ -1,7 +1,7 @@
 """End-to-end JAX step and reset functions for CoGrid environments.
 
 Composes unified sub-functions (move_agents, process_interactions,
-get_all_agent_obs, compute_rewards_jax, overcooked_tick) into pure
+get_all_agent_obs, compute_rewards, overcooked_tick) into pure
 functions that operate on :class:`~cogrid.backend.env_state.EnvState`
 pytrees.
 
@@ -40,7 +40,7 @@ def envstate_to_dict(state) -> dict:
     Creates Python-level aliases for EnvState fields. This is zero-cost
     under JIT -- no array copies occur. The returned dict has the keys
     expected by :func:`get_all_agent_obs` and
-    :func:`compute_rewards_jax`.
+    :func:`compute_rewards`.
 
     Extra_state entries are flattened into the dict with their scope
     prefix stripped (e.g. ``"overcooked.pot_contents"`` becomes
@@ -101,7 +101,7 @@ def jax_step(
     3. Movement (``move_agents``)
     4. Interactions (``process_interactions``)
     5. Observations (``get_all_agent_obs``)
-    6. Rewards (``compute_rewards_jax`` using prev_state)
+    6. Rewards (``compute_rewards`` using prev_state)
     7. Done check (``time >= max_steps``)
     8. ``lax.stop_gradient`` on obs, rewards, done (JaxMARL pattern)
 
@@ -111,7 +111,7 @@ def jax_step(
         scope_config: Scope config dict (static, closed over).
         lookup_tables: Dict of property arrays (static, closed over).
         feature_fn: Composed JAX feature function (static, closed over).
-        reward_config: Reward config dict for ``compute_rewards_jax``
+        reward_config: Reward config dict for ``compute_rewards``
             (static, closed over).
         action_pickup_drop_idx: int, PickupDrop action index.
         action_toggle_idx: int, Toggle action index.
@@ -131,7 +131,7 @@ def jax_step(
     from cogrid.core.movement import move_agents
     from cogrid.core.interactions import process_interactions
     from cogrid.feature_space.array_features import get_all_agent_obs
-    from cogrid.envs.overcooked.array_rewards import compute_rewards_jax
+    from cogrid.envs.overcooked.array_rewards import compute_rewards
 
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
@@ -148,14 +148,10 @@ def jax_step(
             pot_contents, pot_timer
         )
         # Write pot_state into object_state_map at pot positions
+        from cogrid.backend.array_ops import set_at_2d
         osm = state.object_state_map
-
-        def set_pot_state_fn(i, osm):
-            r = pot_positions[i, 0]
-            c = pot_positions[i, 1]
-            return osm.at[r, c].set(pot_state[i])
-
-        osm = lax.fori_loop(0, n_pots, set_pot_state_fn, osm)
+        for p in range(n_pots):
+            osm = set_at_2d(osm, pot_positions[p, 0], pot_positions[p, 1], pot_state[p])
         new_extra = {
             **state.extra_state,
             "overcooked.pot_contents": pot_contents,
@@ -223,7 +219,7 @@ def jax_step(
 
     # f. Rewards
     prev_dict = envstate_to_dict(prev_state)
-    rewards = compute_rewards_jax(prev_dict, state_dict, actions, reward_config)
+    rewards = compute_rewards(prev_dict, state_dict, actions, reward_config)
 
     # g. Dones
     done = state.time >= max_steps
@@ -463,7 +459,7 @@ if __name__ == "__main__":
         lookup_tables[key] = jnp.array(lookup_tables[key], dtype=jnp.int32)
 
     # Convert static_tables in scope_config to JAX arrays
-    # These are used inside lax.fori_loop bodies and must be JAX arrays,
+    # These are used inside JIT-traced function bodies and must be JAX arrays,
     # not numpy arrays, to avoid TracerArrayConversionError.
     if "static_tables" in scope_config:
         import numpy as np
