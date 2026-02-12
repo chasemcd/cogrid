@@ -617,10 +617,10 @@ def test_obs_jax_eager_vs_jit():
 
 
 def test_rewards_jax_eager_vs_jit():
-    """compute_rewards_jax produces identical outputs eagerly and under jax.jit."""
+    """compute_rewards produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    from cogrid.envs.overcooked.array_rewards import compute_rewards_jax
+    from cogrid.envs.overcooked.array_rewards import compute_rewards
     from cogrid.core.jax_step import envstate_to_dict
 
     env = _setup_jax_env()
@@ -636,7 +636,7 @@ def test_rewards_jax_eager_vs_jit():
     reward_config = env._jax_reward_config
 
     # Eager call
-    rew_e = compute_rewards_jax(prev_dict, curr_dict, actions, reward_config)
+    rew_e = compute_rewards(prev_dict, curr_dict, actions, reward_config)
 
     # JIT call -- wrap to make dict structure explicit as args
     @jax.jit
@@ -661,19 +661,19 @@ def test_rewards_jax_eager_vs_jit():
             "pot_contents": curr_pc, "pot_timer": curr_pt,
             "pot_positions": curr_pp,
         }
-        return compute_rewards_jax(prev, curr, actions, reward_config)
+        return compute_rewards(prev, curr, actions, reward_config)
 
     rew_j = jitted_rewards(
-        state.agent_pos, state.agent_dir, state.agent_inv,
-        state.object_type_map, state.object_state_map,
-        state.pot_contents, state.pot_timer, state.pot_positions,
-        new_state.agent_pos, new_state.agent_dir, new_state.agent_inv,
-        new_state.object_type_map, new_state.object_state_map,
-        new_state.pot_contents, new_state.pot_timer, new_state.pot_positions,
+        prev_dict["agent_pos"], prev_dict["agent_dir"], prev_dict["agent_inv"],
+        prev_dict["object_type_map"], prev_dict["object_state_map"],
+        prev_dict["pot_contents"], prev_dict["pot_timer"], prev_dict["pot_positions"],
+        curr_dict["agent_pos"], curr_dict["agent_dir"], curr_dict["agent_inv"],
+        curr_dict["object_type_map"], curr_dict["object_state_map"],
+        curr_dict["pot_contents"], curr_dict["pot_timer"], curr_dict["pot_positions"],
         actions,
     )
 
     np.testing.assert_allclose(
         np.array(rew_e), np.array(rew_j), atol=1e-7,
-        err_msg="compute_rewards_jax: reward mismatch between eager and JIT"
+        err_msg="compute_rewards: reward mismatch between eager and JIT"
     )
