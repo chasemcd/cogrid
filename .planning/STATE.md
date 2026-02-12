@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 5 of 9 (Foundation -- State Model & Backend Helpers)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-12 -- Completed 05-01 (array_ops + EnvState rewrite)
+Last activity: 2026-02-12 -- Completed 05-02 (layout parser + scope config extensions)
 
-Progress: [######################..................] 55% (v1.0 complete, v1.1 phase 5 plan 1/3)
+Progress: [########################................] 60% (v1.0 complete, v1.1 phase 5 plan 2/3)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (18 v1.0 + 1 v1.1)
+- Total plans completed: 20 (18 v1.0 + 2 v1.1)
 - Average duration: --
 - Total execution time: --
 
@@ -32,7 +32,7 @@ Progress: [######################..................] 55% (v1.0 complete, v1.1 ph
 | 2 | 3 | -- | -- |
 | 3 | 3 | -- | -- |
 | 4 | 2 | -- | -- |
-| 5 | 1 | 3min | 3min |
+| 5 | 2 | 6min | 3min |
 
 *Updated after each plan completion*
 
@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - [05-01]: array_ops.set_at uses get_backend() string check (not hasattr) for cleaner dispatch
 - [05-01]: extra_state keys use scope-prefix convention (e.g. "overcooked.pot_timer")
 - [05-01]: Removed n_pots static field from EnvState (pot count encoded in extra_state array shapes)
+- [05-02]: Symbol table in both scope_config and explicit SYMBOL_REGISTRY for dual-access flexibility
+- [05-02]: parse_layout always uses numpy for parsing, converts to JAX arrays at the end
+- [05-02]: Spawn positions ('+' chars) populate agent_pos but NOT object_type_map
 
 ### Pending Todos
 
@@ -64,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 05-01-PLAN.md (array_ops + EnvState rewrite + hasattr cleanup)
+Stopped at: Completed 05-02-PLAN.md (layout parser + Overcooked symbol/extra_state registration)
 Resume file: None
