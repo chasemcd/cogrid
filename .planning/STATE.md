@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Existing trained agents produce identical behavior after upgrade while unlocking 100x+ throughput via JAX JIT and vmap.
-**Current focus:** Phase 2 COMPLETE - Functional State Model & JIT Compatibility
+**Current focus:** Phase 3 - End-to-End Integration & Parity
 
 ## Current Position
 
-Phase: 2 of 4 (Functional State Model & JIT Compatibility)
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase 2 COMPLETE
-Last activity: 2026-02-11 -- Phase 2 verified (7/7 must-haves passed)
+Phase: 3 of 4 (End-to-End Integration & Parity)
+Plan: 1 of 3 in current phase (COMPLETE)
+Status: Executing Phase 3
+Last activity: 2026-02-11 -- Completed 03-01 (end-to-end JAX step/reset)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 56%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 6min
-- Total execution time: 1.23 hours
+- Total execution time: 1.31 hours
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [█████░░░░░] 50%
 | 01 | 7 | 51min | 7min |
 | 01.1 | 3 | 14min | 5min |
 | 02 | 3 | 9min | 3min |
+| 03 | 1 | 5min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 3min, 3min, 8min, 4min, 5min
+- Last 5 plans: 3min, 8min, 4min, 5min, 5min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -95,6 +96,10 @@ Recent decisions affecting current work:
 - [02-03]: compute_rewards_jax uses closure pattern for JIT (reward_config captured, not passed as arg) since dicts with strings not hashable
 - [02-03]: Direction vector table created inline in JAX reward helper as jnp.array (matching 02-01 pattern)
 - [02-03]: Shared _compute_fwd_positions_jax helper extracts forward position computation used by all three JAX reward functions
+- [03-01]: JAX imports at function level in jax_step.py to avoid cogrid/core/typing.py shadowing stdlib typing
+- [03-01]: Smoke test uses numpy env to extract layout then converts to JAX arrays, avoiding backend conflict
+- [03-01]: scope_config static_tables numpy arrays must be explicitly converted to jnp.array before JIT tracing
+- [03-01]: Step ordering verified: prev_state capture -> tick -> move -> interact -> obs -> rewards -> dones
 
 ### Pending Todos
 
@@ -112,5 +117,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Phase 2 COMPLETE -- All 3 plans executed, verified 7/7 must-haves
+Stopped at: Completed 03-01-PLAN.md (end-to-end JAX step/reset)
 Resume file: None
