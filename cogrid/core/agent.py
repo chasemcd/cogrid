@@ -156,16 +156,18 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
         - ``"agent_ids"``: list of AgentID in array index order.
         - ``"n_agents"``: integer agent count.
     """
-    from cogrid.backend import xp
+    import numpy as _np
     from cogrid.core.grid_object import object_to_idx
 
     # Sort by agent_id for deterministic array ordering
     sorted_items = sorted(env_agents.items(), key=lambda x: x[0])
     n_agents = len(sorted_items)
 
-    agent_pos = xp.zeros((n_agents, 2), dtype=xp.int32)
-    agent_dir = xp.zeros((n_agents,), dtype=xp.int32)
-    agent_inv = xp.full((n_agents, 1), -1, dtype=xp.int32)
+    # Always use numpy for mutable agent array construction.
+    # Callers convert to JAX arrays when needed.
+    agent_pos = _np.zeros((n_agents, 2), dtype=_np.int32)
+    agent_dir = _np.zeros((n_agents,), dtype=_np.int32)
+    agent_inv = _np.full((n_agents, 1), -1, dtype=_np.int32)
     agent_ids = []
 
     for i, (a_id, agent) in enumerate(sorted_items):

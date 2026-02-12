@@ -47,14 +47,16 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
         - Plus any scope-specific keys from the state_extractor (e.g.
           ``pot_positions``, ``pot_contents``, ``pot_timer`` for Overcooked).
     """
-    from cogrid.backend import xp
     from cogrid.core.grid_object import object_to_idx, Wall
 
     height, width = grid.height, grid.width
 
-    object_type_map = xp.zeros((height, width), dtype=xp.int32)
-    object_state_map = xp.zeros((height, width), dtype=xp.int32)
-    wall_map = xp.zeros((height, width), dtype=xp.int32)
+    # Always use numpy for layout construction (requires mutable in-place
+    # assignment).  Callers convert to JAX arrays when needed (e.g. in
+    # CoGridEnv.reset() JAX path).
+    object_type_map = np.zeros((height, width), dtype=np.int32)
+    object_state_map = np.zeros((height, width), dtype=np.int32)
+    wall_map = np.zeros((height, width), dtype=np.int32)
 
     for r in range(height):
         for c in range(width):

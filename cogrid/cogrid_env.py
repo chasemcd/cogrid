@@ -92,6 +92,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Backend dispatch: first env sets global backend, subsequent verify match
         set_backend(backend)
+        self._backend = backend
 
         # TODO(chase): Move PyGame/rendering logic outside of this class.
         self.clock = None
@@ -212,6 +213,87 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Enable shadow parity validation (set to False for performance)
         self._validate_array_parity = False
+
+        # -------------------------------------------------------------------
+        # JAX backend infrastructure (Plan 03-02)
+        # -------------------------------------------------------------------
+        if self._backend == 'jax':
+            import jax.numpy as jnp
+            from cogrid.feature_space.array_features import build_feature_fn_jax
+            from cogrid.core.jax_step import make_jitted_step, make_jitted_reset
+            from cogrid.backend.env_state import register_envstate_pytree
+
+            # Register EnvState as JAX pytree (idempotent)
+            register_envstate_pytree()
+
+            # Convert lookup tables to JAX arrays for JIT compatibility
+            for key in self._lookup_tables:
+                self._lookup_tables[key] = jnp.array(
+                    self._lookup_tables[key], dtype=jnp.int32
+                )
+
+            # Convert static_tables in scope_config to JAX arrays
+            if "static_tables" in self._scope_config:
+                import numpy as _np
+                st = self._scope_config["static_tables"]
+                for key in st:
+                    if isinstance(st[key], _np.ndarray):
+                        st[key] = jnp.array(st[key], dtype=jnp.int32)
+
+            # Convert interaction_tables arrays to JAX
+            if self._scope_config.get("interaction_tables") is not None:
+                import numpy as _np
+                it = self._scope_config["interaction_tables"]
+                for key in it:
+                    if isinstance(it[key], _np.ndarray):
+                        it[key] = jnp.array(it[key], dtype=jnp.int32)
+
+            # Build JAX feature function using array-based feature names
+            # The JAX path uses these low-level array features regardless of
+            # what higher-level feature space the config specifies.
+            jax_feature_names = [
+                "agent_position", "agent_dir", "full_map_encoding",
+                "can_move_direction", "inventory",
+            ]
+            self._jax_feature_fn = build_feature_fn_jax(
+                jax_feature_names, scope=self.scope,
+            )
+
+            # Compute action indices for PickupDrop and Toggle
+            self._action_pickup_drop_idx = self.action_set.index(
+                grid_actions.Actions.PickupDrop
+            )
+            self._action_toggle_idx = self.action_set.index(
+                grid_actions.Actions.Toggle
+            )
+
+            # Build reward config for JAX path
+            # Map config reward names (e.g. "delivery_reward") to JAX fn names
+            # (e.g. "delivery") by stripping the "_reward" suffix if present.
+            jax_reward_specs = []
+            for name in self.config.get("rewards", []):
+                fn_name = name.replace("_reward", "") if name.endswith("_reward") else name
+                jax_reward_specs.append({
+                    "fn": fn_name,
+                    "coefficient": 1.0,
+                    "common_reward": True,
+                })
+            self._jax_reward_config = {
+                "type_ids": self._type_ids,
+                "n_agents": self.config["num_agents"],
+                "rewards": jax_reward_specs,
+                "action_pickup_drop_idx": self._action_pickup_drop_idx,
+            }
+
+            # These are populated lazily in reset() once layout arrays are available
+            self._jax_layout_arrays = None
+            self._jax_spawn_positions = None
+            self._env_state = None
+            self._jitted_step = None
+            self._jitted_reset = None
+
+            # Sorted agent ID order for dict<->array conversion
+            self._agent_id_order = sorted(self.possible_agents)
 
     def _gen_grid(self) -> None:
         """Generates the grid for the environment.
@@ -358,6 +440,84 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.cumulative_score = 0
 
+        # -------------------------------------------------------------------
+        # JAX backend: build EnvState from array_state, run JIT-compiled reset
+        # -------------------------------------------------------------------
+        if self._backend == 'jax':
+            import jax
+            import jax.numpy as jnp
+            from cogrid.core.jax_step import make_jitted_step, make_jitted_reset
+
+            # Convert layout arrays to JAX arrays
+            pot_positions = self._array_state.get("pot_positions", [])
+            if isinstance(pot_positions, list):
+                if len(pot_positions) > 0:
+                    pot_positions = jnp.array(pot_positions, dtype=jnp.int32)
+                else:
+                    pot_positions = jnp.zeros((0, 2), dtype=jnp.int32)
+            else:
+                pot_positions = jnp.array(pot_positions, dtype=jnp.int32)
+
+            self._jax_layout_arrays = {
+                "wall_map": jnp.array(self._array_state["wall_map"], dtype=jnp.int32),
+                "object_type_map": jnp.array(self._array_state["object_type_map"], dtype=jnp.int32),
+                "object_state_map": jnp.array(self._array_state["object_state_map"], dtype=jnp.int32),
+                "pot_contents": jnp.array(self._array_state["pot_contents"], dtype=jnp.int32),
+                "pot_timer": jnp.array(self._array_state["pot_timer"], dtype=jnp.int32),
+                "pot_positions": pot_positions,
+            }
+
+            # Convert spawn positions from the parsed layout
+            self._jax_spawn_positions = jnp.array(
+                self._array_state["agent_pos"], dtype=jnp.int32
+            )
+
+            n_agents = self.config["num_agents"]
+
+            # Determine action set name
+            if self.action_set == grid_actions.ActionSets.CardinalActions:
+                action_set_name = "cardinal"
+            else:
+                action_set_name = "rotation"
+
+            # Build JIT-compiled reset and step functions
+            self._jitted_reset = make_jitted_reset(
+                self._jax_layout_arrays,
+                self._jax_spawn_positions,
+                n_agents,
+                self._jax_feature_fn,
+                self._scope_config,
+                action_set_name,
+            )
+
+            self._jitted_step = make_jitted_step(
+                self._scope_config,
+                self._lookup_tables,
+                self._jax_feature_fn,
+                self._jax_reward_config,
+                self._action_pickup_drop_idx,
+                self._action_toggle_idx,
+                self.max_steps,
+            )
+
+            # Create JAX PRNG key and run reset
+            rng_key = jax.random.key(seed if seed is not None else 42)
+            self._env_state, jax_obs = self._jitted_reset(rng_key)
+
+            # Convert JAX obs to PettingZoo dict format
+            obs = {
+                aid: np.array(jax_obs[i])
+                for i, aid in enumerate(self._agent_id_order)
+            }
+
+            self.per_agent_reward = self.get_empty_reward_dict()
+            self.per_component_reward = {}
+
+            return obs, {agent_id: {} for agent_id in self.agent_ids}
+
+        # -------------------------------------------------------------------
+        # Numpy backend: existing path
+        # -------------------------------------------------------------------
         self.render()
 
         obs = self.get_obs()
@@ -403,6 +563,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :return: Tuple of observations, rewards, terminateds, truncateds, and infos.
         :rtype: tuple[ dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, float], dict[typing.AgentID, bool], dict[typing.AgentID, bool], dict[typing.AgentID, dict[typing.Any, typing.Any]], ]
         """
+        # JAX backend: bypass all numpy-path logic, go straight to JIT step
+        if self._backend == 'jax':
+            return self._jax_step_wrapper(actions)
+
         self.t += 1
 
         # Reset the rewards for this step
@@ -544,6 +708,93 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
         self._array_state.update(agent_arrays)
+
+    def _jax_step_wrapper(
+        self, action_dict: dict[typing.AgentID, typing.ActionType]
+    ) -> tuple:
+        """Execute one step using the JIT-compiled JAX step function.
+
+        Converts between PettingZoo dict-based API and array-based JAX core.
+        Bypasses all numpy-path logic (no grid.tick, no interact, no render).
+
+        Args:
+            action_dict: Dictionary mapping agent IDs to integer actions.
+
+        Returns:
+            PettingZoo-format tuple (obs, rewards, terminateds, truncateds, infos).
+        """
+        import jax.numpy as jnp
+
+        # Convert action dict to ordered array
+        actions_arr = jnp.array(
+            [action_dict[aid] for aid in self._agent_id_order],
+            dtype=jnp.int32,
+        )
+
+        # Call JIT-compiled step
+        self._env_state, obs_arr, rewards_arr, done_scalar, infos = (
+            self._jitted_step(self._env_state, actions_arr)
+        )
+
+        # Convert to PettingZoo dict format
+        obs = {
+            aid: np.array(obs_arr[i])
+            for i, aid in enumerate(self._agent_id_order)
+        }
+        rewards = {
+            aid: float(rewards_arr[i])
+            for i, aid in enumerate(self._agent_id_order)
+        }
+
+        truncated = bool(done_scalar)
+        terminateds = {aid: False for aid in self._agent_id_order}
+        truncateds = {aid: truncated for aid in self._agent_id_order}
+
+        if truncated:
+            self.agents = []
+
+        infos = {aid: {} for aid in self._agent_id_order}
+
+        # Increment PettingZoo timestep counter
+        self.t += 1
+
+        return obs, rewards, terminateds, truncateds, infos
+
+    @property
+    def jax_step(self):
+        """Raw JIT-compiled step function for direct JIT/vmap usage.
+
+        Signature: (EnvState, actions) -> (EnvState, obs, rewards, done, infos)
+
+        Returns:
+            The JIT-compiled step function.
+
+        Raises:
+            RuntimeError: If backend is not 'jax' or reset() has not been called.
+        """
+        if self._backend != 'jax':
+            raise RuntimeError("jax_step is only available with backend='jax'")
+        if self._jitted_step is None:
+            raise RuntimeError("Must call reset() before accessing jax_step")
+        return self._jitted_step
+
+    @property
+    def jax_reset(self):
+        """Raw JIT-compiled reset function for direct JIT/vmap usage.
+
+        Signature: (rng_key) -> (EnvState, obs)
+
+        Returns:
+            The JIT-compiled reset function.
+
+        Raises:
+            RuntimeError: If backend is not 'jax' or reset() has not been called.
+        """
+        if self._backend != 'jax':
+            raise RuntimeError("jax_reset is only available with backend='jax'")
+        if self._jitted_reset is None:
+            raise RuntimeError("Must call reset() before accessing jax_reset")
+        return self._jitted_reset
 
     def setup_agents(self):
         self._setup_agents()

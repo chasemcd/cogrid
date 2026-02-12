@@ -68,3 +68,23 @@ def get_backend() -> str:
         str: Either 'numpy' or 'jax'.
     """
     return _backend_name
+
+
+def _reset_backend_for_testing() -> None:
+    """Reset global backend state for test isolation.
+
+    WARNING: This is a private test-only function. Do NOT use in production
+    code. It clears the backend lock so tests can switch between numpy and
+    JAX backends within a single process.
+
+    Also resets the EnvState pytree registration flag since a fresh backend
+    requires fresh registration.
+    """
+    global _backend_name, _backend_set, xp
+    _backend_name = "numpy"
+    _backend_set = False
+    xp = numpy
+
+    # Reset EnvState pytree registration
+    from cogrid.backend import env_state
+    env_state._pytree_registered = False

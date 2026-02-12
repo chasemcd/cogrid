@@ -177,6 +177,9 @@ def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
     Given a Grid object, iterates cells to find pots and extracts their
     positions, contents, and timer values into parallel arrays.
 
+    Always uses numpy for mutable array construction (called during reset's
+    layout parsing phase). Callers convert to JAX arrays when needed.
+
     Args:
         grid: A Grid instance.
         scope: Object registry scope for type ID lookups.
@@ -189,7 +192,7 @@ def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
         - ``"pot_timer"``: int32 array of shape ``(n_pots,)`` with cooking
           timer values.
     """
-    from cogrid.backend import xp
+    import numpy as _np
 
     pot_positions = []
     pots = []
@@ -203,8 +206,8 @@ def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
 
     n_pots = len(pots)
     if n_pots > 0:
-        pot_contents = xp.full((n_pots, 3), -1, dtype=xp.int32)
-        pot_timer = xp.zeros((n_pots,), dtype=xp.int32)
+        pot_contents = _np.full((n_pots, 3), -1, dtype=_np.int32)
+        pot_timer = _np.zeros((n_pots,), dtype=_np.int32)
 
         for i, pot in enumerate(pots):
             pot_timer[i] = int(pot.cooking_timer)
@@ -213,8 +216,8 @@ def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
                     break
                 pot_contents[i, j] = object_to_idx(ingredient, scope=scope)
     else:
-        pot_contents = xp.full((0, 3), -1, dtype=xp.int32)
-        pot_timer = xp.zeros((0,), dtype=xp.int32)
+        pot_contents = _np.full((0, 3), -1, dtype=_np.int32)
+        pot_timer = _np.zeros((0,), dtype=_np.int32)
 
     return {
         "pot_positions": pot_positions,
