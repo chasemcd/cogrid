@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 ## Current Position
 
-Phase: 5 of 9 (Foundation -- State Model & Backend Helpers)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-12 -- Completed 05-02 (layout parser + scope config extensions)
+Phase: 5 of 9 (Foundation -- State Model & Backend Helpers) -- COMPLETE
+Plan: 3 of 3 in current phase (all complete)
+Status: Phase complete
+Last activity: 2026-02-12 -- Completed 05-03 (jax_step integration with extra_state)
 
-Progress: [########################................] 60% (v1.0 complete, v1.1 phase 5 plan 2/3)
+Progress: [############################............] 70% (v1.0 complete, v1.1 phase 5 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20 (18 v1.0 + 2 v1.1)
+- Total plans completed: 21 (18 v1.0 + 3 v1.1)
 - Average duration: --
 - Total execution time: --
 
@@ -32,7 +32,7 @@ Progress: [########################................] 60% (v1.0 complete, v1.1 ph
 | 2 | 3 | -- | -- |
 | 3 | 3 | -- | -- |
 | 4 | 2 | -- | -- |
-| 5 | 2 | 6min | 3min |
+| 5 | 3 | 9min | 3min |
 
 *Updated after each plan completion*
 
@@ -54,6 +54,8 @@ Recent decisions affecting current work:
 - [05-02]: Symbol table in both scope_config and explicit SYMBOL_REGISTRY for dual-access flexibility
 - [05-02]: parse_layout always uses numpy for parsing, converts to JAX arrays at the end
 - [05-02]: Spawn positions ('+' chars) populate agent_pos but NOT object_type_map
+- [05-03]: envstate_to_dict strips scope prefix for backward compat (transitional for Phases 6-7)
+- [05-03]: n_pots derived from extra_state array shape[0] instead of removed static field
 
 ### Pending Todos
 
@@ -67,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 05-02-PLAN.md (layout parser + Overcooked symbol/extra_state registration)
+Stopped at: Completed 05-03-PLAN.md (jax_step integration with extra_state -- Phase 5 complete)
 Resume file: None
