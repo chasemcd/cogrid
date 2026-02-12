@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Existing trained agents produce identical behavior after upgrade while unlocking 100x+ throughput via JAX JIT and vmap.
-**Current focus:** Phase 3 - End-to-End Integration & Parity
+**Current focus:** Phase 4 - vmap Batching & Benchmarks
 
 ## Current Position
 
-Phase: 3 of 4 (End-to-End Integration & Parity) -- COMPLETE
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase 3 Complete -- Ready for Phase 4
-Last activity: 2026-02-11 -- Completed 03-03 (Cross-backend parity test suite)
+Phase: 4 of 4 (vmap Batching & Benchmarks)
+Plan: 1 of 2 in current phase (04-01 COMPLETE)
+Status: Executing Phase 4
+Last activity: 2026-02-12 -- Completed 04-01 (vmap correctness test suite)
 
-Progress: [████████░░] 75%
+Progress: [████████▓░] 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 6min
-- Total execution time: 1.51 hours
+- Total execution time: 1.54 hours
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: [████████░░] 75%
 | 01.1 | 3 | 14min | 5min |
 | 02 | 3 | 9min | 3min |
 | 03 | 3 | 17min | 6min |
+| 04 | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 4min, 5min, 5min, 5min, 7min
+- Last 5 plans: 5min, 5min, 5min, 7min, 2min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -108,6 +109,8 @@ Recent decisions affecting current work:
 - [03-03]: Initial agent_dir excluded from parity check at step 0 -- numpy PCG64 and JAX ThreeFry produce different random directions; cardinal actions make directions deterministic from step 1
 - [03-03]: _pytree_registered flag must NOT be reset in _reset_backend_for_testing -- JAX pytree registry is process-global and cannot be un-registered
 - [03-03]: OrderedPotFeatures per-pot feature size corrected from 11 to 12 (1+4+2+1+2+2) fixing crashes on 2-pot layouts
+- [04-01]: Spot-check 8 sample indices [0,1,2,3,512,1021,1022,1023] for parity instead of all 1024 for test speed
+- [04-01]: rng_key comparison uses jax.random.key_data() to extract underlying integer data from opaque JAX key types
 
 ### Pending Todos
 
@@ -124,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Completed 03-03-PLAN.md (Cross-backend parity test suite) -- Phase 3 complete
+Last session: 2026-02-12
+Stopped at: Completed 04-01-PLAN.md (vmap correctness test suite)
 Resume file: None
