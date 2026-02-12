@@ -540,6 +540,25 @@ if __name__ == "__main__":
     print(f"  state.time: {state.time}")
     print(f"  obs shape: {obs.shape}")
 
+    # Verify extra_state was populated by jax_reset
+    from cogrid.backend.env_state import get_extra
+    pc = get_extra(state, "pot_contents", scope="overcooked")
+    pt = get_extra(state, "pot_timer", scope="overcooked")
+    pp = get_extra(state, "pot_positions", scope="overcooked")
+    print(f"  extra_state pot_contents shape: {pc.shape}")
+    print(f"  extra_state pot_timer shape: {pt.shape}")
+    print(f"  extra_state pot_positions shape: {pp.shape}")
+    assert pc.shape[1] == 3, f"Expected pot_contents cols=3, got {pc.shape[1]}"
+
+    # --- Step 6b: JIT round-trip assertion ---
+    print("Verifying JIT round-trip on reset state...")
+    state_rt = jax.jit(lambda s: s)(state)
+    assert state_rt.agent_pos.shape == state.agent_pos.shape
+    assert state_rt.wall_map.shape == state.wall_map.shape
+    pc_rt = get_extra(state_rt, "pot_contents", scope="overcooked")
+    assert pc_rt.shape == pc.shape, f"pot_contents shape mismatch after JIT: {pc_rt.shape}"
+    print("  JIT round-trip OK")
+
     # --- Step 7: Run one step ---
     print("Running jitted_step (first call, includes JIT compile)...")
     actions = jnp.zeros(n_agents, dtype=jnp.int32)
@@ -549,6 +568,12 @@ if __name__ == "__main__":
     print(f"  rewards: {rewards}")
     print(f"  done: {done}")
     print(f"  state.time: {state.time}")
+
+    # Verify extra_state persists through step
+    pc_step = get_extra(state, "pot_contents", scope="overcooked")
+    pt_step = get_extra(state, "pot_timer", scope="overcooked")
+    print(f"  extra_state pot_contents shape after step: {pc_step.shape}")
+    print(f"  extra_state pot_timer shape after step: {pt_step.shape}")
 
     # --- Step 8: Run 10 steps in sequence ---
     print("Running 10 steps in sequence...")
@@ -564,6 +589,11 @@ if __name__ == "__main__":
     assert rewards.shape == (n_agents,), f"Expected rewards shape ({n_agents},), got {rewards.shape}"
     assert done.shape == (), f"Expected scalar done, got shape {done.shape}"
 
+    # Verify extra_state still intact after 11 steps
+    pc_final = get_extra(state, "pot_contents", scope="overcooked")
+    assert pc_final.shape == pc.shape, f"pot_contents shape drifted: {pc_final.shape}"
+
     print("\nSMOKE TEST PASSED: End-to-end JIT compilation successful.")
     print(f"  Reset + 11 steps completed without ConcretizationTypeError.")
     print(f"  obs: ({obs.shape[0]}, {obs.shape[1]}), rewards: {rewards.shape}, done: scalar bool")
+    print(f"  extra_state survived reset, step, and 10 additional steps.")
