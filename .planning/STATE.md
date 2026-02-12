@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Existing trained agents produce identical behavior after upgrade while unlocking 100x+ throughput via JAX JIT and vmap.
-**Current focus:** Phase 1.1 - Fix Environment Separation of Concerns
+**Current focus:** Phase 2 - Functional State Model & JIT Compatibility
 
 ## Current Position
 
-Phase: 1.1 of 4 (Fix Environment Separation of Concerns)
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase 1.1 COMPLETE
-Last activity: 2026-02-12 -- Completed 01.1-03-PLAN.md (Wire Scope Config, Remove Overcooked from Core)
+Phase: 2 of 4 (Functional State Model & JIT Compatibility)
+Plan: 3 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-12 -- Completed 02-03-PLAN.md (Observations & Rewards JAX Path)
 
-Progress: [██████████] 100%
+Progress: [████░░░░░░] 43% (13/30 estimated plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 13
 - Average duration: 6min
-- Total execution time: 1.08 hours
+- Total execution time: 1.23 hours
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 01 | 7 | 51min | 7min |
 | 01.1 | 3 | 14min | 5min |
+| 02 | 3 | 9min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 2min, 6min, 3min, 3min, 8min
+- Last 5 plans: 3min, 3min, 8min, 4min, 5min
 - Trend: consistent, fast
 
 *Updated after each plan completion*
@@ -79,6 +80,15 @@ Recent decisions affecting current work:
 - [Roadmap revision]: Phase 1 includes 21 requirements covering backend dispatch, array state representation, and all simulation logic vectorization -- this is intentionally the largest phase as it is the core work
 - [Roadmap revision]: Functional state model (EnvState pytree) and JIT compatibility deferred to Phase 2 -- vectorized array ops come first, immutable pytree wrapping comes second
 - [Roadmap]: Integration constraint honored -- all phases refactor existing code, new files limited to backend module and EnvState definition
+- [02-01]: EnvState uses object type hints (not jax.Array) so class definition works without JAX installed
+- [02-01]: register_envstate_pytree() is idempotent and separate from class definition -- called only when backend is jax
+- [02-01]: move_agents_jax() returns (new_pos, new_dir, new_key) -- 3-tuple with consumed PRNG key, unlike numpy path's 2-tuple
+- [02-01]: Direction vector table created inline in JAX path as jnp.array rather than using shared lazy-init global
+- [02-01]: JAX 0.4.38 required for numpy 1.26.4 compatibility (JAX 0.9.0 requires numpy>=2.0)
+- [02-03]: full_map_encoding_feature_jax takes pre-computed agent_type_ids array instead of scope string to avoid string lookup under JIT
+- [02-03]: compute_rewards_jax uses closure pattern for JIT (reward_config captured, not passed as arg) since dicts with strings not hashable
+- [02-03]: Direction vector table created inline in JAX reward helper as jnp.array (matching 02-01 pattern)
+- [02-03]: Shared _compute_fwd_positions_jax helper extracts forward position computation used by all three JAX reward functions
 
 ### Pending Todos
 
@@ -96,5 +106,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 01.1-03-PLAN.md (Wire Scope Config, Remove Overcooked from Core) -- Phase 1.1 COMPLETE
+Stopped at: Completed 02-03-PLAN.md (Observations & Rewards JAX Path)
 Resume file: None
