@@ -33,18 +33,8 @@ from __future__ import annotations
 
 import dataclasses
 
-import jax
-import jax.numpy as jnp
-import jax.lax as lax
 
-from cogrid.backend.env_state import EnvState, create_env_state
-from cogrid.core.movement import move_agents_jax
-from cogrid.core.interactions import process_interactions_jax
-from cogrid.feature_space.array_features import get_all_agent_obs_jax
-from cogrid.envs.overcooked.array_rewards import compute_rewards_jax
-
-
-def envstate_to_dict(state: EnvState) -> dict:
+def envstate_to_dict(state) -> dict:
     """Convert an EnvState to the dict format used by sub-functions.
 
     Creates Python-level aliases for EnvState fields. This is zero-cost
@@ -125,6 +115,13 @@ def jax_step(
         - ``done``: scalar bool.
         - ``infos``: empty dict ``{}``.
     """
+    import jax.numpy as jnp
+    import jax.lax as lax
+    from cogrid.core.movement import move_agents_jax
+    from cogrid.core.interactions import process_interactions_jax
+    from cogrid.feature_space.array_features import get_all_agent_obs_jax
+    from cogrid.envs.overcooked.array_rewards import compute_rewards_jax
+
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
 
@@ -255,6 +252,12 @@ def jax_reset(
         - ``state``: Initial :class:`EnvState`.
         - ``obs``: Initial observations, shape ``(n_agents, obs_dim)``.
     """
+    import jax
+    import jax.numpy as jnp
+    import jax.lax as lax
+    from cogrid.backend.env_state import create_env_state
+    from cogrid.feature_space.array_features import get_all_agent_obs_jax
+
     # Split key for agent directions and future use
     key, subkey = jax.random.split(rng_key)
 
@@ -335,6 +338,7 @@ def make_jitted_step(
     Returns:
         JIT-compiled step function.
     """
+    import jax
 
     def step_fn(state, actions):
         return jax_step(
@@ -378,6 +382,7 @@ def make_jitted_reset(
     Returns:
         JIT-compiled reset function.
     """
+    import jax
 
     def reset_fn(rng_key):
         return jax_reset(
@@ -396,29 +401,54 @@ def make_jitted_reset(
 
 if __name__ == "__main__":
     # Smoke test: end-to-end JIT compilation on Overcooked cramped_room
-    from cogrid.backend import set_backend
-    set_backend("jax")
-
-    from cogrid.feature_space.array_features import build_feature_fn_jax
-    from cogrid.envs.overcooked.array_config import build_overcooked_scope_config
-    from cogrid.core.grid_object import build_lookup_tables
+    #
+    # Strategy: Create the env using numpy backend (default), extract all
+    # needed arrays and configs, then convert to JAX arrays for JIT testing.
+    # The scope config's static tables (numpy arrays) are auto-converted
+    # by JAX during tracing.
     import cogrid.envs  # trigger registration
     from cogrid.envs import registry
+    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.envs.overcooked.array_config import build_overcooked_scope_config
 
-    # Create env using numpy path to get layout arrays
+    # --- Step 1: Create numpy env, extract layout arrays ---
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
-
-    # Extract array state from numpy env
     array_state = env._array_state
 
-    # Build scope config and lookup tables for JAX
+    # Build scope config and lookup tables (uses numpy backend, which is fine)
     scope_config = build_overcooked_scope_config()
     lookup_tables = build_lookup_tables(scope="overcooked")
+
+    # --- Step 2: Convert everything to JAX arrays ---
+    import jax
+    import jax.numpy as jnp
+
+    # Register EnvState as pytree (required for JAX operations)
+    from cogrid.backend.env_state import register_envstate_pytree
+    register_envstate_pytree()
 
     # Convert lookup tables to JAX arrays
     for key in lookup_tables:
         lookup_tables[key] = jnp.array(lookup_tables[key], dtype=jnp.int32)
+
+    # Convert static_tables in scope_config to JAX arrays
+    # These are used inside lax.fori_loop bodies and must be JAX arrays,
+    # not numpy arrays, to avoid TracerArrayConversionError.
+    if "static_tables" in scope_config:
+        import numpy as np
+        st = scope_config["static_tables"]
+        for key in st:
+            if isinstance(st[key], np.ndarray):
+                st[key] = jnp.array(st[key], dtype=jnp.int32)
+
+    # Also convert interaction_tables arrays
+    if "interaction_tables" in scope_config:
+        import numpy as np
+        it = scope_config["interaction_tables"]
+        for key in it:
+            if isinstance(it[key], np.ndarray):
+                it[key] = jnp.array(it[key], dtype=jnp.int32)
 
     # Convert pot_positions from list to array
     pot_positions = array_state.get("pot_positions", [])
@@ -442,15 +472,17 @@ if __name__ == "__main__":
 
     # Extract spawn positions
     spawn_positions = jnp.array(array_state["agent_pos"], dtype=jnp.int32)
-
     n_agents = array_state["n_agents"]
 
-    # Build feature function using simple array features
+    # --- Step 3: Build feature function ---
+    # build_feature_fn_jax imports jax internally, works regardless of backend
+    from cogrid.feature_space.array_features import build_feature_fn_jax
+
     feature_names = ["agent_position", "agent_dir", "full_map_encoding",
                      "can_move_direction", "inventory"]
     feature_fn = build_feature_fn_jax(feature_names, scope="overcooked")
 
-    # Build reward config
+    # --- Step 4: Build reward config ---
     type_ids = scope_config["type_ids"]
     reward_config = {
         "type_ids": type_ids,
@@ -466,7 +498,7 @@ if __name__ == "__main__":
     action_toggle_idx = 5
     max_steps = 1000
 
-    # Create jitted functions
+    # --- Step 5: Create JIT-compiled functions ---
     print("Building JIT-compiled reset...")
     jitted_reset = make_jitted_reset(
         layout_arrays, spawn_positions, n_agents, feature_fn,
@@ -479,7 +511,7 @@ if __name__ == "__main__":
         action_pickup_drop_idx, action_toggle_idx, max_steps,
     )
 
-    # Run reset
+    # --- Step 6: Run reset ---
     print("Running jitted_reset...")
     state, obs = jitted_reset(jax.random.key(42))
     print(f"  state.agent_pos shape: {state.agent_pos.shape}")
@@ -487,7 +519,7 @@ if __name__ == "__main__":
     print(f"  state.time: {state.time}")
     print(f"  obs shape: {obs.shape}")
 
-    # Run one step
+    # --- Step 7: Run one step ---
     print("Running jitted_step (first call, includes JIT compile)...")
     actions = jnp.zeros(n_agents, dtype=jnp.int32)
     state, obs, rewards, done, infos = jitted_step(state, actions)
@@ -497,7 +529,7 @@ if __name__ == "__main__":
     print(f"  done: {done}")
     print(f"  state.time: {state.time}")
 
-    # Run 10 steps in sequence
+    # --- Step 8: Run 10 steps in sequence ---
     print("Running 10 steps in sequence...")
     for i in range(10):
         actions = jnp.zeros(n_agents, dtype=jnp.int32)  # Noop for all
@@ -506,7 +538,7 @@ if __name__ == "__main__":
     print(f"  obs shape: {obs.shape}")
     print(f"  rewards shape: {rewards.shape}")
 
-    # Verify shapes
+    # --- Step 9: Verify shapes ---
     assert obs.shape[0] == n_agents, f"Expected obs[0]={n_agents}, got {obs.shape[0]}"
     assert rewards.shape == (n_agents,), f"Expected rewards shape ({n_agents},), got {rewards.shape}"
     assert done.shape == (), f"Expected scalar done, got shape {done.shape}"
