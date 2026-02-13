@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 ## Current Position
 
-Phase: 8 of 9 (Step Pipeline) -- IN PROGRESS
-Plan: 1 of 2 in current phase (08-01 complete)
-Status: 08-01 complete, ready for 08-02
-Last activity: 2026-02-12 -- Completed 08-01 (unified step_pipeline.py)
+Phase: 8 of 9 (Step Pipeline) -- COMPLETE
+Plan: 2 of 2 in current phase (all complete)
+Status: Phase 8 complete, ready for Phase 9
+Last activity: 2026-02-12 -- Completed 08-02 (build factories, shim, tests)
 
-Progress: [#####################################...] 93% (v1.0 complete, v1.1 phases 5-7 complete, 08-01 done)
+Progress: [######################################..] 96% (v1.0 complete, v1.1 phases 5-8 complete)
 
 ## Performance Metrics
 
@@ -35,7 +35,7 @@ Progress: [#####################################...] 93% (v1.0 complete, v1.1 ph
 | 5 | 3 | 9min | 3min |
 | 6 | 4 | 17min | 4min |
 | 7 | 2/2 | 7min | 3.5min |
-| 8 | 1/2 | 3min | 3min |
+| 8 | 2/2 | 7min | 3.5min |
 
 *Updated after each plan completion*
 
@@ -76,6 +76,9 @@ Recent decisions affecting current work:
 - [08-01]: step() and reset() use inline get_backend() branching for RNG and stop_gradient
 - [08-01]: numpy RNG uses np.random.default_rng() without seed for priority (reproducible seeding deferred to Phase 9)
 - [08-01]: envstate_to_dict copied unchanged from jax_step.py (already backend-agnostic)
+- [08-02]: build_step_fn/build_reset_fn use jit_compile=None defaulting to auto-detect from get_backend()
+- [08-02]: jax_step.py reduced to 7-line backward-compat shim (all implementation in step_pipeline.py)
+- [08-02]: DIR_VEC_TABLE in move_agents() created inline via xp.array() to avoid stale cache under JIT
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 08-01-PLAN.md (unified step_pipeline.py with step/reset/envstate_to_dict)
+Stopped at: Completed 08-02-PLAN.md (build factories, backward-compat shim, end-to-end tests)
 Resume file: None
