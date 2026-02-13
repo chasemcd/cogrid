@@ -40,12 +40,15 @@ N_SCRIPTED_STEPS = 50
 N_RANDOM_STEPS = 100
 
 
-# State fields to compare between backends (all dynamic arrays)
-STATE_FIELDS = [
+# State fields to compare between backends (all dynamic arrays).
+# Core EnvState fields are direct attributes; extra_state fields
+# (pot_contents, pot_timer) are in the extra_state dict with scope prefix.
+CORE_STATE_FIELDS = [
     "agent_pos", "agent_dir", "agent_inv",
     "object_type_map", "object_state_map",
-    "pot_contents", "pot_timer",
 ]
+EXTRA_STATE_FIELDS = ["pot_contents", "pot_timer"]
+STATE_FIELDS = CORE_STATE_FIELDS + EXTRA_STATE_FIELDS
 
 
 def _create_env(registry_id, backend, seed=42, max_steps=200):
@@ -78,11 +81,23 @@ def _create_env(registry_id, backend, seed=42, max_steps=200):
 def _get_numpy_array_state(env):
     """Extract the array state dict from a numpy-backend env.
 
-    Returns a dict with numpy arrays for the STATE_FIELDS keys, plus
-    'wall_map' and 'pot_positions'.
+    Returns a dict with numpy arrays for the STATE_FIELDS keys.
+    Both backends now use EnvState internally.
     """
-    state = env._array_state
-    return {k: np.array(state[k]) for k in STATE_FIELDS}
+    es = env._env_state
+    return {k: np.array(_get_state_field(es, k)) for k in STATE_FIELDS}
+
+
+def _get_state_field(es, field):
+    """Get a state field from EnvState, checking extra_state for scope-prefixed keys."""
+    if hasattr(es, field) and field not in EXTRA_STATE_FIELDS:
+        return getattr(es, field)
+    # Look in extra_state with any scope prefix
+    for key, val in es.extra_state.items():
+        short_key = key.split(".", 1)[-1] if "." in key else key
+        if short_key == field:
+            return val
+    raise AttributeError(f"Field {field} not found in EnvState or extra_state")
 
 
 def _get_jax_env_state_as_numpy(env):
@@ -91,7 +106,7 @@ def _get_jax_env_state_as_numpy(env):
     Returns a dict with numpy arrays for the STATE_FIELDS keys.
     """
     es = env._env_state
-    return {k: np.array(getattr(es, k)) for k in STATE_FIELDS}
+    return {k: np.array(_get_state_field(es, k)) for k in STATE_FIELDS}
 
 
 def _scripted_actions(agent_ids, n_steps):
@@ -298,9 +313,9 @@ def test_random_structural(layout):
 
 def _compare_states(s1, s2, label):
     """Compare two EnvState instances field by field."""
-    for field_name in STATE_FIELDS + ["wall_map", "pot_positions", "time"]:
-        v1 = getattr(s1, field_name)
-        v2 = getattr(s2, field_name)
+    for field_name in STATE_FIELDS + ["wall_map", "time"]:
+        v1 = _get_state_field(s1, field_name)
+        v2 = _get_state_field(s2, field_name)
         np.testing.assert_array_equal(
             np.array(v1), np.array(v2),
             err_msg=f"{label}: state.{field_name} mismatch"
@@ -335,14 +350,23 @@ def test_eager_vs_jit():
     # Extract configs for eager calls
     scope_config = env._scope_config
     lookup_tables = env._lookup_tables
-    feature_fn = env._jax_feature_fn
-    reward_config = env._jax_reward_config
+    feature_fn = env._feature_fn
+    reward_config = env._reward_config
     action_pickup_drop_idx = env._action_pickup_drop_idx
     action_toggle_idx = env._action_toggle_idx
     max_steps = env.max_steps
-    layout_arrays = env._jax_layout_arrays
-    spawn_positions = env._jax_spawn_positions
     n_agents = env.config["num_agents"]
+
+    # Reconstruct layout_arrays and spawn_positions from the env's array state
+    layout_arrays = {
+        "wall_map": jnp.array(env._array_state["wall_map"], dtype=jnp.int32),
+        "object_type_map": jnp.array(env._array_state["object_type_map"], dtype=jnp.int32),
+        "object_state_map": jnp.array(env._array_state["object_state_map"], dtype=jnp.int32),
+        "pot_contents": jnp.array(env._array_state["pot_contents"], dtype=jnp.int32),
+        "pot_timer": jnp.array(env._array_state["pot_timer"], dtype=jnp.int32),
+        "pot_positions": jnp.array(env._array_state.get("pot_positions", np.zeros((0, 2), dtype=np.int32)), dtype=jnp.int32),
+    }
+    spawn_positions = jnp.array(env._array_state["agent_pos"], dtype=jnp.int32)
 
     rng_key = jax.random.key(42)
 
@@ -447,8 +471,8 @@ def test_step_determinism():
 
     for field_name in STATE_FIELDS:
         np.testing.assert_array_equal(
-            np.array(getattr(state1, field_name)),
-            np.array(getattr(state2, field_name)),
+            np.array(_get_state_field(state1, field_name)),
+            np.array(_get_state_field(state2, field_name)),
             err_msg=f"Determinism: state.{field_name} differs"
         )
 
@@ -486,32 +510,21 @@ def test_obs_eager_vs_jit():
     env = _setup_jax_env()
     state = env._env_state
     state_dict = envstate_to_dict(state)
-    feature_fn = env._jax_feature_fn
+    feature_fn = env._feature_fn
     n_agents = env.config["num_agents"]
 
     # Eager call
     obs_e = get_all_agent_obs(feature_fn, state_dict, n_agents)
 
-    # JIT call -- need to wrap in a function since state_dict is a dict of arrays
+    # JIT call -- pass state_dict values as explicit args for tracing
+    sd_keys = sorted(state_dict.keys())
+
     @jax.jit
-    def jitted_obs(agent_pos, agent_dir, agent_inv, wall_map,
-                   object_type_map, object_state_map,
-                   pot_contents, pot_timer, pot_positions):
-        sd = {
-            "agent_pos": agent_pos, "agent_dir": agent_dir,
-            "agent_inv": agent_inv, "wall_map": wall_map,
-            "object_type_map": object_type_map,
-            "object_state_map": object_state_map,
-            "pot_contents": pot_contents, "pot_timer": pot_timer,
-            "pot_positions": pot_positions,
-        }
+    def jitted_obs(*values):
+        sd = dict(zip(sd_keys, values))
         return get_all_agent_obs(feature_fn, sd, n_agents)
 
-    obs_j = jitted_obs(
-        state.agent_pos, state.agent_dir, state.agent_inv,
-        state.wall_map, state.object_type_map, state.object_state_map,
-        state.pot_contents, state.pot_timer, state.pot_positions,
-    )
+    obs_j = jitted_obs(*[state_dict[k] for k in sd_keys])
 
     np.testing.assert_array_equal(
         np.array(obs_e), np.array(obs_j),
@@ -536,7 +549,7 @@ def test_rewards_eager_vs_jit():
 
     prev_dict = envstate_to_dict(state)
     curr_dict = envstate_to_dict(new_state)
-    reward_config = env._jax_reward_config
+    reward_config = env._reward_config
 
     # Eager call
     rew_e = compute_rewards(prev_dict, curr_dict, actions, reward_config)

@@ -36,13 +36,27 @@ N_PARITY_STEPS = 5
 # Number of sample indices to spot-check for parity
 N_SAMPLE_INDICES = 8
 
-# Dynamic state fields to compare between single-env and batched
-DYNAMIC_STATE_FIELDS = [
+# Dynamic state fields to compare between single-env and batched.
+# Core fields are direct EnvState attributes; extra fields live in extra_state
+# dict with scope prefix (e.g. "overcooked.pot_contents").
+CORE_STATE_FIELDS = [
     "agent_pos", "agent_dir", "agent_inv",
     "wall_map", "object_type_map", "object_state_map",
-    "pot_contents", "pot_timer", "pot_positions",
     "rng_key", "time",
 ]
+EXTRA_STATE_FIELDS = ["pot_contents", "pot_timer", "pot_positions"]
+DYNAMIC_STATE_FIELDS = CORE_STATE_FIELDS + EXTRA_STATE_FIELDS
+
+
+def _get_state_field(es, field):
+    """Get a state field from EnvState, checking extra_state for scope-prefixed keys."""
+    if field not in EXTRA_STATE_FIELDS:
+        return getattr(es, field)
+    for key, val in es.extra_state.items():
+        short_key = key.split(".", 1)[-1] if "." in key else key
+        if short_key == field:
+            return val
+    raise AttributeError(f"Field {field} not found in EnvState or extra_state")
 
 
 def _create_jax_env(registry_id, seed=42):
@@ -81,8 +95,8 @@ def _compare_state_fields(single_state, batched_state, idx, label):
     jax = pytest.importorskip("jax")
 
     for field_name in DYNAMIC_STATE_FIELDS:
-        single_val = getattr(single_state, field_name)
-        batched_val = getattr(batched_state, field_name)
+        single_val = _get_state_field(single_state, field_name)
+        batched_val = _get_state_field(batched_state, field_name)
 
         if field_name == "rng_key":
             # JAX key types are opaque; extract underlying integer data
