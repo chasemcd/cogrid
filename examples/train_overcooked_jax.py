@@ -7,6 +7,11 @@ Demonstrates CoGrid's JAX-native step/reset pipeline with:
 
 Usage:
     python examples/train_overcooked_jax.py
+
+
+
+IMPORTANT! All credit for this script goes to JAXMarl. We've simply copied their implementation and dropped in
+the CoGrid Overcooked environment.
 """
 
 import jax
@@ -51,17 +56,31 @@ class ActorCritic(nn.Module):
     @nn.compact
     def __call__(self, x):
         activation = nn.relu if self.activation == "relu" else nn.tanh
-        actor = nn.Dense(64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0))(x)
+        actor = nn.Dense(
+            64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(x)
         actor = activation(actor)
-        actor = nn.Dense(64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0))(actor)
+        actor = nn.Dense(
+            64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(actor)
         actor = activation(actor)
-        logits = nn.Dense(self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0))(actor)
+        logits = nn.Dense(
+            self.action_dim,
+            kernel_init=orthogonal(0.01),
+            bias_init=constant(0.0),
+        )(actor)
 
-        critic = nn.Dense(64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0))(x)
+        critic = nn.Dense(
+            64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(x)
         critic = activation(critic)
-        critic = nn.Dense(64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0))(critic)
+        critic = nn.Dense(
+            64, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(critic)
         critic = activation(critic)
-        critic = nn.Dense(1, kernel_init=orthogonal(1.0), bias_init=constant(0.0))(critic)
+        critic = nn.Dense(
+            1, kernel_init=orthogonal(1.0), bias_init=constant(0.0)
+        )(critic)
 
         return logits, jnp.squeeze(critic, axis=-1)
 
@@ -103,7 +122,8 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
     def linear_schedule(count):
         frac = (
             1.0
-            - (count // (num_minibatches * config["UPDATE_EPOCHS"])) / num_updates
+            - (count // (num_minibatches * config["UPDATE_EPOCHS"]))
+            / num_updates
         )
         return config["LR"] * frac
 
@@ -157,6 +177,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
                 new_state, new_obs, rewards, terms, truncs, _ = jax.vmap(
                     step_fn
                 )(env_state, env_actions)
+
                 done = terms | truncs  # (NUM_ENVS, n_agents)
                 any_done = jnp.any(done, axis=-1)  # (NUM_ENVS,)
 
@@ -174,7 +195,9 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                 def _select(reset_val, step_val):
                     shape = (num_envs,) + (1,) * (reset_val.ndim - 1)
-                    return jnp.where(any_done.reshape(shape), reset_val, step_val)
+                    return jnp.where(
+                        any_done.reshape(shape), reset_val, step_val
+                    )
 
                 final_state = jax.tree.map(_select, reset_state, new_state)
                 final_obs = _select(reset_obs, new_obs)
@@ -203,7 +226,9 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
             train_state, env_state, last_obs, ep_return, rng = carry
 
             # ---- GAE ----
-            last_obs_batch = last_obs.reshape(num_actors, -1).astype(jnp.float32)
+            last_obs_batch = last_obs.reshape(num_actors, -1).astype(
+                jnp.float32
+            )
             _, last_val = network.apply(train_state.params, last_obs_batch)
 
             def _calculate_gae(traj_batch, last_val):
@@ -246,7 +271,9 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                     def _loss_fn(params, traj_batch, gae, targets):
                         logits, value = network.apply(params, traj_batch.obs)
-                        log_prob = categorical_log_prob(logits, traj_batch.action)
+                        log_prob = categorical_log_prob(
+                            logits, traj_batch.action
+                        )
                         entropy = categorical_entropy(logits)
 
                         # Value loss (clipped)
@@ -279,7 +306,11 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
                             + config["VF_COEF"] * value_loss
                             - config["ENT_COEF"] * entropy.mean()
                         )
-                        return total_loss, (value_loss, loss_actor, entropy.mean())
+                        return total_loss, (
+                            value_loss,
+                            loss_actor,
+                            entropy.mean(),
+                        )
 
                     grad_fn = jax.value_and_grad(_loss_fn, has_aux=True)
                     total_loss, grads = grad_fn(
@@ -343,7 +374,7 @@ if __name__ == "__main__":
         "LR": 2.5e-4,
         "NUM_ENVS": 32,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 50_000_000,
+        "TOTAL_TIMESTEPS": 5_000_000,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 4,
         "GAMMA": 0.99,
@@ -365,7 +396,6 @@ if __name__ == "__main__":
             "num_agents": 2,
             "max_steps": 400,
             "action_set": "cardinal_actions",
-            "features": ["agent_position"],
             "grid": {"layout": "overcooked_cramped_room_v0"},
         },
         backend="jax",
@@ -378,11 +408,18 @@ if __name__ == "__main__":
     n_agents = 2
     n_actions = len(env.action_set)
 
-    # Infer obs dim
+    # Infer obs dim from a sample observation.
+    # The JAX backend always uses all 5 array features (agent_position,
+    # agent_dir, full_map_encoding, can_move_direction, inventory) regardless
+    # of the "features" config key.
     _, test_obs = reset_fn(jax.random.key(0))
     obs_dim = test_obs.shape[-1]
-    print(f"Training IPPO: {n_agents} agents, {n_actions} actions, obs_dim={obs_dim}")
-    print(f"  {config['NUM_ENVS']} parallel envs, {config['TOTAL_TIMESTEPS']:.0f} total timesteps")
+    print(
+        f"Training IPPO: {n_agents} agents, {n_actions} actions, obs_dim={obs_dim}"
+    )
+    print(
+        f"  {config['NUM_ENVS']} parallel envs, {config['TOTAL_TIMESTEPS']:.0f} total timesteps"
+    )
 
     train_fn = jax.jit(
         make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim)
@@ -392,20 +429,26 @@ if __name__ == "__main__":
     out = train_fn(jax.random.key(config["SEED"]))
 
     # Summarize results
-    ep_returns = out["metrics"]["returned_episode_returns"]
-    ep_dones = out["metrics"]["returned_episode"]
+    ep_returns = np.array(out["metrics"]["returned_episode_returns"])
+    ep_dones = np.array(out["metrics"]["returned_episode"])
 
-    total_returns = (ep_returns * ep_dones).sum(axis=(1, 2))
-    total_episodes = ep_dones.sum(axis=(1, 2))
-    mean_return = jnp.where(total_episodes > 0, total_returns / total_episodes, 0.0)
+    completed_returns = ep_returns[ep_dones > 0]
+    total_episodes = len(completed_returns)
 
-    print(f"\nDone! {int(total_episodes.sum())} episodes completed")
-    print(f"Mean return (last 10 updates): {float(mean_return[-10:].mean()):.2f}")
+    print(f"\nDone! {total_episodes} episodes completed")
+    tail = max(1, total_episodes // 10)
+    print(
+        f"Mean return (last {tail} episodes): {completed_returns[-tail:].mean():.2f}"
+    )
 
     try:
         import matplotlib.pyplot as plt
 
-        num_updates = int(config["TOTAL_TIMESTEPS"] // config["NUM_STEPS"] // config["NUM_ENVS"])
+        num_updates = int(
+            config["TOTAL_TIMESTEPS"]
+            // config["NUM_STEPS"]
+            // config["NUM_ENVS"]
+        )
         num_steps = config["NUM_STEPS"]
         num_envs = config["NUM_ENVS"]
 
@@ -431,8 +474,10 @@ if __name__ == "__main__":
 
         # Rolling mean over completed episodes
         window = max(1, len(all_returns) // 50)
-        smoothed = np.convolve(all_returns, np.ones(window) / window, mode="valid")
-        smoothed_steps = all_steps[window - 1:]
+        smoothed = np.convolve(
+            all_returns, np.ones(window) / window, mode="valid"
+        )
+        smoothed_steps = all_steps[window - 1 :]
 
         plt.figure(figsize=(8, 5))
         plt.plot(smoothed_steps, smoothed, linewidth=1.5)

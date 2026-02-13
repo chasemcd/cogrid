@@ -277,6 +277,11 @@ class Pot(grid_object.GridObj):
         return _build_static_tables(scope, itables, type_ids)
 
     @classmethod
+    def build_feature_fn(cls):
+        from cogrid.envs.overcooked.overcooked_array_features import build_overcooked_feature_fn
+        return build_overcooked_feature_fn
+
+    @classmethod
     def build_render_sync_fn(cls):
         def pot_render_sync(grid, env_state, scope):
             """Sync pot contents and cooking timer from extra_state."""

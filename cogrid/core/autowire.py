@@ -143,6 +143,18 @@ def build_scope_config_from_components(
                     fn(grid, env_state, scope)
             render_sync = _composed_render_sync
 
+    # -- Compose feature_fn_builder from components --
+    feature_fn_builder = None
+    feat_builders = [m for m in all_components if m.has_feature_fn]
+    if len(feat_builders) == 1:
+        feature_fn_builder = feat_builders[0].methods["build_feature_fn"]()
+    elif len(feat_builders) > 1:
+        raise ValueError(
+            f"Multiple components in scope '{scope}' define build_feature_fn. "
+            f"Only one feature_fn_builder per scope is supported. "
+            f"Components: {[m.object_id for m in feat_builders]}"
+        )
+
     return {
         "scope": scope,
         "interaction_tables": interaction_tables,
@@ -155,6 +167,7 @@ def build_scope_config_from_components(
         "extra_state_schema": extra_state_schema,
         "extra_state_builder": extra_state_builder,
         "render_sync": render_sync,
+        "feature_fn_builder": feature_fn_builder,
     }
 
 
