@@ -43,6 +43,8 @@ def _setup_overcooked_config():
     type_ids = scope_config["type_ids"]
     n_agents = array_state["n_agents"]
 
+    from cogrid.envs.overcooked.array_rewards import compute_rewards
+
     reward_config = {
         "type_ids": type_ids,
         "n_agents": n_agents,
@@ -50,6 +52,7 @@ def _setup_overcooked_config():
             {"fn": "delivery", "coefficient": 1.0, "common_reward": True},
         ],
         "action_pickup_drop_idx": 4,
+        "compute_fn": compute_rewards,
     }
 
     action_pickup_drop_idx = 4

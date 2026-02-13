@@ -278,11 +278,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     "coefficient": 1.0,
                     "common_reward": True,
                 })
+            from cogrid.envs.overcooked.array_rewards import compute_rewards
+
             self._jax_reward_config = {
                 "type_ids": self._type_ids,
                 "n_agents": self.config["num_agents"],
                 "rewards": jax_reward_specs,
                 "action_pickup_drop_idx": self._action_pickup_drop_idx,
+                "compute_fn": compute_rewards,
             }
 
             # These are populated lazily in reset() once layout arrays are available

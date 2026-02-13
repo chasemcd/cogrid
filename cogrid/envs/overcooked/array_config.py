@@ -82,10 +82,11 @@ def build_overcooked_scope_config() -> dict:
     static_tables = _build_static_tables(scope, itables, type_ids)
 
     return {
+        "scope": scope,
         "interaction_tables": itables,
         "type_ids": type_ids,
         "state_extractor": _extract_overcooked_state,
-        "tick_handler": overcooked_tick,
+        "tick_handler": overcooked_tick_state,
         "interaction_body": overcooked_interaction_body,
         "static_tables": static_tables,
         # v1.1: layout parser support
@@ -290,6 +291,49 @@ def overcooked_tick(pot_contents, pot_timer, capacity=3, cooking_time=30):
     new_timer = xp.where(is_cooking, pot_timer - 1, pot_timer)
     pot_state = (n_items + n_items * new_timer).astype(xp.int32)
     return pot_contents, new_timer, pot_state
+
+
+def overcooked_tick_state(state, scope_config):
+    """Tick handler with the generic (state, scope_config) signature.
+
+    Wraps :func:`overcooked_tick` to conform to the scope-generic
+    tick handler interface expected by ``step_pipeline.step()``.
+    Extracts pot arrays from ``state.extra_state``, calls
+    ``overcooked_tick()``, writes ``pot_state`` into
+    ``object_state_map``, and returns the updated ``EnvState``.
+
+    Args:
+        state: Current :class:`EnvState`.
+        scope_config: Scope config dict (unused beyond convention).
+
+    Returns:
+        Updated :class:`EnvState` with ticked pot timers and
+        updated object_state_map.
+    """
+    import dataclasses
+
+    pot_contents = state.extra_state["overcooked.pot_contents"]
+    pot_timer = state.extra_state["overcooked.pot_timer"]
+    pot_positions = state.extra_state["overcooked.pot_positions"]
+    n_pots = pot_positions.shape[0]
+
+    pot_contents, pot_timer, pot_state = overcooked_tick(
+        pot_contents, pot_timer
+    )
+
+    # Write pot_state into object_state_map at pot positions
+    osm = state.object_state_map
+    for p in range(n_pots):
+        osm = set_at_2d(osm, pot_positions[p, 0], pot_positions[p, 1], pot_state[p])
+
+    new_extra = {
+        **state.extra_state,
+        "overcooked.pot_contents": pot_contents,
+        "overcooked.pot_timer": pot_timer,
+    }
+    return dataclasses.replace(
+        state, object_state_map=osm, extra_state=new_extra
+    )
 
 
 def overcooked_interaction_body(

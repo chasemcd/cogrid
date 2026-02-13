@@ -42,9 +42,9 @@ def envstate_to_dict(state) -> dict:
     :func:`compute_rewards`.
 
     Extra_state entries are flattened into the dict with their scope
-    prefix stripped (e.g. ``"overcooked.pot_contents"`` becomes
-    ``"pot_contents"``). This maintains backward compatibility with
-    sub-functions that expect pot arrays as top-level keys.
+    prefix stripped (e.g. ``"scope.key"`` becomes ``"key"``).
+    This maintains backward compatibility with sub-functions that
+    expect scope-specific arrays as top-level keys.
 
     Args:
         state: An :class:`EnvState` instance.
@@ -63,10 +63,9 @@ def envstate_to_dict(state) -> dict:
         "object_state_map": state.object_state_map,
     }
     # Merge extra_state into the dict for backward compatibility
-    # with sub-functions that expect pot_contents, pot_timer, pot_positions
-    # as top-level keys. Strip the scope prefix for now.
+    # with sub-functions that expect scope-specific arrays as top-level
+    # keys. Strip the scope prefix ("scope.key" -> "key").
     for key, val in state.extra_state.items():
-        # "overcooked.pot_contents" -> "pot_contents"
         short_key = key.split(".", 1)[-1] if "." in key else key
         result[short_key] = val
     return result
@@ -112,7 +111,8 @@ def step(
         scope_config: Scope config dict (static, closed over).
         lookup_tables: Dict of property arrays (static, closed over).
         feature_fn: Composed feature function (static, closed over).
-        reward_config: Reward config dict (static, closed over).
+        reward_config: Reward config dict (static, closed over). Must
+            contain a ``"compute_fn"`` key pointing to the reward function.
         action_pickup_drop_idx: int, PickupDrop action index.
         action_toggle_idx: int, Toggle action index.
         max_steps: int, maximum timesteps per episode.
@@ -130,36 +130,14 @@ def step(
     from cogrid.core.movement import move_agents
     from cogrid.core.interactions import process_interactions
     from cogrid.feature_space.array_features import get_all_agent_obs
-    from cogrid.envs.overcooked.array_rewards import compute_rewards
 
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
 
-    # b. Tick: update pot cooking timers
+    # b. Tick: delegate to scope config handler (if any)
     tick_handler = scope_config.get("tick_handler") if scope_config else None
     if tick_handler is not None:
-        pot_contents = state.extra_state["overcooked.pot_contents"]
-        pot_timer = state.extra_state["overcooked.pot_timer"]
-        pot_positions = state.extra_state["overcooked.pot_positions"]
-        n_pots = pot_positions.shape[0]
-
-        pot_contents, pot_timer, pot_state = tick_handler(
-            pot_contents, pot_timer
-        )
-        # Write pot_state into object_state_map at pot positions
-        from cogrid.backend.array_ops import set_at_2d
-
-        osm = state.object_state_map
-        for p in range(n_pots):
-            osm = set_at_2d(osm, pot_positions[p, 0], pot_positions[p, 1], pot_state[p])
-        new_extra = {
-            **state.extra_state,
-            "overcooked.pot_contents": pot_contents,
-            "overcooked.pot_timer": pot_timer,
-        }
-        state = dataclasses.replace(
-            state, object_state_map=osm, extra_state=new_extra
-        )
+        state = tick_handler(state, scope_config)
 
     # c. Movement -- backend-specific RNG for priority
     if get_backend() == "jax":
@@ -187,10 +165,15 @@ def step(
         state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key
     )
 
-    # d. Interactions
+    # d. Interactions -- pass extra_state generically (strip scope prefix)
     dir_vec_table = xp.array(
         [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
     )
+    extra_kwargs = {}
+    for es_key, val in state.extra_state.items():
+        short_key = es_key.split(".", 1)[-1] if "." in es_key else es_key
+        extra_kwargs[short_key] = val
+
     agent_inv, otm, osm, extra_out = process_interactions(
         state.agent_pos,
         state.agent_dir,
@@ -203,15 +186,18 @@ def step(
         dir_vec_table,
         action_pickup_drop_idx,
         action_toggle_idx,
-        pot_contents=state.extra_state["overcooked.pot_contents"],
-        pot_timer=state.extra_state["overcooked.pot_timer"],
-        pot_positions=state.extra_state["overcooked.pot_positions"],
+        **extra_kwargs,
     )
-    new_extra = {
-        **state.extra_state,
-        "overcooked.pot_contents": extra_out["pot_contents"],
-        "overcooked.pot_timer": extra_out["pot_timer"],
-    }
+    # Re-prefix returned extra_out keys back into extra_state
+    scope_prefix = next(
+        (k.split(".")[0] for k in state.extra_state if "." in k), None
+    )
+    new_extra = dict(state.extra_state)
+    for k, v in extra_out.items():
+        prefixed = f"{scope_prefix}.{k}" if scope_prefix else k
+        if prefixed in new_extra:
+            new_extra[prefixed] = v
+
     state = dataclasses.replace(
         state,
         agent_inv=agent_inv,
@@ -225,9 +211,10 @@ def step(
     state_dict = envstate_to_dict(state)
     obs = get_all_agent_obs(feature_fn, state_dict, state.n_agents)
 
-    # f. Rewards
+    # f. Rewards -- compute_fn comes from reward_config (no env-specific import)
     prev_dict = envstate_to_dict(prev_state)
-    rewards = compute_rewards(prev_dict, state_dict, actions, reward_config)
+    compute_fn = reward_config["compute_fn"]
+    rewards = compute_fn(prev_dict, state_dict, actions, reward_config)
 
     # g. Dones
     done = state.time >= max_steps
@@ -254,8 +241,6 @@ def reset(
     scope_config,
     action_set,
     max_inv_size=1,
-    pot_capacity=3,
-    cooking_time=30,
 ):
     """Build initial EnvState from pre-computed layout arrays.
 
@@ -269,17 +254,15 @@ def reset(
     Args:
         rng: JAX PRNG key, integer seed, or None.
         layout_arrays: Dict with keys ``wall_map``, ``object_type_map``,
-            ``object_state_map``, ``pot_contents``, ``pot_timer``,
-            ``pot_positions`` -- all pre-computed arrays.
+            ``object_state_map``, plus any scope-specific arrays
+            (e.g. ``pot_contents``, ``pot_timer``, ``pot_positions``).
         spawn_positions: int32 array of shape ``(n_agents, 2)`` with
             fixed spawn points ``[row, col]``.
         n_agents: Number of agents.
         feature_fn: Composed feature function for initial obs.
-        scope_config: Scope config dict.
+        scope_config: Scope config dict with ``"scope"`` key for prefix.
         action_set: ``"cardinal"`` or ``"rotation"``.
         max_inv_size: Maximum inventory slots per agent (default 1).
-        pot_capacity: Maximum items per pot (default 3).
-        cooking_time: Initial pot cooking timer (default 30).
 
     Returns:
         Tuple ``(state, obs)`` where:
@@ -321,12 +304,14 @@ def reset(
 
     H, W = wall_map.shape
 
-    # Build extra_state from pot arrays in layout_arrays
-    extra_state = {
-        "overcooked.pot_contents": layout_arrays["pot_contents"],
-        "overcooked.pot_timer": layout_arrays["pot_timer"],
-        "overcooked.pot_positions": layout_arrays["pot_positions"],
-    }
+    # Build extra_state generically: any layout_arrays key not in
+    # the base set is a scope-specific extra, prefixed with {scope}.
+    base_keys = {"wall_map", "object_type_map", "object_state_map"}
+    scope = scope_config.get("scope", "global") if scope_config else "global"
+    extra_state = {}
+    for la_key, val in layout_arrays.items():
+        if la_key not in base_keys:
+            extra_state[f"{scope}.{la_key}"] = val
 
     # Build EnvState
     state = create_env_state(
@@ -432,7 +417,7 @@ def build_reset_fn(
         action_set: "cardinal" or "rotation".
         jit_compile: If None, auto-detect from backend. If True/False, force.
         **kwargs: Additional keyword args forwarded to reset()
-            (e.g., max_inv_size, pot_capacity, cooking_time).
+            (e.g., max_inv_size).
 
     Returns:
         Reset function (optionally JIT-compiled on JAX backend).
