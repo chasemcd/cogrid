@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 8 -- Step Pipeline
+**Current focus:** Phase 9 -- Integration & Cleanup
 
 ## Current Position
 
-Phase: 8 of 9 (Step Pipeline) -- COMPLETE
-Plan: 2 of 2 in current phase (all complete)
-Status: Phase 8 complete, ready for Phase 9
-Last activity: 2026-02-12 -- Completed 08-02 (build factories, shim, tests)
+Phase: 9 of 9 (Integration & Cleanup)
+Plan: 1 of 3 in current phase (09-01 complete)
+Status: Executing Phase 9
+Last activity: 2026-02-12 -- Completed 09-01 (scope-generic step pipeline)
 
-Progress: [######################################..] 96% (v1.0 complete, v1.1 phases 5-8 complete)
+Progress: [######################################..] 97% (v1.0 complete, v1.1 phases 5-8 complete, 09-01 done)
 
 ## Performance Metrics
 
@@ -36,6 +36,7 @@ Progress: [######################################..] 96% (v1.0 complete, v1.1 ph
 | 6 | 4 | 17min | 4min |
 | 7 | 2/2 | 7min | 3.5min |
 | 8 | 2/2 | 7min | 3.5min |
+| 9 | 1/3 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -79,6 +80,10 @@ Recent decisions affecting current work:
 - [08-02]: build_step_fn/build_reset_fn use jit_compile=None defaulting to auto-detect from get_backend()
 - [08-02]: jax_step.py reduced to 7-line backward-compat shim (all implementation in step_pipeline.py)
 - [08-02]: DIR_VEC_TABLE in move_agents() created inline via xp.array() to avoid stale cache under JIT
+- [09-01]: tick_handler signature changed to (state, scope_config) -> state for full scope generality
+- [09-01]: reward compute_fn provided via reward_config["compute_fn"] instead of hardcoded import
+- [09-01]: extra_state keys use generic scope.key prefix convention (auto-strip/re-prefix in step/reset)
+- [09-01]: pot_capacity and cooking_time removed from reset() (scope-specific, handled in tick handler closure)
 
 ### Pending Todos
 
@@ -93,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 08-02-PLAN.md (build factories, backward-compat shim, end-to-end tests)
+Stopped at: Completed 09-01-PLAN.md (scope-generic step pipeline)
 Resume file: None
