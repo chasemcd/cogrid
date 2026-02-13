@@ -40,6 +40,7 @@ _COMPONENT_METHODS = frozenset({
     "build_interaction_fn",
     "extra_state_schema",
     "extra_state_builder",
+    "build_static_tables",
 })
 
 

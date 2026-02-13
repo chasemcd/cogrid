@@ -43,6 +43,10 @@ class ComponentMetadata:
     def has_extra_state(self) -> bool:
         return "extra_state_schema" in self.methods
 
+    @property
+    def has_static_tables(self) -> bool:
+        return "build_static_tables" in self.methods
+
 
 @dataclass(frozen=True)
 class RewardMetadata:
@@ -73,6 +77,7 @@ _EXPECTED_SIGNATURES: dict[str, list[str]] = {
     "build_interaction_fn": [],
     "extra_state_schema": [],
     "extra_state_builder": [],
+    "build_static_tables": [],
 }
 
 _EXPECTED_REWARD_COMPUTE_PARAMS = ["prev_state", "state", "actions", "reward_config"]
