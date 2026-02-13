@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 ## Current Position
 
 Phase: 15 of 19 (ArrayFeature Infrastructure)
-Plan: 1 of 2 complete
-Status: Executing
-Last activity: 2026-02-13 -- Completed 15-01 (ArrayFeature base + registration)
+Plan: 2 of 2 complete
+Status: Phase 15 complete
+Last activity: 2026-02-13 -- Completed 15-02 (Feature composition layer)
 
-Progress: [####################..........] 39 prior + 1/2 v1.3 plans complete
+Progress: [####################..........] 39 prior + 2/2 v1.3 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40 (18 v1.0 + 12 v1.1 + 9 v1.2 + 1 v1.3)
+- Total plans completed: 41 (18 v1.0 + 12 v1.1 + 9 v1.2 + 2 v1.3)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -42,7 +42,7 @@ Progress: [####################..........] 39 prior + 1/2 v1.3 plans complete
 | 12 | 1 | 2min | 2min |
 | 13 | 3 | 7min | 2.3min |
 | 14 | 3 | 13min | 4.3min |
-| 15 | 1/2 | 4min | 4min |
+| 15 | 2/2 | 7min | 3.5min |
 
 *Updated after each plan completion*
 
@@ -58,6 +58,8 @@ Recent decisions affecting current work:
 - [v1.3]: Single ArrayFeature base class with per_agent flag (not separate agent/global types)
 - [v1.3]: Old OOP feature system to be removed entirely -- single code path
 - [15-01]: ArrayFeature build_feature_fn(cls, scope) validated inline, not via shared _EXPECTED_SIGNATURES, to preserve GridObject backward compat
+- [15-02]: compose_feature_fns builds feature functions once at compose time, not per observation call
+- [15-02]: Shared _resolve_feature_metas helper for feature name validation used by both compose and obs_dim functions
 
 ### Pending Todos
 
@@ -72,5 +74,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 15-01-PLAN.md (ArrayFeature base + registration)
+Stopped at: Completed 15-02-PLAN.md (Feature composition layer) -- Phase 15 complete
 Resume file: None
