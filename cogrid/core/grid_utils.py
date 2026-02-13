@@ -33,7 +33,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
     Args:
         grid: A Grid instance populated from an ASCII layout.
         scope: Object registry scope for type ID lookups.
-        scope_config: Optional scope config dict from ``get_scope_config()``.
+        scope_config: Optional scope config dict from ``build_scope_config_from_components()``.
             If provided and contains a ``state_extractor``, it is called to
             extract scope-specific state (e.g. pot positions/contents/timer).
 
@@ -105,7 +105,7 @@ def grid_to_array_state(grid, env_agents, scope: str = "global", scope_config=No
         grid: A Grid instance.
         env_agents: Dict mapping AgentID -> Agent.
         scope: Object registry scope for type ID lookups.
-        scope_config: Optional scope config dict from ``get_scope_config()``.
+        scope_config: Optional scope config dict from ``build_scope_config_from_components()``.
 
     Returns:
         Dict containing all keys from ``layout_to_array_state()`` plus all

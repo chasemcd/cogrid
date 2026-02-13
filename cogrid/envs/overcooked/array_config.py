@@ -1,16 +1,20 @@
-"""Overcooked-specific array configuration for the scope config registry.
+"""Overcooked-specific array configuration.
 
-Provides all environment-specific array logic that was previously embedded
-in core modules (interactions.py, cogrid_env.py, grid_utils.py). This
-module is registered via ``register_scope_config("overcooked", ...)`` in
-``cogrid/envs/overcooked/__init__.py``.
+Provides environment-specific array logic for Overcooked: tick handlers,
+interaction body, extra state building, and static table construction.
+These functions are referenced by component classmethods on GridObject
+subclasses (e.g. Pot.build_tick_fn, Pot.build_interaction_fn) and
+composed automatically by the auto-wiring layer in ``cogrid.core.autowire``.
 
 Functions:
-    - ``build_overcooked_scope_config()`` -- top-level config builder
+    - ``build_overcooked_extra_state()`` -- extra_state builder for pot arrays
+    - ``_wrap_overcooked_interaction_body()`` -- wrapper for generic protocol
     - ``_build_interaction_tables()`` -- pickup_from_produces, legal_pot_ingredients
     - ``_build_type_ids()`` -- name -> type_id mapping
+    - ``_build_static_tables()`` -- static lookup tables for interaction body
     - ``_extract_overcooked_state()`` -- pot state extraction from Grid
     - ``overcooked_tick()`` -- unified pot cooking timer state machine
+    - ``overcooked_tick_state()`` -- tick handler with generic signature
     - ``overcooked_interaction_body()`` -- unified per-agent interaction body
 """
 
@@ -92,55 +96,6 @@ def _wrap_overcooked_interaction_body(original_fn):
         return agent_inv, otm, osm, new_extra
 
     return wrapped
-
-
-def build_overcooked_scope_config() -> dict:
-    """Build the complete Overcooked scope configuration.
-
-    Returns a dict consumed by core modules for all Overcooked-specific
-    array-based interaction, tick, and state extraction logic.
-
-    Returns:
-        Dict with keys: ``interaction_tables``, ``type_ids``,
-        ``state_extractor``, ``tick_handler``, ``interaction_body``,
-        ``static_tables``, ``symbol_table``, ``extra_state_schema``,
-        ``extra_state_builder``.
-    """
-    scope = "overcooked"
-    itables = _build_interaction_tables(scope)
-    type_ids = _build_type_ids(scope)
-
-    # Build static tables for the interaction body.
-    # These are Python ints and numpy/jax arrays closed over at trace time,
-    # NOT traced values -- so they can be used as compile-time constants.
-    static_tables = _build_static_tables(scope, itables, type_ids)
-
-    return {
-        "scope": scope,
-        "interaction_tables": itables,
-        "type_ids": type_ids,
-        "state_extractor": _extract_overcooked_state,
-        "tick_handler": overcooked_tick_state,
-        "interaction_body": _wrap_overcooked_interaction_body(overcooked_interaction_body),
-        "static_tables": static_tables,
-        # v1.1: layout parser support
-        "symbol_table": {
-            "#": {"object_id": "wall", "is_wall": True},
-            "C": {"object_id": "counter"},
-            "U": {"object_id": "pot"},
-            "O": {"object_id": "onion_stack"},
-            "=": {"object_id": "plate_stack"},
-            "@": {"object_id": "delivery_zone"},
-            "+": {"object_id": None, "is_spawn": True},
-            " ": {"object_id": None},
-        },
-        "extra_state_schema": {
-            "overcooked.pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
-            "overcooked.pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
-            "overcooked.pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
-        },
-        "extra_state_builder": build_overcooked_extra_state,
-    }
 
 
 def _build_interaction_tables(scope: str = "overcooked") -> dict:

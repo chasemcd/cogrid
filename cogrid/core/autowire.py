@@ -6,9 +6,8 @@ Reads component metadata populated by ``@register_object_type`` and
 ``step_pipeline.step()``, ``layout_parser.parse_layout()``, and
 ``interactions.process_interactions()``.
 
-Replaces manual dict assembly (e.g. ``build_overcooked_scope_config()``,
-manual reward_config in ``cogrid_env.py``) with automatic composition
-from registered components.
+Composes scope_config and reward_config automatically from registered
+components. This is the sole environment configuration path.
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
 """Generic array-based reward composition utility.
 
-Provides the ``ArrayReward`` base class for array-based reward components and
-the ``compose_rewards`` function for building composed reward callables.
+Provides the ``ArrayReward`` base class for array-based reward components.
+Reward composition is handled automatically by the auto-wiring layer in
+``cogrid.core.autowire.build_reward_config_from_components()``.
 
 Environment-specific reward functions live in their respective envs/ modules:
 - Overcooked: ``cogrid.envs.overcooked.array_rewards``
@@ -49,31 +50,3 @@ class ArrayReward:
             f"{type(self).__name__}.compute() is not implemented. "
             f"Subclasses must override compute()."
         )
-
-
-def compose_rewards(reward_configs: list) -> callable:
-    """Build a composed reward function from reward configs.
-
-    Called at init time. Each config dict has:
-        - 'fn': one of the reward functions above
-        - 'coefficient': float scaling factor
-        - 'common_reward': bool (optional, default False)
-
-    Returns a closure ``(prev_state, state, actions, n_agents, type_ids, action_pickup_drop_idx) -> reward_array``
-    that sums all configured rewards.
-    """
-    def composed_reward(prev_state, state, actions, n_agents, type_ids, action_pickup_drop_idx=4):
-        from cogrid.backend import xp
-
-        total = xp.zeros(n_agents, dtype=xp.float32)
-        for config in reward_configs:
-            r = config['fn'](
-                prev_state, state, actions, type_ids, n_agents,
-                coefficient=config['coefficient'],
-                common_reward=config.get('common_reward', False),
-                action_pickup_drop_idx=action_pickup_drop_idx,
-            )
-            total = total + r
-        return total
-
-    return composed_reward

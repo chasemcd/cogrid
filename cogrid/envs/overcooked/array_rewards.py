@@ -260,59 +260,6 @@ def soup_in_dish_reward(
     return rewards
 
 
-def compute_rewards(prev_state, state, actions, reward_config):
-    """Compute combined rewards from all configured reward functions.
-
-    Composes individual reward functions and sums their outputs.
-
-    The Python for loop over reward_config["rewards"] is fine because reward_config
-    is a static Python dict (not traced). Each iteration adds a traced computation
-    to the graph. JAX traces through the loop at compile time and fuses the
-    individual reward computations.
-
-    Args:
-        prev_state: dict of state arrays before step.
-        state: dict of state arrays after step.
-        actions: (n_agents,) int32 action indices.
-        reward_config: Python dict with keys:
-            - "type_ids": dict mapping type names to int IDs
-            - "n_agents": int (static)
-            - "rewards": list of dicts, each with:
-                - "fn": str name ("delivery", "onion_in_pot", "soup_in_dish")
-                - "coefficient": float
-                - "common_reward": bool
-            - "action_pickup_drop_idx": int (static)
-
-    Returns:
-        (n_agents,) float32 array of combined rewards.
-    """
-    from cogrid.backend import xp
-
-    n_agents = reward_config["n_agents"]
-    type_ids = reward_config["type_ids"]
-    action_idx = reward_config["action_pickup_drop_idx"]
-
-    # Map function name strings to unified reward functions
-    fn_map = {
-        "delivery": delivery_reward,
-        "onion_in_pot": onion_in_pot_reward,
-        "soup_in_dish": soup_in_dish_reward,
-    }
-
-    total_rewards = xp.zeros(n_agents, dtype=xp.float32)
-    for reward_spec in reward_config["rewards"]:
-        fn = fn_map[reward_spec["fn"]]
-        r = fn(
-            prev_state, state, actions, type_ids, n_agents,
-            coefficient=reward_spec["coefficient"],
-            common_reward=reward_spec["common_reward"],
-            action_pickup_drop_idx=action_idx,
-        )
-        total_rewards = total_rewards + r
-
-    return total_rewards
-
-
 # ---------------------------------------------------------------------------
 # ArrayReward subclasses (registered for autowire composition)
 # ---------------------------------------------------------------------------

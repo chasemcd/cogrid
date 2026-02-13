@@ -14,7 +14,7 @@ are converted to JAX arrays when the JAX backend is active.
 Usage::
 
     from cogrid.core.layout_parser import register_symbols, parse_layout
-    from cogrid.core.scope_config import get_scope_config
+    from cogrid.core.autowire import build_scope_config_from_components
 
     register_symbols("overcooked", {
         "#": {"object_id": "wall", "is_wall": True},
@@ -22,7 +22,7 @@ Usage::
         ...
     })
 
-    scope_config = get_scope_config("overcooked")
+    scope_config = build_scope_config_from_components("overcooked")
     state = parse_layout(layout_strings, "overcooked", scope_config)
 """
 
@@ -105,7 +105,7 @@ def parse_layout(
     Args:
         layout_strings: List of strings, each string is one row of the grid.
         scope: Scope name for type ID lookups and symbol resolution.
-        scope_config: Scope config dict (from ``get_scope_config``).
+        scope_config: Scope config dict (from ``build_scope_config_from_components``).
         n_agents: Number of agents (default 2).
         action_set: Action set name (default "cardinal").
         rng_key: JAX PRNG key, or None for numpy backend.

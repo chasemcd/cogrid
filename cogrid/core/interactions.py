@@ -6,8 +6,8 @@ parallel arrays and avoid Python object manipulation.
 
 Core modules contain only generic infrastructure. Environment-specific
 interaction logic (e.g. Overcooked pot/delivery zone handling) is
-delegated to scope config handlers registered via
-``cogrid.core.scope_config``.
+delegated to scope config handlers composed by the auto-wiring layer
+in ``cogrid.core.autowire``.
 
 Key function:
 
@@ -60,7 +60,7 @@ def process_interactions(
         object_type_map: Grid object type IDs, shape ``(H, W)``.
         object_state_map: Grid object states, shape ``(H, W)``.
         lookup_tables: Dict of property arrays from ``build_lookup_tables()``.
-        scope_config: Scope config dict from ``get_scope_config()``.
+        scope_config: Scope config dict from ``build_scope_config_from_components()``.
         dir_vec_table: Direction vector lookup, shape ``(4, 2)``.
         action_pickup_drop_idx: Integer index of the PickupDrop action.
         action_toggle_idx: Integer index of the Toggle action.

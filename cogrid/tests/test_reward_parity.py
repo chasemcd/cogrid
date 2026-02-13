@@ -1,8 +1,8 @@
 """Cross-backend parity tests for unified reward functions.
 
 Verifies that each unified reward function (delivery_reward, onion_in_pot_reward,
-soup_in_dish_reward, compute_rewards) produces identical float32 reward values
-on numpy and JAX backends for the same scripted state inputs.
+soup_in_dish_reward) and the auto-wired compute_fn produce identical float32
+reward values on numpy and JAX backends for the same scripted state inputs.
 
 Test pattern for each reward function:
 1. Build scope config (pure Python dicts, backend-agnostic) to get type_ids.
@@ -17,6 +17,9 @@ Satisfies TEST-01: cross-backend parity for unified reward functions.
 import numpy as np
 import pytest
 
+# Trigger Overcooked object and reward registration before building scope config
+import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
+import cogrid.envs.overcooked.array_rewards  # noqa: F401
 
 # Build type_ids once before any backend switching (pure Python dict, no array ops)
 from cogrid.core.autowire import build_scope_config_from_components
