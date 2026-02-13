@@ -396,7 +396,7 @@ def test_eager_vs_jit():
     for step_i in range(10):
         actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
 
-        state_e, obs_e, rew_e, done_e, _ = step_fn_eager(
+        state_e, obs_e, rew_e, term_e, trunc_e, _ = step_fn_eager(
             state_e, actions,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
@@ -407,7 +407,7 @@ def test_eager_vs_jit():
             max_steps=max_steps,
         )
 
-        state_j, obs_j, rew_j, done_j, _ = step_fn(state_j, actions)
+        state_j, obs_j, rew_j, term_j, trunc_j, _ = step_fn(state_j, actions)
 
         np.testing.assert_array_equal(
             np.array(obs_e), np.array(obs_j),
@@ -418,8 +418,12 @@ def test_eager_vs_jit():
             err_msg=f"Step {step_i}: reward mismatch between eager and JIT"
         )
         np.testing.assert_array_equal(
-            np.array(done_e), np.array(done_j),
-            err_msg=f"Step {step_i}: done mismatch between eager and JIT"
+            np.array(term_e), np.array(term_j),
+            err_msg=f"Step {step_i}: terminateds mismatch between eager and JIT"
+        )
+        np.testing.assert_array_equal(
+            np.array(trunc_e), np.array(trunc_j),
+            err_msg=f"Step {step_i}: truncateds mismatch between eager and JIT"
         )
         _compare_states(state_e, state_j, f"Step {step_i}")
 
@@ -453,8 +457,8 @@ def test_step_determinism():
     actions = jnp.array([0, 3], dtype=jnp.int32)  # Up, Right
 
     # Call step twice with same state and actions
-    state1, obs1, rew1, done1, _ = step_fn(state, actions)
-    state2, obs2, rew2, done2, _ = step_fn(state, actions)
+    state1, obs1, rew1, term1, trunc1, _ = step_fn(state, actions)
+    state2, obs2, rew2, term2, trunc2, _ = step_fn(state, actions)
 
     np.testing.assert_array_equal(
         np.array(obs1), np.array(obs2),
@@ -465,8 +469,12 @@ def test_step_determinism():
         err_msg="Determinism: rewards differ between identical calls"
     )
     np.testing.assert_array_equal(
-        np.array(done1), np.array(done2),
-        err_msg="Determinism: done differs between identical calls"
+        np.array(term1), np.array(term2),
+        err_msg="Determinism: terminateds differ between identical calls"
+    )
+    np.testing.assert_array_equal(
+        np.array(trunc1), np.array(trunc2),
+        err_msg="Determinism: truncateds differ between identical calls"
     )
 
     for field_name in STATE_FIELDS:
@@ -545,7 +553,7 @@ def test_rewards_eager_vs_jit():
     # Run one step to get a prev_state and current state
     step_fn = env.jax_step
     actions = jnp.array([0, 1], dtype=jnp.int32)
-    new_state, _, _, _, _ = step_fn(state, actions)
+    new_state, _, _, _, _, _ = step_fn(state, actions)
 
     prev_dict = envstate_to_dict(state)
     curr_dict = envstate_to_dict(new_state)

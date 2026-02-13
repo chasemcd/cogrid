@@ -102,7 +102,7 @@ def step(
     4. Interactions (``process_interactions``)
     5. Observations (``get_all_agent_obs``)
     6. Rewards (``compute_rewards`` using prev_state)
-    7. Done check (``time >= max_steps``)
+    7. Terminateds/truncateds (``terminated_fn`` + ``time >= max_steps``)
     8. Stop gradient (JAX only)
 
     Args:
@@ -118,11 +118,14 @@ def step(
         max_steps: int, maximum timesteps per episode.
 
     Returns:
-        Tuple ``(state, obs, rewards, done, infos)`` where:
+        Tuple ``(state, obs, rewards, terminateds, truncateds, infos)`` where:
         - ``state``: Updated :class:`EnvState`.
         - ``obs``: array of shape ``(n_agents, obs_dim)``.
         - ``rewards``: float32 array of shape ``(n_agents,)``.
-        - ``done``: scalar bool.
+        - ``terminateds``: bool array of shape ``(n_agents,)`` from
+          ``terminated_fn`` callback (or all-False).
+        - ``truncateds``: bool array of shape ``(n_agents,)`` broadcast
+          from ``time >= max_steps``.
         - ``infos``: empty dict ``{}``.
     """
     from cogrid.backend import xp
@@ -216,8 +219,15 @@ def step(
     compute_fn = reward_config["compute_fn"]
     rewards = compute_fn(prev_dict, state_dict, actions, reward_config)
 
-    # g. Dones
-    done = state.time >= max_steps
+    # g. Terminateds and truncateds
+    terminated_fn = reward_config.get("terminated_fn")
+    if terminated_fn is not None:
+        terminateds = terminated_fn(prev_dict, state_dict, reward_config)
+    else:
+        terminateds = xp.zeros(state.n_agents, dtype=xp.bool_)
+
+    truncated = state.time >= max_steps
+    truncateds = xp.full(state.n_agents, truncated, dtype=xp.bool_)
 
     # h. Stop gradient (JAX only, no-op on numpy)
     if get_backend() == "jax":
@@ -225,10 +235,11 @@ def step(
 
         obs = lax.stop_gradient(obs)
         rewards = lax.stop_gradient(rewards)
-        done = lax.stop_gradient(done)
+        terminateds = lax.stop_gradient(terminateds)
+        truncateds = lax.stop_gradient(truncateds)
 
     # i. Return
-    return state, obs, rewards, done, {}
+    return state, obs, rewards, terminateds, truncateds, {}
 
 
 def reset(
@@ -356,7 +367,7 @@ def build_step_fn(
     """Build a step function with all static config closed over.
 
     Returns a function with signature
-    ``(state, actions) -> (state, obs, rewards, done, infos)``.
+    ``(state, actions) -> (state, obs, rewards, terminateds, truncateds, infos)``.
 
     Args:
         scope_config: Scope config dict.

@@ -137,15 +137,17 @@ def test_step_numpy_backend():
             max_steps=cfg["max_steps"],
         )
 
-        assert len(result) == 5
-        state, obs, rewards, done, infos = result
+        assert len(result) == 6
+        state, obs, rewards, terminateds, truncateds, infos = result
         assert isinstance(state, EnvState)
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
+        assert terminateds.shape == (n_agents,)
+        assert truncateds.shape == (n_agents,)
 
         # Run 5 more steps
         for _ in range(5):
-            state, obs, rewards, done, infos = step(
+            state, obs, rewards, terminateds, truncateds, infos = step(
                 state, actions,
                 scope_config=cfg["scope_config"],
                 lookup_tables=cfg["lookup_tables"],
@@ -227,7 +229,7 @@ def test_step_jax_backend_eager():
 
         # Step
         actions = jnp.zeros(n_agents, dtype=jnp.int32)
-        state, obs, rewards, done, infos = step(
+        state, obs, rewards, terminateds, truncateds, infos = step(
             state, actions,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
@@ -240,10 +242,12 @@ def test_step_jax_backend_eager():
 
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
+        assert terminateds.shape == (n_agents,)
+        assert truncateds.shape == (n_agents,)
 
         # Run 5 more steps
         for _ in range(5):
-            state, obs, rewards, done, infos = step(
+            state, obs, rewards, terminateds, truncateds, infos = step(
                 state, actions,
                 scope_config=scope_config,
                 lookup_tables=lookup_tables,
@@ -325,17 +329,20 @@ def test_build_step_fn_jit_compiles():
 
         # Step -- first call triggers JIT compilation
         actions = jnp.zeros(n_agents, dtype=jnp.int32)
-        state, obs, rewards, done, infos = step_fn(state, actions)
+        state, obs, rewards, terminateds, truncateds, infos = step_fn(state, actions)
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
+        assert terminateds.shape == (n_agents,)
+        assert truncateds.shape == (n_agents,)
 
         # Run 10 more steps to verify repeated execution
         for _ in range(10):
-            state, obs, rewards, done, infos = step_fn(state, actions)
+            state, obs, rewards, terminateds, truncateds, infos = step_fn(state, actions)
 
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
-        assert done.shape == ()
+        assert terminateds.shape == (n_agents,)
+        assert truncateds.shape == (n_agents,)
 
         # Verify extra_state persistence through JIT-compiled steps
         pc = get_extra(state, "pot_contents", scope="overcooked")

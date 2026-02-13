@@ -139,7 +139,7 @@ def benchmark_jax_single(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS):
     state, _ = reset_fn(jax.random.key(SEED))
     state.agent_pos.block_until_ready()
     for _ in range(N_WARMUP_STEPS):
-        state, obs, rew, done, info = step_fn(state, actions)
+        state, obs, rew, term, trunc, info = step_fn(state, actions)
         state.agent_pos.block_until_ready()
 
     trials = []
@@ -149,7 +149,7 @@ def benchmark_jax_single(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS):
 
         t0 = time.perf_counter()
         for _ in range(n_steps):
-            state, obs, rew, done, info = step_fn(state, actions)
+            state, obs, rew, term, trunc, info = step_fn(state, actions)
         state.agent_pos.block_until_ready()  # CRITICAL: wait for async dispatch
         t1 = time.perf_counter()
 
@@ -185,7 +185,7 @@ def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS,
     batched_state, _ = vmapped_reset(keys)
     batched_state.agent_pos.block_until_ready()
     for _ in range(N_WARMUP_STEPS):
-        batched_state, b_obs, b_rew, b_done, b_info = vmapped_step(
+        batched_state, b_obs, b_rew, b_term, b_trunc, b_info = vmapped_step(
             batched_state, batched_actions
         )
         batched_state.agent_pos.block_until_ready()
@@ -197,7 +197,7 @@ def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS,
 
         t0 = time.perf_counter()
         for _ in range(n_steps):
-            batched_state, b_obs, b_rew, b_done, b_info = vmapped_step(
+            batched_state, b_obs, b_rew, b_term, b_trunc, b_info = vmapped_step(
                 batched_state, batched_actions
             )
         batched_state.agent_pos.block_until_ready()  # CRITICAL: wait for async dispatch

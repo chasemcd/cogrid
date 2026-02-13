@@ -222,7 +222,7 @@ def test_vmap_step_shapes(layout):
     batched_actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
 
     # Batched step
-    new_state, obs, rew, done, infos = jax.vmap(step_fn)(
+    new_state, obs, rew, terminateds, truncateds, infos = jax.vmap(step_fn)(
         batched_state, batched_actions
     )
 
@@ -238,10 +238,16 @@ def test_vmap_step_shapes(layout):
         f"({BATCH_SIZE}, {n_agents}), got {rew.shape}"
     )
 
-    # done shape: (BATCH_SIZE,)
-    assert done.shape == (BATCH_SIZE,), (
-        f"Layout {layout}: expected done shape "
-        f"({BATCH_SIZE},), got {done.shape}"
+    # terminateds shape: (BATCH_SIZE, n_agents)
+    assert terminateds.shape == (BATCH_SIZE, n_agents), (
+        f"Layout {layout}: expected terminateds shape "
+        f"({BATCH_SIZE}, {n_agents}), got {terminateds.shape}"
+    )
+
+    # truncateds shape: (BATCH_SIZE, n_agents)
+    assert truncateds.shape == (BATCH_SIZE, n_agents), (
+        f"Layout {layout}: expected truncateds shape "
+        f"({BATCH_SIZE}, {n_agents}), got {truncateds.shape}"
     )
 
     # infos is empty dict
@@ -343,7 +349,7 @@ def test_vmap_step_parity(layout):
     # Step through all steps with vmapped step
     vmapped_step = jax.vmap(step_fn)
     for step_i in range(N_PARITY_STEPS):
-        batched_state, batched_obs, batched_rew, batched_done, _ = (
+        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = (
             vmapped_step(batched_state, actions_list[step_i])
         )
 
@@ -356,7 +362,7 @@ def test_vmap_step_parity(layout):
 
         for step_i in range(N_PARITY_STEPS):
             single_actions = actions_list[step_i][i]
-            single_state, single_obs, single_rew, single_done, _ = (
+            single_state, single_obs, single_rew, single_term, single_trunc, _ = (
                 step_fn(single_state, single_actions)
             )
 
@@ -381,13 +387,23 @@ def test_vmap_step_parity(layout):
             ),
         )
 
-        # Compare final done
+        # Compare final terminateds
         np.testing.assert_array_equal(
-            np.array(single_done),
-            np.array(batched_done[i]),
+            np.array(single_term),
+            np.array(batched_term[i]),
             err_msg=(
                 f"Layout {layout}, step parity, index {i}: "
-                f"final done mismatch after {N_PARITY_STEPS} steps"
+                f"final terminateds mismatch after {N_PARITY_STEPS} steps"
+            ),
+        )
+
+        # Compare final truncateds
+        np.testing.assert_array_equal(
+            np.array(single_trunc),
+            np.array(batched_trunc[i]),
+            err_msg=(
+                f"Layout {layout}, step parity, index {i}: "
+                f"final truncateds mismatch after {N_PARITY_STEPS} steps"
             ),
         )
 
@@ -435,7 +451,7 @@ def test_vmap_jit_composition():
     # Run 3 steps
     for step_i in range(3):
         actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
-        batched_state, batched_obs, batched_rew, batched_done, _ = (
+        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = (
             vmapped_step(batched_state, actions)
         )
 
@@ -448,9 +464,13 @@ def test_vmap_jit_composition():
         f"jit(vmap(step)): expected rew shape "
         f"({BATCH_SIZE}, {n_agents}), got {batched_rew.shape}"
     )
-    assert batched_done.shape == (BATCH_SIZE,), (
-        f"jit(vmap(step)): expected done shape "
-        f"({BATCH_SIZE},), got {batched_done.shape}"
+    assert batched_term.shape == (BATCH_SIZE, n_agents), (
+        f"jit(vmap(step)): expected terminateds shape "
+        f"({BATCH_SIZE}, {n_agents}), got {batched_term.shape}"
+    )
+    assert batched_trunc.shape == (BATCH_SIZE, n_agents), (
+        f"jit(vmap(step)): expected truncateds shape "
+        f"({BATCH_SIZE}, {n_agents}), got {batched_trunc.shape}"
     )
     assert batched_state.agent_pos.shape == (BATCH_SIZE, n_agents, 2), (
         f"jit(vmap(step)): expected agent_pos shape "

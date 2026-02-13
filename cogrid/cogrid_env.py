@@ -575,7 +575,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         # Delegate to the unified step pipeline
-        self._env_state, obs_arr, rewards_arr, done, infos = self._step_fn(
+        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = self._step_fn(
             self._env_state, actions_arr
         )
 
@@ -589,11 +589,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             for i, aid in enumerate(self._agent_id_order)
         }
 
-        truncated = bool(done)
-        terminateds = {aid: False for aid in self._agent_id_order}
-        truncateds = {aid: truncated for aid in self._agent_id_order}
+        terminateds = {aid: bool(terminateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+        truncateds = {aid: bool(truncateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
 
-        if truncated:
+        if any(terminateds.values()) or any(truncateds.values()):
             self.agents = []
 
         infos = {aid: {} for aid in self._agent_id_order}
@@ -648,7 +647,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_step(self):
         """Raw step function for direct JIT/vmap usage.
 
-        Signature: (EnvState, actions) -> (EnvState, obs, rewards, done, infos)
+        Signature: (EnvState, actions) -> (EnvState, obs, rewards, terminateds, truncateds, infos)
 
         Returns:
             The step function (JIT-compiled on JAX backend).
