@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 ## Current Position
 
 Phase: 14 of 14 (Auto-Wired CoGridEnv & Validation)
-Plan: 1 of 3 complete
-Status: In progress
-Last activity: 2026-02-13 -- Completed 14-01 (CoGridEnv Auto-Wiring)
+Plan: 3 of 3 complete
+Status: Phase 14 complete
+Last activity: 2026-02-13 -- Completed 14-03 (Dead Manual-Wiring Code Deletion)
 
-Progress: [########################________________] 60% (v1.2)
+Progress: [########################################] 100% (v1.2)
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [########################________________] 60% (v1.2)
 | 11 | 2 | 4min | 2min |
 | 12 | 1 | 2min | 2min |
 | 13 | 3 | 7min | 2.3min |
-| 14 | 1 | 5min | 5min |
+| 14 | 3 | 13min | 4.3min |
 
 *Updated after each plan completion*
 
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - [13-03]: Static_tables merged via dict.update after base build_lookup_tables; component tables override base
 - [14-01]: Extra_state_builder returns scope-prefixed keys; strip prefix in reset() before merge since step_pipeline.reset() re-adds prefix
 - [14-01]: CoGridEnv.__init__() uses auto-wiring exclusively -- zero manual scope_config or reward_config assembly
+- [14-02]: GoalReward registered in "global" scope; terminated_fn patched after env creation (not part of ArrayReward interface)
+- [14-02]: Component API pattern proven: register object types + register ArrayReward subclass + use CoGridEnv directly
+- [14-03]: _build_type_ids kept in array_config.py despite plan -- Pot.build_static_tables classmethod is active caller
+- [14-03]: test_overcooked_migration.py deleted entirely -- parity test meaningless without manual-wiring code
 
 ### Pending Todos
 
@@ -92,5 +96,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 14-01-PLAN.md
+Stopped at: Completed 14-03-PLAN.md (Phase 14 complete, all v1.2 plans done)
 Resume file: None
