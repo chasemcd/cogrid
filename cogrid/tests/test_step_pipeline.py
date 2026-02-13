@@ -347,18 +347,3 @@ def test_build_step_fn_jit_compiles():
         _reset_backend_for_testing()
 
 
-def test_backward_compat_aliases():
-    """jax_step.py re-exports point to the correct step_pipeline functions."""
-    from cogrid.core.jax_step import (
-        jax_step, jax_reset, make_jitted_step, make_jitted_reset, envstate_to_dict,
-    )
-    from cogrid.core.step_pipeline import (
-        step, reset, build_step_fn, build_reset_fn,
-        envstate_to_dict as sp_envstate_to_dict,
-    )
-
-    assert jax_step is step
-    assert jax_reset is reset
-    assert make_jitted_step is build_step_fn
-    assert make_jitted_reset is build_reset_fn
-    assert envstate_to_dict is sp_envstate_to_dict

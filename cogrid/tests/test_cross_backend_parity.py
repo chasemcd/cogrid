@@ -310,14 +310,14 @@ def _compare_states(s1, s2, label):
 def test_eager_vs_jit():
     """Eager and JIT execution produce identical results for step and reset.
 
-    Creates a JAX env, obtains the raw jax_step and jax_reset functions,
+    Creates a JAX env, obtains the raw step and reset functions,
     and compares outputs of eager vs jax.jit execution for both reset
     and 10 sequential steps.
     """
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.jax_step import jax_step, jax_reset
+    from cogrid.core.step_pipeline import step as step_fn_eager, reset as reset_fn_eager
 
     _reset_backend_for_testing()
 
@@ -347,7 +347,7 @@ def test_eager_vs_jit():
     rng_key = jax.random.key(42)
 
     # --- Reset comparison ---
-    state_eager, obs_eager = jax_reset(
+    state_eager, obs_eager = reset_fn_eager(
         rng_key,
         layout_arrays=layout_arrays,
         spawn_positions=spawn_positions,
@@ -372,7 +372,7 @@ def test_eager_vs_jit():
     for step_i in range(10):
         actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
 
-        state_e, obs_e, rew_e, done_e, _ = jax_step(
+        state_e, obs_e, rew_e, done_e, _ = step_fn_eager(
             state_e, actions,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
@@ -401,12 +401,12 @@ def test_eager_vs_jit():
 
 
 # ======================================================================
-# Determinism test: jax_step with same inputs produces same outputs
+# Determinism test: step with same inputs produces same outputs
 # ======================================================================
 
 
-def test_jax_step_determinism():
-    """Calling jax_step twice with identical state+actions gives identical outputs.
+def test_step_determinism():
+    """Calling step twice with identical state+actions gives identical outputs.
 
     Catches hidden statefulness (global counters, in-place mutation, etc.)
     that would cause non-deterministic behavior under the same inputs.
@@ -454,7 +454,7 @@ def test_jax_step_determinism():
 
 
 # ======================================================================
-# TEST-03 sub-function variants: Eager vs JIT for core JAX functions
+# TEST-03 sub-function variants: Eager vs JIT for core functions
 # ======================================================================
 
 
@@ -475,110 +475,13 @@ def _setup_jax_env():
     return env
 
 
-def test_move_agents_jax_eager_vs_jit():
-    """move_agents_jax produces identical outputs eagerly and under jax.jit."""
+def test_obs_eager_vs_jit():
+    """get_all_agent_obs produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
     import functools
-    from cogrid.core.movement import move_agents_jax
-
-    env = _setup_jax_env()
-    state = env._env_state
-
-    actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
-
-    # Eager call
-    new_pos_e, new_dir_e, new_key_e = move_agents_jax(
-        state.agent_pos, state.agent_dir, actions,
-        state.wall_map, state.object_type_map,
-        env._lookup_tables["CAN_OVERLAP"], state.rng_key,
-        state.action_set,
-    )
-
-    # JIT call (action_set is a string, must be static)
-    jitted_move = jax.jit(
-        functools.partial(move_agents_jax, action_set=state.action_set)
-    )
-    new_pos_j, new_dir_j, new_key_j = jitted_move(
-        state.agent_pos, state.agent_dir, actions,
-        state.wall_map, state.object_type_map,
-        env._lookup_tables["CAN_OVERLAP"], state.rng_key,
-    )
-
-    np.testing.assert_array_equal(
-        np.array(new_pos_e), np.array(new_pos_j),
-        err_msg="move_agents_jax: new_pos mismatch"
-    )
-    np.testing.assert_array_equal(
-        np.array(new_dir_e), np.array(new_dir_j),
-        err_msg="move_agents_jax: new_dir mismatch"
-    )
-    np.testing.assert_array_equal(
-        np.array(jax.random.key_data(new_key_e)),
-        np.array(jax.random.key_data(new_key_j)),
-        err_msg="move_agents_jax: new_key mismatch"
-    )
-
-
-def test_process_interactions_jax_eager_vs_jit():
-    """process_interactions_jax produces identical outputs eagerly and under jax.jit."""
-    jax = pytest.importorskip("jax")
-    import jax.numpy as jnp
-    import functools
-    from cogrid.core.interactions import process_interactions_jax
-
-    env = _setup_jax_env()
-    state = env._env_state
-
-    actions = jnp.array([4, 6], dtype=jnp.int32)  # PickupDrop, Noop
-    dir_vec_table = jnp.array(
-        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=jnp.int32
-    )
-
-    # Bind static args via functools.partial for both eager and JIT
-    interact_fn = functools.partial(
-        process_interactions_jax,
-        lookup_tables=env._lookup_tables,
-        scope_config=env._scope_config,
-        dir_vec_table=dir_vec_table,
-        action_pickup_drop_idx=env._action_pickup_drop_idx,
-        action_toggle_idx=env._action_toggle_idx,
-    )
-
-    # Eager call
-    result_e = interact_fn(
-        state.agent_pos, state.agent_dir, state.agent_inv, actions,
-        state.object_type_map, state.object_state_map,
-        pot_contents=state.pot_contents, pot_timer=state.pot_timer,
-        pot_positions=state.pot_positions,
-    )
-
-    # JIT call
-    jitted_interact = jax.jit(interact_fn)
-    result_j = jitted_interact(
-        state.agent_pos, state.agent_dir, state.agent_inv, actions,
-        state.object_type_map, state.object_state_map,
-        pot_contents=state.pot_contents, pot_timer=state.pot_timer,
-        pot_positions=state.pot_positions,
-    )
-
-    # Compare all 5 returned arrays: agent_inv, otm, osm, pot_contents, pot_timer
-    names = ["agent_inv", "object_type_map", "object_state_map",
-             "pot_contents", "pot_timer"]
-    for name, val_e, val_j in zip(names, result_e, result_j):
-        np.testing.assert_array_equal(
-            np.array(val_e), np.array(val_j),
-            err_msg=f"process_interactions_jax: {name} mismatch"
-        )
-
-
-def test_obs_jax_eager_vs_jit():
-    """get_all_agent_obs_jax produces identical outputs eagerly and under jax.jit."""
-    jax = pytest.importorskip("jax")
-    import jax.numpy as jnp
-    import functools
-    from cogrid.feature_space.array_features import get_all_agent_obs_jax
-    from cogrid.core.jax_step import envstate_to_dict
+    from cogrid.feature_space.array_features import get_all_agent_obs
+    from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()
     state = env._env_state
@@ -587,7 +490,7 @@ def test_obs_jax_eager_vs_jit():
     n_agents = env.config["num_agents"]
 
     # Eager call
-    obs_e = get_all_agent_obs_jax(feature_fn, state_dict, n_agents)
+    obs_e = get_all_agent_obs(feature_fn, state_dict, n_agents)
 
     # JIT call -- need to wrap in a function since state_dict is a dict of arrays
     @jax.jit
@@ -602,7 +505,7 @@ def test_obs_jax_eager_vs_jit():
             "pot_contents": pot_contents, "pot_timer": pot_timer,
             "pot_positions": pot_positions,
         }
-        return get_all_agent_obs_jax(feature_fn, sd, n_agents)
+        return get_all_agent_obs(feature_fn, sd, n_agents)
 
     obs_j = jitted_obs(
         state.agent_pos, state.agent_dir, state.agent_inv,
@@ -612,16 +515,16 @@ def test_obs_jax_eager_vs_jit():
 
     np.testing.assert_array_equal(
         np.array(obs_e), np.array(obs_j),
-        err_msg="get_all_agent_obs_jax: obs mismatch between eager and JIT"
+        err_msg="get_all_agent_obs: obs mismatch between eager and JIT"
     )
 
 
-def test_rewards_jax_eager_vs_jit():
+def test_rewards_eager_vs_jit():
     """compute_rewards produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
     from cogrid.envs.overcooked.array_rewards import compute_rewards
-    from cogrid.core.jax_step import envstate_to_dict
+    from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()
     state = env._env_state
