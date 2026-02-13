@@ -71,7 +71,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Component Registration Infrastructure** - Extended decorator auto-discovers and stores component classmethods in registry
 - [x] **Phase 11: Composition & Auto-Wiring** - Auto-wiring module composes registered component metadata into complete scope_config and reward_config
 - [x] **Phase 12: Generic Interaction Signature** - process_interactions() generalized to pass/return extra_state dict instead of scope-specific arrays
-- [ ] **Phase 13: Overcooked Migration** - Overcooked domain refactored to define all behavior through component interfaces exclusively
+- [x] **Phase 13: Overcooked Migration** - Overcooked domain refactored to define all behavior through component interfaces exclusively
 - [ ] **Phase 14: Auto-Wired CoGridEnv & Validation** - CoGridEnv uses auto-wiring by default, new envs need only component classes + layout, full parity verified
 
 ## Phase Details
@@ -124,11 +124,11 @@ Plans:
   2. Overcooked reward functions (delivery, onion_in_pot, soup_in_dish) are ArrayReward subclasses with `compute()`, `coefficient`, and `common_reward` -- no manual reward_config dict construction
   3. `build_scope_config_from_components("overcooked")` produces a scope_config that, when fed to the step pipeline, yields identical step outputs (state, obs, rewards, terminateds, truncateds) as v1.1 manual-wired Overcooked
   4. The manual `build_overcooked_scope_config()` function in array_config.py is no longer called -- auto-wiring replaces it
-**Plans:** 3 plans
+**Plans**: 3/3 complete
 Plans:
-- [ ] 13-01-PLAN.md -- Pot classmethods + build_static_tables in _COMPONENT_METHODS
-- [ ] 13-02-PLAN.md -- Overcooked reward ArrayReward subclasses
-- [ ] 13-03-PLAN.md -- Autowire composition extensions + parity test
+- [x] 13-01-PLAN.md -- Pot classmethods + build_static_tables in _COMPONENT_METHODS
+- [x] 13-02-PLAN.md -- Overcooked reward ArrayReward subclasses
+- [x] 13-03-PLAN.md -- Autowire composition extensions + parity test
 
 ### Phase 14: Auto-Wired CoGridEnv & Validation
 **Goal**: CoGridEnv uses auto-wiring as its default path, new environments can be created with only component subclasses and a layout, and the full system is validated for parity, JIT, vmap, and cross-backend correctness
@@ -140,6 +140,11 @@ Plans:
   3. Component-based Overcooked produces identical step outputs to v1.1 manual-wired Overcooked across both numpy and JAX backends -- verified by automated parity test
   4. Component-based Overcooked works with `jax.jit` compilation and `jax.vmap` at 1024 parallel environments without error
   5. Dead manual-wiring code (scope-specific builders, manual scope_config dicts, `if scope ==` branches) is deleted from the codebase
+**Plans:** 3 plans
+Plans:
+- [ ] 14-01-PLAN.md -- Rewire CoGridEnv to use auto-wiring for scope_config and reward_config
+- [ ] 14-02-PLAN.md -- Goal-finding component API example + test migration + parity/JIT/vmap validation
+- [ ] 14-03-PLAN.md -- Dead manual-wiring code deletion
 
 ## Progress
 
@@ -161,5 +166,5 @@ Phases execute in numeric order: 10 -> 11 -> 12 -> 13 -> 14
 | 10. Component Registration Infrastructure | v1.2 | 2/2 | Complete | 2026-02-13 |
 | 11. Composition & Auto-Wiring | v1.2 | 2/2 | Complete | 2026-02-13 |
 | 12. Generic Interaction Signature | v1.2 | 1/1 | Complete | 2026-02-13 |
-| 13. Overcooked Migration | v1.2 | 0/TBD | Not started | - |
-| 14. Auto-Wired CoGridEnv & Validation | v1.2 | 0/TBD | Not started | - |
+| 13. Overcooked Migration | v1.2 | 3/3 | Complete | 2026-02-13 |
+| 14. Auto-Wired CoGridEnv & Validation | v1.2 | 0/3 | Not started | - |
