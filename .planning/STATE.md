@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 9 of 9 (Integration & Cleanup)
-Plan: 1 of 3 in current phase (09-01 complete)
+Plan: 3 of 3 in current phase (09-01, 09-03 complete; 09-02 in parallel)
 Status: Executing Phase 9
-Last activity: 2026-02-12 -- Completed 09-01 (scope-generic step pipeline)
+Last activity: 2026-02-12 -- Completed 09-03 (dead code cleanup)
 
-Progress: [######################################..] 97% (v1.0 complete, v1.1 phases 5-8 complete, 09-01 done)
+Progress: [######################################..] 98% (v1.0 complete, v1.1 phases 5-8 complete, 09-01 + 09-03 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28 (18 v1.0 + 10 v1.1)
+- Total plans completed: 29 (18 v1.0 + 11 v1.1)
 - Average duration: --
 - Total execution time: --
 
@@ -36,7 +36,7 @@ Progress: [######################################..] 97% (v1.0 complete, v1.1 ph
 | 6 | 4 | 17min | 4min |
 | 7 | 2/2 | 7min | 3.5min |
 | 8 | 2/2 | 7min | 3.5min |
-| 9 | 1/3 | 4min | 4min |
+| 9 | 2/3 | 7min | 3.5min |
 
 *Updated after each plan completion*
 
@@ -84,6 +84,7 @@ Recent decisions affecting current work:
 - [09-01]: reward compute_fn provided via reward_config["compute_fn"] instead of hardcoded import
 - [09-01]: extra_state keys use generic scope.key prefix convention (auto-strip/re-prefix in step/reset)
 - [09-01]: pot_capacity and cooking_time removed from reset() (scope-specific, handled in tick handler closure)
+- [09-03]: cogrid_env.py changes deferred to 09-02 (parallel execution, no merge conflicts)
 
 ### Pending Todos
 
@@ -92,11 +93,12 @@ None yet.
 ### Blockers/Concerns
 
 - Mutation bugs where `.copy()` + in-place assignment passes numpy but fails under JAX JIT -- mitigated by `set_at()` helper (Phase 5)
-- Feature function callers use backward-compat aliases; full migration needed in step pipeline phase
-- compute_rewards_jax unified into compute_rewards in 07-01 (backward-compat alias kept)
+- [RESOLVED 09-03] Feature function callers migrated; backward-compat aliases deleted
+- [RESOLVED 09-03] compute_rewards_jax alias deleted; all callers use compute_rewards directly
+- cogrid_env.py still imports from deleted jax_step.py and uses _jax aliases (09-02 handles)
 
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 09-01-PLAN.md (scope-generic step pipeline)
+Stopped at: Completed 09-03-PLAN.md (dead code cleanup)
 Resume file: None
