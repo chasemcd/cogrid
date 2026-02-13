@@ -1,8 +1,9 @@
-"""Component metadata registry for GridObject and Reward type registration.
+"""Component metadata registry for GridObject, Reward, and Feature type registration.
 
 Stores metadata about GridObject subclasses (discovered classmethods, static
-properties) and ArrayReward subclasses. Populated at import time by the
-``@register_object_type`` decorator and ``@register_reward_type`` decorator.
+properties), ArrayReward subclasses, and ArrayFeature subclasses. Populated at
+import time by the ``@register_object_type``, ``@register_reward_type``, and
+``@register_feature_type`` decorators.
 
 This module must NOT import from ``cogrid.core.grid_object`` at module level
 to avoid circular imports. The decorator in grid_object.py uses a lazy import
@@ -67,12 +68,24 @@ class RewardMetadata:
     default_common_reward: bool
 
 
+@dataclass(frozen=True)
+class FeatureMetadata:
+    """Metadata for a registered ArrayFeature subclass."""
+
+    scope: str
+    feature_id: str
+    cls: type
+    per_agent: bool
+    obs_dim: int
+
+
 # ---------------------------------------------------------------------------
 # Registries (private)
 # ---------------------------------------------------------------------------
 
 _COMPONENT_METADATA: dict[tuple[str, str], ComponentMetadata] = {}
 _REWARD_TYPE_REGISTRY: dict[tuple[str, str], RewardMetadata] = {}
+_FEATURE_TYPE_REGISTRY: dict[tuple[str, str], FeatureMetadata] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +234,80 @@ def register_reward_type(
     return decorator
 
 
+def register_feature_type(feature_id: str, scope: str = "global"):
+    """Decorator that registers an ArrayFeature subclass.
+
+    Usage::
+
+        @register_feature_type("agent_dir", scope="global")
+        class AgentDir(ArrayFeature):
+            per_agent = True
+            obs_dim = 4
+
+            @classmethod
+            def build_feature_fn(cls, scope):
+                ...
+    """
+
+    def decorator(cls):
+        # Validate cls has per_agent (bool) and obs_dim (int) class attributes
+        if not hasattr(cls, "per_agent") or not isinstance(cls.per_agent, bool):
+            raise TypeError(
+                f"{cls.__name__} must define 'per_agent' as a bool class attribute."
+            )
+        if not hasattr(cls, "obs_dim") or not isinstance(cls.obs_dim, int):
+            raise TypeError(
+                f"{cls.__name__} must define 'obs_dim' as an int class attribute."
+            )
+
+        # Validate build_feature_fn exists and has correct signature
+        if not hasattr(cls, "build_feature_fn") or not callable(
+            getattr(cls, "build_feature_fn")
+        ):
+            raise TypeError(
+                f"{cls.__name__} must define a callable 'build_feature_fn' classmethod."
+            )
+
+        # ArrayFeature.build_feature_fn takes (cls, scope) -- validate the
+        # scope parameter directly (not via _EXPECTED_SIGNATURES which holds
+        # the old GridObject convention of no params).
+        sig = inspect.signature(cls.build_feature_fn)
+        actual = list(sig.parameters.keys())
+        if actual != ["scope"]:
+            raise TypeError(
+                f"{cls.__name__}.build_feature_fn() has params {actual}, "
+                f"expected ['scope']. "
+                f"Ensure it is a @classmethod with signature "
+                f"def build_feature_fn(cls, scope)."
+            )
+
+        # Check for duplicate registration
+        key = (scope, feature_id)
+        if key in _FEATURE_TYPE_REGISTRY:
+            existing = _FEATURE_TYPE_REGISTRY[key]
+            same_class = (
+                existing.cls.__name__ == cls.__name__
+                and getattr(existing.cls, "__module__", None)
+                == getattr(cls, "__module__", None)
+            )
+            if not same_class:
+                raise ValueError(
+                    f"Duplicate feature type '{feature_id}' in scope '{scope}': "
+                    f"{existing.cls.__name__} and {cls.__name__}"
+                )
+
+        _FEATURE_TYPE_REGISTRY[key] = FeatureMetadata(
+            scope=scope,
+            feature_id=feature_id,
+            cls=cls,
+            per_agent=cls.per_agent,
+            obs_dim=cls.obs_dim,
+        )
+        return cls
+
+    return decorator
+
+
 # ---------------------------------------------------------------------------
 # Query API
 # ---------------------------------------------------------------------------
@@ -243,6 +330,14 @@ def get_reward_types(scope: str = "global") -> list[RewardMetadata]:
     return sorted(
         [m for m in _REWARD_TYPE_REGISTRY.values() if m.scope == scope],
         key=lambda m: m.reward_id,
+    )
+
+
+def get_feature_types(scope: str = "global") -> list[FeatureMetadata]:
+    """Return all FeatureMetadata entries for *scope*, sorted by feature_id."""
+    return sorted(
+        [m for m in _FEATURE_TYPE_REGISTRY.values() if m.scope == scope],
+        key=lambda m: m.feature_id,
     )
 
 
