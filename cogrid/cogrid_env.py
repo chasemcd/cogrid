@@ -454,24 +454,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             xp = np
 
-        # Build layout arrays from array_state
-        pot_positions = self._array_state.get("pot_positions", [])
-        if isinstance(pot_positions, list):
-            if len(pot_positions) > 0:
-                pot_positions = xp.array(pot_positions, dtype=xp.int32)
-            else:
-                pot_positions = xp.zeros((0, 2), dtype=xp.int32)
-        else:
-            pot_positions = xp.array(pot_positions, dtype=xp.int32)
-
-        layout_arrays = {
-            "wall_map": xp.array(self._array_state["wall_map"], dtype=xp.int32),
-            "object_type_map": xp.array(self._array_state["object_type_map"], dtype=xp.int32),
-            "object_state_map": xp.array(self._array_state["object_state_map"], dtype=xp.int32),
-            "pot_contents": xp.array(self._array_state["pot_contents"], dtype=xp.int32),
-            "pot_timer": xp.array(self._array_state["pot_timer"], dtype=xp.int32),
-            "pot_positions": pot_positions,
-        }
+        # Build layout arrays from array_state (scope-generic)
+        skip_keys = {"agent_pos", "agent_dir", "agent_inv", "spawn_points"}
+        layout_arrays = {}
+        for key, val in self._array_state.items():
+            if key in skip_keys:
+                continue
+            if isinstance(val, list):
+                val = np.array(val, dtype=np.int32) if len(val) > 0 else np.zeros((0, 2), dtype=np.int32)
+            layout_arrays[key] = xp.array(val, dtype=xp.int32)
 
         spawn_positions = xp.array(
             self._array_state["agent_pos"], dtype=xp.int32
