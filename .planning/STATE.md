@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 11 -- Composition & Auto-Wiring
+**Current focus:** Phase 12 -- Generic Interaction Signature
 
 ## Current Position
 
-Phase: 11 of 14 (Composition & Auto-Wiring) -- COMPLETE
-Plan: 2 of 2 complete
+Phase: 12 of 14 (Generic Interaction Signature) -- COMPLETE
+Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-02-13 -- Completed 11-02 (Reward Config Auto-Wiring)
+Last activity: 2026-02-13 -- Completed 12-01 (Generic Interaction Signature)
 
-Progress: [#############___________________________] 33% (v1.2)
+Progress: [################________________________] 42% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34 (18 v1.0 + 12 v1.1 + 4 v1.2)
+- Total plans completed: 35 (18 v1.0 + 12 v1.1 + 5 v1.2)
 - Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
@@ -39,6 +39,7 @@ Progress: [#############___________________________] 33% (v1.2)
 | 9 | 3 | 12min | 4min |
 | 10 | 2 | 7min | 3.5min |
 | 11 | 2 | 4min | 2min |
+| 12 | 1 | 2min | 2min |
 
 *Updated after each plan completion*
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - [11-02]: Coefficient/common_reward handling in composition layer, not inside compute() -- compute() returns raw unweighted rewards
 - [11-02]: Global-scope rewards merged after scope-specific via get_reward_types("global")
 - [11-02]: compute_fn uses cogrid.backend.xp for JAX/numpy compatibility
+- [12-01]: Backward-compat **kwargs preserved in process_interactions() so existing test callers work without modification
+- [12-01]: Wrapper lives in array_config.py (Overcooked-specific) not in core
 
 ### Pending Todos
 
@@ -78,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 11-02-PLAN.md (Phase 11 complete)
+Stopped at: Completed 12-01-PLAN.md (Phase 12 complete)
 Resume file: None
