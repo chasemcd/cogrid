@@ -48,12 +48,12 @@ def _compute_fwd_positions(prev_state):
     from cogrid.backend import xp
 
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
-    dir_vec_table = xp.array(
-        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
-    )
+    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
-    fwd_pos = prev_state['agent_pos'] + dir_vec_table[prev_state['agent_dir']]  # (n_agents, 2)
-    H, W = prev_state['object_type_map'].shape
+    fwd_pos = (
+        prev_state["agent_pos"] + dir_vec_table[prev_state["agent_dir"]]
+    )  # (n_agents, 2)
+    H, W = prev_state["object_type_map"].shape
     fwd_r = xp.clip(fwd_pos[:, 0], 0, H - 1)
     fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
     in_bounds = (
@@ -62,7 +62,7 @@ def _compute_fwd_positions(prev_state):
         & (fwd_pos[:, 1] >= 0)
         & (fwd_pos[:, 1] < W)
     )
-    fwd_types = prev_state['object_type_map'][fwd_r, fwd_c]  # (n_agents,)
+    fwd_types = prev_state["object_type_map"][fwd_r, fwd_c]  # (n_agents,)
 
     return fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types
 
@@ -99,13 +99,19 @@ def delivery_reward(
     """
     from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
+        prev_state
+    )
 
-    is_interact = (actions == action_pickup_drop_idx)  # (n_agents,)
-    holds_soup = (prev_state['agent_inv'][:, 0] == type_ids['onion_soup'])  # (n_agents,)
-    faces_delivery = (fwd_types == type_ids['delivery_zone'])  # (n_agents,)
+    is_interact = actions == action_pickup_drop_idx  # (n_agents,)
+    holds_soup = (
+        prev_state["agent_inv"][:, 0] == type_ids["onion_soup"]
+    )  # (n_agents,)
+    faces_delivery = fwd_types == type_ids["delivery_zone"]  # (n_agents,)
 
-    earns_reward = is_interact & holds_soup & faces_delivery & in_bounds  # (n_agents,)
+    earns_reward = (
+        is_interact & holds_soup & faces_delivery & in_bounds
+    )  # (n_agents,)
 
     # Apply reward: in common_reward mode, every earning agent adds coefficient
     # to ALL agents. This matches: `rewards = rewards + coefficient` per earner.
@@ -151,17 +157,19 @@ def onion_in_pot_reward(
     """
     from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
+        prev_state
+    )
 
-    is_interact = (actions == action_pickup_drop_idx)
-    holds_onion = (prev_state['agent_inv'][:, 0] == type_ids['onion'])
-    faces_pot = (fwd_types == type_ids['pot'])
+    is_interact = actions == action_pickup_drop_idx
+    holds_onion = prev_state["agent_inv"][:, 0] == type_ids["onion"]
+    faces_pot = fwd_types == type_ids["pot"]
 
     # Array-based pot position matching:
     # For each agent, check which pot (if any) their forward position matches.
     # fwd_pos[:, :] is (n_agents, 2), pot_positions is (n_pots, 2)
     agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2) clipped
-    pot_positions = prev_state['pot_positions']  # (n_pots, 2)
+    pot_positions = prev_state["pot_positions"]  # (n_pots, 2)
 
     # pos_match[i, j] = True iff agent i faces pot j
     pos_match = xp.all(
@@ -169,21 +177,28 @@ def onion_in_pot_reward(
         axis=2,
     )  # (n_agents, n_pots)
     facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,) -- index of matched pot
+    pot_idx = xp.argmax(
+        pos_match, axis=1
+    )  # (n_agents,) -- index of matched pot
 
     # Check pot capacity and type compatibility for each agent's matched pot.
     # pot_contents[pot_idx] gives (n_agents, 3) -- the contents of each agent's pot.
-    pot_row = prev_state['pot_contents'][pot_idx]  # (n_agents, 3)
+    pot_row = prev_state["pot_contents"][pot_idx]  # (n_agents, 3)
     n_filled = xp.sum(pot_row != -1, axis=1)  # (n_agents,)
     has_capacity = n_filled < 3
 
     # Same-type check: all non-empty slots must be onion (or empty)
-    is_onion_or_empty = (pot_row == -1) | (pot_row == type_ids['onion'])
+    is_onion_or_empty = (pot_row == -1) | (pot_row == type_ids["onion"])
     compatible = xp.all(is_onion_or_empty, axis=1)  # (n_agents,)
 
     earns_reward = (
-        is_interact & holds_onion & faces_pot & in_bounds
-        & facing_any_pot & has_capacity & compatible
+        is_interact
+        & holds_onion
+        & faces_pot
+        & in_bounds
+        & facing_any_pot
+        & has_capacity
+        & compatible
     )
 
     if common_reward:
@@ -225,15 +240,17 @@ def soup_in_dish_reward(
     """
     from cogrid.backend import xp
 
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
+        prev_state
+    )
 
-    is_interact = (actions == action_pickup_drop_idx)
-    holds_plate = (prev_state['agent_inv'][:, 0] == type_ids['plate'])
-    faces_pot = (fwd_types == type_ids['pot'])
+    is_interact = actions == action_pickup_drop_idx
+    holds_plate = prev_state["agent_inv"][:, 0] == type_ids["plate"]
+    faces_pot = fwd_types == type_ids["pot"]
 
     # Array-based pot position matching
     agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2)
-    pot_positions = prev_state['pot_positions']  # (n_pots, 2)
+    pot_positions = prev_state["pot_positions"]  # (n_pots, 2)
 
     pos_match = xp.all(
         pot_positions[None, :, :] == agent_fwd[:, None, :],
@@ -243,12 +260,16 @@ def soup_in_dish_reward(
     pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,)
 
     # Check pot is ready: timer == 0
-    pot_timer_vals = prev_state['pot_timer'][pot_idx]  # (n_agents,)
-    pot_ready = (pot_timer_vals == 0)
+    pot_timer_vals = prev_state["pot_timer"][pot_idx]  # (n_agents,)
+    pot_ready = pot_timer_vals == 0
 
     earns_reward = (
-        is_interact & holds_plate & faces_pot & in_bounds
-        & facing_any_pot & pot_ready
+        is_interact
+        & holds_plate
+        & faces_pot
+        & in_bounds
+        & facing_any_pot
+        & pot_ready
     )
 
     if common_reward:
@@ -269,11 +290,15 @@ def soup_in_dish_reward(
 # This prevents double-application of weighting.
 
 
-@register_reward_type("delivery", scope="overcooked", coefficient=1.0, common_reward=True)
+@register_reward_type(
+    "delivery", scope="overcooked", coefficient=1.0, common_reward=True
+)
 class DeliveryReward(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         return delivery_reward(
-            prev_state, state, actions,
+            prev_state,
+            state,
+            actions,
             reward_config["type_ids"],
             reward_config["n_agents"],
             coefficient=1.0,
@@ -282,11 +307,15 @@ class DeliveryReward(ArrayReward):
         )
 
 
-@register_reward_type("onion_in_pot", scope="overcooked", coefficient=0.1, common_reward=False)
+@register_reward_type(
+    "onion_in_pot", scope="overcooked", coefficient=0.1, common_reward=False
+)
 class OnionInPotReward(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         return onion_in_pot_reward(
-            prev_state, state, actions,
+            prev_state,
+            state,
+            actions,
             reward_config["type_ids"],
             reward_config["n_agents"],
             coefficient=1.0,
@@ -295,11 +324,15 @@ class OnionInPotReward(ArrayReward):
         )
 
 
-@register_reward_type("soup_in_dish", scope="overcooked", coefficient=0.3, common_reward=False)
+@register_reward_type(
+    "soup_in_dish", scope="overcooked", coefficient=0.3, common_reward=False
+)
 class SoupInDishReward(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         return soup_in_dish_reward(
-            prev_state, state, actions,
+            prev_state,
+            state,
+            actions,
             reward_config["type_ids"],
             reward_config["n_agents"],
             coefficient=1.0,
