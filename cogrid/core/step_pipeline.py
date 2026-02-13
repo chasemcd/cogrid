@@ -82,6 +82,7 @@ def step(
     action_pickup_drop_idx,
     action_toggle_idx,
     max_steps,
+    terminated_fn=None,
 ):
     """End-to-end step function operating on EnvState.
 
@@ -116,6 +117,9 @@ def step(
         action_pickup_drop_idx: int, PickupDrop action index.
         action_toggle_idx: int, Toggle action index.
         max_steps: int, maximum timesteps per episode.
+        terminated_fn: Optional callable
+            ``(prev_state_dict, state_dict, reward_config) -> bool array``.
+            Returns per-agent termination flags. If None, all-False.
 
     Returns:
         Tuple ``(state, obs, rewards, terminateds, truncateds, infos)`` where:
@@ -123,7 +127,7 @@ def step(
         - ``obs``: array of shape ``(n_agents, obs_dim)``.
         - ``rewards``: float32 array of shape ``(n_agents,)``.
         - ``terminateds``: bool array of shape ``(n_agents,)`` from
-          ``terminated_fn`` callback (or all-False).
+          ``terminated_fn`` (or all-False).
         - ``truncateds``: bool array of shape ``(n_agents,)`` broadcast
           from ``time >= max_steps``.
         - ``infos``: empty dict ``{}``.
@@ -220,7 +224,6 @@ def step(
     rewards = compute_fn(prev_dict, state_dict, actions, reward_config)
 
     # g. Terminateds and truncateds
-    terminated_fn = reward_config.get("terminated_fn")
     if terminated_fn is not None:
         terminateds = terminated_fn(prev_dict, state_dict, reward_config)
     else:
@@ -229,7 +232,15 @@ def step(
     truncated = state.time >= max_steps
     truncateds = xp.full(state.n_agents, truncated, dtype=xp.bool_)
 
-    # h. Stop gradient (JAX only, no-op on numpy)
+    # h. Zero out rewards for agents already done before this step
+    already_done = prev_state.done
+    rewards = xp.where(already_done, xp.zeros_like(rewards), rewards)
+
+    # i. Update done mask: once done, stays done
+    new_done = already_done | terminateds | truncateds
+    state = dataclasses.replace(state, done=new_done)
+
+    # j. Stop gradient (JAX only, no-op on numpy)
     if get_backend() == "jax":
         import jax.lax as lax
 
@@ -238,7 +249,7 @@ def step(
         terminateds = lax.stop_gradient(terminateds)
         truncateds = lax.stop_gradient(truncateds)
 
-    # i. Return
+    # k. Return
     return state, obs, rewards, terminateds, truncateds, {}
 
 
@@ -325,6 +336,7 @@ def reset(
             extra_state[f"{scope}.{la_key}"] = val
 
     # Build EnvState
+    done = xp.zeros(n_agents, dtype=xp.bool_)
     state = create_env_state(
         agent_pos=agent_pos,
         agent_dir=agent_dir,
@@ -335,6 +347,7 @@ def reset(
         extra_state=extra_state,
         rng_key=key,
         time=time,
+        done=done,
         n_agents=n_agents,
         height=H,
         width=W,
@@ -362,6 +375,7 @@ def build_step_fn(
     action_pickup_drop_idx,
     action_toggle_idx,
     max_steps,
+    terminated_fn=None,
     jit_compile=None,
 ):
     """Build a step function with all static config closed over.
@@ -377,6 +391,7 @@ def build_step_fn(
         action_pickup_drop_idx: int, PickupDrop action index.
         action_toggle_idx: int, Toggle action index.
         max_steps: int, maximum timesteps per episode.
+        terminated_fn: Optional callable for per-agent termination.
         jit_compile: If None, auto-detect from backend. If True/False, force.
 
     Returns:
@@ -395,6 +410,7 @@ def build_step_fn(
             action_pickup_drop_idx=action_pickup_drop_idx,
             action_toggle_idx=action_toggle_idx,
             max_steps=max_steps,
+            terminated_fn=terminated_fn,
         )
 
     should_jit = jit_compile if jit_compile is not None else (get_backend() == "jax")

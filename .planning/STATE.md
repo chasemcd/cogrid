@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 14 -- Auto-Wired CoGridEnv & Validation
+**Current focus:** v1.2 Milestone complete -- all 14 phases shipped
 
 ## Current Position
 

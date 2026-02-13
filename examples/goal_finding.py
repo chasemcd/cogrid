@@ -115,6 +115,7 @@ goal_config = {
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,
     "scope": "global",
+    "terminated_fn": goal_terminated,
 }
 
 registry.register(
@@ -131,17 +132,17 @@ def run_numpy():
     _reset_backend_for_testing()
 
     env = registry.make("GoalFinding-Simple-V0", backend="numpy")
-    env._reward_config["terminated_fn"] = goal_terminated
     obs, info = env.reset(seed=42)
 
     print("=== NumPy Backend ===")
     print(f"Agents: {env.possible_agents}")
     print(f"Obs shapes: { {k: v.shape for k, v in obs.items()} }")
 
+    rng = np.random.default_rng(0)
     total_reward = 0.0
     for step_i in range(50):
         # Random cardinal actions: 0=Up, 1=Down, 2=Left, 3=Right
-        actions = {aid: np.random.randint(0, 4) for aid in env.possible_agents}
+        actions = {aid: rng.integers(0, 4) for aid in env.possible_agents}
         obs, rewards, terminateds, truncateds, infos = env.step(actions)
         step_reward = sum(rewards.values())
         if step_reward > 0:
@@ -163,17 +164,17 @@ def run_jax():
 
     # --- Single environment ---
     env = registry.make("GoalFinding-Simple-V0", backend="jax")
-    env._reward_config["terminated_fn"] = goal_terminated
     obs, info = env.reset(seed=42)
 
     print("=== JAX Backend ===")
     print(f"Obs shapes: { {k: v.shape for k, v in obs.items()} }")
 
     # Step through the PettingZoo API (same as numpy)
+    rng = np.random.default_rng(0)
     total_reward = 0.0
-    for step_i in range(50):
-        actions = {aid: np.random.randint(0, 4) for aid in env.possible_agents}
-        obs, rewards, terminateds, truncateds, infos = env.step(actions)
+    for _ in range(50):
+        actions = {aid: rng.integers(0, 4) for aid in env.possible_agents}
+        obs, rewards, *_ = env.step(actions)
         total_reward += sum(rewards.values())
 
     print(f"Total reward over 50 steps: {total_reward:.1f}")
@@ -200,14 +201,20 @@ def run_jax():
     batched_state, batched_obs = batched_reset(keys)
     print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs.shape}")
 
-    # Run 10 steps across all 1024 envs simultaneously
-    batched_actions = jnp.zeros((n_envs, 2), dtype=jnp.int32)  # All noop
-    for _ in range(10):
-        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = (
+    # Run 50 steps across all 1024 envs with random cardinal actions
+    n_steps = 50
+    action_key = jax.random.key(42)
+    total_reward = jnp.float32(0.0)
+    for _ in range(n_steps):
+        action_key, subkey = jax.random.split(action_key)
+        batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
+        batched_state, batched_obs, batched_rew, *_ = (
             batched_step(batched_state, batched_actions)
         )
+        total_reward += batched_rew.sum()
 
-    print(f"vmap step x10 -- reward sum across batch: {float(batched_rew.sum()):.1f}")
+    total_reward /= n_envs
+    print(f"vmap step x{n_steps} -- total reward across batch: {float(total_reward):.1f}")
     print()
 
 

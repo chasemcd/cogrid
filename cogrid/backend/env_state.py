@@ -63,6 +63,7 @@ class EnvState:
         extra_state:      dict[str, array]    -- scope-prefixed env-specific arrays
         rng_key:          (2,) uint32 or None -- JAX PRNG key (None on numpy backend)
         time:             () int32            -- scalar timestep
+        done:             (n_agents,) bool    -- True for agents whose episode ended
 
     Static fields (compile-time constants, not traced):
         n_agents:   int -- number of agents
@@ -81,6 +82,7 @@ class EnvState:
     extra_state: object        # dict[str, array], scope-prefixed keys
     rng_key: object            # (2,) uint32 JAX PRNG key, or None on numpy
     time: object               # () int32 scalar timestep
+    done: object               # (n_agents,) bool -- True once terminated/truncated
 
     # --- Static fields (compile-time constants, not traced) ---
     n_agents: int = field(metadata=dict(static=True), default=2)
@@ -188,6 +190,7 @@ if __name__ == "__main__":
         },
         rng_key=None,
         time=np.int32(0),
+        done=np.zeros(2, dtype=np.bool_),
         n_agents=2,
         height=7,
         width=7,

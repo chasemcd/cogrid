@@ -170,7 +170,13 @@ class HumanPlay:
             self.step(actions)
 
     def step(self, actions: dict[str, Actions]):
-        self.obs, rewards, terminateds, truncateds, _ = self.env.step(actions)
+        # Convert action enum strings to integer indices
+        action_set = self.env.action_set
+        int_actions = {
+            aid: action_set.index(a) if isinstance(a, str) else int(a)
+            for aid, a in actions.items()
+        }
+        self.obs, rewards, terminateds, truncateds, _ = self.env.step(int_actions)
         self.cumulative_reward += [*rewards.values()][0]
         # print(
         #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
@@ -237,7 +243,7 @@ if __name__ == "__main__":
         render_mode: str | None = None, render_message=""
     ) -> CoGridEnv:
         return registry.make(
-            "Overcooked-ForcedCoordination-V0",
+            "Overcooked-CrampedRoom-V0",
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,

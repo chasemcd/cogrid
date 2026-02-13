@@ -4,7 +4,7 @@
 
 - v1.0 Vectorization & Dual Backend - Phases 1-4 (shipped 2026-02-12)
 - v1.1 Unified Functional Architecture - Phases 5-9 (shipped 2026-02-12)
-- v1.2 Component-Based Environment API - Phases 10-14 (in progress)
+- v1.2 Component-Based Environment API - Phases 10-14 (shipped 2026-02-13)
 
 ## Phases
 
@@ -72,7 +72,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: Composition & Auto-Wiring** - Auto-wiring module composes registered component metadata into complete scope_config and reward_config
 - [x] **Phase 12: Generic Interaction Signature** - process_interactions() generalized to pass/return extra_state dict instead of scope-specific arrays
 - [x] **Phase 13: Overcooked Migration** - Overcooked domain refactored to define all behavior through component interfaces exclusively
-- [ ] **Phase 14: Auto-Wired CoGridEnv & Validation** - CoGridEnv uses auto-wiring by default, new envs need only component classes + layout, full parity verified
+- [x] **Phase 14: Auto-Wired CoGridEnv & Validation** - CoGridEnv uses auto-wiring by default, new envs need only component classes + layout, full parity verified
 
 ## Phase Details
 
@@ -140,11 +140,11 @@ Plans:
   3. Component-based Overcooked produces identical step outputs to v1.1 manual-wired Overcooked across both numpy and JAX backends -- verified by automated parity test
   4. Component-based Overcooked works with `jax.jit` compilation and `jax.vmap` at 1024 parallel environments without error
   5. Dead manual-wiring code (scope-specific builders, manual scope_config dicts, `if scope ==` branches) is deleted from the codebase
-**Plans:** 3 plans
+**Plans**: 3/3 complete
 Plans:
-- [ ] 14-01-PLAN.md -- Rewire CoGridEnv to use auto-wiring for scope_config and reward_config
-- [ ] 14-02-PLAN.md -- Goal-finding component API example + test migration + parity/JIT/vmap validation
-- [ ] 14-03-PLAN.md -- Dead manual-wiring code deletion
+- [x] 14-01-PLAN.md -- Rewire CoGridEnv to use auto-wiring for scope_config and reward_config
+- [x] 14-02-PLAN.md -- Goal-finding component API example + test migration + parity/JIT/vmap validation
+- [x] 14-03-PLAN.md -- Dead manual-wiring code deletion
 
 ## Progress
 
@@ -167,4 +167,4 @@ Phases execute in numeric order: 10 -> 11 -> 12 -> 13 -> 14
 | 11. Composition & Auto-Wiring | v1.2 | 2/2 | Complete | 2026-02-13 |
 | 12. Generic Interaction Signature | v1.2 | 1/1 | Complete | 2026-02-13 |
 | 13. Overcooked Migration | v1.2 | 3/3 | Complete | 2026-02-13 |
-| 14. Auto-Wired CoGridEnv & Validation | v1.2 | 0/3 | Not started | - |
+| 14. Auto-Wired CoGridEnv & Validation | v1.2 | 3/3 | Complete | 2026-02-13 |

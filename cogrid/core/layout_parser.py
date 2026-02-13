@@ -192,6 +192,7 @@ def parse_layout(
 
     agent_dir = np.zeros(n_agents, dtype=np.int32)
     agent_inv = np.full((n_agents, 1), -1, dtype=np.int32)
+    done = np.zeros(n_agents, dtype=np.bool_)
     time_step = np.int32(0)
 
     # Convert to JAX arrays if backend is active.
@@ -204,6 +205,7 @@ def parse_layout(
         agent_pos = jnp.array(agent_pos)
         agent_dir = jnp.array(agent_dir)
         agent_inv = jnp.array(agent_inv)
+        done = jnp.array(done)
         time_step = jnp.int32(0)
         extra_state = {k: jnp.array(v) for k, v in extra_state.items()}
 
@@ -217,6 +219,7 @@ def parse_layout(
         extra_state=extra_state,
         rng_key=rng_key,
         time=time_step,
+        done=done,
         n_agents=n_agents,
         height=height,
         width=width,

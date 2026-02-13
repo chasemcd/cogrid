@@ -1,6 +1,6 @@
 """Phase 14 end-to-end validation tests.
 
-Three tests proving the auto-wired CoGridEnv path is correct:
+Four tests proving the auto-wired CoGridEnv path is correct:
 
 1. **Determinism + invariants (numpy):** Two identical auto-wired Overcooked
    envs with the same seed produce identical outputs over 50 scripted steps,
@@ -11,6 +11,9 @@ Three tests proving the auto-wired CoGridEnv path is correct:
 
 3. **Goal-finding component API (numpy):** The goal-finding example creates
    an environment via the component API with zero manual scope_config.
+
+4. **Cross-backend parity (numpy vs JAX):** Goal-finding env with identical
+   scripted actions produces identical state sequences on both backends.
 
 Satisfies TEST-01, TEST-02, TEST-03 for Phase 14.
 """
@@ -193,7 +196,6 @@ def test_goal_finding_component_api_numpy():
     from cogrid.envs import registry
 
     env = registry.make("GoalFinding-Simple-V0", backend="numpy")
-    env._reward_config["terminated_fn"] = gf.goal_terminated
     obs, info = env.reset(seed=42)
 
     agent_ids = sorted(env.possible_agents)
@@ -217,4 +219,95 @@ def test_goal_finding_component_api_numpy():
         for aid in agent_ids:
             assert np.isfinite(rewards[aid]), (
                 f"Step {step_i}, agent {aid}: reward not finite"
+            )
+
+
+# ======================================================================
+# TEST-04: Cross-backend parity -- numpy vs JAX produce identical states
+# ======================================================================
+
+
+def test_goal_finding_cross_backend_parity():
+    """Identical scripted actions produce identical states on numpy and JAX.
+
+    Creates the goal-finding env on both backends with the same seed,
+    runs 50 steps with the same action sequence, and asserts that
+    agent_pos, agent_dir, agent_inv, object_type_map, object_state_map,
+    and rewards match exactly at every step.
+
+    Agent directions at step 0 are skipped because numpy PCG64 and JAX
+    ThreeFry produce different random values from the same seed. After
+    the first cardinal move, directions become deterministic.
+    """
+    jax = pytest.importorskip("jax")
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    import examples.goal_finding  # noqa: F401 -- trigger registration
+    from cogrid.envs import registry
+
+    N_STEPS = 50
+    STATE_FIELDS = ["agent_pos", "agent_dir", "agent_inv",
+                    "object_type_map", "object_state_map"]
+
+    def _get_state_arrays(env):
+        es = env._env_state
+        return {k: np.array(getattr(es, k)) for k in STATE_FIELDS}
+
+    # Scripted non-colliding actions: agents move in opposite directions
+    # to avoid collision resolution (which uses backend-specific RNG).
+    def _scripted_actions(agent_ids, n_steps):
+        cycle = [
+            {agent_ids[0]: 0, agent_ids[1]: 1},  # Up, Down
+            {agent_ids[0]: 2, agent_ids[1]: 3},  # Left, Right
+            {agent_ids[0]: 6, agent_ids[1]: 6},  # Noop, Noop
+            {agent_ids[0]: 1, agent_ids[1]: 0},  # Down, Up
+            {agent_ids[0]: 3, agent_ids[1]: 2},  # Right, Left
+            {agent_ids[0]: 6, agent_ids[1]: 6},  # Noop, Noop
+        ]
+        return [cycle[s % len(cycle)] for s in range(n_steps)]
+
+    # --- Run numpy ---
+    _reset_backend_for_testing()
+    np_env = registry.make("GoalFinding-Simple-V0", backend="numpy")
+    np_env.reset(seed=42)
+    agent_ids = sorted(np_env.possible_agents)
+    actions_seq = _scripted_actions(agent_ids, N_STEPS)
+
+    np_states = [_get_state_arrays(np_env)]
+    np_rewards = []
+    for action_dict in actions_seq:
+        _, rewards, _, _, _ = np_env.step(action_dict)
+        np_states.append(_get_state_arrays(np_env))
+        np_rewards.append({aid: float(rewards[aid]) for aid in agent_ids})
+
+    # --- Run JAX ---
+    _reset_backend_for_testing()
+    jax_env = registry.make("GoalFinding-Simple-V0", backend="jax")
+    jax_env.reset(seed=42)
+
+    # Compare initial state (skip agent_dir due to RNG divergence)
+    jax_s0 = _get_state_arrays(jax_env)
+    for field in STATE_FIELDS:
+        if field == "agent_dir":
+            continue
+        np.testing.assert_array_equal(
+            np_states[0][field], jax_s0[field],
+            err_msg=f"Initial state mismatch: {field}",
+        )
+
+    # Step through and compare
+    for step_idx, action_dict in enumerate(actions_seq):
+        _, rewards, _, _, _ = jax_env.step(action_dict)
+        jax_state = _get_state_arrays(jax_env)
+
+        for field in STATE_FIELDS:
+            np.testing.assert_array_equal(
+                np_states[step_idx + 1][field], jax_state[field],
+                err_msg=f"Step {step_idx}, field {field}: numpy vs JAX mismatch",
+            )
+
+        for aid in agent_ids:
+            np.testing.assert_allclose(
+                np_rewards[step_idx][aid], float(rewards[aid]), atol=1e-7,
+                err_msg=f"Step {step_idx}, agent {aid}: reward mismatch",
             )

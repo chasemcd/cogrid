@@ -248,6 +248,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Sorted agent ID order for dict<->array conversion (both backends)
         self._agent_id_order = sorted(self.possible_agents)
 
+        # Optional per-agent termination function.  Can be provided via
+        # config["terminated_fn"] or set_terminated_fn() before reset().
+        self._terminated_fn = config.get("terminated_fn")
+
         # Step/reset pipeline functions -- initialized lazily in reset()
         self._step_fn = None
         self._reset_fn = None
@@ -385,6 +389,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """
         return self.action_spaces[agent]
 
+    def set_terminated_fn(self, fn):
+        """Set a per-agent termination function.
+
+        Must be called before the first ``reset()`` call so the function
+        is closed over by the JIT-compiled step pipeline.
+
+        Args:
+            fn: Callable ``(prev_state_dict, state_dict, reward_config)``
+                returning a bool array of shape ``(n_agents,)``.
+        """
+        self._terminated_fn = fn
+
     def reset(
         self,
         *,
@@ -499,6 +515,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._action_pickup_drop_idx,
             self._action_toggle_idx,
             self.max_steps,
+            terminated_fn=self._terminated_fn,
         )
 
         # Create RNG and run reset
@@ -616,25 +633,104 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return obs, rewards, terminateds, truncateds, infos
 
     def _sync_objects_from_state(self) -> None:
-        """Sync Agent positions/directions and Grid objects from EnvState for rendering.
+        """Sync Agent/Grid objects from EnvState arrays for rendering.
 
-        This is a lightweight read from EnvState arrays back to Agent/Grid objects.
+        Reads agent_pos, agent_dir, agent_inv, object_type_map,
+        object_state_map, and extra_state back to Agent/Grid objects so
+        the tile renderer reflects current simulation state.
+
         Only called when render_mode is not None. Not part of the simulation loop.
         """
         if self._env_state is None:
             return
 
         state = self._env_state
+        from cogrid.core.grid_object import idx_to_object, make_object
 
-        # Sync agent positions and directions
+        # --- Sync agent positions, directions, and inventory ---
         for i, aid in enumerate(self._agent_id_order):
-            if aid in self.env_agents and self.env_agents[aid] is not None:
-                agent_obj = self.env_agents[aid]
-                pos = np.array(state.agent_pos[i])
-                agent_obj.pos = (int(pos[0]), int(pos[1]))
-                agent_obj.dir = int(np.array(state.agent_dir[i]))
+            if aid not in self.env_agents or self.env_agents[aid] is None:
+                continue
+            agent_obj = self.env_agents[aid]
+            pos = np.array(state.agent_pos[i])
+            agent_obj.pos = (int(pos[0]), int(pos[1]))
+            agent_obj.dir = int(np.array(state.agent_dir[i]))
 
-        # Update grid agent references
+            inv_type_id = int(np.array(state.agent_inv[i, 0]))
+            if inv_type_id <= 0:
+                agent_obj.inventory = []
+            else:
+                obj_id = idx_to_object(inv_type_id, scope=self.scope)
+                agent_obj.inventory = (
+                    [make_object(obj_id, scope=self.scope)] if obj_id else []
+                )
+
+        # --- Sync grid cells from object_type_map / object_state_map ---
+        otm = np.array(state.object_type_map)
+        osm = np.array(state.object_state_map)
+
+        for r in range(self.grid.height):
+            for c in range(self.grid.width):
+                type_id = int(otm[r, c])
+                state_val = int(osm[r, c])
+
+                if type_id == 0:
+                    self.grid.set(r, c, None)
+                    continue
+
+                obj_id = idx_to_object(type_id, scope=self.scope)
+                if obj_id is None or obj_id == "free_space":
+                    self.grid.set(r, c, None)
+                    continue
+
+                existing = self.grid.get(r, c)
+                if existing is not None and existing.object_id == obj_id:
+                    existing.state = state_val
+                else:
+                    new_obj = make_object(obj_id, scope=self.scope, state=state_val)
+                    if new_obj is not None:
+                        new_obj.pos = (r, c)
+                    self.grid.set(r, c, new_obj)
+
+                # Sync placed-on items for counters (not pots -- handled below)
+                cell = self.grid.get(r, c)
+                if cell is not None and hasattr(cell, "obj_placed_on") and cell.object_id != "pot":
+                    if state_val > 0:
+                        placed_id = idx_to_object(state_val, scope=self.scope)
+                        cell.obj_placed_on = (
+                            make_object(placed_id, scope=self.scope) if placed_id else None
+                        )
+                    else:
+                        cell.obj_placed_on = None
+
+        # --- Sync pot contents from extra_state ---
+        extra = state.extra_state
+        prefix = f"{self.scope}."
+        pc_key = f"{prefix}pot_contents"
+        pt_key = f"{prefix}pot_timer"
+        pp_key = f"{prefix}pot_positions"
+
+        if all(k in extra for k in (pc_key, pt_key, pp_key)):
+            pot_contents = np.array(extra[pc_key])
+            pot_timer = np.array(extra[pt_key])
+            pot_positions = np.array(extra[pp_key])
+
+            for p in range(len(pot_positions)):
+                pr, pc = int(pot_positions[p, 0]), int(pot_positions[p, 1])
+                pot_obj = self.grid.get(pr, pc)
+                if pot_obj is not None and pot_obj.object_id == "pot":
+                    pot_obj.objects_in_pot = []
+                    for slot in range(pot_contents.shape[1]):
+                        item_id = int(pot_contents[p, slot])
+                        if item_id > 0:
+                            item_name = idx_to_object(item_id, scope=self.scope)
+                            if item_name:
+                                pot_obj.objects_in_pot.append(
+                                    make_object(item_name, scope=self.scope)
+                                )
+                    pot_obj.cooking_timer = int(pot_timer[p])
+
+        # Rebuild GridAgent wrappers for rendering
         self.update_grid_agents()
 
     def update_grid_agents(self) -> None:
