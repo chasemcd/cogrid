@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 
-Phase: 11 of 14 (Composition & Auto-Wiring)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-13 -- Completed 11-01 (Scope Config Auto-Wiring)
+Phase: 11 of 14 (Composition & Auto-Wiring) -- COMPLETE
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-13 -- Completed 11-02 (Reward Config Auto-Wiring)
 
-Progress: [##########______________________________] 25% (v1.2)
+Progress: [#############___________________________] 33% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33 (18 v1.0 + 12 v1.1 + 3 v1.2)
+- Total plans completed: 34 (18 v1.0 + 12 v1.1 + 4 v1.2)
 - Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
@@ -38,7 +38,7 @@ Progress: [##########______________________________] 25% (v1.2)
 | 8 | 2 | 7min | 3.5min |
 | 9 | 3 | 12min | 4min |
 | 10 | 2 | 7min | 3.5min |
-| 11 | 1 | 2min | 2min |
+| 11 | 2 | 4min | 2min |
 
 *Updated after each plan completion*
 
@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 - [11-01]: symbol_table special entries (+/space) added after auto-population to ensure override of Floor.char conflict
 - [11-01]: extra_state_schema keys prefixed with scope name at composition time, not in classmethods
 - [11-01]: extra_state_builder set to None in auto-wired config; provided via override until Phase 13
+- [11-02]: Coefficient/common_reward handling in composition layer, not inside compute() -- compute() returns raw unweighted rewards
+- [11-02]: Global-scope rewards merged after scope-specific via get_reward_types("global")
+- [11-02]: compute_fn uses cogrid.backend.xp for JAX/numpy compatibility
 
 ### Pending Todos
 
@@ -75,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 11-01-PLAN.md
+Stopped at: Completed 11-02-PLAN.md (Phase 11 complete)
 Resume file: None
