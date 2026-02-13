@@ -172,10 +172,10 @@ def step(
     dir_vec_table = xp.array(
         [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
     )
-    extra_kwargs = {}
+    extra_state = {}
     for es_key, val in state.extra_state.items():
         short_key = es_key.split(".", 1)[-1] if "." in es_key else es_key
-        extra_kwargs[short_key] = val
+        extra_state[short_key] = val
 
     agent_inv, otm, osm, extra_out = process_interactions(
         state.agent_pos,
@@ -189,7 +189,7 @@ def step(
         dir_vec_table,
         action_pickup_drop_idx,
         action_toggle_idx,
-        **extra_kwargs,
+        extra_state=extra_state,
     )
     # Re-prefix returned extra_out keys back into extra_state
     scope_prefix = next(
