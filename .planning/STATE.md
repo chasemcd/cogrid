@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 13 -- Overcooked Migration
+**Current focus:** Phase 14 -- Auto-Wired CoGridEnv & Validation
 
 ## Current Position
 
-Phase: 13 of 14 (Overcooked Migration)
-Plan: 3 of 3 complete
-Status: Phase complete
-Last activity: 2026-02-13 -- Completed 13-03 (Autowire Composition)
+Phase: 14 of 14 (Auto-Wired CoGridEnv & Validation)
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-02-13 -- Completed 14-01 (CoGridEnv Auto-Wiring)
 
-Progress: [######################__________________] 51% (v1.2)
+Progress: [########################________________] 60% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 38 (18 v1.0 + 12 v1.1 + 8 v1.2)
+- Total plans completed: 39 (18 v1.0 + 12 v1.1 + 9 v1.2)
 - Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
@@ -41,6 +41,7 @@ Progress: [######################__________________] 51% (v1.2)
 | 11 | 2 | 4min | 2min |
 | 12 | 1 | 2min | 2min |
 | 13 | 3 | 7min | 2.3min |
+| 14 | 1 | 5min | 5min |
 
 *Updated after each plan completion*
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [13-03]: Single interaction_body per scope enforced via ValueError; no multi-interaction composition needed
 - [13-03]: Extra_state_builder composed by merging dict outputs; last-write-wins for overlapping keys
 - [13-03]: Static_tables merged via dict.update after base build_lookup_tables; component tables override base
+- [14-01]: Extra_state_builder returns scope-prefixed keys; strip prefix in reset() before merge since step_pipeline.reset() re-adds prefix
+- [14-01]: CoGridEnv.__init__() uses auto-wiring exclusively -- zero manual scope_config or reward_config assembly
 
 ### Pending Todos
 
@@ -89,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 13-03-PLAN.md (Phase 13 complete)
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
