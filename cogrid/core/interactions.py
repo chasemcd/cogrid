@@ -35,7 +35,8 @@ def process_interactions(
     dir_vec_table,            # (4, 2) int32
     action_pickup_drop_idx,   # int -- index of PickupDrop action
     action_toggle_idx,        # int -- index of Toggle action
-    **extra_state,            # scope-specific state arrays
+    extra_state=None,         # dict of scope-specific state arrays
+    **extra_state_kwargs,     # backward compat with **kwargs callers
 ):
     """Process interactions for all agents using xp array operations.
 
@@ -63,15 +64,20 @@ def process_interactions(
         dir_vec_table: Direction vector lookup, shape ``(4, 2)``.
         action_pickup_drop_idx: Integer index of the PickupDrop action.
         action_toggle_idx: Integer index of the Toggle action.
-        **extra_state: Scope-specific state arrays passed through to
-            the interaction_body (e.g. pot_contents, pot_timer,
-            pot_positions for Overcooked).
+        extra_state: Dict of scope-specific state arrays passed through
+            to the interaction_body. The interaction_body reads/writes
+            what it needs; core code never inspects the contents.
+        **extra_state_kwargs: Backward-compatible kwargs form. If
+            ``extra_state`` is None, kwargs are collected into a dict.
 
     Returns:
         Tuple of ``(agent_inv, object_type_map, object_state_map, extra_state)``
         where extra_state is the dict of scope-specific arrays (potentially
         mutated by the interaction_body).
     """
+    if extra_state is None:
+        extra_state = extra_state_kwargs if extra_state_kwargs else {}
+
     from cogrid.backend import xp
 
     n_agents = agent_pos.shape[0]
@@ -101,33 +107,22 @@ def process_interactions(
     base_ok = is_interact & ~agent_ahead  # (n_agents,) bool
 
     if interaction_body is not None:
-        # Scope with interaction_body (Overcooked): process agents sequentially.
+        # Scope with interaction_body: process agents sequentially.
         # Lower-index agents have priority (process first, mutations visible
         # to later agents). n_agents is a static shape dim, so this Python
         # range loop unrolls at trace time -- no lax.fori_loop needed.
         static_tables = scope_config.get("static_tables", {})
 
-        # Extract pot arrays from extra_state
-        pot_contents = extra_state.get("pot_contents")
-        pot_timer = extra_state.get("pot_timer")
-        pot_positions = extra_state.get("pot_positions")
-
         for i in range(n_agents):
-            # Re-read state each iteration (prior agent may have mutated it)
             fwd_type_i = object_type_map[fwd_r[i], fwd_c[i]]
             inv_item_i = agent_inv[i, 0]
 
             result = interaction_body(
                 i, agent_inv, object_type_map, object_state_map,
                 fwd_r[i], fwd_c[i], fwd_type_i, inv_item_i, base_ok[i],
-                pot_contents, pot_timer, pot_positions, static_tables,
+                extra_state, static_tables,
             )
-            agent_inv, object_type_map, object_state_map, pot_contents, pot_timer = result
-
-        # Update extra_state with mutated pot arrays
-        extra_state = {**extra_state}
-        extra_state["pot_contents"] = pot_contents
-        extra_state["pot_timer"] = pot_timer
+            agent_inv, object_type_map, object_state_map, extra_state = result
     else:
         # Generic scope: handle branches 1, 3, 4 without scope-specific handler.
         # Unroll 2 agent calls with generic xp.where logic.

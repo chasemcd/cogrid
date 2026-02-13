@@ -60,6 +60,40 @@ def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
     }
 
 
+def _wrap_overcooked_interaction_body(original_fn):
+    """Wrap positional-arg interaction_body for generic extra_state dict protocol.
+
+    Unpacks pot arrays from the ``extra_state`` dict, calls the original
+    Overcooked interaction body with positional args, and repacks the
+    returned pot arrays back into a new dict.  ``pot_positions`` is
+    read-only and preserved via the ``{**extra_state, ...}`` spread.
+
+    Args:
+        original_fn: The positional-arg ``overcooked_interaction_body``.
+
+    Returns:
+        Wrapped function matching the generic interaction_body protocol:
+        ``(i, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
+        base_ok, extra_state, static_tables) -> (agent_inv, otm, osm,
+        extra_state)``.
+    """
+    def wrapped(i, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
+                base_ok, extra_state, static_tables):
+        pot_contents = extra_state["pot_contents"]
+        pot_timer = extra_state["pot_timer"]
+        pot_positions = extra_state["pot_positions"]
+
+        agent_inv, otm, osm, pot_contents, pot_timer = original_fn(
+            i, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
+            base_ok, pot_contents, pot_timer, pot_positions, static_tables,
+        )
+
+        new_extra = {**extra_state, "pot_contents": pot_contents, "pot_timer": pot_timer}
+        return agent_inv, otm, osm, new_extra
+
+    return wrapped
+
+
 def build_overcooked_scope_config() -> dict:
     """Build the complete Overcooked scope configuration.
 
@@ -87,7 +121,7 @@ def build_overcooked_scope_config() -> dict:
         "type_ids": type_ids,
         "state_extractor": _extract_overcooked_state,
         "tick_handler": overcooked_tick_state,
-        "interaction_body": overcooked_interaction_body,
+        "interaction_body": _wrap_overcooked_interaction_body(overcooked_interaction_body),
         "static_tables": static_tables,
         # v1.1: layout parser support
         "symbol_table": {
