@@ -1,12 +1,14 @@
-"""Auto-wire scope configuration from component registries.
+"""Auto-wire scope and reward configuration from component registries.
 
 Reads component metadata populated by ``@register_object_type`` and
-produces a complete ``scope_config`` dict matching the shape consumed
-by ``step_pipeline.step()``, ``layout_parser.parse_layout()``, and
+``@register_reward_type`` and produces complete ``scope_config`` and
+``reward_config`` dicts matching the shapes consumed by
+``step_pipeline.step()``, ``layout_parser.parse_layout()``, and
 ``interactions.process_interactions()``.
 
-Replaces manual dict assembly (e.g. ``build_overcooked_scope_config()``)
-with automatic composition from registered components.
+Replaces manual dict assembly (e.g. ``build_overcooked_scope_config()``,
+manual reward_config in ``cogrid_env.py``) with automatic composition
+from registered components.
 """
 
 from __future__ import annotations
@@ -165,4 +167,38 @@ def build_reward_config_from_components(
     Returns:
         Dict with keys: compute_fn, type_ids, n_agents, action_pickup_drop_idx.
     """
-    raise NotImplementedError("build_reward_config_from_components not yet implemented")
+    from cogrid.core.component_registry import get_reward_types
+
+    # Collect reward metadata from scope-specific and global registries
+    reward_metas = get_reward_types(scope)
+    if scope != "global":
+        reward_metas = reward_metas + get_reward_types("global")
+
+    # Instantiate each reward with its registered defaults
+    instances = [
+        meta.cls(
+            coefficient=meta.default_coefficient,
+            common_reward=meta.default_common_reward,
+        )
+        for meta in reward_metas
+    ]
+
+    def compute_fn(prev_state, state, actions, reward_config):
+        """Composed reward function that sums all registered rewards."""
+        from cogrid.backend import xp
+
+        total = xp.zeros(n_agents, dtype=xp.float32)
+        for inst in instances:
+            r = inst.compute(prev_state, state, actions, reward_config)
+            r = r * inst.coefficient
+            if inst.common_reward:
+                r = xp.full(n_agents, xp.sum(r), dtype=xp.float32)
+            total = total + r
+        return total
+
+    return {
+        "compute_fn": compute_fn,
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": action_pickup_drop_idx,
+    }
