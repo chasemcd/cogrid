@@ -632,6 +632,106 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return obs, rewards, terminateds, truncateds, infos
 
+    def get_state(self) -> dict:
+        """Export a JSON-serializable snapshot of the environment state.
+
+        Returns a plain dict of Python lists and scalars that fully
+        describes the current simulation state.  The dict can be passed to
+        :meth:`set_state` to restore the environment to this exact point,
+        or serialized with ``json.dumps()`` for saving/transmission.
+
+        Must be called after :meth:`reset`.
+
+        Returns:
+            Dict with keys matching :class:`EnvState` dynamic/static fields
+            plus ``t`` (PettingZoo timestep) and ``cumulative_score``.
+        """
+        if self._env_state is None:
+            raise RuntimeError("Must call reset() before get_state()")
+
+        state = self._env_state
+        snapshot = {
+            "agent_pos": np.array(state.agent_pos).tolist(),
+            "agent_dir": np.array(state.agent_dir).tolist(),
+            "agent_inv": np.array(state.agent_inv).tolist(),
+            "wall_map": np.array(state.wall_map).tolist(),
+            "object_type_map": np.array(state.object_type_map).tolist(),
+            "object_state_map": np.array(state.object_state_map).tolist(),
+            "extra_state": {
+                k: np.array(v).tolist() for k, v in state.extra_state.items()
+            },
+            "rng_key": np.array(state.rng_key).tolist() if state.rng_key is not None else None,
+            "time": int(state.time),
+            "done": np.array(state.done).tolist(),
+            "n_agents": state.n_agents,
+            "height": state.height,
+            "width": state.width,
+            "action_set": state.action_set,
+            "t": self.t,
+            "cumulative_score": float(self.cumulative_score),
+        }
+        return snapshot
+
+    def set_state(self, snapshot: dict) -> None:
+        """Restore the environment to a previously exported state.
+
+        Accepts a dict produced by :meth:`get_state` (plain Python lists
+        and scalars, as returned by JSON deserialization) and rebuilds the
+        internal :class:`EnvState`, converting to the active backend's
+        array type.
+
+        Must be called after :meth:`reset` (the step/reset pipeline must
+        already be initialized).
+
+        Args:
+            snapshot: Dict previously returned by :meth:`get_state`.
+        """
+        if self._step_fn is None:
+            raise RuntimeError("Must call reset() before set_state()")
+
+        from cogrid.backend.env_state import create_env_state
+
+        if self._backend == "jax":
+            import jax.numpy as jnp
+            xp = jnp
+        else:
+            xp = np
+
+        extra_state = {
+            k: xp.array(v, dtype=xp.int32) for k, v in snapshot["extra_state"].items()
+        }
+
+        rng_key = snapshot["rng_key"]
+        if rng_key is not None:
+            if self._backend == "jax":
+                import jax
+                rng_key = jax.numpy.array(rng_key, dtype=jax.numpy.uint32)
+            else:
+                rng_key = np.array(rng_key)
+
+        self._env_state = create_env_state(
+            agent_pos=xp.array(snapshot["agent_pos"], dtype=xp.int32),
+            agent_dir=xp.array(snapshot["agent_dir"], dtype=xp.int32),
+            agent_inv=xp.array(snapshot["agent_inv"], dtype=xp.int32),
+            wall_map=xp.array(snapshot["wall_map"], dtype=xp.int32),
+            object_type_map=xp.array(snapshot["object_type_map"], dtype=xp.int32),
+            object_state_map=xp.array(snapshot["object_state_map"], dtype=xp.int32),
+            extra_state=extra_state,
+            rng_key=rng_key,
+            time=xp.int32(snapshot["time"]),
+            done=xp.array(snapshot["done"], dtype=xp.bool_),
+            n_agents=snapshot["n_agents"],
+            height=snapshot["height"],
+            width=snapshot["width"],
+            action_set=snapshot["action_set"],
+        )
+
+        self.t = snapshot["t"]
+        self.cumulative_score = snapshot["cumulative_score"]
+
+        if self.render_mode is not None:
+            self._sync_objects_from_state()
+
     def _sync_objects_from_state(self) -> None:
         """Sync Agent/Grid objects from EnvState arrays for rendering.
 
