@@ -2,25 +2,25 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-12)
+See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 9 -- Integration & Cleanup
+**Current focus:** Phase 10 -- Component Registration Infrastructure
 
 ## Current Position
 
-Phase: 9 of 9 (Integration & Cleanup)
-Plan: 3 of 3 in current phase (all complete)
-Status: Phase 9 Complete
-Last activity: 2026-02-12 -- Completed 09-02 (unified CoGridEnv wrapper)
+Phase: 10 of 14 (Component Registration Infrastructure)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-13 -- Completed 10-01 (Component Registry Infrastructure)
 
-Progress: [########################################] 100% (v1.0 + v1.1 complete, all phases done)
+Progress: [####____________________________________] 10% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30 (18 v1.0 + 12 v1.1)
-- Average duration: --
+- Total plans completed: 31 (18 v1.0 + 12 v1.1 + 1 v1.2)
+- Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
 **By Phase:**
@@ -34,9 +34,10 @@ Progress: [########################################] 100% (v1.0 + v1.1 complete,
 | 4 | 2 | -- | -- |
 | 5 | 3 | 9min | 3min |
 | 6 | 4 | 17min | 4min |
-| 7 | 2/2 | 7min | 3.5min |
-| 8 | 2/2 | 7min | 3.5min |
-| 9 | 3/3 | 12min | 4min |
+| 7 | 2 | 7min | 3.5min |
+| 8 | 2 | 7min | 3.5min |
+| 9 | 3 | 12min | 4min |
+| 10 | 1 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -47,48 +48,13 @@ Progress: [########################################] 100% (v1.0 + v1.1 complete,
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.1]: Single code path with `xp` dispatch -- no `_jax`/`_numpy` function pairs
-- [v1.1]: Pure array ops only -- no Python loops or JAX loop primitives (fori_loop)
-- [v1.1]: Generic extra_state dict in EnvState for environment-specific arrays
-- [v1.1]: Delete object-based sim code -- rewrite layout parsing without Grid/Agent objects
-- [v1.1]: Overcooked scope only for this milestone
-- [05-01]: array_ops.set_at uses get_backend() string check (not hasattr) for cleaner dispatch
-- [05-01]: extra_state keys use scope-prefix convention (e.g. "overcooked.pot_timer")
-- [05-01]: Removed n_pots static field from EnvState (pot count encoded in extra_state array shapes)
-- [05-02]: Symbol table in both scope_config and explicit SYMBOL_REGISTRY for dual-access flexibility
-- [05-02]: parse_layout always uses numpy for parsing, converts to JAX arrays at the end
-- [05-02]: Spawn positions ('+' chars) populate agent_pos but NOT object_type_map
-- [05-03]: envstate_to_dict strips scope prefix for backward compat (transitional for Phases 6-7)
-- [05-03]: n_pots derived from extra_state array shape[0] instead of removed static field
-- [06-01]: move_agents() accepts pre-computed priority array instead of RNG (caller handles backend-specific RNG)
-- [06-01]: Cascade blocking pass for propagating blocked-agent positions to lower-priority agents
-- [06-01]: Double argsort for vectorized priority rank computation
-- [06-02]: Static-range Python loop over n_agents for sequential interaction processing (JIT-compatible, handles any agent count)
-- [06-02]: Scope config drops _jax keys -- single function per role (tick_handler, interaction_body)
-- [06-03]: full_map_encoding uses xp.pad + xp.stack instead of backend-branching slice assignment
-- [06-03]: Agent scatter uses set_at_2d loop over n_agents (static/tiny) instead of fancy indexing
-- [06-03]: get_all_agent_obs uses Python loop + xp.stack; vmap deferred to Phase 8
-- [06-03]: Backward-compat aliases (build_feature_fn_jax, get_all_agent_obs_jax) for caller migration
-- [06-04]: Function-level `from cogrid.backend import xp` imports for correct late-binding backend dispatch
-- [06-04]: Priority array pre-computed from RNG in jax_step, not inside move_agents
-- [07-01]: Backward-compat alias compute_rewards_jax = compute_rewards for migration period
-- [07-01]: Deleted all _array/_jax reward function variants -- unified functions use xp throughout
-- [07-02]: importlib.import_module for cross-backend test module loading (avoids package name collision)
-- [08-01]: step() and reset() use inline get_backend() branching for RNG and stop_gradient
-- [08-01]: numpy RNG uses np.random.default_rng() without seed for priority (reproducible seeding deferred to Phase 9)
-- [08-01]: envstate_to_dict copied unchanged from jax_step.py (already backend-agnostic)
-- [08-02]: build_step_fn/build_reset_fn use jit_compile=None defaulting to auto-detect from get_backend()
-- [08-02]: jax_step.py reduced to 7-line backward-compat shim (all implementation in step_pipeline.py)
-- [08-02]: DIR_VEC_TABLE in move_agents() created inline via xp.array() to avoid stale cache under JIT
-- [09-01]: tick_handler signature changed to (state, scope_config) -> state for full scope generality
-- [09-01]: reward compute_fn provided via reward_config["compute_fn"] instead of hardcoded import
-- [09-01]: extra_state keys use generic scope.key prefix convention (auto-strip/re-prefix in step/reset)
-- [09-01]: pot_capacity and cooking_time removed from reset() (scope-specific, handled in tick handler closure)
-- [09-03]: cogrid_env.py changes deferred to 09-02 (parallel execution, no merge conflicts)
-- [09-02]: Deleted move_agents, interact, determine_attempted_pos, can_toggle from CoGridEnv (no subclass overrides)
-- [09-02]: feature_fn and reward_config built in __init__ for both backends (not just JAX)
-- [09-02]: _sync_objects_from_state() added for render-only position sync from EnvState
-- [09-02]: cogrid_env.py no longer imports from jax_step.py (all via step_pipeline)
+- [v1.2]: Behavior logic on GridObject classes via classmethods (build_tick_fn, build_interaction_fn, extra_state_schema)
+- [v1.2]: Component methods are code generators producing pure functions at init time -- NOT runtime dispatch targets (JAX tracing constraint)
+- [v1.2]: Overcooked interaction monolith wrapped initially, NOT split into per-object fragments (pitfall mitigation)
+- [v1.2]: Extra state schema is scope-level (not layout-level) for pytree stability
+- [v1.2]: Registration is data-only at import time, composition deferred to lazy call
+- [10-01]: Lazy import inside decorator body prevents circular import between grid_object and component_registry
+- [10-01]: inspect.signature auto-strips cls for classmethods, raw params list catches instance method mistakes
 
 ### Pending Todos
 
@@ -96,13 +62,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Mutation bugs where `.copy()` + in-place assignment passes numpy but fails under JAX JIT -- mitigated by `set_at()` helper (Phase 5)
-- [RESOLVED 09-03] Feature function callers migrated; backward-compat aliases deleted
-- [RESOLVED 09-03] compute_rewards_jax alias deleted; all callers use compute_rewards directly
-- [RESOLVED 09-02] cogrid_env.py now imports from step_pipeline only, no jax_step.py references
+- Overcooked's 170-line monolithic interaction_body is the complexity risk -- wrapping it (not splitting) is the mitigation
+- Handler composition ordering must be deterministic to avoid behavioral differences vs v1.1
+- Extra state schema must be scope-level for pytree stability (not layout-level)
 
 ## Session Continuity
 
-Last session: 2026-02-12
-Stopped at: Completed 09-02-PLAN.md (unified CoGridEnv wrapper) -- Phase 9 complete
+Last session: 2026-02-13
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
