@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 10 -- Component Registration Infrastructure
+**Current focus:** Phase 11 -- Composition & Auto-Wiring
 
 ## Current Position
 
-Phase: 10 of 14 (Component Registration Infrastructure) -- COMPLETE
-Plan: 2 of 2 complete
-Status: Phase complete -- ready for Phase 11
-Last activity: 2026-02-13 -- Completed 10-02 (ArrayReward Base Class and Component Registry Tests)
+Phase: 11 of 14 (Composition & Auto-Wiring)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-13 -- Completed 11-01 (Scope Config Auto-Wiring)
 
-Progress: [########________________________________] 20% (v1.2)
+Progress: [##########______________________________] 25% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32 (18 v1.0 + 12 v1.1 + 2 v1.2)
+- Total plans completed: 33 (18 v1.0 + 12 v1.1 + 3 v1.2)
 - Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
@@ -38,6 +38,7 @@ Progress: [########________________________________] 20% (v1.2)
 | 8 | 2 | 7min | 3.5min |
 | 9 | 3 | 12min | 4min |
 | 10 | 2 | 7min | 3.5min |
+| 11 | 1 | 2min | 2min |
 
 *Updated after each plan completion*
 
@@ -57,6 +58,9 @@ Recent decisions affecting current work:
 - [10-01]: inspect.signature auto-strips cls for classmethods, raw params list catches instance method mistakes
 - [10-02]: ArrayReward uses constructor args (not class attributes) for coefficient/common_reward
 - [10-02]: register_reward_type re-exported from array_rewards.py for convenient decorator imports
+- [11-01]: symbol_table special entries (+/space) added after auto-population to ensure override of Floor.char conflict
+- [11-01]: extra_state_schema keys prefixed with scope name at composition time, not in classmethods
+- [11-01]: extra_state_builder set to None in auto-wired config; provided via override until Phase 13
 
 ### Pending Todos
 
@@ -71,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 10-02-PLAN.md (Phase 10 complete)
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
