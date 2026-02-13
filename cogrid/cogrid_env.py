@@ -204,11 +204,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Build lookup tables for the current scope
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
-        # Build scope config for environment-specific array logic
-        from cogrid.core.scope_config import get_scope_config
-        self._scope_config = get_scope_config(self.scope)
+        # Build scope config via auto-wiring from registered components
+        from cogrid.core.autowire import (
+            build_scope_config_from_components,
+            build_reward_config_from_components,
+        )
+        self._scope_config = build_scope_config_from_components(self.scope)
         self._type_ids = self._scope_config["type_ids"]
-        self._interaction_tables = self._scope_config["interaction_tables"]
+        self._interaction_tables = self._scope_config.get("interaction_tables")
 
         # Array state is built in reset() after agents are placed
         self._array_state = None
@@ -234,27 +237,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             grid_actions.Actions.Toggle
         )
 
-        # Build reward config (backend-agnostic)
-        jax_reward_specs = []
-        for name in self.config.get("rewards", []):
-            fn_name = name.replace("_reward", "") if name.endswith("_reward") else name
-            jax_reward_specs.append({
-                "fn": fn_name,
-                "coefficient": 1.0,
-                "common_reward": True,
-            })
-
-        # Resolve compute_fn from scope config or default to overcooked
-        self._reward_config = {
-            "type_ids": self._type_ids,
-            "n_agents": self.config["num_agents"],
-            "rewards": jax_reward_specs,
-            "action_pickup_drop_idx": self._action_pickup_drop_idx,
-        }
-        # Add compute_fn: import from scope-specific module
-        if self.scope == "overcooked":
-            from cogrid.envs.overcooked.array_rewards import compute_rewards
-            self._reward_config["compute_fn"] = compute_rewards
+        # Auto-wire reward config from registered ArrayReward subclasses
+        self._reward_config = build_reward_config_from_components(
+            self.scope,
+            n_agents=self.config["num_agents"],
+            type_ids=self._type_ids,
+            action_pickup_drop_idx=self._action_pickup_drop_idx,
+        )
 
         # Sorted agent ID order for dict<->array conversion (both backends)
         self._agent_id_order = sorted(self.possible_agents)
@@ -438,6 +427,20 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Build array state from grid and agents
         self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
+
+        # Build extra state from autowired builder (e.g. pot arrays for Overcooked)
+        extra_state_builder = self._scope_config.get("extra_state_builder")
+        if extra_state_builder is not None:
+            extra = extra_state_builder(self._array_state, self.scope)
+            # Strip scope prefix from keys: the step_pipeline.reset() will
+            # re-add the prefix when building EnvState.extra_state.
+            scope_prefix = f"{self.scope}."
+            stripped = {
+                (k[len(scope_prefix):] if k.startswith(scope_prefix) else k): v
+                for k, v in extra.items()
+            }
+            self._array_state.update(stripped)
+
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
         self._array_state.update(agent_arrays)
 

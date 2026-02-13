@@ -541,10 +541,9 @@ def test_obs_eager_vs_jit():
 
 
 def test_rewards_eager_vs_jit():
-    """compute_rewards produces identical outputs eagerly and under jax.jit."""
+    """Auto-wired compute_fn produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    from cogrid.envs.overcooked.array_rewards import compute_rewards
     from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()
@@ -558,9 +557,10 @@ def test_rewards_eager_vs_jit():
     prev_dict = envstate_to_dict(state)
     curr_dict = envstate_to_dict(new_state)
     reward_config = env._reward_config
+    compute_fn = reward_config["compute_fn"]
 
     # Eager call
-    rew_e = compute_rewards(prev_dict, curr_dict, actions, reward_config)
+    rew_e = compute_fn(prev_dict, curr_dict, actions, reward_config)
 
     # JIT call -- wrap to make dict structure explicit as args
     @jax.jit
@@ -585,7 +585,7 @@ def test_rewards_eager_vs_jit():
             "pot_contents": curr_pc, "pot_timer": curr_pt,
             "pot_positions": curr_pp,
         }
-        return compute_rewards(prev, curr, actions, reward_config)
+        return compute_fn(prev, curr, actions, reward_config)
 
     rew_j = jitted_rewards(
         prev_dict["agent_pos"], prev_dict["agent_dir"], prev_dict["agent_inv"],
@@ -599,5 +599,5 @@ def test_rewards_eager_vs_jit():
 
     np.testing.assert_allclose(
         np.array(rew_e), np.array(rew_j), atol=1e-7,
-        err_msg="compute_rewards: reward mismatch between eager and JIT"
+        err_msg="compute_fn: reward mismatch between eager and JIT"
     )
