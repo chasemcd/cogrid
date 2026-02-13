@@ -128,6 +128,21 @@ def build_scope_config_from_components(
             extra_tables = meta.methods["build_static_tables"]()
             static_tables.update(extra_tables)
 
+    # -- Compose render_sync from components (global + scope) --
+    render_sync = None
+    global_renderers = [m for m in get_all_components("global") if m.has_render_sync]
+    scope_renderers = [m for m in all_components if m.has_render_sync] if scope != "global" else []
+    all_renderers = global_renderers + scope_renderers
+    if all_renderers:
+        render_fns = [m.methods["build_render_sync_fn"]() for m in all_renderers]
+        if len(render_fns) == 1:
+            render_sync = render_fns[0]
+        else:
+            def _composed_render_sync(grid, env_state, scope, _fns=render_fns):
+                for fn in _fns:
+                    fn(grid, env_state, scope)
+            render_sync = _composed_render_sync
+
     return {
         "scope": scope,
         "interaction_tables": interaction_tables,
@@ -139,6 +154,7 @@ def build_scope_config_from_components(
         "symbol_table": symbol_table,
         "extra_state_schema": extra_state_schema,
         "extra_state_builder": extra_state_builder,
+        "render_sync": render_sync,
     }
 
 

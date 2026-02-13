@@ -635,9 +635,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def _sync_objects_from_state(self) -> None:
         """Sync Agent/Grid objects from EnvState arrays for rendering.
 
-        Reads agent_pos, agent_dir, agent_inv, object_type_map,
-        object_state_map, and extra_state back to Agent/Grid objects so
-        the tile renderer reflects current simulation state.
+        Reads agent_pos, agent_dir, agent_inv, object_type_map, and
+        object_state_map back to Agent/Grid objects so the tile renderer
+        reflects current simulation state.
+
+        Scope-specific rendering (e.g. counter obj_placed_on, pot contents)
+        is delegated to the ``render_sync`` hook in scope_config, composed
+        from ``build_render_sync_fn`` classmethods on registered GridObj
+        subclasses.
 
         Only called when render_mode is not None. Not part of the simulation loop.
         """
@@ -692,43 +697,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                         new_obj.pos = (r, c)
                     self.grid.set(r, c, new_obj)
 
-                # Sync placed-on items for counters (not pots -- handled below)
-                cell = self.grid.get(r, c)
-                if cell is not None and hasattr(cell, "obj_placed_on") and cell.object_id != "pot":
-                    if state_val > 0:
-                        placed_id = idx_to_object(state_val, scope=self.scope)
-                        cell.obj_placed_on = (
-                            make_object(placed_id, scope=self.scope) if placed_id else None
-                        )
-                    else:
-                        cell.obj_placed_on = None
-
-        # --- Sync pot contents from extra_state ---
-        extra = state.extra_state
-        prefix = f"{self.scope}."
-        pc_key = f"{prefix}pot_contents"
-        pt_key = f"{prefix}pot_timer"
-        pp_key = f"{prefix}pot_positions"
-
-        if all(k in extra for k in (pc_key, pt_key, pp_key)):
-            pot_contents = np.array(extra[pc_key])
-            pot_timer = np.array(extra[pt_key])
-            pot_positions = np.array(extra[pp_key])
-
-            for p in range(len(pot_positions)):
-                pr, pc = int(pot_positions[p, 0]), int(pot_positions[p, 1])
-                pot_obj = self.grid.get(pr, pc)
-                if pot_obj is not None and pot_obj.object_id == "pot":
-                    pot_obj.objects_in_pot = []
-                    for slot in range(pot_contents.shape[1]):
-                        item_id = int(pot_contents[p, slot])
-                        if item_id > 0:
-                            item_name = idx_to_object(item_id, scope=self.scope)
-                            if item_name:
-                                pot_obj.objects_in_pot.append(
-                                    make_object(item_name, scope=self.scope)
-                                )
-                    pot_obj.cooking_timer = int(pot_timer[p])
+        # --- Delegate scope-specific rendering sync ---
+        render_sync = self._scope_config.get("render_sync")
+        if render_sync is not None:
+            render_sync(self.grid, state, self.scope)
 
         # Rebuild GridAgent wrappers for rendering
         self.update_grid_agents()

@@ -276,6 +276,41 @@ class Pot(grid_object.GridObj):
         type_ids = _build_type_ids(scope)
         return _build_static_tables(scope, itables, type_ids)
 
+    @classmethod
+    def build_render_sync_fn(cls):
+        def pot_render_sync(grid, env_state, scope):
+            """Sync pot contents and cooking timer from extra_state."""
+            from cogrid.core.grid_object import idx_to_object, make_object
+
+            extra = env_state.extra_state
+            prefix = f"{scope}."
+            pc_key = f"{prefix}pot_contents"
+            pt_key = f"{prefix}pot_timer"
+            pp_key = f"{prefix}pot_positions"
+
+            if not all(k in extra for k in (pc_key, pt_key, pp_key)):
+                return
+
+            pot_contents = np.array(extra[pc_key])
+            pot_timer = np.array(extra[pt_key])
+            pot_positions = np.array(extra[pp_key])
+
+            for p in range(len(pot_positions)):
+                pr, pc = int(pot_positions[p, 0]), int(pot_positions[p, 1])
+                pot_obj = grid.get(pr, pc)
+                if pot_obj is not None and pot_obj.object_id == "pot":
+                    pot_obj.objects_in_pot = []
+                    for slot in range(pot_contents.shape[1]):
+                        item_id = int(pot_contents[p, slot])
+                        if item_id > 0:
+                            item_name = idx_to_object(item_id, scope=scope)
+                            if item_name:
+                                pot_obj.objects_in_pot.append(
+                                    make_object(item_name, scope=scope)
+                                )
+                    pot_obj.cooking_timer = int(pot_timer[p])
+        return pot_render_sync
+
 
 @register_object_type("plate_stack", scope="overcooked", can_pickup_from=True)
 class PlateStack(grid_object.GridObj):

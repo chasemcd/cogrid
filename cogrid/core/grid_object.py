@@ -41,6 +41,7 @@ _COMPONENT_METHODS = frozenset({
     "extra_state_schema",
     "extra_state_builder",
     "build_static_tables",
+    "build_render_sync_fn",
 })
 
 
@@ -673,6 +674,26 @@ class Counter(GridObj):
 
         if self.obj_placed_on is not None:
             self.obj_placed_on.render(tile_img)
+
+    @classmethod
+    def build_render_sync_fn(cls):
+        def counter_render_sync(grid, env_state, scope):
+            """Sync obj_placed_on for counters from object_state_map."""
+            osm = env_state.object_state_map
+            for r in range(grid.height):
+                for c in range(grid.width):
+                    cell = grid.get(r, c)
+                    if cell is None or cell.object_id != "counter":
+                        continue
+                    state_val = int(osm[r, c])
+                    if state_val > 0:
+                        placed_id = idx_to_object(state_val, scope=scope)
+                        cell.obj_placed_on = (
+                            make_object(placed_id, scope=scope) if placed_id else None
+                        )
+                    else:
+                        cell.obj_placed_on = None
+        return counter_render_sync
 
 
 @register_object_type("key", can_pickup=True)

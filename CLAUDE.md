@@ -11,4 +11,6 @@ The core environment components live in cogrid/core. This defines all the genera
 
 ## Critical
 
-The most important consideration is to make the code as simple, concise, and easy to understand as possible. We must have the minimal number of code paths and it must be readable instantly to someone who is not familiar with the project. 
+The most important consideration is to make the code as simple, concise, and easy to understand as possible. We must have the minimal number of code paths and it must be readable instantly to someone who is not familiar with the project.
+
+No environment-specific logic should ever go into `cogrid/cogrid_env.py` or any file under `cogrid/core/`. Environment-specific behavior (e.g., Overcooked pot mechanics, SearchRescue scoring) must be implemented through the component API: `@register_object_type` classmethods (`build_tick_fn`, `build_interaction_fn`, `build_render_sync_fn`, etc.) and `@register_reward_type` subclasses. The autowire system composes these into scope_config hooks that the generic engine calls. 
