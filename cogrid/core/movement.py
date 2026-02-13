@@ -21,9 +21,6 @@ Usage::
 
 from __future__ import annotations
 
-from cogrid.core.agent import get_dir_vec_table
-
-
 def move_agents(
     agent_pos,        # (n_agents, 2) int32 -- current positions [row, col]
     agent_dir,        # (n_agents,) int32 -- current directions
@@ -85,7 +82,9 @@ def move_agents(
     # -------------------------------------------------------------------
     # 2. Compute proposed positions
     # -------------------------------------------------------------------
-    DIR_VEC_TABLE = get_dir_vec_table()
+    DIR_VEC_TABLE = xp.array(
+        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
+    )
     dir_vecs = DIR_VEC_TABLE[new_dir]  # (n_agents, 2)
     proposed = agent_pos + dir_vecs * is_mover[:, None].astype(xp.int32)
 
