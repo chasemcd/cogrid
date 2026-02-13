@@ -43,4 +43,100 @@ def build_scope_config_from_components(
         tick_handler, interaction_body, static_tables, symbol_table,
         extra_state_schema, extra_state_builder.
     """
-    raise NotImplementedError("build_scope_config_from_components not yet implemented")
+    from cogrid.core.component_registry import (
+        get_all_components,
+        get_components_with_extra_state,
+    )
+    from cogrid.core.grid_object import (
+        build_lookup_tables,
+        get_object_names,
+        object_to_idx,
+    )
+
+    # -- type_ids: map object names to integer indices --
+    type_ids = {
+        name: object_to_idx(name, scope)
+        for name in get_object_names(scope=scope)
+        if name is not None
+    }
+
+    # -- symbol_table: char -> {"object_id": str, ...} --
+    symbol_table = _build_symbol_table(scope, get_all_components)
+
+    # -- extra_state_schema: merged from all components, scope-prefixed, sorted --
+    extra_state_schema = _build_extra_state_schema(
+        scope, get_components_with_extra_state
+    )
+
+    # -- static_tables: CAN_PICKUP, CAN_OVERLAP, etc. from build_lookup_tables --
+    static_tables = build_lookup_tables(scope=scope)
+
+    return {
+        "scope": scope,
+        "interaction_tables": interaction_tables,
+        "type_ids": type_ids,
+        "state_extractor": state_extractor,
+        "tick_handler": tick_handler,
+        "interaction_body": interaction_body,
+        "static_tables": static_tables,
+        "symbol_table": symbol_table,
+        "extra_state_schema": extra_state_schema,
+        "extra_state_builder": None,
+    }
+
+
+def _build_symbol_table(scope: str, get_all_components) -> dict:
+    """Build the symbol_table mapping char -> entry dict.
+
+    Includes global components, scope-specific components, and the
+    special "+" (spawn) and " " (empty) entries.
+    """
+    symbol_table = {}
+
+    # Global components first (Wall, Counter, Key, Door, Floor, etc.)
+    for meta in get_all_components("global"):
+        entry = {"object_id": meta.object_id}
+        # Include only True boolean properties
+        for prop_name, prop_val in meta.properties.items():
+            if prop_val:
+                entry[prop_name] = True
+        symbol_table[meta.char] = entry
+
+    # Scope-specific components
+    if scope != "global":
+        for meta in get_all_components(scope):
+            entry = {"object_id": meta.object_id}
+            for prop_name, prop_val in meta.properties.items():
+                if prop_val:
+                    entry[prop_name] = True
+            symbol_table[meta.char] = entry
+
+    # Special entries (not GridObject subclasses)
+    symbol_table["+"] = {"object_id": None, "is_spawn": True}
+    symbol_table[" "] = {"object_id": None}
+
+    return symbol_table
+
+
+def _build_extra_state_schema(scope: str, get_components_with_extra_state) -> dict:
+    """Build merged extra_state_schema from all components with extra_state.
+
+    Each key is prefixed with ``{scope}.`` and the final dict is sorted
+    by key for deterministic pytree structure.
+    """
+    merged = {}
+
+    # Global components with extra state
+    for meta in get_components_with_extra_state("global"):
+        schema = meta.methods["extra_state_schema"]()
+        for key, val in schema.items():
+            merged[f"{scope}.{key}"] = val
+
+    # Scope-specific components with extra state
+    if scope != "global":
+        for meta in get_components_with_extra_state(scope):
+            schema = meta.methods["extra_state_schema"]()
+            for key, val in schema.items():
+                merged[f"{scope}.{key}"] = val
+
+    return dict(sorted(merged.items()))
