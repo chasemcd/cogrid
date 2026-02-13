@@ -69,7 +69,7 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 10: Component Registration Infrastructure** - Extended decorator auto-discovers and stores component classmethods in registry
-- [ ] **Phase 11: Composition & Auto-Wiring** - Auto-wiring module composes registered component metadata into complete scope_config and reward_config
+- [x] **Phase 11: Composition & Auto-Wiring** - Auto-wiring module composes registered component metadata into complete scope_config and reward_config
 - [ ] **Phase 12: Generic Interaction Signature** - process_interactions() generalized to pass/return extra_state dict instead of scope-specific arrays
 - [ ] **Phase 13: Overcooked Migration** - Overcooked domain refactored to define all behavior through component interfaces exclusively
 - [ ] **Phase 14: Auto-Wired CoGridEnv & Validation** - CoGridEnv uses auto-wiring by default, new envs need only component classes + layout, full parity verified
@@ -101,8 +101,8 @@ Plans:
   4. Extra state schemas from all GridObject subclasses in a scope merge into a single scope-level schema -- the merged schema is deterministic (sorted by key) so pytree structure is stable across runs
 **Plans:** 2 plans
 Plans:
-- [ ] 11-01-PLAN.md -- Auto-wire scope_config from component registry (TDD)
-- [ ] 11-02-PLAN.md -- Auto-wire reward_config with composed compute_fn (TDD)
+- [x] 11-01-PLAN.md -- Auto-wire scope_config from component registry (TDD)
+- [x] 11-02-PLAN.md -- Auto-wire reward_config with composed compute_fn (TDD)
 
 ### Phase 12: Generic Interaction Signature
 **Goal**: The interaction pipeline passes and returns extra_state as a generic dict, so interaction handlers from any scope work through the same interface without scope-specific parameter unpacking
@@ -153,7 +153,7 @@ Phases execute in numeric order: 10 -> 11 -> 12 -> 13 -> 14
 | 8. Step Pipeline | v1.1 | 2/2 | Complete | 2026-02-12 |
 | 9. Integration & Cleanup | v1.1 | 3/3 | Complete | 2026-02-12 |
 | 10. Component Registration Infrastructure | v1.2 | 2/2 | Complete | 2026-02-13 |
-| 11. Composition & Auto-Wiring | v1.2 | 0/2 | Not started | - |
+| 11. Composition & Auto-Wiring | v1.2 | 2/2 | Complete | 2026-02-13 |
 | 12. Generic Interaction Signature | v1.2 | 0/TBD | Not started | - |
 | 13. Overcooked Migration | v1.2 | 0/TBD | Not started | - |
 | 14. Auto-Wired CoGridEnv & Validation | v1.2 | 0/TBD | Not started | - |
