@@ -25,6 +25,8 @@ array operations. Fully vectorized across agents -- no Python loops, no
 int() casts.
 """
 
+from cogrid.core.array_rewards import ArrayReward, register_reward_type
+
 
 def _compute_fwd_positions(prev_state):
     """Compute forward positions for all agents.
@@ -309,3 +311,51 @@ def compute_rewards(prev_state, state, actions, reward_config):
         total_rewards = total_rewards + r
 
     return total_rewards
+
+
+# ---------------------------------------------------------------------------
+# ArrayReward subclasses (registered for autowire composition)
+# ---------------------------------------------------------------------------
+# compute() returns RAW rewards (coefficient=1.0, common_reward=False to the
+# underlying function). The registered coefficient/common_reward on the
+# decorator are applied by the autowire composition layer at step time.
+# This prevents double-application of weighting.
+
+
+@register_reward_type("delivery", scope="overcooked", coefficient=1.0, common_reward=True)
+class DeliveryReward(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        return delivery_reward(
+            prev_state, state, actions,
+            reward_config["type_ids"],
+            reward_config["n_agents"],
+            coefficient=1.0,
+            common_reward=False,
+            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
+        )
+
+
+@register_reward_type("onion_in_pot", scope="overcooked", coefficient=0.1, common_reward=False)
+class OnionInPotReward(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        return onion_in_pot_reward(
+            prev_state, state, actions,
+            reward_config["type_ids"],
+            reward_config["n_agents"],
+            coefficient=1.0,
+            common_reward=False,
+            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
+        )
+
+
+@register_reward_type("soup_in_dish", scope="overcooked", coefficient=0.3, common_reward=False)
+class SoupInDishReward(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        return soup_in_dish_reward(
+            prev_state, state, actions,
+            reward_config["type_ids"],
+            reward_config["n_agents"],
+            coefficient=1.0,
+            common_reward=False,
+            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
+        )

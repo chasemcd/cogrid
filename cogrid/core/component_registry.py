@@ -186,10 +186,18 @@ def register_reward_type(
         key = (scope, reward_id)
         if key in _REWARD_TYPE_REGISTRY:
             existing = _REWARD_TYPE_REGISTRY[key]
-            raise ValueError(
-                f"Duplicate reward type '{reward_id}' in scope '{scope}': "
-                f"{existing.cls.__name__} and {cls.__name__}"
+            # Allow re-registration from module reload (same class name and
+            # module). Reject genuinely different classes claiming the same ID.
+            same_class = (
+                existing.cls.__name__ == cls.__name__
+                and getattr(existing.cls, "__module__", None)
+                == getattr(cls, "__module__", None)
             )
+            if not same_class:
+                raise ValueError(
+                    f"Duplicate reward type '{reward_id}' in scope '{scope}': "
+                    f"{existing.cls.__name__} and {cls.__name__}"
+                )
 
         _REWARD_TYPE_REGISTRY[key] = RewardMetadata(
             scope=scope,
