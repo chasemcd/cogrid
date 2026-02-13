@@ -61,3 +61,114 @@ class ArrayFeature:
             f"{cls.__name__}.build_feature_fn() is not implemented. "
             f"Subclasses must override build_feature_fn()."
         )
+
+
+# ---------------------------------------------------------------------------
+# Composition helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_feature_metas(feature_names, scope):
+    """Look up FeatureMetadata for each name, raising on missing entries.
+
+    Returns:
+        dict mapping feature_id -> FeatureMetadata
+    """
+    from cogrid.core.component_registry import get_feature_types
+
+    all_metas = get_feature_types(scope)
+    meta_by_id = {m.feature_id: m for m in all_metas}
+
+    for name in feature_names:
+        if name not in meta_by_id:
+            raise ValueError(
+                f"Feature '{name}' not registered in scope '{scope}'."
+            )
+    return meta_by_id
+
+
+def obs_dim_for_features(feature_names, scope, n_agents):
+    """Compute total observation dimension for a list of feature names.
+
+    Per-agent features contribute ``obs_dim * n_agents`` (one block per agent
+    in ego-centric order).  Global features contribute ``obs_dim`` once.
+
+    Args:
+        feature_names: List of registered feature name strings.
+        scope: Registry scope.
+        n_agents: Number of agents.
+
+    Returns:
+        int: Total observation dimension.
+    """
+    meta_by_id = _resolve_feature_metas(feature_names, scope)
+
+    total = 0
+    for name in feature_names:
+        meta = meta_by_id[name]
+        if meta.per_agent:
+            total += meta.obs_dim * n_agents
+        else:
+            total += meta.obs_dim
+    return total
+
+
+def compose_feature_fns(feature_names, scope, n_agents):
+    """Compose registered features into a single ego-centric observation function.
+
+    Discovers features by name from the registry for the given *scope*.
+    Builds each feature's function via ``build_feature_fn(scope)``.
+    Returns a single function that concatenates all features in ego-centric order:
+
+    1. Focal agent's per-agent features (alphabetical by feature name)
+    2. Other agents' per-agent features in ascending index order (skipping focal),
+       each agent's features in the same alphabetical order
+    3. Global features (alphabetical by feature name)
+
+    All feature outputs are raveled and cast to float32 before concatenation.
+
+    Args:
+        feature_names: List of registered feature name strings.
+        scope: Registry scope.
+        n_agents: Number of agents.
+
+    Returns:
+        fn(state_dict, agent_idx) -> (obs_dim,) float32 ndarray
+    """
+    from cogrid.backend import xp
+
+    meta_by_id = _resolve_feature_metas(feature_names, scope)
+
+    # Separate per-agent and global, sorted alphabetically
+    per_agent_names = sorted(n for n in feature_names if meta_by_id[n].per_agent)
+    global_names = sorted(n for n in feature_names if not meta_by_id[n].per_agent)
+
+    # Build feature functions once at compose time (not per call)
+    per_agent_fns = [
+        meta_by_id[name].cls.build_feature_fn(scope) for name in per_agent_names
+    ]
+    global_fns = [
+        meta_by_id[name].cls.build_feature_fn(scope) for name in global_names
+    ]
+
+    def composed_fn(state_dict, agent_idx):
+        parts = []
+
+        # 1. Focal agent's per-agent features
+        for fn in per_agent_fns:
+            parts.append(fn(state_dict, agent_idx).ravel().astype(xp.float32))
+
+        # 2. Other agents in ascending index order (skip focal)
+        for i in range(n_agents):
+            if i == agent_idx:
+                continue
+            for fn in per_agent_fns:
+                parts.append(fn(state_dict, i).ravel().astype(xp.float32))
+
+        # 3. Global features
+        for fn in global_fns:
+            parts.append(fn(state_dict).ravel().astype(xp.float32))
+
+        return xp.concatenate(parts)
+
+    return composed_fn
