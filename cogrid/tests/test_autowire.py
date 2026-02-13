@@ -1,4 +1,4 @@
-"""Tests for build_scope_config_from_components auto-wiring.
+"""Tests for build_scope_config_from_components and build_reward_config_from_components.
 
 Covers:
 - Returned dict has all required scope_config keys
@@ -10,12 +10,21 @@ Covers:
 - static_tables built from build_lookup_tables
 - tick_handler, interaction_body, interaction_tables default to None
 - tick_handler, interaction_body accept overrides
+- reward_config has required keys and callable compute_fn
+- reward_config compute_fn applies coefficient weighting and common_reward broadcasting
+- reward_config with no rewards returns zeros
+- reward_config passes reward_config through to each reward's compute()
 """
 
 import numpy as np
 import pytest
 
-from cogrid.core.autowire import build_scope_config_from_components
+from cogrid.core.autowire import (
+    build_reward_config_from_components,
+    build_scope_config_from_components,
+)
+from cogrid.core.array_rewards import ArrayReward
+from cogrid.core.component_registry import register_reward_type
 from cogrid.core.grid_object import GridObj, register_object_type
 
 
@@ -263,3 +272,171 @@ def test_interaction_tables_default_none():
     """interaction_tables is None by default."""
     config = build_scope_config_from_components("test_sym_01")
     assert config["interaction_tables"] is None
+
+
+# =======================================================================
+# Reward config auto-wiring tests
+# =======================================================================
+
+
+# -----------------------------------------------------------------------
+# Test 13: reward_config has required keys
+# -----------------------------------------------------------------------
+
+
+def test_reward_config_has_required_keys():
+    """build_reward_config_from_components returns a dict with required keys."""
+    config = build_reward_config_from_components(
+        "test_rw_01", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    required_keys = {"compute_fn", "type_ids", "n_agents", "action_pickup_drop_idx"}
+    assert required_keys == set(config.keys()), (
+        f"Missing keys: {required_keys - set(config.keys())}, "
+        f"Extra keys: {set(config.keys()) - required_keys}"
+    )
+
+
+# -----------------------------------------------------------------------
+# Test 14: compute_fn is callable
+# -----------------------------------------------------------------------
+
+
+def test_reward_config_compute_fn_callable():
+    """reward_config['compute_fn'] is callable."""
+    config = build_reward_config_from_components(
+        "test_rw_02", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    assert callable(config["compute_fn"])
+
+
+# -----------------------------------------------------------------------
+# Test 15: no rewards returns zeros
+# -----------------------------------------------------------------------
+
+
+def test_reward_config_no_rewards_returns_zeros():
+    """For a scope with no registered rewards, compute_fn returns zeros."""
+    config = build_reward_config_from_components(
+        "test_rw_03", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    result = config["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
+    )
+    assert result.shape == (2,), f"Expected shape (2,), got {result.shape}"
+    assert result.dtype == np.float32, f"Expected dtype float32, got {result.dtype}"
+    np.testing.assert_array_equal(result, np.zeros(2, dtype=np.float32))
+
+
+# -----------------------------------------------------------------------
+# Test 16: single reward with coefficient
+# -----------------------------------------------------------------------
+
+
+@register_reward_type("test_r1", scope="test_rw_04", coefficient=2.0)
+class _TestRewardSingle(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        n = reward_config["n_agents"]
+        return np.ones(n, dtype=np.float32)
+
+
+def test_reward_config_single_reward():
+    """Single registered reward with coefficient=2.0 produces [2.0, 2.0]."""
+    config = build_reward_config_from_components(
+        "test_rw_04", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    result = config["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
+    )
+    np.testing.assert_array_almost_equal(result, np.array([2.0, 2.0], dtype=np.float32))
+
+
+# -----------------------------------------------------------------------
+# Test 17: common_reward broadcasting
+# -----------------------------------------------------------------------
+
+
+@register_reward_type("test_r2", scope="test_rw_05", coefficient=1.0, common_reward=True)
+class _TestRewardCommon(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        return np.array([1.0, 0.0], dtype=np.float32)
+
+
+def test_reward_config_common_reward_broadcasting():
+    """common_reward=True sums per-agent rewards and broadcasts to all agents."""
+    config = build_reward_config_from_components(
+        "test_rw_05", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    result = config["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
+    )
+    # sum([1.0, 0.0]) = 1.0 broadcast to both agents -> [1.0, 1.0]
+    np.testing.assert_array_almost_equal(result, np.array([1.0, 1.0], dtype=np.float32))
+
+
+# -----------------------------------------------------------------------
+# Test 18: multiple rewards sum
+# -----------------------------------------------------------------------
+
+
+@register_reward_type("test_r3a", scope="test_rw_06", coefficient=1.0)
+class _TestRewardMultiA(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        n = reward_config["n_agents"]
+        return np.ones(n, dtype=np.float32)  # [1, 1]
+
+
+@register_reward_type("test_r3b", scope="test_rw_06", coefficient=3.0)
+class _TestRewardMultiB(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        n = reward_config["n_agents"]
+        return np.ones(n, dtype=np.float32) * 2.0  # [2, 2]
+
+
+def test_reward_config_multiple_rewards_sum():
+    """Multiple rewards in same scope are summed with coefficient weighting."""
+    config = build_reward_config_from_components(
+        "test_rw_06", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    result = config["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
+    )
+    # r3a: [1, 1] * 1.0 = [1, 1]
+    # r3b: [2, 2] * 3.0 = [6, 6]
+    # total: [7, 7]
+    np.testing.assert_array_almost_equal(result, np.array([7.0, 7.0], dtype=np.float32))
+
+
+# -----------------------------------------------------------------------
+# Test 19: compute_fn passes reward_config through to compute()
+# -----------------------------------------------------------------------
+
+
+@register_reward_type("test_r4", scope="test_rw_07", coefficient=1.0)
+class _TestRewardPassthrough(ArrayReward):
+    def compute(self, prev_state, state, actions, reward_config):
+        n = reward_config["n_agents"]
+        # Return 1.0 per agent if "marker" key is present, else 0.0
+        if "marker" in reward_config.get("type_ids", {}):
+            return np.ones(n, dtype=np.float32)
+        return np.zeros(n, dtype=np.float32)
+
+
+def test_reward_config_passes_reward_config_to_compute():
+    """Composed compute_fn correctly passes reward_config through to each reward."""
+    # With "marker" in type_ids -> should return [1, 1]
+    config_with = build_reward_config_from_components(
+        "test_rw_07", n_agents=2, type_ids={"marker": 99}, action_pickup_drop_idx=4
+    )
+    result_with = config_with["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config_with
+    )
+    np.testing.assert_array_almost_equal(result_with, np.array([1.0, 1.0], dtype=np.float32))
+
+    # Without "marker" in type_ids -> should return [0, 0]
+    config_without = build_reward_config_from_components(
+        "test_rw_07", n_agents=2, type_ids={}, action_pickup_drop_idx=4
+    )
+    result_without = config_without["compute_fn"](
+        prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config_without
+    )
+    np.testing.assert_array_almost_equal(result_without, np.array([0.0, 0.0], dtype=np.float32))

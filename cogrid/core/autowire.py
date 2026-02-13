@@ -140,3 +140,29 @@ def _build_extra_state_schema(scope: str, get_components_with_extra_state) -> di
                 merged[f"{scope}.{key}"] = val
 
     return dict(sorted(merged.items()))
+
+
+def build_reward_config_from_components(
+    scope: str,
+    n_agents: int,
+    type_ids: dict,
+    action_pickup_drop_idx: int = 4,
+) -> dict:
+    """Build a reward_config dict from registered ArrayReward components.
+
+    Queries the component registry for all ArrayReward subclasses in the
+    given scope (plus global scope), instantiates each with its default
+    coefficient/common_reward, and composes a single ``compute_fn`` closure
+    that calls each reward's ``compute()``, applies coefficient weighting
+    and common_reward broadcasting, and sums results.
+
+    Args:
+        scope: Registry scope name (e.g. "overcooked").
+        n_agents: Number of agents (determines reward array shape).
+        type_ids: Mapping of object names to integer indices.
+        action_pickup_drop_idx: Action index for pickup/drop. Defaults to 4.
+
+    Returns:
+        Dict with keys: compute_fn, type_ids, n_agents, action_pickup_drop_idx.
+    """
+    raise NotImplementedError("build_reward_config_from_components not yet implemented")
