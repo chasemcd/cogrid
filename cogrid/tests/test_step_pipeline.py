@@ -24,14 +24,17 @@ def _setup_overcooked_config():
     import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
     from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.array_config import build_overcooked_scope_config
+    from cogrid.core.autowire import (
+        build_scope_config_from_components,
+        build_reward_config_from_components,
+    )
     from cogrid.feature_space.array_features import build_feature_fn
 
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
     array_state = env._array_state
 
-    scope_config = build_overcooked_scope_config()
+    scope_config = build_scope_config_from_components("overcooked")
     lookup_tables = build_lookup_tables(scope="overcooked")
 
     feature_names = [
@@ -43,17 +46,12 @@ def _setup_overcooked_config():
     type_ids = scope_config["type_ids"]
     n_agents = array_state["n_agents"]
 
-    from cogrid.envs.overcooked.array_rewards import compute_rewards
-
-    reward_config = {
-        "type_ids": type_ids,
-        "n_agents": n_agents,
-        "rewards": [
-            {"fn": "delivery", "coefficient": 1.0, "common_reward": True},
-        ],
-        "action_pickup_drop_idx": 4,
-        "compute_fn": compute_rewards,
-    }
+    reward_config = build_reward_config_from_components(
+        "overcooked",
+        n_agents=n_agents,
+        type_ids=type_ids,
+        action_pickup_drop_idx=4,
+    )
 
     action_pickup_drop_idx = 4
     action_toggle_idx = 5
@@ -197,7 +195,7 @@ def test_step_jax_backend_eager():
             for key in st:
                 if isinstance(st[key], np.ndarray):
                     st[key] = jnp.array(st[key], dtype=jnp.int32)
-        if "interaction_tables" in scope_config:
+        if scope_config.get("interaction_tables") is not None:
             it = scope_config["interaction_tables"]
             for key in it:
                 if isinstance(it[key], np.ndarray):
@@ -297,7 +295,7 @@ def test_build_step_fn_jit_compiles():
             for key in st:
                 if isinstance(st[key], np.ndarray):
                     st[key] = jnp.array(st[key], dtype=jnp.int32)
-        if "interaction_tables" in scope_config:
+        if scope_config.get("interaction_tables") is not None:
             it = scope_config["interaction_tables"]
             for key in it:
                 if isinstance(it[key], np.ndarray):

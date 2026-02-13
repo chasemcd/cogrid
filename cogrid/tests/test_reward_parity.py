@@ -19,9 +19,9 @@ import pytest
 
 
 # Build type_ids once before any backend switching (pure Python dict, no array ops)
-from cogrid.envs.overcooked.array_config import build_overcooked_scope_config
+from cogrid.core.autowire import build_scope_config_from_components
 
-_SC = build_overcooked_scope_config()
+_SC = build_scope_config_from_components("overcooked")
 _TYPE_IDS = _SC["type_ids"]
 
 # Number of agents in all test scenarios
@@ -284,19 +284,17 @@ def test_reward_parity_soup_in_dish():
 
 
 def test_reward_parity_compute_rewards():
-    """Unified compute_rewards produces identical combined results on numpy and JAX.
+    """Auto-wired compute_fn produces identical combined results on numpy and JAX.
 
-    Uses the same delivery scenario from test 1 with a reward_config that
-    includes delivery + onion_in_pot specs. Only delivery should trigger
-    (agent holds soup, not onion).
+    Uses the same delivery scenario from test 1 with the auto-wired
+    compute_fn from build_reward_config_from_components. Only delivery
+    should trigger (agent holds soup, not onion).
     """
     jax = pytest.importorskip("jax")
 
-    import importlib
     from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend import set_backend
-
-    _AR_MOD = "cogrid.envs.overcooked.array_rewards"
+    from cogrid.core.autowire import build_reward_config_from_components
 
     prev_state_np = {
         "agent_pos": np.array([[1, 2], [3, 3]], dtype=np.int32),
@@ -312,25 +310,17 @@ def test_reward_parity_compute_rewards():
     }
     actions_np = np.array([4, 6], dtype=np.int32)
 
-    reward_config = {
-        "type_ids": _TYPE_IDS,
-        "n_agents": N_AGENTS,
-        "action_pickup_drop_idx": 4,
-        "rewards": [
-            {"fn": "delivery", "coefficient": 1.0, "common_reward": True},
-            {"fn": "onion_in_pot", "coefficient": 0.1, "common_reward": False},
-        ],
-    }
-
     # --- numpy path ---
     _reset_backend_for_testing()
     set_backend("numpy")
 
-    ar_mod = importlib.import_module(_AR_MOD)
-    importlib.reload(ar_mod)
-
-    result_np = ar_mod.compute_rewards(
-        prev_state_np, prev_state_np, actions_np, reward_config
+    reward_config_np = build_reward_config_from_components(
+        "overcooked", n_agents=N_AGENTS, type_ids=_TYPE_IDS,
+        action_pickup_drop_idx=4,
+    )
+    compute_fn_np = reward_config_np["compute_fn"]
+    result_np = compute_fn_np(
+        prev_state_np, prev_state_np, actions_np, reward_config_np
     )
     result_np = np.array(result_np)
 
@@ -339,13 +329,17 @@ def test_reward_parity_compute_rewards():
     set_backend("jax")
     import jax.numpy as jnp
 
-    importlib.reload(ar_mod)
+    reward_config_jax = build_reward_config_from_components(
+        "overcooked", n_agents=N_AGENTS, type_ids=_TYPE_IDS,
+        action_pickup_drop_idx=4,
+    )
+    compute_fn_jax = reward_config_jax["compute_fn"]
 
     prev_state_jax = {k: jnp.array(v) for k, v in prev_state_np.items()}
     actions_jax = jnp.array(actions_np)
 
-    result_jax = ar_mod.compute_rewards(
-        prev_state_jax, prev_state_jax, actions_jax, reward_config
+    result_jax = compute_fn_jax(
+        prev_state_jax, prev_state_jax, actions_jax, reward_config_jax
     )
     result_jax = np.array(result_jax)
 
@@ -354,7 +348,7 @@ def test_reward_parity_compute_rewards():
 
     np.testing.assert_allclose(
         result_np, result_jax, atol=1e-7,
-        err_msg="compute_rewards: numpy vs JAX mismatch"
+        err_msg="compute_fn: numpy vs JAX mismatch"
     )
 
     # Only delivery triggers: both agents get 1.0 (common_reward=True)
