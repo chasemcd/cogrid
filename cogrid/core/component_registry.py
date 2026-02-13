@@ -91,7 +91,10 @@ def _validate_classmethod_signature(cls: type, method_name: str, method: Any) ->
         return  # unknown method -- skip validation
 
     sig = inspect.signature(method)
-    actual = [p for p in sig.parameters if p != "self" and p != "cls"]
+    # For a real @classmethod, inspect.signature auto-strips ``cls``.
+    # If an author writes an instance method instead, ``self`` will remain
+    # in the params list and will cause a mismatch against expected=[].
+    actual = list(sig.parameters.keys())
 
     if actual != expected:
         raise TypeError(

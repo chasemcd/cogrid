@@ -34,6 +34,14 @@ OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 # Populated by the @register_object_type decorator.
 _OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
 
+# Known classmethod names to scan for during component registration.
+_COMPONENT_METHODS = frozenset({
+    "build_tick_fn",
+    "build_interaction_fn",
+    "extra_state_schema",
+    "extra_state_builder",
+})
+
 
 def make_object(
     object_id: str | None, scope: str = "global", **kwargs
@@ -119,8 +127,14 @@ def register_object_type(
     """
 
     def decorator(cls):
-        # Store static properties for lookup table generation
-        _OBJECT_TYPE_PROPERTIES[(scope, object_id)] = {
+        # Lazy import to avoid circular dependency
+        from cogrid.core.component_registry import (
+            get_all_components,
+            register_component_metadata,
+            _validate_classmethod_signature,
+        )
+
+        properties = {
             "can_pickup": can_pickup,
             "can_overlap": can_overlap,
             "can_place_on": can_place_on,
@@ -128,11 +142,39 @@ def register_object_type(
             "is_wall": is_wall,
         }
 
+        # Store static properties for lookup table generation
+        _OBJECT_TYPE_PROPERTIES[(scope, object_id)] = properties
+
+        # Duplicate char detection within the same scope
+        for existing in get_all_components(scope):
+            if existing.char == cls.char:
+                raise ValueError(
+                    f"Duplicate char '{cls.char}' in scope '{scope}': "
+                    f"{existing.cls.__name__} and {cls.__name__}"
+                )
+
         # Set object_id on the class
         cls.object_id = object_id
 
         # Delegate to existing register_object for backward compatibility
         register_object(object_id, cls, scope=scope)
+
+        # Convention-based classmethod scan
+        discovered: dict = {}
+        for method_name in _COMPONENT_METHODS:
+            method = getattr(cls, method_name, None)
+            if method is not None and callable(method):
+                _validate_classmethod_signature(cls, method_name, method)
+                discovered[method_name] = method
+
+        # Store component metadata in the registry
+        register_component_metadata(
+            scope=scope,
+            object_id=object_id,
+            cls=cls,
+            properties=properties,
+            methods=discovered,
+        )
 
         return cls
 
