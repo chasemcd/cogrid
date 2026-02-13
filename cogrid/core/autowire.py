@@ -48,12 +48,16 @@ def build_scope_config_from_components(
     from cogrid.core.component_registry import (
         get_all_components,
         get_components_with_extra_state,
+        get_tickable_components,
     )
     from cogrid.core.grid_object import (
         build_lookup_tables,
         get_object_names,
         object_to_idx,
     )
+
+    # -- Collect all components for this scope (reused below) --
+    all_components = get_all_components(scope)
 
     # -- type_ids: map object names to integer indices --
     type_ids = {
@@ -73,6 +77,58 @@ def build_scope_config_from_components(
     # -- static_tables: CAN_PICKUP, CAN_OVERLAP, etc. from build_lookup_tables --
     static_tables = build_lookup_tables(scope=scope)
 
+    # -- Compose tick_handler from tickable components (if not overridden) --
+    if tick_handler is None:
+        tickable = get_tickable_components(scope)
+        if len(tickable) == 1:
+            tick_handler = tickable[0].methods["build_tick_fn"]()
+        elif len(tickable) > 1:
+            tick_fns = [m.methods["build_tick_fn"]() for m in tickable]
+
+            def _composed_tick(state, scope_config, _fns=tick_fns):
+                for fn in _fns:
+                    state = fn(state, scope_config)
+                return state
+
+            tick_handler = _composed_tick
+
+    # -- Compose interaction_body from components (if not overridden) --
+    if interaction_body is None:
+        interacting = [m for m in all_components if m.has_interaction]
+        if len(interacting) == 1:
+            interaction_body = interacting[0].methods["build_interaction_fn"]()
+        elif len(interacting) > 1:
+            raise ValueError(
+                f"Multiple components in scope '{scope}' define build_interaction_fn. "
+                f"Only one interaction_body per scope is supported. "
+                f"Components: {[m.object_id for m in interacting]}"
+            )
+
+    # -- Compose extra_state_builder from components --
+    extra_state_builder = None
+    builders = [
+        m for m in all_components
+        if "extra_state_builder" in m.methods
+    ]
+    if builders:
+        builder_fns = [m.methods["extra_state_builder"]() for m in builders]
+        if len(builder_fns) == 1:
+            extra_state_builder = builder_fns[0]
+        else:
+            def _composed_builder(parsed_arrays, scope=scope, _fns=builder_fns):
+                merged = {}
+                for fn in _fns:
+                    merged.update(fn(parsed_arrays, scope))
+                return merged
+
+            extra_state_builder = _composed_builder
+
+    # -- Merge component-specific static_tables --
+    for meta in all_components:
+        if meta.has_static_tables:
+            extra_tables = meta.methods["build_static_tables"]()
+            static_tables.update(extra_tables)
+
     return {
         "scope": scope,
         "interaction_tables": interaction_tables,
@@ -83,7 +139,7 @@ def build_scope_config_from_components(
         "static_tables": static_tables,
         "symbol_table": symbol_table,
         "extra_state_schema": extra_state_schema,
-        "extra_state_builder": None,
+        "extra_state_builder": extra_state_builder,
     }
 
 

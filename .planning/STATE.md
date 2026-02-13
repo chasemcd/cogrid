@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 12 -- Generic Interaction Signature
+**Current focus:** Phase 13 -- Overcooked Migration
 
 ## Current Position
 
-Phase: 12 of 14 (Generic Interaction Signature) -- COMPLETE
-Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-02-13 -- Completed 12-01 (Generic Interaction Signature)
+Phase: 13 of 14 (Overcooked Migration)
+Plan: 2 of 3 complete
+Status: In progress
+Last activity: 2026-02-13 -- Completed 13-02 (Overcooked Reward Subclasses)
 
-Progress: [################________________________] 42% (v1.2)
+Progress: [####################____________________] 49% (v1.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35 (18 v1.0 + 12 v1.1 + 5 v1.2)
+- Total plans completed: 37 (18 v1.0 + 12 v1.1 + 7 v1.2)
 - Average duration: ~3.5 min/plan (v1.1)
 - Total execution time: --
 
@@ -40,6 +40,7 @@ Progress: [################________________________] 42% (v1.2)
 | 10 | 2 | 7min | 3.5min |
 | 11 | 2 | 4min | 2min |
 | 12 | 1 | 2min | 2min |
+| 13 | 2 | 5min | 2.5min |
 
 *Updated after each plan completion*
 
@@ -67,6 +68,10 @@ Recent decisions affecting current work:
 - [11-02]: compute_fn uses cogrid.backend.xp for JAX/numpy compatibility
 - [12-01]: Backward-compat **kwargs preserved in process_interactions() so existing test callers work without modification
 - [12-01]: Wrapper lives in array_config.py (Overcooked-specific) not in core
+- [13-01]: build_static_tables added as 5th recognized component classmethod for scope-specific static table entries
+- [13-01]: Pot classmethods return references to existing functions in array_config.py via lazy imports
+- [13-01]: extra_state_schema returns unprefixed keys; autowire adds scope prefix at composition time
+- [13-02]: Reload-safe duplicate detection in register_reward_type -- same class name+module re-registration allowed
 
 ### Pending Todos
 
@@ -81,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 12-01-PLAN.md (Phase 12 complete)
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
