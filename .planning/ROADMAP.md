@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 Vectorization & Dual Backend - Phases 1-4 (shipped 2026-02-12)
-- v1.1 Unified Functional Architecture - Phases 5-9 (in progress)
+- v1.1 Unified Functional Architecture - Phases 5-9 (shipped 2026-02-12)
 
 ## Phases
 
@@ -32,7 +32,7 @@
 
 </details>
 
-### v1.1 Unified Functional Architecture (In Progress)
+### v1.1 Unified Functional Architecture (SHIPPED 2026-02-12)
 
 **Milestone Goal:** Rewrite CoGrid to have a single, purely functional code path using `xp` -- no code duplication between backends, no object-based simulation loop, no environment-specific logic in core.
 
@@ -46,8 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Core Algorithms** - Unified movement, collision, interaction, and feature functions using xp
 - [x] **Phase 7: Rewards & Scope Config** - Unified reward functions and Overcooked-specific handlers using xp
 - [x] **Phase 8: Step Pipeline** - Functional step/reset composition with init-time function wiring
-- [ ] **Phase 9: Integration & Cleanup** - PettingZoo wrapper, functional API exposure, old code deletion, final verification
-  **Plans:** 3 plans
+- [x] **Phase 9: Integration & Cleanup** - PettingZoo wrapper, functional API exposure, old code deletion, final verification
 
 ## Phase Details
 
@@ -128,9 +127,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- Make step_pipeline.py scope-generic (remove Overcooked hardcoding)
-- [ ] 09-02-PLAN.md -- Rewrite cogrid_env.py as thin wrapper delegating to step_pipeline
-- [ ] 09-03-PLAN.md -- Delete dead code, update imports, fix tests, verify vmap
+- [x] 09-01-PLAN.md -- Make step_pipeline.py scope-generic (remove Overcooked hardcoding)
+- [x] 09-02-PLAN.md -- Rewrite cogrid_env.py as thin wrapper delegating to step_pipeline
+- [x] 09-03-PLAN.md -- Delete dead code, update imports, fix tests, verify vmap
 
 ## Progress
 
@@ -148,4 +147,4 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 | 6. Core Algorithms | v1.1 | 4/4 | Complete | 2026-02-12 |
 | 7. Rewards & Scope Config | v1.1 | 2/2 | Complete | 2026-02-12 |
 | 8. Step Pipeline | v1.1 | 2/2 | Complete | 2026-02-12 |
-| 9. Integration & Cleanup | v1.1 | 0/3 | Not started | - |
+| 9. Integration & Cleanup | v1.1 | 3/3 | Complete | 2026-02-12 |
