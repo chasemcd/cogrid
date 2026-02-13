@@ -45,8 +45,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Foundation -- State Model & Backend Helpers** - Generic EnvState with extra_state, array mutation helpers, array-based layout parser
 - [x] **Phase 6: Core Algorithms** - Unified movement, collision, interaction, and feature functions using xp
 - [x] **Phase 7: Rewards & Scope Config** - Unified reward functions and Overcooked-specific handlers using xp
-- [ ] **Phase 8: Step Pipeline** - Functional step/reset composition with init-time function wiring
+- [x] **Phase 8: Step Pipeline** - Functional step/reset composition with init-time function wiring
 - [ ] **Phase 9: Integration & Cleanup** - PettingZoo wrapper, functional API exposure, old code deletion, final verification
+  **Plans:** 3 plans
 
 ## Phase Details
 
@@ -111,8 +112,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Unified step_pipeline.py with step(), reset(), envstate_to_dict()
-- [ ] 08-02-PLAN.md -- Build factories, backward-compat shim, end-to-end tests
+- [x] 08-01-PLAN.md -- Unified step_pipeline.py with step(), reset(), envstate_to_dict()
+- [x] 08-02-PLAN.md -- Build factories, backward-compat shim, end-to-end tests
 
 ### Phase 9: Integration & Cleanup
 **Goal**: The PettingZoo wrapper delegates to the functional core, the functional API is directly accessible for JIT/vmap usage, all old duplicate code is deleted, and the full test suite verifies correctness
@@ -124,6 +125,12 @@ Plans:
   3. All 29 duplicate `_jax` functions are deleted, `core/jax_step.py` is deleted, the object-based simulation loop is removed from `cogrid_env.py`, and no environment-specific logic (pot, Overcooked) exists in any `cogrid/core/` module
   4. `jax.vmap(env.jax_step)(batched_states, batched_actions)` executes correctly at 1024 parallel environments with the unified step function
   5. PettingZoo wrapper passes standard env API checks (reset returns observations, step accepts action dict, done agents are handled correctly)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md -- Make step_pipeline.py scope-generic (remove Overcooked hardcoding)
+- [ ] 09-02-PLAN.md -- Rewrite cogrid_env.py as thin wrapper delegating to step_pipeline
+- [ ] 09-03-PLAN.md -- Delete dead code, update imports, fix tests, verify vmap
 
 ## Progress
 
@@ -140,5 +147,5 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 | 5. Foundation -- State Model & Backend Helpers | v1.1 | 3/3 | Complete | 2026-02-12 |
 | 6. Core Algorithms | v1.1 | 4/4 | Complete | 2026-02-12 |
 | 7. Rewards & Scope Config | v1.1 | 2/2 | Complete | 2026-02-12 |
-| 8. Step Pipeline | v1.1 | 0/TBD | Not started | - |
-| 9. Integration & Cleanup | v1.1 | 0/TBD | Not started | - |
+| 8. Step Pipeline | v1.1 | 2/2 | Complete | 2026-02-12 |
+| 9. Integration & Cleanup | v1.1 | 0/3 | Not started | - |
