@@ -309,7 +309,3 @@ def compute_rewards(prev_state, state, actions, reward_config):
         total_rewards = total_rewards + r
 
     return total_rewards
-
-
-# Backward-compat alias for callers that import the old name during migration
-compute_rewards_jax = compute_rewards
