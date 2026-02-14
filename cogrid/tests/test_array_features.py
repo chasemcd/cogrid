@@ -804,3 +804,107 @@ def test_all_overcooked_features_registered():
 
     # Total: 14 features
     assert len(metas) == 14, f"Expected 14 overcooked features, got {len(metas)}"
+
+
+# ===================================================================
+# Multi-scope and preserve_order composition tests
+# ===================================================================
+
+
+def test_compose_preserve_order():
+    """preserve_order=True keeps caller-specified order (not alphabetical)."""
+    from cogrid.core.array_features import compose_feature_fns
+
+    @register_feature_type("po_charlie", scope="test_af_preserve_order")
+    class _Charlie(ArrayFeature):
+        per_agent = True
+        obs_dim = 1
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            def fn(state_dict, agent_idx):
+                return np.array([30], dtype=np.float32)
+            return fn
+
+    @register_feature_type("po_alpha", scope="test_af_preserve_order")
+    class _Alpha(ArrayFeature):
+        per_agent = True
+        obs_dim = 1
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            def fn(state_dict, agent_idx):
+                return np.array([10], dtype=np.float32)
+            return fn
+
+    @register_feature_type("po_bravo", scope="test_af_preserve_order")
+    class _Bravo(ArrayFeature):
+        per_agent = True
+        obs_dim = 1
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            def fn(state_dict, agent_idx):
+                return np.array([20], dtype=np.float32)
+            return fn
+
+    # With preserve_order=True, the order should be charlie, alpha, bravo
+    composed = compose_feature_fns(
+        ["po_charlie", "po_alpha", "po_bravo"],
+        "test_af_preserve_order",
+        n_agents=1,
+        preserve_order=True,
+    )
+    result = composed({}, agent_idx=0)
+    expected = np.array([30, 10, 20], dtype=np.float32)
+    np.testing.assert_array_equal(result, expected)
+
+    # Without preserve_order (default), order is alphabetical: alpha, bravo, charlie
+    composed_default = compose_feature_fns(
+        ["po_charlie", "po_alpha", "po_bravo"],
+        "test_af_preserve_order",
+        n_agents=1,
+    )
+    result_default = composed_default({}, agent_idx=0)
+    expected_default = np.array([10, 20, 30], dtype=np.float32)
+    np.testing.assert_array_equal(result_default, expected_default)
+
+
+def test_compose_multi_scope():
+    """scopes parameter merges features from multiple scopes."""
+    from cogrid.core.array_features import compose_feature_fns
+
+    @register_feature_type("ms_feat_a", scope="test_scope_a")
+    class _FeatA(ArrayFeature):
+        per_agent = True
+        obs_dim = 2
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            def fn(state_dict, agent_idx):
+                return np.array([1, 2], dtype=np.float32)
+            return fn
+
+    @register_feature_type("ms_feat_b", scope="test_scope_b")
+    class _FeatB(ArrayFeature):
+        per_agent = True
+        obs_dim = 3
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            def fn(state_dict, agent_idx):
+                return np.array([3, 4, 5], dtype=np.float32)
+            return fn
+
+    # Use scopes to merge both
+    composed = compose_feature_fns(
+        ["ms_feat_a", "ms_feat_b"],
+        "test_scope_a",
+        n_agents=1,
+        scopes=["test_scope_a", "test_scope_b"],
+    )
+    result = composed({}, agent_idx=0)
+    # Alphabetical order: ms_feat_a (2,) then ms_feat_b (3,)
+    expected = np.array([1, 2, 3, 4, 5], dtype=np.float32)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == (5,)
