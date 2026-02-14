@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** v1.3 Composable Array Feature System -- Phase 16
+**Current focus:** v1.3 Composable Array Feature System -- Phase 17
 
 ## Current Position
 
-Phase: 16 of 19 (Core ArrayFeature Subclasses)
-Plan: 1/1 complete
-Status: Phase 16 complete
-Last activity: 2026-02-14 -- Phase 16 Plan 01 complete
+Phase: 17 of 19 (Overcooked ArrayFeature Subclasses)
+Plan: 1/2 complete
+Status: In progress
+Last activity: 2026-02-14 -- Phase 17 Plan 01 complete
 
-Progress: [#######################.......] 39 prior + 3/3 v1.3 plans complete (Phase 16 done)
+Progress: [########################......] 39 prior + 4/6 v1.3 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 42 (18 v1.0 + 12 v1.1 + 9 v1.2 + 3 v1.3)
+- Total plans completed: 43 (18 v1.0 + 12 v1.1 + 9 v1.2 + 4 v1.3)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -44,6 +44,7 @@ Progress: [#######################.......] 39 prior + 3/3 v1.3 plans complete (P
 | 14 | 3 | 13min | 4.3min |
 | 15 | 2/2 | 7min | 3.5min |
 | 16 | 1/1 | 2min | 2min |
+| 17 | 1/2 | 2min | 2min |
 
 *Updated after each plan completion*
 
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - [15-02]: Shared _resolve_feature_metas helper for feature name validation used by both compose and obs_dim functions
 - [16-01]: ArrayFeature subclasses delegate to bare functions (DRY -- single source of truth for feature computation)
 - [16-01]: CanMoveDirection pre-computes can_overlap_table at build_feature_fn time, captured in closure
+- [17-01]: ClosestObj uses factory function to create 7 separate registered subclasses with dynamic obs_dim
+- [17-01]: DistToOtherPlayers hardcodes n_agents=2 (Overcooked assumption, parameterizable later)
 
 ### Pending Todos
 
@@ -77,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 16-01-PLAN.md. Phase 16 complete. Ready to plan Phase 17.
+Stopped at: Completed 17-01-PLAN.md. Phase 17 Plan 01 done. Ready for 17-02.
 Resume file: None
