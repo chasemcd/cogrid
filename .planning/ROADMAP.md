@@ -94,8 +94,8 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 15: ArrayFeature Infrastructure** - Base class, registration decorator, and composition layer that assembles per-agent + global features into ego-centric obs
-- [ ] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
+- [x] **Phase 15: ArrayFeature Infrastructure** - Base class, registration decorator, and composition layer that assembles per-agent + global features into ego-centric obs
+- [x] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
 - [ ] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
 - [ ] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
 - [ ] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
@@ -112,8 +112,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Composed observations are ego-centric -- focal agent's per-agent features appear first, then other agents' per-agent features in index order, then global features
   4. A minimal test with 2 dummy features (one per-agent, one global) produces the expected concatenated output with correct ego-centric ordering
 **Plans:** 2 plans
-- [ ] 15-01-PLAN.md -- ArrayFeature base class, FeatureMetadata, @register_feature_type decorator
-- [ ] 15-02-PLAN.md -- Composition layer (compose_feature_fns, obs_dim_for_features) with TDD test suite
+- [x] 15-01-PLAN.md -- ArrayFeature base class, FeatureMetadata, @register_feature_type decorator
+- [x] 15-02-PLAN.md -- Composition layer (compose_feature_fns, obs_dim_for_features) with TDD test suite
 
 ### Phase 16: Core ArrayFeature Subclasses
 **Goal**: The generic feature extractors (agent direction, position, movement, inventory) are wrapped as ArrayFeature subclasses registered to the global scope, proving the pattern works end-to-end with real feature functions
@@ -125,7 +125,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `CanMoveDirection` ArrayFeature produces a `(4,)` movement vector identical to `can_move_direction_feature()`
   4. `Inventory` ArrayFeature produces a one-hot inventory vector identical to `inventory_feature()`
   5. All four features are registered to the global scope and discoverable via the feature registry
-**Plans:** TBD
+**Plans:** 1 plan
+- [x] 16-01-PLAN.md -- TDD: four ArrayFeature subclasses with parity tests
 
 ### Phase 17: Overcooked ArrayFeature Subclasses
 **Goal**: Every Overcooked-specific feature function is wrapped as an individual ArrayFeature subclass registered to the "overcooked" scope, producing numerically identical outputs to the existing loose functions
@@ -136,7 +137,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `OrderedPotFeatures` produces `(12 * max_pots,)` and `DistToOtherPlayers` produces `(2 * (n_agents-1),)` -- matching existing function outputs
   3. `LayoutID` and `EnvironmentLayout` are registered as global features (`per_agent = False`) producing `(5,)` and binary masks respectively
   4. All 8 Overcooked features are registered to the "overcooked" scope (or global for layout features) and discoverable via the feature registry
-**Plans:** TBD
+**Plans:** 2 plans
+- [ ] 17-01-PLAN.md -- TDD: 6 per-agent Overcooked ArrayFeature subclasses (OvercookedInventory, NextToCounter, NextToPot, ClosestObj x7, OrderedPotFeatures, DistToOtherPlayers)
+- [ ] 17-02-PLAN.md -- TDD: 2 global Overcooked ArrayFeature subclasses (LayoutID, EnvironmentLayout) + full registry validation
 
 ### Phase 18: Autowire Integration & Parity
 **Goal**: The autowire module discovers registered features for a scope, composes them into the observation function, CoGridEnv uses this composed function, and Overcooked produces the exact same 677-dim observation as before
@@ -182,8 +185,8 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 12. Generic Interaction Signature | v1.2 | 1/1 | Complete | 2026-02-13 |
 | 13. Overcooked Migration | v1.2 | 3/3 | Complete | 2026-02-13 |
 | 14. Auto-Wired CoGridEnv & Validation | v1.2 | 3/3 | Complete | 2026-02-13 |
-| 15. ArrayFeature Infrastructure | v1.3 | 0/TBD | Not started | - |
-| 16. Core ArrayFeature Subclasses | v1.3 | 0/TBD | Not started | - |
-| 17. Overcooked ArrayFeature Subclasses | v1.3 | 0/TBD | Not started | - |
+| 15. ArrayFeature Infrastructure | v1.3 | 2/2 | Complete | 2026-02-13 |
+| 16. Core ArrayFeature Subclasses | v1.3 | 1/1 | Complete | 2026-02-14 |
+| 17. Overcooked ArrayFeature Subclasses | v1.3 | 0/2 | Not started | - |
 | 18. Autowire Integration & Parity | v1.3 | 0/TBD | Not started | - |
 | 19. Legacy Feature System Removal | v1.3 | 0/TBD | Not started | - |

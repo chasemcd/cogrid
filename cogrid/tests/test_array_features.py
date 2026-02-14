@@ -449,3 +449,245 @@ def test_all_four_registered_global():
         assert feat_id in meta_by_id, f"{feat_id} not registered in global scope"
         assert meta_by_id[feat_id].per_agent == attrs["per_agent"]
         assert meta_by_id[feat_id].obs_dim == attrs["obs_dim"]
+
+
+# ===================================================================
+# Overcooked ArrayFeature subclass parity tests
+# ===================================================================
+
+
+def test_overcooked_inventory_parity():
+    """OvercookedInventory ArrayFeature produces output identical to overcooked_inventory_feature."""
+    import cogrid.envs  # noqa: F401 -- triggers overcooked scope registration
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        OvercookedInventory,
+        overcooked_inventory_feature,
+    )
+
+    inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
+    inv_type_ids = np.array(
+        [object_to_idx(name, scope="overcooked") for name in inv_type_order],
+        dtype=np.int32,
+    )
+
+    # Agent 0 holds onion, agent 1 holds nothing
+    agent_inv = np.array(
+        [[object_to_idx("onion", scope="overcooked")], [-1]], dtype=np.int32
+    )
+    state_dict = {"agent_inv": agent_inv}
+
+    fn = OvercookedInventory.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = overcooked_inventory_feature(agent_inv, idx, inv_type_ids)
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (5,)
+        assert result.dtype == np.int32
+
+
+def test_next_to_counter_parity():
+    """NextToCounter ArrayFeature produces output identical to next_to_counter_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        NextToCounter,
+        next_to_counter_feature,
+    )
+
+    counter_type_id = object_to_idx("counter", scope="overcooked")
+
+    object_type_map = np.zeros((5, 5), dtype=np.int32)
+    # Place counters adjacent to agent at (2,2)
+    object_type_map[2, 3] = counter_type_id  # right
+    object_type_map[1, 2] = counter_type_id  # up
+
+    agent_pos = np.array([[2, 2], [0, 0]], dtype=np.int32)
+    state_dict = {"agent_pos": agent_pos, "object_type_map": object_type_map}
+
+    fn = NextToCounter.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = next_to_counter_feature(
+            agent_pos, idx, object_type_map, counter_type_id
+        )
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (4,)
+        assert result.dtype == np.int32
+
+
+def test_next_to_pot_parity():
+    """NextToPot ArrayFeature produces output identical to next_to_pot_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        NextToPot,
+        next_to_pot_feature,
+    )
+
+    pot_type_id = object_to_idx("pot", scope="overcooked")
+
+    object_type_map = np.zeros((5, 5), dtype=np.int32)
+    # Place pot to the right of agent at (2,2)
+    object_type_map[2, 3] = pot_type_id
+
+    agent_pos = np.array([[2, 2], [0, 0]], dtype=np.int32)
+    pot_positions = np.array([[2, 3]], dtype=np.int32)
+    pot_contents = np.zeros((1, 3), dtype=np.int32)  # empty pot, capacity 3
+    pot_timer = np.array([0], dtype=np.int32)
+
+    state_dict = {
+        "agent_pos": agent_pos,
+        "object_type_map": object_type_map,
+        "pot_positions": pot_positions,
+        "pot_contents": pot_contents,
+        "pot_timer": pot_timer,
+    }
+
+    fn = NextToPot.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = next_to_pot_feature(
+            agent_pos, idx, object_type_map, pot_type_id,
+            pot_positions, pot_contents, pot_timer,
+        )
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (16,)
+        assert result.dtype == np.int32
+
+
+def test_closest_obj_parity():
+    """ClosestObj ArrayFeature produces output identical to closest_obj_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import closest_obj_feature
+
+    onion_type_id = object_to_idx("onion", scope="overcooked")
+
+    object_type_map = np.zeros((5, 5), dtype=np.int32)
+    object_state_map = np.zeros((5, 5), dtype=np.int32)
+    # Place onions at known positions
+    object_type_map[0, 0] = onion_type_id
+    object_type_map[4, 4] = onion_type_id
+
+    agent_pos = np.array([[2, 2], [1, 1]], dtype=np.int32)
+
+    state_dict = {
+        "agent_pos": agent_pos,
+        "object_type_map": object_type_map,
+        "object_state_map": object_state_map,
+    }
+
+    # Get the registered ClosestOnion subclass from registry
+    metas = get_feature_types(scope="overcooked")
+    meta_by_id = {m.feature_id: m for m in metas}
+    assert "closest_onion" in meta_by_id, "closest_onion not registered"
+
+    fn = meta_by_id["closest_onion"].cls.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = closest_obj_feature(
+            agent_pos, idx, object_type_map, object_state_map,
+            onion_type_id, 4,
+        )
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (8,)
+
+    # Verify all 7 ClosestObj variants are registered
+    expected_closest_ids = [
+        "closest_onion", "closest_plate", "closest_plate_stack",
+        "closest_onion_stack", "closest_onion_soup", "closest_delivery_zone",
+        "closest_counter",
+    ]
+    for feat_id in expected_closest_ids:
+        assert feat_id in meta_by_id, f"{feat_id} not registered in overcooked scope"
+
+
+def test_ordered_pot_features_parity():
+    """OrderedPotFeatures ArrayFeature produces output identical to ordered_pot_features."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        OrderedPotFeatures,
+        ordered_pot_features,
+    )
+
+    onion_id = object_to_idx("onion", scope="overcooked")
+    tomato_id = object_to_idx("tomato", scope="overcooked")
+
+    agent_pos = np.array([[2, 2], [0, 0]], dtype=np.int32)
+    pot_positions = np.array([[1, 1], [3, 3]], dtype=np.int32)
+    pot_contents = np.zeros((2, 3), dtype=np.int32)
+    pot_contents[0, 0] = onion_id  # first pot has one onion
+    pot_timer = np.array([0, 0], dtype=np.int32)
+
+    state_dict = {
+        "agent_pos": agent_pos,
+        "pot_positions": pot_positions,
+        "pot_contents": pot_contents,
+        "pot_timer": pot_timer,
+    }
+
+    fn = OrderedPotFeatures.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = ordered_pot_features(
+            agent_pos, idx, pot_positions, pot_contents, pot_timer,
+            max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
+        )
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (24,)
+
+
+def test_dist_to_other_players_parity():
+    """DistToOtherPlayers ArrayFeature produces output identical to dist_to_other_players_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        DistToOtherPlayers,
+        dist_to_other_players_feature,
+    )
+
+    agent_pos = np.array([[2, 3], [4, 1]], dtype=np.int32)
+    state_dict = {"agent_pos": agent_pos}
+
+    fn = DistToOtherPlayers.build_feature_fn("overcooked")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = dist_to_other_players_feature(agent_pos, idx, n_agents=2)
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (2,)
+        assert result.dtype == np.int32
+
+
+def test_all_overcooked_per_agent_registered():
+    """All per-agent Overcooked features are discoverable via get_feature_types."""
+    import cogrid.envs  # noqa: F401
+    import cogrid.envs.overcooked.overcooked_array_features  # noqa: F401
+
+    metas = get_feature_types(scope="overcooked")
+    meta_by_id = {m.feature_id: m for m in metas}
+
+    expected_feature_ids = [
+        "overcooked_inventory",
+        "next_to_counter",
+        "next_to_pot",
+        "closest_onion",
+        "closest_plate",
+        "closest_plate_stack",
+        "closest_onion_stack",
+        "closest_onion_soup",
+        "closest_delivery_zone",
+        "closest_counter",
+        "ordered_pot_features",
+        "dist_to_other_players",
+    ]
+
+    for feat_id in expected_feature_ids:
+        assert feat_id in meta_by_id, f"{feat_id} not registered in overcooked scope"
+        assert meta_by_id[feat_id].per_agent is True, f"{feat_id} should be per_agent=True"
