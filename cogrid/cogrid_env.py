@@ -219,23 +219,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Enable shadow parity validation (set to False for performance)
         self._validate_array_parity = False
 
-        # Build feature function (works for both backends).
-        # Prefer scope-specific feature_fn_builder from autowired components;
-        # fall back to generic array features.
-        feature_fn_builder = self._scope_config.get("feature_fn_builder")
-        if feature_fn_builder is not None:
-            self._feature_fn_builder = feature_fn_builder
-            self._feature_fn = None  # built in reset() once layout is known
-        else:
-            self._feature_fn_builder = None
-            from cogrid.feature_space.array_features import build_feature_fn
-            jax_feature_names = [
-                "agent_position", "agent_dir", "full_map_encoding",
-                "can_move_direction", "inventory",
-            ]
-            self._feature_fn = build_feature_fn(
-                jax_feature_names, scope=self.scope,
-            )
+        # Feature function is built in reset() after layout is known,
+        # using autowired ArrayFeature composition.
+        self._feature_fn = None
 
         # Compute action indices for PickupDrop and Toggle
         self._action_pickup_drop_idx = self.action_set.index(
@@ -503,26 +489,26 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             action_set_name = "rotation"
 
-        # Build feature function from builder if available (needs layout info)
-        if self._feature_fn_builder is not None:
-            _overcooked_layouts = [
-                "overcooked_cramped_room_v0",
-                "overcooked_asymmetric_advantages_v0",
-                "overcooked_coordination_ring_v0",
-                "overcooked_forced_coordination_v0",
-                "overcooked_counter_circuit_v0",
-            ]
-            _layout_idx = (
-                _overcooked_layouts.index(self.current_layout_id)
-                if self.current_layout_id in _overcooked_layouts
-                else 0
-            )
-            self._feature_fn = self._feature_fn_builder(
-                scope=self.scope,
-                n_agents=n_agents,
-                layout_idx=_layout_idx,
-                grid_shape=(self.grid.height, self.grid.width),
-            )
+        # Build feature function via autowired ArrayFeature composition
+        from cogrid.core.autowire import build_feature_config_from_components
+
+        _overcooked_layouts = [
+            "overcooked_cramped_room_v0",
+            "overcooked_asymmetric_advantages_v0",
+            "overcooked_coordination_ring_v0",
+            "overcooked_forced_coordination_v0",
+            "overcooked_counter_circuit_v0",
+        ]
+        _layout_idx = (
+            _overcooked_layouts.index(self.current_layout_id)
+            if self.current_layout_id in _overcooked_layouts
+            else 0
+        )
+
+        feature_config = build_feature_config_from_components(
+            self.scope, n_agents=n_agents, layout_idx=_layout_idx,
+        )
+        self._feature_fn = feature_config["feature_fn"]
 
         # Build step and reset functions from the unified pipeline
         from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
