@@ -205,12 +205,88 @@ def test_closest_obj_feature():
 
 
 # ---------------------------------------------------------------------------
+# Composed vs monolithic parity test
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("layout_name", OVERCOOKED_LAYOUTS)
+def test_composed_vs_monolithic_677_parity(layout_name):
+    """Composed ArrayFeature output matches monolithic build_overcooked_feature_fn element-by-element."""
+    from cogrid.core.autowire import build_feature_config_from_components
+    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.envs.overcooked.overcooked_array_features import build_overcooked_feature_fn
+    import cogrid.envs  # noqa: F401 -- ensure registration
+
+    _overcooked_layouts = [
+        "overcooked_cramped_room_v0",
+        "overcooked_asymmetric_advantages_v0",
+        "overcooked_coordination_ring_v0",
+        "overcooked_forced_coordination_v0",
+        "overcooked_counter_circuit_v0",
+    ]
+    layout_idx = _overcooked_layouts.index(layout_name)
+
+    # Build monolithic feature function (the old way)
+    monolithic_fn = build_overcooked_feature_fn(
+        scope="overcooked", n_agents=2, layout_idx=layout_idx,
+        grid_shape=None,
+    )
+
+    # Build composed feature function (the new way)
+    feature_config = build_feature_config_from_components(
+        "overcooked", n_agents=2, layout_idx=layout_idx,
+    )
+    composed_fn = feature_config["feature_fn"]
+
+    # Create env and get state_dict
+    env = _make_env(layout_name)
+    env.reset(seed=42)
+
+    state_dict = envstate_to_dict(env._env_state)
+
+    # Compare outputs for both agents at reset
+    for agent_idx in range(2):
+        mono_obs = monolithic_fn(state_dict, agent_idx)
+        comp_obs = composed_fn(state_dict, agent_idx)
+
+        assert mono_obs.shape == comp_obs.shape == (677,), (
+            f"Shape mismatch: mono={mono_obs.shape}, comp={comp_obs.shape}"
+        )
+        np.testing.assert_allclose(
+            mono_obs, comp_obs, atol=1e-6,
+            err_msg=f"Layout {layout_name}, agent {agent_idx}: element-by-element mismatch",
+        )
+
+    # Also verify after a few steps
+    for step_num in range(3):
+        actions = {aid: np.random.randint(0, 5) for aid in env.possible_agents}
+        obs, _, terms, truncs, _ = env.step(actions)
+        if any(terms.values()) or any(truncs.values()):
+            break
+
+        state_dict = envstate_to_dict(env._env_state)
+
+        for agent_idx in range(2):
+            mono_obs = monolithic_fn(state_dict, agent_idx)
+            comp_obs = composed_fn(state_dict, agent_idx)
+            np.testing.assert_allclose(
+                mono_obs, comp_obs, atol=1e-6,
+                err_msg=f"Layout {layout_name}, step {step_num}, agent {agent_idx}",
+            )
+
+
+# ---------------------------------------------------------------------------
 # Autowire integration test
 # ---------------------------------------------------------------------------
 
 
 def test_autowire_provides_feature_fn_builder():
-    """The autowire system should detect Pot.build_feature_fn and include feature_fn_builder."""
+    """The autowire system should detect Pot.build_feature_fn and include feature_fn_builder.
+
+    NOTE: This tests the legacy path -- Pot.build_feature_fn is still registered as a
+    GridObject classmethod and still appears in scope_config, but CoGridEnv no longer
+    uses it. Phase 19 will remove it entirely.
+    """
     from cogrid.core.autowire import build_scope_config_from_components
     import cogrid.envs  # ensure registration
 
