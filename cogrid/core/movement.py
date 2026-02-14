@@ -129,7 +129,7 @@ def move_agents(
     # After the initial pass, blocked agents stay at their current
     # positions. A cascade pass then blocks any agent whose proposed
     # position matches a newly-blocked agent's current position. For
-    # n_agents <= 4 (Overcooked scope), one cascade pass suffices.
+    # n_agents <= 4 (typical grid-world), one cascade pass suffices.
     # -------------------------------------------------------------------
 
     # Priority rank: rank[i] = position of agent i in priority order

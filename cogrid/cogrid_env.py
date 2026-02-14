@@ -438,7 +438,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Build array state from grid and agents
         self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
 
-        # Build extra state from autowired builder (e.g. pot arrays for Overcooked)
+        # Build extra state from autowired builder (e.g. scope-specific container arrays)
         extra_state_builder = self._scope_config.get("extra_state_builder")
         if extra_state_builder is not None:
             extra = extra_state_builder(self._array_state, self.scope)

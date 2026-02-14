@@ -98,7 +98,7 @@ def step(
     Step ordering:
 
     1. Capture ``prev_state`` before any mutations
-    2. Tick (pot cooking timers via scope config handler)
+    2. Tick (object timers via scope config handler)
     3. Movement (``move_agents``)
     4. Interactions (``process_interactions``)
     5. Observations (``get_all_agent_obs``)
@@ -277,7 +277,7 @@ def reset(
         rng: JAX PRNG key, integer seed, or None.
         layout_arrays: Dict with keys ``wall_map``, ``object_type_map``,
             ``object_state_map``, plus any scope-specific arrays
-            (e.g. ``pot_contents``, ``pot_timer``, ``pot_positions``).
+            (e.g. scope-specific extra_state arrays).
         spawn_positions: int32 array of shape ``(n_agents, 2)`` with
             fixed spawn points ``[row, col]``.
         n_agents: Number of agents.

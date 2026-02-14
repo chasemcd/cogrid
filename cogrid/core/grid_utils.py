@@ -27,7 +27,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
     the _gen_grid() path) and produces parallel array representations for use
     by vectorized operations.
 
-    Scope-specific container state (e.g. pot arrays for Overcooked) is
+    Scope-specific container state (e.g. scope-specific container arrays) is
     extracted by the scope config's ``state_extractor`` callback if provided.
 
     Args:
@@ -35,7 +35,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
         scope: Object registry scope for type ID lookups.
         scope_config: Optional scope config dict from ``build_scope_config_from_components()``.
             If provided and contains a ``state_extractor``, it is called to
-            extract scope-specific state (e.g. pot positions/contents/timer).
+            extract scope-specific state (e.g. container positions/contents/timer).
 
     Returns:
         Dict containing:
@@ -44,8 +44,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
         - ``"object_state_map"``: int32 array of shape ``(height, width)`` with object state values.
         - ``"wall_map"``: int32 array of shape ``(height, width)``, 1 where cell is a Wall.
         - ``"spawn_points"``: list of ``(row, col)`` tuples where spawn markers exist.
-        - Plus any scope-specific keys from the state_extractor (e.g.
-          ``pot_positions``, ``pot_contents``, ``pot_timer`` for Overcooked).
+        - Plus any scope-specific keys from the state_extractor.
     """
     from cogrid.core.grid_object import object_to_idx, Wall
 
@@ -85,7 +84,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
         "spawn_points": spawn_points,
     }
 
-    # Extract scope-specific container state (e.g. pot arrays for Overcooked)
+    # Extract scope-specific container state (e.g. scope-specific container arrays)
     state_extractor = scope_config.get("state_extractor") if scope_config else None
     if state_extractor is not None:
         extra_state = state_extractor(grid, scope)

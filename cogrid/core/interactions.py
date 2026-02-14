@@ -5,7 +5,7 @@ integer type code lookups on array state. All operations work on
 parallel arrays and avoid Python object manipulation.
 
 Core modules contain only generic infrastructure. Environment-specific
-interaction logic (e.g. Overcooked pot/delivery zone handling) is
+interaction logic (e.g. domain-specific object handling) is
 delegated to scope config handlers composed by the auto-wiring layer
 in ``cogrid.core.autowire``.
 
@@ -14,7 +14,7 @@ Key function:
 - ``process_interactions()`` -- handles pickup, pickup_from, drop,
   place_on interactions for all agents using xp array operations and
   scope config ``interaction_body`` delegation. Processes agents
-  sequentially (2 unrolled calls for Overcooked) with vectorized
+  unrolled sequentially for each agent with vectorized
   condition computation per agent.
 """
 
@@ -47,10 +47,10 @@ def process_interactions(
     3. drop on empty -- drop held item onto empty grid cell
     4. place_on -- generic structure with scope-specific delegation
 
-    For Overcooked (2 agents), interactions are unrolled as 2 sequential
-    calls to the scope config's ``interaction_body``. Agent 0 has priority
-    (processes first), and agent 1 sees the updated state. All per-agent
-    condition computation uses xp.where cascading with zero int() casts.
+    For N agents, interactions are unrolled as N sequential calls to the
+    scope config's ``interaction_body``. Agent 0 has priority (processes
+    first), and later agents see the updated state. All per-agent condition
+    computation uses xp.where cascading with zero int() casts.
 
     Args:
         agent_pos: Agent positions, shape ``(n_agents, 2)``.

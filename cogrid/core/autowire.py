@@ -26,7 +26,7 @@ def build_feature_config_from_components(
     function matching the legacy monolithic builder output.
 
     Args:
-        scope: Registry scope name (e.g. "overcooked").
+        scope: Registry scope name (e.g. "my_domain").
         n_agents: Number of agents.
         layout_idx: Integer index of the current layout (used by LayoutID).
 
@@ -107,10 +107,10 @@ def build_scope_config_from_components(
     Pass-through fields (tick_handler, interaction_body, interaction_tables,
     state_extractor) default to None and can be overridden via keyword
     arguments for backward compatibility with environments that have
-    monolithic handler functions (e.g. Overcooked).
+    monolithic handler functions.
 
     Args:
-        scope: Registry scope name (e.g. "overcooked").
+        scope: Registry scope name (e.g. "my_domain").
         tick_handler: Optional tick handler callable.
         interaction_body: Optional per-agent interaction body callable.
         interaction_tables: Optional interaction tables dict.
@@ -320,7 +320,7 @@ def build_reward_config_from_components(
     and common_reward broadcasting, and sums results.
 
     Args:
-        scope: Registry scope name (e.g. "overcooked").
+        scope: Registry scope name (e.g. "my_domain").
         n_agents: Number of agents (determines reward array shape).
         type_ids: Mapping of object names to integer indices.
         action_pickup_drop_idx: Action index for pickup/drop. Defaults to 4.
