@@ -96,7 +96,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 15: ArrayFeature Infrastructure** - Base class, registration decorator, and composition layer that assembles per-agent + global features into ego-centric obs
 - [x] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
-- [ ] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
+- [x] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
 - [ ] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
 - [ ] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
 
@@ -138,8 +138,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `LayoutID` and `EnvironmentLayout` are registered as global features (`per_agent = False`) producing `(5,)` and binary masks respectively
   4. All 8 Overcooked features are registered to the "overcooked" scope (or global for layout features) and discoverable via the feature registry
 **Plans:** 2 plans
-- [ ] 17-01-PLAN.md -- TDD: 6 per-agent Overcooked ArrayFeature subclasses (OvercookedInventory, NextToCounter, NextToPot, ClosestObj x7, OrderedPotFeatures, DistToOtherPlayers)
-- [ ] 17-02-PLAN.md -- TDD: 2 global Overcooked ArrayFeature subclasses (LayoutID, EnvironmentLayout) + full registry validation
+- [x] 17-01-PLAN.md -- TDD: 6 per-agent Overcooked ArrayFeature subclasses (OvercookedInventory, NextToCounter, NextToPot, ClosestObj x7, OrderedPotFeatures, DistToOtherPlayers)
+- [x] 17-02-PLAN.md -- TDD: 2 global Overcooked ArrayFeature subclasses (LayoutID, EnvironmentLayout) + full registry validation
 
 ### Phase 18: Autowire Integration & Parity
 **Goal**: The autowire module discovers registered features for a scope, composes them into the observation function, CoGridEnv uses this composed function, and Overcooked produces the exact same 677-dim observation as before
@@ -150,7 +150,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. CoGridEnv uses the autowired feature composition instead of the current `feature_fn_builder` / `build_feature_fn` fallback paths -- no manual feature function construction in `cogrid_env.py`
   3. The step pipeline receives the composed feature function without interface changes -- the `get_all_agent_obs` call site works unchanged
   4. Overcooked composed output matches the existing 677-dim observation exactly -- verified by automated parity test comparing element-by-element across multiple states
-**Plans:** TBD
+**Plans:** 2 plans
+- [ ] 18-01-PLAN.md -- Extend compose_feature_fns (multi-scope, preserve_order) + build_feature_config_from_components in autowire
+- [ ] 18-02-PLAN.md -- Wire CoGridEnv to autowired feature composition + element-by-element 677-dim parity test
 
 ### Phase 19: Legacy Feature System Removal
 **Goal**: The old OOP feature system is deleted, `build_feature_fn` is removed from the GridObject component classmethod convention, and the codebase has a single code path for features
@@ -187,6 +189,6 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 14. Auto-Wired CoGridEnv & Validation | v1.2 | 3/3 | Complete | 2026-02-13 |
 | 15. ArrayFeature Infrastructure | v1.3 | 2/2 | Complete | 2026-02-13 |
 | 16. Core ArrayFeature Subclasses | v1.3 | 1/1 | Complete | 2026-02-14 |
-| 17. Overcooked ArrayFeature Subclasses | v1.3 | 0/2 | Not started | - |
-| 18. Autowire Integration & Parity | v1.3 | 0/TBD | Not started | - |
+| 17. Overcooked ArrayFeature Subclasses | v1.3 | 2/2 | Complete | 2026-02-14 |
+| 18. Autowire Integration & Parity | v1.3 | 0/2 | Not started | - |
 | 19. Legacy Feature System Removal | v1.3 | 0/TBD | Not started | - |
