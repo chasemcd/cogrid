@@ -344,3 +344,108 @@ def test_output_is_float32():
     composed = compose_feature_fns(["int_feat"], "test_af_dtype", n_agents=1)
     result = composed({}, agent_idx=0)
     assert result.dtype == np.float32
+
+
+# ===================================================================
+# Core ArrayFeature subclass parity tests
+# ===================================================================
+
+
+def test_agent_dir_parity():
+    """AgentDir ArrayFeature produces output identical to agent_dir_feature."""
+    from cogrid.feature_space.array_features import AgentDir, agent_dir_feature
+
+    state_dict = {"agent_dir": np.array([2, 0], dtype=np.int32)}
+
+    fn = AgentDir.build_feature_fn("global")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = agent_dir_feature(state_dict["agent_dir"], idx)
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (4,)
+        assert result.dtype == np.int32
+
+
+def test_agent_position_parity():
+    """AgentPosition ArrayFeature produces output identical to agent_pos_feature."""
+    from cogrid.feature_space.array_features import AgentPosition, agent_pos_feature
+
+    state_dict = {"agent_pos": np.array([[3, 5], [1, 2]], dtype=np.int32)}
+
+    fn = AgentPosition.build_feature_fn("global")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = agent_pos_feature(state_dict["agent_pos"], idx)
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (2,)
+        assert result.dtype == np.int32
+
+
+def test_can_move_direction_parity():
+    """CanMoveDirection ArrayFeature produces output identical to can_move_direction_feature."""
+    from cogrid.feature_space.array_features import (
+        CanMoveDirection,
+        can_move_direction_feature,
+    )
+
+    import cogrid.envs  # noqa: F401 -- triggers global scope registration
+
+    wall_map = np.zeros((5, 5), dtype=np.int32)
+    object_type_map = np.zeros((5, 5), dtype=np.int32)
+    agent_pos = np.array([[0, 0], [2, 2]], dtype=np.int32)
+    can_overlap_table = np.ones(10, dtype=np.int32)
+
+    state_dict = {
+        "agent_pos": agent_pos,
+        "wall_map": wall_map,
+        "object_type_map": object_type_map,
+    }
+
+    fn = CanMoveDirection.build_feature_fn("global")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = can_move_direction_feature(
+            agent_pos, idx, wall_map, object_type_map, can_overlap_table
+        )
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (4,)
+        assert result.dtype == np.int32
+
+
+def test_inventory_parity():
+    """Inventory ArrayFeature produces output identical to inventory_feature."""
+    from cogrid.feature_space.array_features import Inventory, inventory_feature
+
+    state_dict = {"agent_inv": np.array([[-1], [3]], dtype=np.int32)}
+
+    fn = Inventory.build_feature_fn("global")
+
+    for idx in (0, 1):
+        result = fn(state_dict, idx)
+        expected = inventory_feature(state_dict["agent_inv"], idx)
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == (1,)
+        assert result.dtype == np.int32
+
+
+def test_all_four_registered_global():
+    """All four core features are registered to global scope with correct metadata."""
+    import cogrid.feature_space.array_features  # noqa: F401 -- triggers registration
+
+    metas = get_feature_types(scope="global")
+    meta_by_id = {m.feature_id: m for m in metas}
+
+    expected = {
+        "agent_dir": {"per_agent": True, "obs_dim": 4},
+        "agent_position": {"per_agent": True, "obs_dim": 2},
+        "can_move_direction": {"per_agent": True, "obs_dim": 4},
+        "inventory": {"per_agent": True, "obs_dim": 1},
+    }
+
+    for feat_id, attrs in expected.items():
+        assert feat_id in meta_by_id, f"{feat_id} not registered in global scope"
+        assert meta_by_id[feat_id].per_agent == attrs["per_agent"]
+        assert meta_by_id[feat_id].obs_dim == attrs["obs_dim"]
