@@ -691,3 +691,116 @@ def test_all_overcooked_per_agent_registered():
     for feat_id in expected_feature_ids:
         assert feat_id in meta_by_id, f"{feat_id} not registered in overcooked scope"
         assert meta_by_id[feat_id].per_agent is True, f"{feat_id} should be per_agent=True"
+
+
+# ===================================================================
+# Overcooked global ArrayFeature subclass parity tests
+# ===================================================================
+
+
+def test_layout_id_parity():
+    """LayoutID ArrayFeature produces output identical to layout_id_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        LayoutID,
+        layout_id_feature,
+    )
+
+    # Test with default _layout_idx = 0
+    fn = LayoutID.build_feature_fn("overcooked")
+    result = fn({})
+    expected = layout_id_feature(0)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == (5,)
+    assert result.dtype == np.int32
+
+    # Test with overridden _layout_idx = 3
+    LayoutID._layout_idx = 3
+    fn = LayoutID.build_feature_fn("overcooked")
+    result = fn({})
+    expected = layout_id_feature(3)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == (5,)
+    assert result.dtype == np.int32
+
+    # Reset to default
+    LayoutID._layout_idx = 0
+
+
+def test_environment_layout_parity():
+    """EnvironmentLayout ArrayFeature produces output identical to environment_layout_feature."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.overcooked_array_features import (
+        EnvironmentLayout,
+        environment_layout_feature,
+    )
+
+    # Create a mock 5x5 object_type_map with known type IDs
+    layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
+    layout_type_ids = [object_to_idx(name, scope="overcooked") for name in layout_type_names]
+
+    object_type_map = np.zeros((5, 5), dtype=np.int32)
+    # Place known objects
+    object_type_map[0, 0] = layout_type_ids[0]  # counter
+    object_type_map[1, 1] = layout_type_ids[1]  # pot
+    object_type_map[2, 3] = layout_type_ids[2]  # onion
+    object_type_map[3, 4] = layout_type_ids[5]  # plate_stack
+
+    state_dict = {"object_type_map": object_type_map}
+
+    fn = EnvironmentLayout.build_feature_fn("overcooked")
+    result = fn(state_dict)
+    expected = environment_layout_feature(object_type_map, layout_type_ids, (11, 7))
+    np.testing.assert_array_equal(result, expected)
+    # 6 types * 11 * 7 = 462
+    assert result.shape == (462,)
+    assert result.dtype == np.int32
+
+
+def test_all_overcooked_features_registered():
+    """All 14 Overcooked features (12 per-agent + 2 global) are registered."""
+    import cogrid.envs  # noqa: F401
+    import cogrid.envs.overcooked.overcooked_array_features  # noqa: F401
+
+    metas = get_feature_types(scope="overcooked")
+    meta_by_id = {m.feature_id: m for m in metas}
+
+    # 12 per-agent features
+    per_agent_features = {
+        "overcooked_inventory": 5,
+        "next_to_counter": 4,
+        "next_to_pot": 16,
+        "closest_onion": 8,
+        "closest_plate": 8,
+        "closest_plate_stack": 4,
+        "closest_onion_stack": 4,
+        "closest_onion_soup": 8,
+        "closest_delivery_zone": 4,
+        "closest_counter": 8,
+        "ordered_pot_features": 24,
+        "dist_to_other_players": 2,
+    }
+
+    # 2 global features
+    global_features = {
+        "layout_id": 5,
+        "environment_layout": 462,
+    }
+
+    for feat_id, expected_dim in per_agent_features.items():
+        assert feat_id in meta_by_id, f"{feat_id} not registered in overcooked scope"
+        assert meta_by_id[feat_id].per_agent is True, f"{feat_id} should be per_agent=True"
+        assert meta_by_id[feat_id].obs_dim == expected_dim, (
+            f"{feat_id} obs_dim={meta_by_id[feat_id].obs_dim}, expected {expected_dim}"
+        )
+
+    for feat_id, expected_dim in global_features.items():
+        assert feat_id in meta_by_id, f"{feat_id} not registered in overcooked scope"
+        assert meta_by_id[feat_id].per_agent is False, f"{feat_id} should be per_agent=False"
+        assert meta_by_id[feat_id].obs_dim == expected_dim, (
+            f"{feat_id} obs_dim={meta_by_id[feat_id].obs_dim}, expected {expected_dim}"
+        )
+
+    # Total: 14 features
+    assert len(metas) == 14, f"Expected 14 overcooked features, got {len(metas)}"
