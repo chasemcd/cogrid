@@ -213,18 +213,12 @@ def test_closest_obj_feature():
 def test_composed_vs_monolithic_677_parity(layout_name):
     """Composed ArrayFeature output matches monolithic build_overcooked_feature_fn element-by-element."""
     from cogrid.core.autowire import build_feature_config_from_components
+    from cogrid.core.component_registry import get_layout_index
     from cogrid.core.step_pipeline import envstate_to_dict
     from cogrid.envs.overcooked.overcooked_array_features import build_overcooked_feature_fn
     import cogrid.envs  # noqa: F401 -- ensure registration
 
-    _overcooked_layouts = [
-        "overcooked_cramped_room_v0",
-        "overcooked_asymmetric_advantages_v0",
-        "overcooked_coordination_ring_v0",
-        "overcooked_forced_coordination_v0",
-        "overcooked_counter_circuit_v0",
-    ]
-    layout_idx = _overcooked_layouts.index(layout_name)
+    layout_idx = get_layout_index("overcooked", layout_name)
 
     # Build monolithic feature function (the old way)
     monolithic_fn = build_overcooked_feature_fn(

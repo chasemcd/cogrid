@@ -491,19 +491,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         # Build feature function via autowired ArrayFeature composition
         from cogrid.core.autowire import build_feature_config_from_components
+        from cogrid.core.component_registry import get_layout_index
 
-        _overcooked_layouts = [
-            "overcooked_cramped_room_v0",
-            "overcooked_asymmetric_advantages_v0",
-            "overcooked_coordination_ring_v0",
-            "overcooked_forced_coordination_v0",
-            "overcooked_counter_circuit_v0",
-        ]
-        _layout_idx = (
-            _overcooked_layouts.index(self.current_layout_id)
-            if self.current_layout_id in _overcooked_layouts
-            else 0
-        )
+        _layout_idx = get_layout_index(self.scope, self.current_layout_id)
 
         feature_config = build_feature_config_from_components(
             self.scope, n_agents=n_agents, layout_idx=_layout_idx,
