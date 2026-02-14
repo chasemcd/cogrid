@@ -20,7 +20,6 @@ from cogrid.core import directions
 from cogrid.core import grid
 from cogrid.core import grid_object
 from cogrid.core import grid_utils
-from cogrid.feature_space import feature_space
 from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
@@ -165,34 +164,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         # Set the action space for the gym environment
         self.action_spaces = {
             a_id: spaces.Discrete(len(self.action_set))
-            for a_id in self.agent_ids
-        }
-
-        # Establish the observation space. This provides the general form of what an agent's observation
-        # looks like so that they can be properly initialized.
-        features = config.get("features", [])
-        if isinstance(features, list):
-            features = {agent_id: features for agent_id in self.agent_ids}
-        elif isinstance(features, str):
-            features = {agent_id: [features] for agent_id in self.agent_ids}
-        else:
-            assert isinstance(features, dict) and set(features.keys()) == set(
-                self.agent_ids
-            ), (
-                "Must pass a feature dictionary keyed by agent IDs, "
-                "a list of features (universal for all agents), or the name "
-                "of a single feature."
-            )
-
-        self.feature_spaces = {
-            a_id: feature_space.FeatureSpace(
-                feature_names=features[a_id], env=self, agent_id=a_id
-            )
-            for a_id in self.agent_ids
-        }
-
-        self.observation_spaces = {
-            a_id: self.feature_spaces[a_id].observation_space
             for a_id in self.agent_ids
         }
 
@@ -362,16 +333,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._np_random, _ = self._set_np_random()
 
         return self._np_random
-
-    def observation_space(self, agent: typing.AgentID) -> spaces.Space:
-        """Takes in agent and returns the observation space for that agent.
-
-        :param agent: The agent ID.
-        :type agent: typing.AgentID
-        :return: The observation space for the agent.
-        :rtype: spaces.Space
-        """
-        return self.observation_spaces[agent]
 
     def action_space(self, agent: typing.AgentID) -> spaces.Space:
         """Takes in agent and returns the action space for that agent.
@@ -916,17 +877,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     # ------------------------------------------------------------------
     # Observation and reward helpers
     # ------------------------------------------------------------------
-
-    def get_obs(self) -> dict[typing.AgentID, typing.ObsType]:
-        """Fetch new observations for the agents
-
-        :return: Dictionary of agent IDs and their observations.
-        :rtype: dict[typing.AgentID, typing.ObsType]
-        """
-        obs = {}
-        for a_id in self.agent_ids:
-            obs[a_id] = self.feature_spaces[a_id].generate_features()
-        return obs
 
     def compute_rewards(
         self,

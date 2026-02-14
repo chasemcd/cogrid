@@ -52,10 +52,6 @@ class ComponentMetadata:
     def has_render_sync(self) -> bool:
         return "build_render_sync_fn" in self.methods
 
-    @property
-    def has_feature_fn(self) -> bool:
-        return "build_feature_fn" in self.methods
-
 
 @dataclass(frozen=True)
 class RewardMetadata:
@@ -103,7 +99,6 @@ _EXPECTED_SIGNATURES: dict[str, list[str]] = {
     "extra_state_builder": [],
     "build_static_tables": [],
     "build_render_sync_fn": [],
-    "build_feature_fn": [],
 }
 
 _EXPECTED_REWARD_COMPUTE_PARAMS = ["prev_state", "state", "actions", "reward_config"]

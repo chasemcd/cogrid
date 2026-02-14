@@ -5,9 +5,9 @@ They operate directly on state arrays (agent_pos, agent_dir, object_type_map, et
 produced by layout_to_array_state() and create_agent_arrays(), producing numerically
 identical observations to the existing feature system.
 
-Feature composition (which features to include, in what order) is resolved at init
-time via build_feature_fn(), producing a single composed function that can be called
-with state arrays.
+Feature composition is handled by autowire via ``compose_feature_fns()`` in
+``cogrid/core/array_features.py``. Each ArrayFeature subclass provides a
+``build_feature_fn(cls, scope)`` classmethod that returns a closure.
 
 All functions use ``xp`` (the backend-agnostic array namespace) so they work
 identically on both numpy and JAX backends. No ``_jax`` variants exist; a single
@@ -235,97 +235,6 @@ class Inventory(ArrayFeature):
         def fn(state_dict, agent_idx):
             return inventory_feature(state_dict["agent_inv"], agent_idx)
         return fn
-
-
-# ---------------------------------------------------------------------------
-# Feature composition
-# ---------------------------------------------------------------------------
-
-
-def compose_features(feature_fns, state_dict, agent_idx):
-    """Compose multiple feature functions into a single flat observation array.
-
-    Each feature_fn takes (state_dict, agent_idx) and returns an ndarray.
-    Results are flattened and concatenated.
-
-    Args:
-        feature_fns: List of callables, each with signature (state_dict, agent_idx) -> ndarray.
-        state_dict: Dict of state arrays (agent_pos, agent_dir, etc.).
-        agent_idx: Index of the agent to generate observation for.
-
-    Returns:
-        ndarray: Flat 1D observation array.
-    """
-    from cogrid.backend import xp
-    features = [fn(state_dict, agent_idx) for fn in feature_fns]
-    return xp.concatenate([f.ravel() for f in features])
-
-
-def build_feature_fn(feature_names, scope="global", **kwargs):
-    """Build a composed feature function from feature names. Works on both backends.
-
-    Called at init time. Returns a function that takes (state_dict, agent_idx) -> obs_array.
-    Resolves which features to include and pre-computes lookup tables once.
-
-    Args:
-        feature_names: List of feature name strings to include.
-        scope: Object registry scope.
-        **kwargs: Additional keyword arguments (e.g., max_map_size for full_map_encoding).
-
-    Returns:
-        Callable with signature (state_dict: dict, agent_idx: int) -> ndarray.
-    """
-    from cogrid.backend import xp
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
-
-    tables = build_lookup_tables(scope=scope)
-    max_map_size = kwargs.get("max_map_size", (12, 12))
-
-    # Pre-compute agent_type_ids for full_map_encoding
-    dir_to_char = [">", "v", "<", "^"]
-    agent_type_ids = xp.array(
-        [object_to_idx(f"agent_{c}", scope="global") for c in dir_to_char],
-        dtype=xp.int32,
-    )
-
-    can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
-
-    feature_fns = []
-    for name in feature_names:
-        if name == "agent_position":
-            feature_fns.append(lambda sd, ai: agent_pos_feature(sd["agent_pos"], ai))
-        elif name == "agent_dir":
-            feature_fns.append(lambda sd, ai: agent_dir_feature(sd["agent_dir"], ai))
-        elif name == "full_map_encoding":
-            _atids = agent_type_ids
-            _mms = max_map_size
-            feature_fns.append(
-                lambda sd, ai, atids=_atids, mms=_mms: full_map_encoding_feature(
-                    sd["object_type_map"],
-                    sd["object_state_map"],
-                    sd["agent_pos"],
-                    sd["agent_dir"],
-                    sd["agent_inv"],
-                    agent_type_ids=atids,
-                    max_map_size=mms,
-                )
-            )
-        elif name == "can_move_direction":
-            _co = can_overlap_table
-            feature_fns.append(
-                lambda sd, ai, co=_co: can_move_direction_feature(
-                    sd["agent_pos"], ai, sd["wall_map"], sd["object_type_map"], co
-                )
-            )
-        elif name == "inventory":
-            feature_fns.append(lambda sd, ai: inventory_feature(sd["agent_inv"], ai))
-        else:
-            raise ValueError(f"Unknown array feature: '{name}'")
-
-    def composed_fn(state_dict, agent_idx):
-        return compose_features(feature_fns, state_dict, agent_idx)
-
-    return composed_fn
 
 
 # ---------------------------------------------------------------------------

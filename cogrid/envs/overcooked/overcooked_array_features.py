@@ -1,14 +1,14 @@
 """Array-based Overcooked feature extractors.
 
 Produces the same 677-dim (for 2 agents) ego-centric observation as
-``OvercookedCollectedFeatures.generate()``, but operates entirely on
-state arrays so it works with both numpy and JAX backends.
+the legacy OOP feature system, but operates entirely on state arrays
+so it works with both numpy and JAX backends.
 
 All functions are JIT-compatible: no Python control flow on traced
 values, no int()/np.array() conversions of traced arrays.
 
-Public API:
-    ``build_overcooked_feature_fn`` -- returned by ``Pot.build_feature_fn()``.
+Feature composition is handled by autowire via ArrayFeature subclasses
+registered in this module.
 """
 
 from __future__ import annotations
@@ -477,169 +477,6 @@ class EnvironmentLayout(ArrayFeature):
                 state_dict["object_type_map"], layout_type_ids, max_shape,
             )
         return fn
-
-
-# ---------------------------------------------------------------------------
-# Builder
-# ---------------------------------------------------------------------------
-
-
-def build_overcooked_feature_fn(scope, n_agents, layout_idx, grid_shape, max_num_pots=2, max_layout_shape=(11, 7)):
-    """Build the composed Overcooked feature function.
-
-    Called at init time. Returns ``fn(state_dict, agent_idx) -> (obs_dim,) float32``.
-
-    The observation is ego-centric: focal agent features first, then other
-    agents in index order, then global features.
-
-    Args:
-        scope: Registry scope ("overcooked").
-        n_agents: Number of agents.
-        layout_idx: Integer index of the current layout (0-4).
-        grid_shape: (H, W) of the current grid.
-        max_num_pots: Maximum number of pots across layouts.
-        max_layout_shape: (dim0, dim1) for environment layout feature, matching Python convention.
-    """
-    from cogrid.backend import xp
-    from cogrid.core.grid_object import object_to_idx, build_lookup_tables
-
-    # Pre-compute type IDs
-    inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
-    inv_type_ids = xp.array(
-        [object_to_idx(name, scope=scope) for name in inv_type_order],
-        dtype=xp.int32,
-    )
-
-    counter_type_id = object_to_idx("counter", scope=scope)
-    pot_type_id = object_to_idx("pot", scope=scope)
-    onion_id = object_to_idx("onion", scope=scope)
-    tomato_id = object_to_idx("tomato", scope=scope)
-
-    # Type IDs for ClosestObj features (7 types, matching Python feature order)
-    closest_obj_specs = [
-        ("onion", 4),
-        ("plate", 4),
-        ("plate_stack", 2),
-        ("onion_stack", 2),
-        ("onion_soup", 4),
-        ("delivery_zone", 2),
-        ("counter", 4),
-    ]
-    closest_type_ids = [
-        (object_to_idx(name, scope=scope), n_closest)
-        for name, n_closest in closest_obj_specs
-    ]
-
-    # Type IDs for environment layout feature (6 types)
-    layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
-    layout_type_ids_arr = [object_to_idx(name, scope=scope) for name in layout_type_names]
-
-    tables = build_lookup_tables(scope=scope)
-    can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
-
-    # Pre-compute layout_id one-hot (constant for the episode)
-    _layout_id = layout_id_feature(layout_idx)
-
-    capacity = 3
-
-    def _per_agent_features(state_dict, focal_idx):
-        """Extract per-agent features for a single agent. (105,) for 2-agent case."""
-        from cogrid.feature_space.array_features import (
-            agent_dir_feature,
-            agent_pos_feature,
-            can_move_direction_feature,
-        )
-
-        parts = []
-
-        # 1. AgentDir (4,)
-        parts.append(agent_dir_feature(state_dict["agent_dir"], focal_idx))
-
-        # 2. OvercookedInventory (5,)
-        parts.append(overcooked_inventory_feature(
-            state_dict["agent_inv"], focal_idx, inv_type_ids,
-        ))
-
-        # 3. NextToCounter (4,)
-        parts.append(next_to_counter_feature(
-            state_dict["agent_pos"], focal_idx,
-            state_dict["object_type_map"], counter_type_id,
-        ))
-
-        # 4. NextToPot (16,)
-        parts.append(next_to_pot_feature(
-            state_dict["agent_pos"], focal_idx,
-            state_dict["object_type_map"], pot_type_id,
-            state_dict["pot_positions"], state_dict["pot_contents"],
-            state_dict["pot_timer"], capacity=capacity,
-        ))
-
-        # 5-11. ClosestObj x7 types (44 total)
-        for type_id, n_closest in closest_type_ids:
-            parts.append(closest_obj_feature(
-                state_dict["agent_pos"], focal_idx,
-                state_dict["object_type_map"], state_dict["object_state_map"],
-                type_id, n_closest,
-            ))
-
-        # 12. OrderedPotFeatures (24,)
-        parts.append(ordered_pot_features(
-            state_dict["agent_pos"], focal_idx,
-            state_dict["pot_positions"], state_dict["pot_contents"],
-            state_dict["pot_timer"], max_num_pots, onion_id, tomato_id,
-            capacity=capacity,
-        ))
-
-        # 13. DistToOtherPlayers (2,)
-        parts.append(dist_to_other_players_feature(
-            state_dict["agent_pos"], focal_idx, n_agents,
-        ))
-
-        # 14. AgentPosition (2,)
-        parts.append(agent_pos_feature(state_dict["agent_pos"], focal_idx))
-
-        # 15. CanMoveDirection (4,)
-        parts.append(can_move_direction_feature(
-            state_dict["agent_pos"], focal_idx,
-            state_dict["wall_map"], state_dict["object_type_map"],
-            can_overlap_table,
-        ))
-
-        return xp.concatenate([p.ravel().astype(xp.float32) for p in parts])
-
-    def _global_features(state_dict):
-        """Extract global features. (467,)."""
-        parts = []
-
-        # 16. LayoutID (5,)
-        parts.append(_layout_id)
-
-        # 17. EnvironmentLayout (462,)
-        parts.append(environment_layout_feature(
-            state_dict["object_type_map"], layout_type_ids_arr, max_layout_shape,
-        ))
-
-        return xp.concatenate([p.ravel().astype(xp.float32) for p in parts])
-
-    def feature_fn(state_dict, agent_idx):
-        """Compose ego-centric observation: focal agent, others, globals."""
-        parts = []
-
-        # Focal agent first
-        parts.append(_per_agent_features(state_dict, agent_idx))
-
-        # Other agents in index order
-        for i in range(n_agents):
-            if i == agent_idx:
-                continue
-            parts.append(_per_agent_features(state_dict, i))
-
-        # Global features
-        parts.append(_global_features(state_dict))
-
-        return xp.concatenate(parts)
-
-    return feature_fn
 
 
 # ---------------------------------------------------------------------------
