@@ -13,6 +13,8 @@ Public API:
 
 from __future__ import annotations
 
+from cogrid.core.array_features import ArrayFeature, register_feature_type
+
 
 # ---------------------------------------------------------------------------
 # Individual feature functions
@@ -294,6 +296,151 @@ def _set_idx(arr, idx, value):
     out = arr.copy()
     out[idx] = value
     return out
+
+
+# ---------------------------------------------------------------------------
+# ArrayFeature subclasses (registered to "overcooked" scope)
+# ---------------------------------------------------------------------------
+
+
+@register_feature_type("overcooked_inventory", scope="overcooked")
+class OvercookedInventory(ArrayFeature):
+    per_agent = True
+    obs_dim = 5
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.backend import xp
+        from cogrid.core.grid_object import object_to_idx
+
+        inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
+        inv_type_ids = xp.array(
+            [object_to_idx(name, scope=scope) for name in inv_type_order],
+            dtype=xp.int32,
+        )
+
+        def fn(state_dict, agent_idx):
+            return overcooked_inventory_feature(
+                state_dict["agent_inv"], agent_idx, inv_type_ids,
+            )
+        return fn
+
+
+@register_feature_type("next_to_counter", scope="overcooked")
+class NextToCounter(ArrayFeature):
+    per_agent = True
+    obs_dim = 4
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        counter_type_id = object_to_idx("counter", scope=scope)
+
+        def fn(state_dict, agent_idx):
+            return next_to_counter_feature(
+                state_dict["agent_pos"], agent_idx,
+                state_dict["object_type_map"], counter_type_id,
+            )
+        return fn
+
+
+@register_feature_type("next_to_pot", scope="overcooked")
+class NextToPot(ArrayFeature):
+    per_agent = True
+    obs_dim = 16
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        pot_type_id = object_to_idx("pot", scope=scope)
+
+        def fn(state_dict, agent_idx):
+            return next_to_pot_feature(
+                state_dict["agent_pos"], agent_idx,
+                state_dict["object_type_map"], pot_type_id,
+                state_dict["pot_positions"], state_dict["pot_contents"],
+                state_dict["pot_timer"],
+            )
+        return fn
+
+
+def _make_closest_obj_feature(obj_name, n_closest):
+    """Factory to create and register a ClosestObj ArrayFeature variant."""
+    feature_id = f"closest_{obj_name}"
+    _obs_dim = 2 * n_closest
+    _n = n_closest  # capture for closure
+    _obj = obj_name  # capture for closure
+
+    class _Cls(ArrayFeature):
+        per_agent = True
+        obs_dim = _obs_dim
+
+        @classmethod
+        def build_feature_fn(cls, scope):
+            from cogrid.core.grid_object import object_to_idx
+
+            target_type_id = object_to_idx(_obj, scope=scope)
+
+            def fn(state_dict, agent_idx):
+                return closest_obj_feature(
+                    state_dict["agent_pos"], agent_idx,
+                    state_dict["object_type_map"], state_dict["object_state_map"],
+                    target_type_id, _n,
+                )
+            return fn
+
+    _Cls.__name__ = f"Closest{obj_name.replace('_', ' ').title().replace(' ', '')}"
+    _Cls.__qualname__ = _Cls.__name__
+
+    # Register after setting class attributes (decorator validates obs_dim/per_agent)
+    return register_feature_type(feature_id, scope="overcooked")(_Cls)
+
+
+# Register all 7 ClosestObj variants (matching build_overcooked_feature_fn order)
+_CLOSEST_OBJ_SPECS = [
+    ("onion", 4), ("plate", 4), ("plate_stack", 2), ("onion_stack", 2),
+    ("onion_soup", 4), ("delivery_zone", 2), ("counter", 4),
+]
+for _name, _n in _CLOSEST_OBJ_SPECS:
+    _make_closest_obj_feature(_name, _n)
+
+
+@register_feature_type("ordered_pot_features", scope="overcooked")
+class OrderedPotFeatures(ArrayFeature):
+    per_agent = True
+    obs_dim = 24  # 12 features * max_num_pots=2
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        onion_id = object_to_idx("onion", scope=scope)
+        tomato_id = object_to_idx("tomato", scope=scope)
+
+        def fn(state_dict, agent_idx):
+            return ordered_pot_features(
+                state_dict["agent_pos"], agent_idx,
+                state_dict["pot_positions"], state_dict["pot_contents"],
+                state_dict["pot_timer"],
+                max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
+            )
+        return fn
+
+
+@register_feature_type("dist_to_other_players", scope="overcooked")
+class DistToOtherPlayers(ArrayFeature):
+    per_agent = True
+    obs_dim = 2  # 2 * (2 agents - 1) = 2
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        def fn(state_dict, agent_idx):
+            return dist_to_other_players_feature(
+                state_dict["agent_pos"], agent_idx, n_agents=2,
+            )
+        return fn
 
 
 # ---------------------------------------------------------------------------
