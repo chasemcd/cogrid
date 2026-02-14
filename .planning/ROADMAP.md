@@ -97,7 +97,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 15: ArrayFeature Infrastructure** - Base class, registration decorator, and composition layer that assembles per-agent + global features into ego-centric obs
 - [x] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
 - [x] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
-- [ ] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
+- [x] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
 - [ ] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
 
 ## Phase Details
@@ -154,6 +154,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 18-01-PLAN.md -- Extend compose_feature_fns (multi-scope, preserve_order) + build_feature_config_from_components in autowire
 - [ ] 18-02-PLAN.md -- Wire CoGridEnv to autowired feature composition + element-by-element 677-dim parity test
 
+### Phase 18.1: Remove environment-specific logic from core files (INSERTED)
+
+**Goal:** Zero environment-specific logic in cogrid_env.py or any file under cogrid/core/ -- all domain knowledge (feature ordering, layout index mapping, conditional imports) pushed to domain modules via registration APIs
+**Depends on:** Phase 18
+**Plans:** 1 plan
+
+Plans:
+- [ ] 18.1-01-PLAN.md -- Add feature order / layout index registration APIs, move Overcooked-specific logic to domain module, clean up core docstrings
+
 ### Phase 19: Legacy Feature System Removal
 **Goal**: The old OOP feature system is deleted, `build_feature_fn` is removed from the GridObject component classmethod convention, and the codebase has a single code path for features
 **Depends on**: Phase 18
@@ -190,5 +199,5 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 15. ArrayFeature Infrastructure | v1.3 | 2/2 | Complete | 2026-02-13 |
 | 16. Core ArrayFeature Subclasses | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 17. Overcooked ArrayFeature Subclasses | v1.3 | 2/2 | Complete | 2026-02-14 |
-| 18. Autowire Integration & Parity | v1.3 | 0/2 | Not started | - |
+| 18. Autowire Integration & Parity | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 19. Legacy Feature System Removal | v1.3 | 0/TBD | Not started | - |

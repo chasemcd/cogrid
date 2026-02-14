@@ -13,37 +13,6 @@ from registered components. This is the sole environment configuration path.
 from __future__ import annotations
 
 
-# ---------------------------------------------------------------------------
-# Scope-specific feature ordering
-# ---------------------------------------------------------------------------
-# Scopes listed here get an explicit feature order matching their legacy
-# monolithic builder.  Scopes NOT listed fall back to alphabetical ordering.
-
-_FEATURE_ORDER: dict[str, list[str]] = {
-    "overcooked": [
-        # 15 per-agent features (matches build_overcooked_feature_fn order)
-        "agent_dir",
-        "overcooked_inventory",
-        "next_to_counter",
-        "next_to_pot",
-        "closest_onion",
-        "closest_plate",
-        "closest_plate_stack",
-        "closest_onion_stack",
-        "closest_onion_soup",
-        "closest_delivery_zone",
-        "closest_counter",
-        "ordered_pot_features",
-        "dist_to_other_players",
-        "agent_position",
-        "can_move_direction",
-        # 2 global features
-        "layout_id",
-        "environment_layout",
-    ],
-}
-
-
 def build_feature_config_from_components(
     scope: str,
     n_agents: int,
@@ -69,16 +38,20 @@ def build_feature_config_from_components(
         - ``feature_names``: Ordered list of feature names used.
     """
     from cogrid.core.array_features import compose_feature_fns, obs_dim_for_features
-    from cogrid.core.component_registry import get_feature_types
+    from cogrid.core.component_registry import (
+        get_feature_types,
+        get_feature_order,
+        get_pre_compose_hook,
+    )
 
     # Ensure global ArrayFeature subclasses are registered
     import cogrid.feature_space.array_features  # noqa: F401
 
-    # Set LayoutID._layout_idx before composing (captured in build_feature_fn closure).
-    # LayoutID is registered in the overcooked scope; import conditionally.
-    if scope == "overcooked":
-        from cogrid.envs.overcooked.overcooked_array_features import LayoutID
-        LayoutID._layout_idx = layout_idx
+    # Run scope-specific pre-compose hook (e.g. set layout index state
+    # before feature closures capture it).
+    pre_hook = get_pre_compose_hook(scope)
+    if pre_hook is not None:
+        pre_hook(layout_idx=layout_idx, scope=scope)
 
     # Discover features from both scope and global registries
     scope_metas = get_feature_types(scope)
@@ -89,9 +62,10 @@ def build_feature_config_from_components(
     all_ids = scope_ids | global_ids
 
     # Determine feature order
-    if scope in _FEATURE_ORDER:
+    registered_order = get_feature_order(scope)
+    if registered_order is not None:
         # Use explicit order -- only features present in registries
-        feature_names = [n for n in _FEATURE_ORDER[scope] if n in all_ids]
+        feature_names = [n for n in registered_order if n in all_ids]
         preserve_order = True
     else:
         # Alphabetical fallback -- include everything

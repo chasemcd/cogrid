@@ -86,6 +86,9 @@ class FeatureMetadata:
 _COMPONENT_METADATA: dict[tuple[str, str], ComponentMetadata] = {}
 _REWARD_TYPE_REGISTRY: dict[tuple[str, str], RewardMetadata] = {}
 _FEATURE_TYPE_REGISTRY: dict[tuple[str, str], FeatureMetadata] = {}
+_FEATURE_ORDER_REGISTRY: dict[str, list[str]] = {}
+_PRE_COMPOSE_HOOKS: dict[str, callable] = {}
+_LAYOUT_INDEX_REGISTRY: dict[str, dict[str, int]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -349,3 +352,66 @@ def get_tickable_components(scope: str = "global") -> list[ComponentMetadata]:
 def get_components_with_extra_state(scope: str = "global") -> list[ComponentMetadata]:
     """Return components that have an ``extra_state_schema`` classmethod."""
     return [m for m in get_all_components(scope) if m.has_extra_state]
+
+
+# ---------------------------------------------------------------------------
+# Feature order registration
+# ---------------------------------------------------------------------------
+
+def register_feature_order(
+    scope: str,
+    feature_names: list[str],
+    pre_compose_hook: callable | None = None,
+) -> None:
+    """Register an explicit feature ordering for a scope.
+
+    Scopes with a registered order get that exact ordering during
+    feature composition.  Scopes without fall back to alphabetical.
+
+    Args:
+        scope: Registry scope name.
+        feature_names: Ordered list of feature IDs.
+        pre_compose_hook: Optional callable invoked before feature
+            composition with signature ``(layout_idx: int, scope: str) -> None``.
+    """
+    _FEATURE_ORDER_REGISTRY[scope] = list(feature_names)
+    if pre_compose_hook is not None:
+        _PRE_COMPOSE_HOOKS[scope] = pre_compose_hook
+
+
+def get_feature_order(scope: str) -> list[str] | None:
+    """Return the registered feature order for *scope*, or None."""
+    return _FEATURE_ORDER_REGISTRY.get(scope)
+
+
+def get_pre_compose_hook(scope: str) -> callable | None:
+    """Return the registered pre-compose hook for *scope*, or None."""
+    return _PRE_COMPOSE_HOOKS.get(scope)
+
+
+# ---------------------------------------------------------------------------
+# Layout index registration
+# ---------------------------------------------------------------------------
+
+def register_layout_indices(scope: str, layout_map: dict[str, int]) -> None:
+    """Register a layout-name-to-index mapping for a scope.
+
+    Args:
+        scope: Registry scope name.
+        layout_map: Dict mapping layout name strings to integer indices.
+    """
+    _LAYOUT_INDEX_REGISTRY[scope] = dict(layout_map)
+
+
+def get_layout_index(scope: str, layout_id: str | None) -> int:
+    """Return the integer index for *layout_id* in *scope*, or 0.
+
+    Returns 0 if *layout_id* is None, *scope* has no registered mapping,
+    or *layout_id* is not found in the mapping.
+    """
+    if layout_id is None:
+        return 0
+    mapping = _LAYOUT_INDEX_REGISTRY.get(scope)
+    if mapping is None:
+        return 0
+    return mapping.get(layout_id, 0)

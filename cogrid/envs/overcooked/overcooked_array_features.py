@@ -640,3 +640,48 @@ def build_overcooked_feature_fn(scope, n_agents, layout_idx, grid_shape, max_num
         return xp.concatenate(parts)
 
     return feature_fn
+
+
+# ---------------------------------------------------------------------------
+# Register Overcooked feature order and layout indices
+# (moved from cogrid/core/autowire.py -- domain-specific, not core logic)
+# ---------------------------------------------------------------------------
+
+from cogrid.core.component_registry import (
+    register_feature_order,
+    register_layout_indices,
+)
+
+
+def _overcooked_pre_compose_hook(layout_idx: int, scope: str) -> None:
+    """Set LayoutID._layout_idx before feature composition."""
+    LayoutID._layout_idx = layout_idx
+
+
+register_feature_order("overcooked", [
+    "agent_dir",
+    "overcooked_inventory",
+    "next_to_counter",
+    "next_to_pot",
+    "closest_onion",
+    "closest_plate",
+    "closest_plate_stack",
+    "closest_onion_stack",
+    "closest_onion_soup",
+    "closest_delivery_zone",
+    "closest_counter",
+    "ordered_pot_features",
+    "dist_to_other_players",
+    "agent_position",
+    "can_move_direction",
+    "layout_id",
+    "environment_layout",
+], pre_compose_hook=_overcooked_pre_compose_hook)
+
+register_layout_indices("overcooked", {
+    "overcooked_cramped_room_v0": 0,
+    "overcooked_asymmetric_advantages_v0": 1,
+    "overcooked_coordination_ring_v0": 2,
+    "overcooked_forced_coordination_v0": 3,
+    "overcooked_counter_circuit_v0": 4,
+})
