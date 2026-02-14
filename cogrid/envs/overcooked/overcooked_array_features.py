@@ -443,6 +443,42 @@ class DistToOtherPlayers(ArrayFeature):
         return fn
 
 
+@register_feature_type("layout_id", scope="overcooked")
+class LayoutID(ArrayFeature):
+    per_agent = False
+    obs_dim = 5
+    _layout_idx = 0  # Set before build_feature_fn; Phase 18 wires this
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        idx = cls._layout_idx
+
+        def fn(state_dict):
+            return layout_id_feature(idx)
+        return fn
+
+
+@register_feature_type("environment_layout", scope="overcooked")
+class EnvironmentLayout(ArrayFeature):
+    per_agent = False
+    obs_dim = 462  # 6 types * 11 * 7 (max layout shape)
+    _max_layout_shape = (11, 7)
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
+        layout_type_ids = [object_to_idx(name, scope=scope) for name in layout_type_names]
+        max_shape = cls._max_layout_shape
+
+        def fn(state_dict):
+            return environment_layout_feature(
+                state_dict["object_type_map"], layout_type_ids, max_shape,
+            )
+        return fn
+
+
 # ---------------------------------------------------------------------------
 # Builder
 # ---------------------------------------------------------------------------
