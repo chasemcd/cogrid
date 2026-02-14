@@ -98,6 +98,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
 - [x] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
 - [x] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
+- [x] **Phase 18.1: Remove environment-specific logic from core files (INSERTED)** - Feature order & layout index registration APIs; all domain knowledge pushed to domain modules
 - [ ] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
 
 ## Phase Details
@@ -161,7 +162,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 1 plan
 
 Plans:
-- [ ] 18.1-01-PLAN.md -- Add feature order / layout index registration APIs, move Overcooked-specific logic to domain module, clean up core docstrings
+- [x] 18.1-01-PLAN.md -- Add feature order / layout index registration APIs, move Overcooked-specific logic to domain module, clean up core docstrings
 
 ### Phase 19: Legacy Feature System Removal
 **Goal**: The old OOP feature system is deleted, `build_feature_fn` is removed from the GridObject component classmethod convention, and the codebase has a single code path for features
@@ -172,7 +173,10 @@ Plans:
   2. `features.py` and `overcooked_features.py` no longer exist -- old OOP feature implementations are deleted
   3. `build_feature_fn` is no longer a recognized classmethod in the component registry -- `_EXPECTED_SIGNATURES` and `ComponentMetadata.has_feature_fn` no longer reference it, and Pot no longer defines it
   4. All tests pass and training produces identical results to pre-v1.3 -- no behavioral regression
-**Plans:** TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md -- Delete old OOP feature system, remove build_feature_fn from component convention, update all tests
 
 ## Progress
 
@@ -200,4 +204,5 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 16. Core ArrayFeature Subclasses | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 17. Overcooked ArrayFeature Subclasses | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 18. Autowire Integration & Parity | v1.3 | 2/2 | Complete | 2026-02-14 |
+| 18.1. Remove environment-specific logic from core files | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 19. Legacy Feature System Removal | v1.3 | 0/TBD | Not started | - |
