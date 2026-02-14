@@ -442,3 +442,78 @@ def test_reward_config_passes_reward_config_to_compute():
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config_without
     )
     np.testing.assert_array_almost_equal(result_without, np.array([0.0, 0.0], dtype=np.float32))
+
+
+# =======================================================================
+# Feature config auto-wiring tests
+# =======================================================================
+
+
+def test_build_feature_config_overcooked():
+    """build_feature_config_from_components returns correct structure for overcooked."""
+    import cogrid.envs  # noqa: F401 -- triggers registration
+    from cogrid.core.autowire import build_feature_config_from_components
+
+    config = build_feature_config_from_components("overcooked", n_agents=2, layout_idx=0)
+
+    # Required keys
+    assert "feature_fn" in config
+    assert "obs_dim" in config
+    assert "feature_names" in config
+
+    # obs_dim must match 677 for 2-agent Overcooked
+    assert config["obs_dim"] == 677, f"Expected obs_dim=677, got {config['obs_dim']}"
+
+    # 15 per-agent + 2 global = 17 features
+    assert len(config["feature_names"]) == 17, (
+        f"Expected 17 feature names, got {len(config['feature_names'])}"
+    )
+
+
+def test_build_feature_config_sets_layout_idx():
+    """build_feature_config_from_components sets LayoutID._layout_idx."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.autowire import build_feature_config_from_components
+    from cogrid.envs.overcooked.overcooked_array_features import LayoutID
+
+    build_feature_config_from_components("overcooked", n_agents=2, layout_idx=3)
+    assert LayoutID._layout_idx == 3, (
+        f"Expected _layout_idx=3, got {LayoutID._layout_idx}"
+    )
+
+    # Reset to default
+    LayoutID._layout_idx = 0
+
+
+def test_build_feature_config_returns_callable():
+    """Returned feature_fn produces (677,) float32 output."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.autowire import build_feature_config_from_components
+    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.envs.overcooked.overcooked_array_features import LayoutID
+
+    config = build_feature_config_from_components("overcooked", n_agents=2, layout_idx=0)
+    feature_fn = config["feature_fn"]
+
+    # Build a state_dict from a real Overcooked environment
+    from cogrid.cogrid_env import CoGridEnv
+
+    env = CoGridEnv(
+        config={
+            "name": "overcooked",
+            "scope": "overcooked",
+            "num_agents": 2,
+            "max_steps": 10,
+            "action_set": "cardinal_actions",
+            "grid": {"layout": "overcooked_cramped_room_v0"},
+        }
+    )
+    env.reset()
+    state_dict = envstate_to_dict(env._env_state)
+
+    result = feature_fn(state_dict, agent_idx=0)
+    assert result.shape == (677,), f"Expected shape (677,), got {result.shape}"
+    assert result.dtype == np.float32, f"Expected dtype float32, got {result.dtype}"
+
+    # Reset LayoutID
+    LayoutID._layout_idx = 0

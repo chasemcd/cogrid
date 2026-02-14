@@ -6,11 +6,114 @@ Reads component metadata populated by ``@register_object_type`` and
 ``step_pipeline.step()``, ``layout_parser.parse_layout()``, and
 ``interactions.process_interactions()``.
 
-Composes scope_config and reward_config automatically from registered
-components. This is the sole environment configuration path.
+Composes scope_config, reward_config, and feature_config automatically
+from registered components. This is the sole environment configuration path.
 """
 
 from __future__ import annotations
+
+
+# ---------------------------------------------------------------------------
+# Scope-specific feature ordering
+# ---------------------------------------------------------------------------
+# Scopes listed here get an explicit feature order matching their legacy
+# monolithic builder.  Scopes NOT listed fall back to alphabetical ordering.
+
+_FEATURE_ORDER: dict[str, list[str]] = {
+    "overcooked": [
+        # 15 per-agent features (matches build_overcooked_feature_fn order)
+        "agent_dir",
+        "overcooked_inventory",
+        "next_to_counter",
+        "next_to_pot",
+        "closest_onion",
+        "closest_plate",
+        "closest_plate_stack",
+        "closest_onion_stack",
+        "closest_onion_soup",
+        "closest_delivery_zone",
+        "closest_counter",
+        "ordered_pot_features",
+        "dist_to_other_players",
+        "agent_position",
+        "can_move_direction",
+        # 2 global features
+        "layout_id",
+        "environment_layout",
+    ],
+}
+
+
+def build_feature_config_from_components(
+    scope: str,
+    n_agents: int,
+    layout_idx: int = 0,
+) -> dict:
+    """Build a feature_config dict from registered ArrayFeature subclasses.
+
+    Discovers all ArrayFeature subclasses registered to the given *scope*
+    and the ``"global"`` scope, determines the feature order (explicit for
+    known scopes, alphabetical otherwise), and returns a composed feature
+    function matching the legacy monolithic builder output.
+
+    Args:
+        scope: Registry scope name (e.g. "overcooked").
+        n_agents: Number of agents.
+        layout_idx: Integer index of the current layout (used by LayoutID).
+
+    Returns:
+        Dict with keys:
+
+        - ``feature_fn``: fn(state_dict, agent_idx) -> (obs_dim,) float32
+        - ``obs_dim``: Total observation dimension.
+        - ``feature_names``: Ordered list of feature names used.
+    """
+    from cogrid.core.array_features import compose_feature_fns, obs_dim_for_features
+    from cogrid.core.component_registry import get_feature_types
+
+    # Ensure global ArrayFeature subclasses are registered
+    import cogrid.feature_space.array_features  # noqa: F401
+
+    # Set LayoutID._layout_idx before composing (captured in build_feature_fn closure).
+    # LayoutID is registered in the overcooked scope; import conditionally.
+    if scope == "overcooked":
+        from cogrid.envs.overcooked.overcooked_array_features import LayoutID
+        LayoutID._layout_idx = layout_idx
+
+    # Discover features from both scope and global registries
+    scope_metas = get_feature_types(scope)
+    global_metas = get_feature_types("global")
+
+    scope_ids = {m.feature_id for m in scope_metas}
+    global_ids = {m.feature_id for m in global_metas}
+    all_ids = scope_ids | global_ids
+
+    # Determine feature order
+    if scope in _FEATURE_ORDER:
+        # Use explicit order -- only features present in registries
+        feature_names = [n for n in _FEATURE_ORDER[scope] if n in all_ids]
+        preserve_order = True
+    else:
+        # Alphabetical fallback -- include everything
+        feature_names = sorted(all_ids)
+        preserve_order = False
+
+    lookup_scopes = [scope, "global"]
+
+    composed_fn = compose_feature_fns(
+        feature_names, scope, n_agents,
+        scopes=lookup_scopes, preserve_order=preserve_order,
+    )
+
+    total_dim = obs_dim_for_features(
+        feature_names, scope, n_agents, scopes=lookup_scopes,
+    )
+
+    return {
+        "feature_fn": composed_fn,
+        "obs_dim": total_dim,
+        "feature_names": feature_names,
+    }
 
 
 def build_scope_config_from_components(
