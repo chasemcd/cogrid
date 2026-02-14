@@ -27,8 +27,8 @@ def _setup_overcooked_config():
     from cogrid.core.autowire import (
         build_scope_config_from_components,
         build_reward_config_from_components,
+        build_feature_config_from_components,
     )
-    from cogrid.feature_space.array_features import build_feature_fn
 
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
@@ -37,14 +37,11 @@ def _setup_overcooked_config():
     scope_config = build_scope_config_from_components("overcooked")
     lookup_tables = build_lookup_tables(scope="overcooked")
 
-    feature_names = [
-        "agent_position", "agent_dir", "full_map_encoding",
-        "can_move_direction", "inventory",
-    ]
-    feature_fn = build_feature_fn(feature_names, scope="overcooked")
+    n_agents = array_state["n_agents"]
+    feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+    feature_fn = feature_config["feature_fn"]
 
     type_ids = scope_config["type_ids"]
-    n_agents = array_state["n_agents"]
 
     reward_config = build_reward_config_from_components(
         "overcooked",
@@ -202,12 +199,9 @@ def test_step_jax_backend_eager():
                     it[key] = jnp.array(it[key], dtype=jnp.int32)
 
         # Rebuild feature function on JAX backend
-        from cogrid.feature_space.array_features import build_feature_fn
-        feature_fn = build_feature_fn(
-            ["agent_position", "agent_dir", "full_map_encoding",
-             "can_move_direction", "inventory"],
-            scope="overcooked",
-        )
+        from cogrid.core.autowire import build_feature_config_from_components
+        feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+        feature_fn = feature_config["feature_fn"]
 
         # Reset
         rng = jax.random.key(42)
@@ -302,12 +296,9 @@ def test_build_step_fn_jit_compiles():
                     it[key] = jnp.array(it[key], dtype=jnp.int32)
 
         # Rebuild feature function on JAX backend
-        from cogrid.feature_space.array_features import build_feature_fn
-        feature_fn = build_feature_fn(
-            ["agent_position", "agent_dir", "full_map_encoding",
-             "can_move_direction", "inventory"],
-            scope="overcooked",
-        )
+        from cogrid.core.autowire import build_feature_config_from_components
+        feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+        feature_fn = feature_config["feature_fn"]
 
         # Build factories (should auto-JIT on JAX backend)
         reset_fn = build_reset_fn(
