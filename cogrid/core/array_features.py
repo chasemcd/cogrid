@@ -12,6 +12,7 @@ Environment-specific features live in their respective envs/ modules.
 """
 
 # Re-export for convenience (decorator lives in component_registry)
+from cogrid.backend import xp
 from cogrid.core.component_registry import register_feature_type  # noqa: F401
 
 
@@ -162,8 +163,6 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
     Returns:
         fn(state_dict, agent_idx) -> (obs_dim,) float32 ndarray
     """
-    from cogrid.backend import xp
-
     meta_by_id = _resolve_feature_metas(feature_names, scope, scopes=scopes)
 
     # Separate per-agent and global

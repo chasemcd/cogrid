@@ -21,6 +21,9 @@ Usage::
 
 from __future__ import annotations
 
+from cogrid.backend import xp
+
+
 def move_agents(
     agent_pos,        # (n_agents, 2) int32 -- current positions [row, col]
     agent_dir,        # (n_agents,) int32 -- current directions
@@ -55,8 +58,6 @@ def move_agents(
         - ``new_pos``: int32 array of shape ``(n_agents, 2)``
         - ``new_dir``: int32 array of shape ``(n_agents,)``
     """
-    from cogrid.backend import xp
-
     n_agents = agent_pos.shape[0]
     H, W = wall_map.shape
 

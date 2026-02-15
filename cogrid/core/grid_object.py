@@ -11,6 +11,7 @@ import uuid
 import numpy as np
 
 
+from cogrid.backend import xp
 from cogrid.constants import GridConstants
 from cogrid.core.constants import ObjectColors, Colors, COLORS, COLOR_NAMES
 from cogrid.core import constants
@@ -201,7 +202,6 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
         ``"CAN_PICKUP_FROM"``, ``"IS_WALL"``, each mapping to an array of
         shape ``(n_types,)`` with dtype ``int32``.
     """
-    from cogrid.backend import xp  # import at call time to avoid circular imports
     from cogrid.backend.array_ops import set_at
 
     type_names = get_object_names(scope=scope)

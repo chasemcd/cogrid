@@ -12,6 +12,8 @@ from registered components. This is the sole environment configuration path.
 
 from __future__ import annotations
 
+from cogrid.backend import xp
+
 
 def build_feature_config_from_components(
     scope: str,
@@ -311,8 +313,6 @@ def build_reward_config_from_components(
 
     def compute_fn(prev_state, state, actions, reward_config):
         """Composed reward function that sums all registered rewards."""
-        from cogrid.backend import xp
-
         total = xp.zeros(n_agents, dtype=xp.float32)
         for inst in instances:
             r = inst.compute(prev_state, state, actions, reward_config)

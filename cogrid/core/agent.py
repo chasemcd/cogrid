@@ -1,5 +1,6 @@
 import numpy as np
 
+from cogrid.backend import xp
 from cogrid.core.directions import Directions
 from cogrid.core.grid_object import GridObj
 
@@ -123,8 +124,6 @@ def get_dir_vec_table():
     """
     global DIR_VEC_TABLE
     if DIR_VEC_TABLE is None:
-        from cogrid.backend import xp
-
         DIR_VEC_TABLE = xp.array(
             [
                 [0, 1],  # Right (0) -- increase col

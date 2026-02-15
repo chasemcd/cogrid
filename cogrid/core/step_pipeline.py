@@ -32,6 +32,14 @@ from __future__ import annotations
 
 import dataclasses
 
+from cogrid.backend import xp
+from cogrid.backend._dispatch import get_backend
+from cogrid.backend.env_state import create_env_state
+from cogrid.backend.state_view import StateView, register_stateview_pytree
+from cogrid.core.interactions import process_interactions
+from cogrid.core.movement import move_agents
+from cogrid.feature_space.array_features import get_all_agent_obs
+
 
 def envstate_to_dict(state):
     """Convert an EnvState to a :class:`~cogrid.backend.state_view.StateView`.
@@ -53,9 +61,6 @@ def envstate_to_dict(state):
         ``agent_inv``, ``wall_map``, ``object_type_map``,
         ``object_state_map``) plus scope-stripped extras.
     """
-    from cogrid.backend._dispatch import get_backend
-    from cogrid.backend.state_view import StateView, register_stateview_pytree
-
     if get_backend() == "jax":
         register_stateview_pytree()
 
@@ -136,12 +141,6 @@ def step(
           from ``time >= max_steps``.
         - ``infos``: empty dict ``{}``.
     """
-    from cogrid.backend import xp
-    from cogrid.backend._dispatch import get_backend
-    from cogrid.core.movement import move_agents
-    from cogrid.core.interactions import process_interactions
-    from cogrid.feature_space.array_features import get_all_agent_obs
-
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
 
@@ -295,11 +294,6 @@ def reset(
         - ``state``: Initial :class:`EnvState`.
         - ``obs``: Initial observations, shape ``(n_agents, obs_dim)``.
     """
-    from cogrid.backend import xp
-    from cogrid.backend._dispatch import get_backend
-    from cogrid.backend.env_state import create_env_state
-    from cogrid.feature_space.array_features import get_all_agent_obs
-
     # Backend-specific RNG for random initial directions
     if get_backend() == "jax":
         import jax
@@ -401,8 +395,6 @@ def build_step_fn(
     Returns:
         Step function (optionally JIT-compiled on JAX backend).
     """
-    from cogrid.backend._dispatch import get_backend
-
     def step_fn(state, actions):
         return step(
             state,
@@ -453,8 +445,6 @@ def build_reset_fn(
     Returns:
         Reset function (optionally JIT-compiled on JAX backend).
     """
-    from cogrid.backend._dispatch import get_backend
-
     def reset_fn(rng):
         return reset(
             rng,

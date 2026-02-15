@@ -20,6 +20,7 @@ Key function:
 
 from __future__ import annotations
 
+from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 
 
@@ -77,8 +78,6 @@ def process_interactions(
     """
     if extra_state is None:
         extra_state = extra_state_kwargs if extra_state_kwargs else {}
-
-    from cogrid.backend import xp
 
     n_agents = agent_pos.shape[0]
     H, W = object_type_map.shape
