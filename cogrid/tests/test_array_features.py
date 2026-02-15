@@ -52,7 +52,7 @@ def test_register_feature_type_per_agent():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.zeros(3)
             return fn
 
@@ -74,7 +74,7 @@ def test_register_feature_type_global():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict):
+            def fn(state):
                 return np.zeros(5)
             return fn
 
@@ -186,7 +186,7 @@ def test_compose_single_per_agent_feature():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array(
                     [agent_idx * 10, agent_idx * 10 + 1, agent_idx * 10 + 2],
                     dtype=np.int32,
@@ -212,7 +212,7 @@ def test_compose_single_global_feature():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict):
+            def fn(state):
                 return np.array([42, 43], dtype=np.float32)
             return fn
 
@@ -234,7 +234,7 @@ def test_compose_per_agent_and_global():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array(
                     [agent_idx * 10, agent_idx * 10 + 1, agent_idx * 10 + 2],
                     dtype=np.float32,
@@ -248,7 +248,7 @@ def test_compose_per_agent_and_global():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict):
+            def fn(state):
                 return np.array([99, 100], dtype=np.float32)
             return fn
 
@@ -273,7 +273,7 @@ def test_ego_centric_ordering():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([agent_idx], dtype=np.float32)
             return fn
 
@@ -295,7 +295,7 @@ def test_alphabetical_feature_ordering():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([20, 21], dtype=np.float32)
             return fn
 
@@ -306,7 +306,7 @@ def test_alphabetical_feature_ordering():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([10], dtype=np.float32)
             return fn
 
@@ -357,7 +357,7 @@ def test_output_is_float32():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([1, 2], dtype=np.int32)
             return fn
 
@@ -375,13 +375,13 @@ def test_agent_dir_parity():
     """AgentDir ArrayFeature produces output identical to agent_dir_feature."""
     from cogrid.feature_space.array_features import AgentDir, agent_dir_feature
 
-    state_dict = _sv(agent_dir=np.array([2, 0], dtype=np.int32))
+    state = _sv(agent_dir=np.array([2, 0], dtype=np.int32))
 
     fn = AgentDir.build_feature_fn("global")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
-        expected = agent_dir_feature(state_dict.agent_dir, idx)
+        result = fn(state, idx)
+        expected = agent_dir_feature(state.agent_dir, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (4,)
         assert result.dtype == np.int32
@@ -391,13 +391,13 @@ def test_agent_position_parity():
     """AgentPosition ArrayFeature produces output identical to agent_pos_feature."""
     from cogrid.feature_space.array_features import AgentPosition, agent_pos_feature
 
-    state_dict = _sv(agent_pos=np.array([[3, 5], [1, 2]], dtype=np.int32))
+    state = _sv(agent_pos=np.array([[3, 5], [1, 2]], dtype=np.int32))
 
     fn = AgentPosition.build_feature_fn("global")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
-        expected = agent_pos_feature(state_dict.agent_pos, idx)
+        result = fn(state, idx)
+        expected = agent_pos_feature(state.agent_pos, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (2,)
         assert result.dtype == np.int32
@@ -417,7 +417,7 @@ def test_can_move_direction_parity():
     agent_pos = np.array([[0, 0], [2, 2]], dtype=np.int32)
     can_overlap_table = np.ones(10, dtype=np.int32)
 
-    state_dict = _sv(
+    state = _sv(
         agent_pos=agent_pos,
         wall_map=wall_map,
         object_type_map=object_type_map,
@@ -426,7 +426,7 @@ def test_can_move_direction_parity():
     fn = CanMoveDirection.build_feature_fn("global")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = can_move_direction_feature(
             agent_pos, idx, wall_map, object_type_map, can_overlap_table
         )
@@ -439,13 +439,13 @@ def test_inventory_parity():
     """Inventory ArrayFeature produces output identical to inventory_feature."""
     from cogrid.feature_space.array_features import Inventory, inventory_feature
 
-    state_dict = _sv(agent_inv=np.array([[-1], [3]], dtype=np.int32))
+    state = _sv(agent_inv=np.array([[-1], [3]], dtype=np.int32))
 
     fn = Inventory.build_feature_fn("global")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
-        expected = inventory_feature(state_dict.agent_inv, idx)
+        result = fn(state, idx)
+        expected = inventory_feature(state.agent_inv, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (1,)
         assert result.dtype == np.int32
@@ -495,12 +495,12 @@ def test_overcooked_inventory_parity():
     agent_inv = np.array(
         [[object_to_idx("onion", scope="overcooked")], [-1]], dtype=np.int32
     )
-    state_dict = _sv(agent_inv=agent_inv)
+    state = _sv(agent_inv=agent_inv)
 
     fn = OvercookedInventory.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = overcooked_inventory_feature(agent_inv, idx, inv_type_ids)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (5,)
@@ -524,12 +524,12 @@ def test_next_to_counter_parity():
     object_type_map[1, 2] = counter_type_id  # up
 
     agent_pos = np.array([[2, 2], [0, 0]], dtype=np.int32)
-    state_dict = _sv(agent_pos=agent_pos, object_type_map=object_type_map)
+    state = _sv(agent_pos=agent_pos, object_type_map=object_type_map)
 
     fn = NextToCounter.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = next_to_counter_feature(
             agent_pos, idx, object_type_map, counter_type_id
         )
@@ -558,7 +558,7 @@ def test_next_to_pot_parity():
     pot_contents = np.zeros((1, 3), dtype=np.int32)  # empty pot, capacity 3
     pot_timer = np.array([0], dtype=np.int32)
 
-    state_dict = _sv(
+    state = _sv(
         agent_pos=agent_pos,
         object_type_map=object_type_map,
         pot_positions=pot_positions,
@@ -569,7 +569,7 @@ def test_next_to_pot_parity():
     fn = NextToPot.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = next_to_pot_feature(
             agent_pos, idx, object_type_map, pot_type_id,
             pot_positions, pot_contents, pot_timer,
@@ -595,7 +595,7 @@ def test_closest_obj_parity():
 
     agent_pos = np.array([[2, 2], [1, 1]], dtype=np.int32)
 
-    state_dict = _sv(
+    state = _sv(
         agent_pos=agent_pos,
         object_type_map=object_type_map,
         object_state_map=object_state_map,
@@ -609,7 +609,7 @@ def test_closest_obj_parity():
     fn = meta_by_id["closest_onion"].cls.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = closest_obj_feature(
             agent_pos, idx, object_type_map, object_state_map,
             onion_type_id, 4,
@@ -645,7 +645,7 @@ def test_ordered_pot_features_parity():
     pot_contents[0, 0] = onion_id  # first pot has one onion
     pot_timer = np.array([0, 0], dtype=np.int32)
 
-    state_dict = _sv(
+    state = _sv(
         agent_pos=agent_pos,
         pot_positions=pot_positions,
         pot_contents=pot_contents,
@@ -655,7 +655,7 @@ def test_ordered_pot_features_parity():
     fn = OrderedPotFeatures.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = ordered_pot_features(
             agent_pos, idx, pot_positions, pot_contents, pot_timer,
             max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
@@ -673,12 +673,12 @@ def test_dist_to_other_players_parity():
     )
 
     agent_pos = np.array([[2, 3], [4, 1]], dtype=np.int32)
-    state_dict = _sv(agent_pos=agent_pos)
+    state = _sv(agent_pos=agent_pos)
 
     fn = DistToOtherPlayers.build_feature_fn("overcooked")
 
     for idx in (0, 1):
-        result = fn(state_dict, idx)
+        result = fn(state, idx)
         expected = dist_to_other_players_feature(agent_pos, idx, n_agents=2)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (2,)
@@ -767,10 +767,10 @@ def test_environment_layout_parity():
     object_type_map[2, 3] = layout_type_ids[2]  # onion
     object_type_map[3, 4] = layout_type_ids[5]  # plate_stack
 
-    state_dict = _sv(object_type_map=object_type_map)
+    state = _sv(object_type_map=object_type_map)
 
     fn = EnvironmentLayout.build_feature_fn("overcooked")
-    result = fn(state_dict)
+    result = fn(state)
     expected = environment_layout_feature(object_type_map, layout_type_ids, (11, 7))
     np.testing.assert_array_equal(result, expected)
     # 6 types * 11 * 7 = 462
@@ -842,7 +842,7 @@ def test_compose_preserve_order():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([30], dtype=np.float32)
             return fn
 
@@ -853,7 +853,7 @@ def test_compose_preserve_order():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([10], dtype=np.float32)
             return fn
 
@@ -864,7 +864,7 @@ def test_compose_preserve_order():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([20], dtype=np.float32)
             return fn
 
@@ -901,7 +901,7 @@ def test_compose_multi_scope():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([1, 2], dtype=np.float32)
             return fn
 
@@ -912,7 +912,7 @@ def test_compose_multi_scope():
 
         @classmethod
         def build_feature_fn(cls, scope):
-            def fn(state_dict, agent_idx):
+            def fn(state, agent_idx):
                 return np.array([3, 4, 5], dtype=np.float32)
             return fn
 

@@ -515,7 +515,7 @@ def test_build_feature_config_returns_callable():
     config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
     feature_fn = config["feature_fn"]
 
-    # Build a state_dict from a real Overcooked environment
+    # Build a state from a real Overcooked environment
     from cogrid.cogrid_env import CoGridEnv
 
     env = CoGridEnv(
@@ -530,9 +530,9 @@ def test_build_feature_config_returns_callable():
         }
     )
     env.reset()
-    state_dict = envstate_to_dict(env._env_state)
+    state_view = envstate_to_dict(env._env_state)
 
-    result = feature_fn(state_dict, agent_idx=0)
+    result = feature_fn(state_view, agent_idx=0)
     assert result.shape == (677,), f"Expected shape (677,), got {result.shape}"
     assert result.dtype == np.float32, f"Expected dtype float32, got {result.dtype}"
 
