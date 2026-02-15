@@ -2,24 +2,24 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-13)
+See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** v1.3 Composable Array Feature System -- COMPLETE (all phases through 19 done)
+**Current focus:** Phase 20 -- Imports & Backend Cleanup
 
 ## Current Position
 
-Phase: 19 of 19 (Legacy Feature System Removal)
-Plan: 1/1 complete
-Status: Milestone complete
-Last activity: 2026-02-14 -- Phase 19 Plan 01 complete
+Phase: 20 of 24 (Imports & Backend Cleanup)
+Plan: 2 of 3 in current phase
+Status: Executing
+Last activity: 2026-02-15 -- Completed 20-02 (Hoist xp imports in feature/env files)
 
-Progress: [##############################] 39 prior + 10/10 v1.3 plans complete
+Progress: [####################..........] 2/3 phase 20 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 48 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3)
+- Total plans completed: 50 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 2 v1.4)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -48,6 +48,7 @@ Progress: [##############################] 39 prior + 10/10 v1.3 plans complete
 | 18 | 2/2 | 9min | 4.5min |
 | 18.1 | 1/1 | 7min | 7min |
 | 19 | 1/1 | 8min | 8min |
+| 20 | 2/3 | 10min | 5min |
 
 *Updated after each plan completion*
 
@@ -58,36 +59,16 @@ Progress: [##############################] 39 prior + 10/10 v1.3 plans complete
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.3]: ArrayFeature uses classmethod builder pattern (like GridObject), not instance compute() (like Reward)
-- [v1.3]: Scope-level feature declaration -- scopes declare which features to use, composition is explicit
-- [v1.3]: Single ArrayFeature base class with per_agent flag (not separate agent/global types)
-- [v1.3]: Old OOP feature system to be removed entirely -- single code path
-- [15-01]: ArrayFeature build_feature_fn(cls, scope) validated inline, not via shared _EXPECTED_SIGNATURES, to preserve GridObject backward compat
-- [15-02]: compose_feature_fns builds feature functions once at compose time, not per observation call
-- [15-02]: Shared _resolve_feature_metas helper for feature name validation used by both compose and obs_dim functions
-- [16-01]: ArrayFeature subclasses delegate to bare functions (DRY -- single source of truth for feature computation)
-- [16-01]: CanMoveDirection pre-computes can_overlap_table at build_feature_fn time, captured in closure
-- [17-01]: ClosestObj uses factory function to create 7 separate registered subclasses with dynamic obs_dim
-- [17-01]: DistToOtherPlayers hardcodes n_agents=2 (Overcooked assumption, parameterizable later)
-- [17-02]: LayoutID uses class-level _layout_idx attribute (default 0) set externally before build_feature_fn
-- [17-02]: EnvironmentLayout pre-computes layout_type_ids from scope at build time, uses class-level _max_layout_shape=(11,7)
-- [18-01]: Multi-scope lookup merges features from multiple registry scopes via _resolve_feature_metas scopes param
-- [18-01]: _FEATURE_ORDER dict maps scope names to explicit feature lists; unlisted scopes get alphabetical ordering (superseded by 18.1-01)
-- [18-01]: build_feature_config_from_components conditionally imports LayoutID only for overcooked scope (superseded by 18.1-01)
-- [18.1-01]: Feature order and pre-compose hooks registered in component_registry, looked up generically by autowire
-- [18.1-01]: Layout index mapping registered in component_registry, looked up generically by cogrid_env.py
-- [18.1-01]: Domain modules register all domain-specific data at import time via component_registry
-- [18-01]: Global ArrayFeature subclasses require import of cogrid.feature_space.array_features to trigger registration
-- [18-02]: Feature function always built in reset() via autowire -- no more __init__ fallback
-- [18-02]: feature_fn_builder key remains in scope_config as dead weight until Phase 19 removes it (DONE)
-- [19-01]: Old OOP Feature/FeatureSpace system deleted entirely -- 4 files, 1500+ lines
-- [19-01]: build_feature_fn removed from _COMPONENT_METHODS (6 classmethods remain) and _EXPECTED_SIGNATURES
-- [19-01]: feature_fn_builder removed from scope_config -- ArrayFeature subclasses + autowire is sole path
-- [19-01]: Legacy FeatureSpace/observation_spaces/get_obs removed from cogrid_env.py
+- [20-01]: BackendProxy uses __getattr__ delegation to xp_module -- simplest proxy, xp singleton never reassigned
+- [v1.4]: Module-level xp imports -- standard Python pattern; backend __getattr__ handles lazy resolution
+- [v1.4]: Rename state_dict to state -- accurate after StateView introduction; shorter, consistent with rewards
+- [v1.4]: Full file restructure -- split large files even though import paths change
+- [v1.3]: Old OOP feature system removed entirely -- single code path
 
 ### Roadmap Evolution
 
-- Phase 18.1 inserted after Phase 18: Remove environment-specific logic from core files (COMPLETE)
+- v1.3 complete (Phases 15-19), shipped 2026-02-14
+- v1.4 roadmap created (Phases 20-24), ready for planning
 
 ### Pending Todos
 
@@ -99,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-14
-Stopped at: Completed 19-01-PLAN.md. Phase 19 complete. Legacy feature system entirely removed. v1.3 Composable Array Feature System milestone complete.
+Last session: 2026-02-15
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None

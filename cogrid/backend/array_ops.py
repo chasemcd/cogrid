@@ -9,6 +9,7 @@ from cogrid.backend._dispatch import get_backend
 def set_at(arr, idx, value):
     """Return new array with arr[idx] = value.
 
+    idx can be a single index, a tuple, or any valid numpy/jax indexing.
     numpy: copies then assigns. JAX: uses .at[idx].set(value).
     """
     if get_backend() == "jax":
@@ -19,12 +20,5 @@ def set_at(arr, idx, value):
 
 
 def set_at_2d(arr, row, col, value):
-    """Return new array with arr[row, col] = value.
-
-    numpy: copies then assigns. JAX: uses .at[row, col].set(value).
-    """
-    if get_backend() == "jax":
-        return arr.at[row, col].set(value)
-    out = arr.copy()
-    out[row, col] = value
-    return out
+    """Return new array with arr[row, col] = value. Convenience wrapper."""
+    return set_at(arr, (row, col), value)

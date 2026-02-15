@@ -124,6 +124,8 @@ def create_env_state(**kwargs) -> EnvState:
 
     if get_backend() == "jax":
         register_envstate_pytree()
+        from cogrid.backend.state_view import register_stateview_pytree
+        register_stateview_pytree()
 
     return EnvState(**kwargs)
 
