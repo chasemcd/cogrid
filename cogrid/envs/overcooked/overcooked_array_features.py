@@ -321,7 +321,7 @@ class OvercookedInventory(ArrayFeature):
 
         def fn(state_dict, agent_idx):
             return overcooked_inventory_feature(
-                state_dict["agent_inv"], agent_idx, inv_type_ids,
+                state_dict.agent_inv, agent_idx, inv_type_ids,
             )
         return fn
 
@@ -339,8 +339,8 @@ class NextToCounter(ArrayFeature):
 
         def fn(state_dict, agent_idx):
             return next_to_counter_feature(
-                state_dict["agent_pos"], agent_idx,
-                state_dict["object_type_map"], counter_type_id,
+                state_dict.agent_pos, agent_idx,
+                state_dict.object_type_map, counter_type_id,
             )
         return fn
 
@@ -358,10 +358,10 @@ class NextToPot(ArrayFeature):
 
         def fn(state_dict, agent_idx):
             return next_to_pot_feature(
-                state_dict["agent_pos"], agent_idx,
-                state_dict["object_type_map"], pot_type_id,
-                state_dict["pot_positions"], state_dict["pot_contents"],
-                state_dict["pot_timer"],
+                state_dict.agent_pos, agent_idx,
+                state_dict.object_type_map, pot_type_id,
+                state_dict.pot_positions, state_dict.pot_contents,
+                state_dict.pot_timer,
             )
         return fn
 
@@ -385,8 +385,8 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
             def fn(state_dict, agent_idx):
                 return closest_obj_feature(
-                    state_dict["agent_pos"], agent_idx,
-                    state_dict["object_type_map"], state_dict["object_state_map"],
+                    state_dict.agent_pos, agent_idx,
+                    state_dict.object_type_map, state_dict.object_state_map,
                     target_type_id, _n,
                 )
             return fn
@@ -421,9 +421,9 @@ class OrderedPotFeatures(ArrayFeature):
 
         def fn(state_dict, agent_idx):
             return ordered_pot_features(
-                state_dict["agent_pos"], agent_idx,
-                state_dict["pot_positions"], state_dict["pot_contents"],
-                state_dict["pot_timer"],
+                state_dict.agent_pos, agent_idx,
+                state_dict.pot_positions, state_dict.pot_contents,
+                state_dict.pot_timer,
                 max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
             )
         return fn
@@ -438,7 +438,7 @@ class DistToOtherPlayers(ArrayFeature):
     def build_feature_fn(cls, scope):
         def fn(state_dict, agent_idx):
             return dist_to_other_players_feature(
-                state_dict["agent_pos"], agent_idx, n_agents=2,
+                state_dict.agent_pos, agent_idx, n_agents=2,
             )
         return fn
 
@@ -474,7 +474,7 @@ class EnvironmentLayout(ArrayFeature):
 
         def fn(state_dict):
             return environment_layout_feature(
-                state_dict["object_type_map"], layout_type_ids, max_shape,
+                state_dict.object_type_map, layout_type_ids, max_shape,
             )
         return fn
 

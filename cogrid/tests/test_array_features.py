@@ -15,6 +15,26 @@ from cogrid.core.component_registry import (
     get_feature_types,
     register_feature_type,
 )
+from cogrid.backend.state_view import StateView
+
+
+def _sv(**kwargs):
+    """Build a minimal StateView for testing, filling missing core fields with zeros."""
+    defaults = dict(
+        agent_pos=np.zeros((2, 2), dtype=np.int32),
+        agent_dir=np.zeros(2, dtype=np.int32),
+        agent_inv=np.full((2, 1), -1, dtype=np.int32),
+        wall_map=np.zeros((5, 5), dtype=np.int32),
+        object_type_map=np.zeros((5, 5), dtype=np.int32),
+        object_state_map=np.zeros((5, 5), dtype=np.int32),
+    )
+    extra = {}
+    for k, v in kwargs.items():
+        if k in defaults:
+            defaults[k] = v
+        else:
+            extra[k] = v
+    return StateView(**defaults, extra=extra)
 
 
 # ===================================================================
@@ -355,13 +375,13 @@ def test_agent_dir_parity():
     """AgentDir ArrayFeature produces output identical to agent_dir_feature."""
     from cogrid.feature_space.array_features import AgentDir, agent_dir_feature
 
-    state_dict = {"agent_dir": np.array([2, 0], dtype=np.int32)}
+    state_dict = _sv(agent_dir=np.array([2, 0], dtype=np.int32))
 
     fn = AgentDir.build_feature_fn("global")
 
     for idx in (0, 1):
         result = fn(state_dict, idx)
-        expected = agent_dir_feature(state_dict["agent_dir"], idx)
+        expected = agent_dir_feature(state_dict.agent_dir, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (4,)
         assert result.dtype == np.int32
@@ -371,13 +391,13 @@ def test_agent_position_parity():
     """AgentPosition ArrayFeature produces output identical to agent_pos_feature."""
     from cogrid.feature_space.array_features import AgentPosition, agent_pos_feature
 
-    state_dict = {"agent_pos": np.array([[3, 5], [1, 2]], dtype=np.int32)}
+    state_dict = _sv(agent_pos=np.array([[3, 5], [1, 2]], dtype=np.int32))
 
     fn = AgentPosition.build_feature_fn("global")
 
     for idx in (0, 1):
         result = fn(state_dict, idx)
-        expected = agent_pos_feature(state_dict["agent_pos"], idx)
+        expected = agent_pos_feature(state_dict.agent_pos, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (2,)
         assert result.dtype == np.int32
@@ -397,11 +417,11 @@ def test_can_move_direction_parity():
     agent_pos = np.array([[0, 0], [2, 2]], dtype=np.int32)
     can_overlap_table = np.ones(10, dtype=np.int32)
 
-    state_dict = {
-        "agent_pos": agent_pos,
-        "wall_map": wall_map,
-        "object_type_map": object_type_map,
-    }
+    state_dict = _sv(
+        agent_pos=agent_pos,
+        wall_map=wall_map,
+        object_type_map=object_type_map,
+    )
 
     fn = CanMoveDirection.build_feature_fn("global")
 
@@ -419,13 +439,13 @@ def test_inventory_parity():
     """Inventory ArrayFeature produces output identical to inventory_feature."""
     from cogrid.feature_space.array_features import Inventory, inventory_feature
 
-    state_dict = {"agent_inv": np.array([[-1], [3]], dtype=np.int32)}
+    state_dict = _sv(agent_inv=np.array([[-1], [3]], dtype=np.int32))
 
     fn = Inventory.build_feature_fn("global")
 
     for idx in (0, 1):
         result = fn(state_dict, idx)
-        expected = inventory_feature(state_dict["agent_inv"], idx)
+        expected = inventory_feature(state_dict.agent_inv, idx)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (1,)
         assert result.dtype == np.int32
@@ -475,7 +495,7 @@ def test_overcooked_inventory_parity():
     agent_inv = np.array(
         [[object_to_idx("onion", scope="overcooked")], [-1]], dtype=np.int32
     )
-    state_dict = {"agent_inv": agent_inv}
+    state_dict = _sv(agent_inv=agent_inv)
 
     fn = OvercookedInventory.build_feature_fn("overcooked")
 
@@ -504,7 +524,7 @@ def test_next_to_counter_parity():
     object_type_map[1, 2] = counter_type_id  # up
 
     agent_pos = np.array([[2, 2], [0, 0]], dtype=np.int32)
-    state_dict = {"agent_pos": agent_pos, "object_type_map": object_type_map}
+    state_dict = _sv(agent_pos=agent_pos, object_type_map=object_type_map)
 
     fn = NextToCounter.build_feature_fn("overcooked")
 
@@ -538,13 +558,13 @@ def test_next_to_pot_parity():
     pot_contents = np.zeros((1, 3), dtype=np.int32)  # empty pot, capacity 3
     pot_timer = np.array([0], dtype=np.int32)
 
-    state_dict = {
-        "agent_pos": agent_pos,
-        "object_type_map": object_type_map,
-        "pot_positions": pot_positions,
-        "pot_contents": pot_contents,
-        "pot_timer": pot_timer,
-    }
+    state_dict = _sv(
+        agent_pos=agent_pos,
+        object_type_map=object_type_map,
+        pot_positions=pot_positions,
+        pot_contents=pot_contents,
+        pot_timer=pot_timer,
+    )
 
     fn = NextToPot.build_feature_fn("overcooked")
 
@@ -575,11 +595,11 @@ def test_closest_obj_parity():
 
     agent_pos = np.array([[2, 2], [1, 1]], dtype=np.int32)
 
-    state_dict = {
-        "agent_pos": agent_pos,
-        "object_type_map": object_type_map,
-        "object_state_map": object_state_map,
-    }
+    state_dict = _sv(
+        agent_pos=agent_pos,
+        object_type_map=object_type_map,
+        object_state_map=object_state_map,
+    )
 
     # Get the registered ClosestOnion subclass from registry
     metas = get_feature_types(scope="overcooked")
@@ -625,12 +645,12 @@ def test_ordered_pot_features_parity():
     pot_contents[0, 0] = onion_id  # first pot has one onion
     pot_timer = np.array([0, 0], dtype=np.int32)
 
-    state_dict = {
-        "agent_pos": agent_pos,
-        "pot_positions": pot_positions,
-        "pot_contents": pot_contents,
-        "pot_timer": pot_timer,
-    }
+    state_dict = _sv(
+        agent_pos=agent_pos,
+        pot_positions=pot_positions,
+        pot_contents=pot_contents,
+        pot_timer=pot_timer,
+    )
 
     fn = OrderedPotFeatures.build_feature_fn("overcooked")
 
@@ -653,7 +673,7 @@ def test_dist_to_other_players_parity():
     )
 
     agent_pos = np.array([[2, 3], [4, 1]], dtype=np.int32)
-    state_dict = {"agent_pos": agent_pos}
+    state_dict = _sv(agent_pos=agent_pos)
 
     fn = DistToOtherPlayers.build_feature_fn("overcooked")
 
@@ -747,7 +767,7 @@ def test_environment_layout_parity():
     object_type_map[2, 3] = layout_type_ids[2]  # onion
     object_type_map[3, 4] = layout_type_ids[5]  # plate_stack
 
-    state_dict = {"object_type_map": object_type_map}
+    state_dict = _sv(object_type_map=object_type_map)
 
     fn = EnvironmentLayout.build_feature_fn("overcooked")
     result = fn(state_dict)

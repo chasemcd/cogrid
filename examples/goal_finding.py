@@ -74,9 +74,9 @@ class GoalReward(ArrayReward):
         from cogrid.backend import xp
 
         goal_id = reward_config["type_ids"].get("goal", -1)
-        otm = state["object_type_map"]
-        rows = state["agent_pos"][:, 0]
-        cols = state["agent_pos"][:, 1]
+        otm = state.object_type_map
+        rows = state.agent_pos[:, 0]
+        cols = state.agent_pos[:, 1]
         on_goal = (otm[rows, cols] == goal_id).astype(xp.float32)
         return on_goal
 
@@ -91,9 +91,9 @@ def goal_terminated(prev_state, state, reward_config):
     from cogrid.backend import xp
 
     goal_id = reward_config["type_ids"].get("goal", -1)
-    otm = state["object_type_map"]
-    rows = state["agent_pos"][:, 0]
-    cols = state["agent_pos"][:, 1]
+    otm = state.object_type_map
+    rows = state.agent_pos[:, 0]
+    cols = state.agent_pos[:, 1]
     return otm[rows, cols] == goal_id
 
 

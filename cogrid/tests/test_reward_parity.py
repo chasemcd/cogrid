@@ -17,6 +17,8 @@ Satisfies TEST-01: cross-backend parity for unified reward functions.
 import numpy as np
 import pytest
 
+from cogrid.backend.state_view import StateView
+
 # Trigger Overcooked object and reward registration before building scope config
 import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
 import cogrid.envs.overcooked.array_rewards  # noqa: F401
@@ -55,6 +57,29 @@ def _build_base_otm(delivery_zone_pos=None, pot_pos=None):
     return otm
 
 
+_CORE_FIELDS = {"agent_pos", "agent_dir", "agent_inv", "wall_map", "object_type_map", "object_state_map"}
+
+
+def _dict_to_sv(d):
+    """Convert a plain dict of arrays to a StateView, filling missing core fields."""
+    import numpy as _np
+    defaults = dict(
+        agent_pos=_np.zeros((N_AGENTS, 2), dtype=_np.int32),
+        agent_dir=_np.zeros(N_AGENTS, dtype=_np.int32),
+        agent_inv=_np.full((N_AGENTS, 1), -1, dtype=_np.int32),
+        wall_map=_np.zeros((H, W), dtype=_np.int32),
+        object_type_map=_np.zeros((H, W), dtype=_np.int32),
+        object_state_map=_np.zeros((H, W), dtype=_np.int32),
+    )
+    extra = {}
+    for k, v in d.items():
+        if k in _CORE_FIELDS:
+            defaults[k] = v
+        else:
+            extra[k] = v
+    return StateView(**defaults, extra=extra)
+
+
 def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=None):
     """Run a reward function on numpy and JAX backends, return both results.
 
@@ -88,21 +113,25 @@ def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=N
     importlib.reload(ar_mod)
 
     fn_np = getattr(ar_mod, reward_fn_name)
-    result_np = fn_np(prev_state_np, prev_state_np, actions_np, **fn_kwargs)
+    sv_np = _dict_to_sv(prev_state_np)
+    result_np = fn_np(sv_np, sv_np, actions_np, **fn_kwargs)
     result_np = np.array(result_np)
 
     # --- JAX path ---
     _reset_backend_for_testing()
     set_backend("jax")
     import jax.numpy as jnp
+    from cogrid.backend.state_view import register_stateview_pytree
+    register_stateview_pytree()
 
     importlib.reload(ar_mod)
     fn_jax = getattr(ar_mod, reward_fn_name)
 
     prev_state_jax = {k: jnp.array(v) for k, v in prev_state_np.items()}
+    sv_jax = _dict_to_sv(prev_state_jax)
     actions_jax = jnp.array(actions_np)
 
-    result_jax = fn_jax(prev_state_jax, prev_state_jax, actions_jax, **fn_kwargs)
+    result_jax = fn_jax(sv_jax, sv_jax, actions_jax, **fn_kwargs)
     result_jax = np.array(result_jax)
 
     # Reset backend to numpy for clean state
@@ -322,8 +351,9 @@ def test_reward_parity_compute_rewards():
         action_pickup_drop_idx=4,
     )
     compute_fn_np = reward_config_np["compute_fn"]
+    sv_np = _dict_to_sv(prev_state_np)
     result_np = compute_fn_np(
-        prev_state_np, prev_state_np, actions_np, reward_config_np
+        sv_np, sv_np, actions_np, reward_config_np
     )
     result_np = np.array(result_np)
 
@@ -331,6 +361,8 @@ def test_reward_parity_compute_rewards():
     _reset_backend_for_testing()
     set_backend("jax")
     import jax.numpy as jnp
+    from cogrid.backend.state_view import register_stateview_pytree
+    register_stateview_pytree()
 
     reward_config_jax = build_reward_config_from_components(
         "overcooked", n_agents=N_AGENTS, type_ids=_TYPE_IDS,
@@ -339,10 +371,11 @@ def test_reward_parity_compute_rewards():
     compute_fn_jax = reward_config_jax["compute_fn"]
 
     prev_state_jax = {k: jnp.array(v) for k, v in prev_state_np.items()}
+    sv_jax = _dict_to_sv(prev_state_jax)
     actions_jax = jnp.array(actions_np)
 
     result_jax = compute_fn_jax(
-        prev_state_jax, prev_state_jax, actions_jax, reward_config_jax
+        sv_jax, sv_jax, actions_jax, reward_config_jax
     )
     result_jax = np.array(result_jax)
 

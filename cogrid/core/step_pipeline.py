@@ -33,42 +33,46 @@ from __future__ import annotations
 import dataclasses
 
 
-def envstate_to_dict(state) -> dict:
-    """Convert an EnvState to the dict format used by sub-functions.
+def envstate_to_dict(state):
+    """Convert an EnvState to a :class:`~cogrid.backend.state_view.StateView`.
 
     Creates Python-level aliases for EnvState fields. This is zero-cost
-    under JIT -- no array copies occur. The returned dict has the keys
-    expected by :func:`get_all_agent_obs` and
+    under JIT -- no array copies occur. The returned StateView provides
+    dot access for all fields expected by :func:`get_all_agent_obs` and
     :func:`compute_rewards`.
 
-    Extra_state entries are flattened into the dict with their scope
-    prefix stripped (e.g. ``"scope.key"`` becomes ``"key"``).
-    This maintains backward compatibility with sub-functions that
-    expect scope-specific arrays as top-level keys.
+    Extra_state entries are flattened into ``StateView.extra`` with their
+    scope prefix stripped (e.g. ``"scope.key"`` becomes ``"key"``),
+    accessible via ``state_view.key``.
 
     Args:
         state: An :class:`EnvState` instance.
 
     Returns:
-        Dict with keys: ``agent_pos``, ``agent_dir``, ``agent_inv``,
-        ``wall_map``, ``object_type_map``, ``object_state_map``,
-        plus any extra_state entries with scope prefix stripped.
+        :class:`StateView` with core fields (``agent_pos``, ``agent_dir``,
+        ``agent_inv``, ``wall_map``, ``object_type_map``,
+        ``object_state_map``) plus scope-stripped extras.
     """
-    result = {
-        "agent_pos": state.agent_pos,
-        "agent_dir": state.agent_dir,
-        "agent_inv": state.agent_inv,
-        "wall_map": state.wall_map,
-        "object_type_map": state.object_type_map,
-        "object_state_map": state.object_state_map,
-    }
-    # Merge extra_state into the dict for backward compatibility
-    # with sub-functions that expect scope-specific arrays as top-level
-    # keys. Strip the scope prefix ("scope.key" -> "key").
+    from cogrid.backend._dispatch import get_backend
+    from cogrid.backend.state_view import StateView, register_stateview_pytree
+
+    if get_backend() == "jax":
+        register_stateview_pytree()
+
+    extra = {}
     for key, val in state.extra_state.items():
         short_key = key.split(".", 1)[-1] if "." in key else key
-        result[short_key] = val
-    return result
+        extra[short_key] = val
+
+    return StateView(
+        agent_pos=state.agent_pos,
+        agent_dir=state.agent_dir,
+        agent_inv=state.agent_inv,
+        wall_map=state.wall_map,
+        object_type_map=state.object_type_map,
+        object_state_map=state.object_state_map,
+        extra=extra,
+    )
 
 
 def step(

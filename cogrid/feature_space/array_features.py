@@ -186,7 +186,7 @@ class AgentDir(ArrayFeature):
     @classmethod
     def build_feature_fn(cls, scope):
         def fn(state_dict, agent_idx):
-            return agent_dir_feature(state_dict["agent_dir"], agent_idx)
+            return agent_dir_feature(state_dict.agent_dir, agent_idx)
         return fn
 
 
@@ -198,7 +198,7 @@ class AgentPosition(ArrayFeature):
     @classmethod
     def build_feature_fn(cls, scope):
         def fn(state_dict, agent_idx):
-            return agent_pos_feature(state_dict["agent_pos"], agent_idx)
+            return agent_pos_feature(state_dict.agent_pos, agent_idx)
         return fn
 
 
@@ -216,10 +216,10 @@ class CanMoveDirection(ArrayFeature):
 
         def fn(state_dict, agent_idx):
             return can_move_direction_feature(
-                state_dict["agent_pos"],
+                state_dict.agent_pos,
                 agent_idx,
-                state_dict["wall_map"],
-                state_dict["object_type_map"],
+                state_dict.wall_map,
+                state_dict.object_type_map,
                 can_overlap_table,
             )
         return fn
@@ -233,7 +233,7 @@ class Inventory(ArrayFeature):
     @classmethod
     def build_feature_fn(cls, scope):
         def fn(state_dict, agent_idx):
-            return inventory_feature(state_dict["agent_inv"], agent_idx)
+            return inventory_feature(state_dict.agent_inv, agent_idx)
         return fn
 
 

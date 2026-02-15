@@ -51,9 +51,9 @@ def _compute_fwd_positions(prev_state):
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
     fwd_pos = (
-        prev_state["agent_pos"] + dir_vec_table[prev_state["agent_dir"]]
+        prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]
     )  # (n_agents, 2)
-    H, W = prev_state["object_type_map"].shape
+    H, W = prev_state.object_type_map.shape
     fwd_r = xp.clip(fwd_pos[:, 0], 0, H - 1)
     fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
     in_bounds = (
@@ -62,7 +62,7 @@ def _compute_fwd_positions(prev_state):
         & (fwd_pos[:, 1] >= 0)
         & (fwd_pos[:, 1] < W)
     )
-    fwd_types = prev_state["object_type_map"][fwd_r, fwd_c]  # (n_agents,)
+    fwd_types = prev_state.object_type_map[fwd_r, fwd_c]  # (n_agents,)
 
     return fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types
 
@@ -105,7 +105,7 @@ def delivery_reward(
 
     is_interact = actions == action_pickup_drop_idx  # (n_agents,)
     holds_soup = (
-        prev_state["agent_inv"][:, 0] == type_ids["onion_soup"]
+        prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
     )  # (n_agents,)
     faces_delivery = fwd_types == type_ids["delivery_zone"]  # (n_agents,)
 
@@ -162,14 +162,14 @@ def onion_in_pot_reward(
     )
 
     is_interact = actions == action_pickup_drop_idx
-    holds_onion = prev_state["agent_inv"][:, 0] == type_ids["onion"]
+    holds_onion = prev_state.agent_inv[:, 0] == type_ids["onion"]
     faces_pot = fwd_types == type_ids["pot"]
 
     # Array-based pot position matching:
     # For each agent, check which pot (if any) their forward position matches.
     # fwd_pos[:, :] is (n_agents, 2), pot_positions is (n_pots, 2)
     agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2) clipped
-    pot_positions = prev_state["pot_positions"]  # (n_pots, 2)
+    pot_positions = prev_state.pot_positions  # (n_pots, 2)
 
     # pos_match[i, j] = True iff agent i faces pot j
     pos_match = xp.all(
@@ -183,7 +183,7 @@ def onion_in_pot_reward(
 
     # Check pot capacity and type compatibility for each agent's matched pot.
     # pot_contents[pot_idx] gives (n_agents, 3) -- the contents of each agent's pot.
-    pot_row = prev_state["pot_contents"][pot_idx]  # (n_agents, 3)
+    pot_row = prev_state.pot_contents[pot_idx]  # (n_agents, 3)
     n_filled = xp.sum(pot_row != -1, axis=1)  # (n_agents,)
     has_capacity = n_filled < 3
 
@@ -245,12 +245,12 @@ def soup_in_dish_reward(
     )
 
     is_interact = actions == action_pickup_drop_idx
-    holds_plate = prev_state["agent_inv"][:, 0] == type_ids["plate"]
+    holds_plate = prev_state.agent_inv[:, 0] == type_ids["plate"]
     faces_pot = fwd_types == type_ids["pot"]
 
     # Array-based pot position matching
     agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2)
-    pot_positions = prev_state["pot_positions"]  # (n_pots, 2)
+    pot_positions = prev_state.pot_positions  # (n_pots, 2)
 
     pos_match = xp.all(
         pot_positions[None, :, :] == agent_fwd[:, None, :],
@@ -260,7 +260,7 @@ def soup_in_dish_reward(
     pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,)
 
     # Check pot is ready: timer == 0
-    pot_timer_vals = prev_state["pot_timer"][pot_idx]  # (n_agents,)
+    pot_timer_vals = prev_state.pot_timer[pot_idx]  # (n_agents,)
     pot_ready = pot_timer_vals == 0
 
     earns_reward = (

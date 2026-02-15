@@ -27,6 +27,10 @@ class ArrayFeature:
           function. For per_agent=True: fn(state_dict, agent_idx) -> ndarray.
           For per_agent=False: fn(state_dict) -> ndarray.
 
+    ``state_dict`` is a :class:`~cogrid.backend.state_view.StateView` —
+    a frozen dataclass with dot access for core fields (``agent_pos``,
+    ``agent_dir``, etc.) and ``__getattr__`` fallthrough for extras.
+
     Usage::
 
         @register_feature_type("agent_dir", scope="global")
@@ -38,7 +42,7 @@ class ArrayFeature:
             def build_feature_fn(cls, scope):
                 def fn(state_dict, agent_idx):
                     from cogrid.backend import xp
-                    return (xp.arange(4) == state_dict["agent_dir"][agent_idx]).astype(xp.int32)
+                    return (xp.arange(4) == state_dict.agent_dir[agent_idx]).astype(xp.int32)
                 return fn
     """
 
@@ -131,7 +135,8 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
     Discovers features by name from the registry for the given *scope* (or
     multiple *scopes*).  Builds each feature's function via
     ``build_feature_fn(scope)``.  Returns a single function that concatenates
-    all features in ego-centric order:
+    all features in ego-centric order.  ``state_dict`` is a
+    :class:`~cogrid.backend.state_view.StateView`.
 
     1. Focal agent's per-agent features
     2. Other agents' per-agent features in ascending index order (skipping focal),

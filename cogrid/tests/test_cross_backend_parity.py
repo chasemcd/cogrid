@@ -511,28 +511,24 @@ def test_obs_eager_vs_jit():
     """get_all_agent_obs produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    import functools
     from cogrid.feature_space.array_features import get_all_agent_obs
     from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()
     state = env._env_state
-    state_dict = envstate_to_dict(state)
+    state_view = envstate_to_dict(state)
     feature_fn = env._feature_fn
     n_agents = env.config["num_agents"]
 
     # Eager call
-    obs_e = get_all_agent_obs(feature_fn, state_dict, n_agents)
+    obs_e = get_all_agent_obs(feature_fn, state_view, n_agents)
 
-    # JIT call -- pass state_dict values as explicit args for tracing
-    sd_keys = sorted(state_dict.keys())
-
+    # JIT call -- StateView is a registered pytree, pass directly
     @jax.jit
-    def jitted_obs(*values):
-        sd = dict(zip(sd_keys, values))
-        return get_all_agent_obs(feature_fn, sd, n_agents)
+    def jitted_obs(sv):
+        return get_all_agent_obs(feature_fn, sv, n_agents)
 
-    obs_j = jitted_obs(*[state_dict[k] for k in sd_keys])
+    obs_j = jitted_obs(state_view)
 
     np.testing.assert_array_equal(
         np.array(obs_e), np.array(obs_j),
@@ -554,48 +550,20 @@ def test_rewards_eager_vs_jit():
     actions = jnp.array([0, 1], dtype=jnp.int32)
     new_state, _, _, _, _, _ = step_fn(state, actions)
 
-    prev_dict = envstate_to_dict(state)
-    curr_dict = envstate_to_dict(new_state)
+    prev_sv = envstate_to_dict(state)
+    curr_sv = envstate_to_dict(new_state)
     reward_config = env._reward_config
     compute_fn = reward_config["compute_fn"]
 
     # Eager call
-    rew_e = compute_fn(prev_dict, curr_dict, actions, reward_config)
+    rew_e = compute_fn(prev_sv, curr_sv, actions, reward_config)
 
-    # JIT call -- wrap to make dict structure explicit as args
+    # JIT call -- StateView is a registered pytree, pass directly
     @jax.jit
-    def jitted_rewards(
-        prev_agent_pos, prev_agent_dir, prev_agent_inv,
-        prev_otm, prev_osm, prev_pc, prev_pt, prev_pp,
-        curr_agent_pos, curr_agent_dir, curr_agent_inv,
-        curr_otm, curr_osm, curr_pc, curr_pt, curr_pp,
-        actions,
-    ):
-        prev = {
-            "agent_pos": prev_agent_pos, "agent_dir": prev_agent_dir,
-            "agent_inv": prev_agent_inv,
-            "object_type_map": prev_otm, "object_state_map": prev_osm,
-            "pot_contents": prev_pc, "pot_timer": prev_pt,
-            "pot_positions": prev_pp,
-        }
-        curr = {
-            "agent_pos": curr_agent_pos, "agent_dir": curr_agent_dir,
-            "agent_inv": curr_agent_inv,
-            "object_type_map": curr_otm, "object_state_map": curr_osm,
-            "pot_contents": curr_pc, "pot_timer": curr_pt,
-            "pot_positions": curr_pp,
-        }
-        return compute_fn(prev, curr, actions, reward_config)
+    def jitted_rewards(prev, curr, acts):
+        return compute_fn(prev, curr, acts, reward_config)
 
-    rew_j = jitted_rewards(
-        prev_dict["agent_pos"], prev_dict["agent_dir"], prev_dict["agent_inv"],
-        prev_dict["object_type_map"], prev_dict["object_state_map"],
-        prev_dict["pot_contents"], prev_dict["pot_timer"], prev_dict["pot_positions"],
-        curr_dict["agent_pos"], curr_dict["agent_dir"], curr_dict["agent_inv"],
-        curr_dict["object_type_map"], curr_dict["object_state_map"],
-        curr_dict["pot_contents"], curr_dict["pot_timer"], curr_dict["pot_positions"],
-        actions,
-    )
+    rew_j = jitted_rewards(prev_sv, curr_sv, actions)
 
     np.testing.assert_allclose(
         np.array(rew_e), np.array(rew_j), atol=1e-7,
