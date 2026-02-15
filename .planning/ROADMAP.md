@@ -143,7 +143,7 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 20: Imports & Backend Cleanup** - Module-level xp/dispatch imports everywhere, backend conditionals reduced to structural minimum (completed 2026-02-15)
-- [ ] **Phase 21: File Restructuring** - Rendering extracted, grid_object.py split, cogrid_env.py init/reset decomposed
+- [x] **Phase 21: File Restructuring** - Rendering extracted, grid_object.py split, cogrid_env.py init/reset decomposed (completed 2026-02-15)
 - [ ] **Phase 22: Function Decomposition** - move_agents() and overcooked_interaction_body() broken into named sub-functions
 - [ ] **Phase 23: Naming & Consistency** - state_dict renamed to state, no abbreviations, consistent terminology
 - [ ] **Phase 24: Cleanup Pass** - Stale TODOs resolved, dead code removed, docstrings trimmed, full test parity verified
@@ -176,11 +176,11 @@ Plans:
   3. `CoGridEnv.__init__` and `CoGridEnv.reset` each read as a sequence of clearly named method calls -- no method exceeds ~50 lines
   4. All existing imports that referenced the old locations still resolve (either via re-exports or the files genuinely moved)
   5. All existing tests pass without modification
-**Plans:** 3 plans
+**Plans:** 3/3 complete
 Plans:
-- [ ] 21-01-PLAN.md -- Split grid_object.py into registry, base class, and concrete objects
-- [ ] 21-02-PLAN.md -- Extract PyGame/rendering from cogrid_env.py into cogrid/rendering/
-- [ ] 21-03-PLAN.md -- Decompose __init__ and reset into focused helper methods
+- [x] 21-01-PLAN.md -- Split grid_object.py into registry, base class, and concrete objects
+- [x] 21-02-PLAN.md -- Extract PyGame/rendering from cogrid_env.py into cogrid/rendering/
+- [x] 21-03-PLAN.md -- Decompose __init__ and reset into focused helper methods
 
 ### Phase 22: Function Decomposition
 **Goal**: The two longest monolithic functions are broken into named sub-functions that each handle one concern, making the logic scannable and each piece independently testable
@@ -191,7 +191,10 @@ Plans:
   2. `overcooked_interaction_body()` is a short dispatcher that calls named per-object-type handlers (e.g. `_interact_with_pot`, `_interact_with_counter`, `_interact_with_serving_loc`) -- each handler encapsulates the logic for one object type
   3. No individual sub-function exceeds ~50 lines
   4. All existing tests pass without modification
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 22-01-PLAN.md -- Decompose move_agents() into named sub-functions
+- [ ] 22-02-PLAN.md -- Decompose overcooked_interaction_body() into named handlers
 
 ### Phase 23: Naming & Consistency
 **Goal**: A developer reading any function signature or variable name immediately understands what it refers to -- no ambiguity from abbreviations, no confusion from inconsistent terminology, no legacy naming that no longer matches the architecture
@@ -245,7 +248,7 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23 -> 24
 | 18.1. Remove environment-specific logic from core files | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 19. Legacy Feature System Removal | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 20. Imports & Backend Cleanup | v1.4 | 3/3 | Complete | 2026-02-15 |
-| 21. File Restructuring | v1.4 | 0/3 | Not started | - |
+| 21. File Restructuring | v1.4 | 3/3 | Complete | 2026-02-15 |
 | 22. Function Decomposition | v1.4 | 0/? | Not started | - |
 | 23. Naming & Consistency | v1.4 | 0/? | Not started | - |
 | 24. Cleanup Pass | v1.4 | 0/? | Not started | - |

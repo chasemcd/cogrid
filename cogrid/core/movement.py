@@ -24,47 +24,10 @@ from __future__ import annotations
 from cogrid.backend import xp
 
 
-def move_agents(
-    agent_pos,        # (n_agents, 2) int32 -- current positions [row, col]
-    agent_dir,        # (n_agents,) int32 -- current directions
-    actions,          # (n_agents,) int32 -- action indices
-    wall_map,         # (H, W) int32 -- 1 where walls exist
-    object_type_map,  # (H, W) int32 -- type IDs at each cell
-    can_overlap,      # (n_types,) int32 -- 1 if overlappable, 0 if not
-    priority,         # (n_agents,) int32 -- pre-computed priority ordering
-    action_set,       # str -- "cardinal" or "rotation"
-):
-    """Compute new agent positions and directions from actions.
-
-    All proposed positions, collision resolution, and swap detection are
-    computed via ``xp`` array operations. The function works identically
-    on numpy and JAX backends.
-
-    Args:
-        agent_pos: Current positions, shape ``(n_agents, 2)``, int32.
-        agent_dir: Current direction enums, shape ``(n_agents,)``, int32.
-        actions: Action indices, shape ``(n_agents,)``, int32.
-        wall_map: Binary wall mask, shape ``(H, W)``, int32.
-        object_type_map: Object type IDs per cell, shape ``(H, W)``, int32.
-        can_overlap: Per-type overlap flag, shape ``(n_types,)``, int32.
-        priority: Agent indices in resolution order, shape ``(n_agents,)``,
-            int32. ``priority[0]`` is the highest-priority agent. The caller
-            generates this via ``rng.permutation(n_agents)`` (numpy) or
-            ``jax.random.permutation(key, n_agents)`` (JAX).
-        action_set: ``"cardinal"`` or ``"rotation"``.
-
-    Returns:
-        Tuple ``(new_pos, new_dir)`` where:
-        - ``new_pos``: int32 array of shape ``(n_agents, 2)``
-        - ``new_dir``: int32 array of shape ``(n_agents,)``
-    """
-    n_agents = agent_pos.shape[0]
-    H, W = wall_map.shape
-
-    # -------------------------------------------------------------------
-    # 1. Action-to-direction mapping
-    # -------------------------------------------------------------------
-    new_dir = agent_dir  # no .copy() -- use xp.where to build result
+def _update_directions(agent_dir, actions, action_set):
+    """Map actions to new directions and identify which agents are moving."""
+    n_agents = agent_dir.shape[0]
+    new_dir = agent_dir
     is_mover = xp.zeros(n_agents, dtype=xp.bool_)
 
     if action_set == "cardinal":
@@ -80,58 +43,44 @@ def move_agents(
     elif action_set == "rotation":
         is_mover = actions == 0  # Forward action
 
-    # -------------------------------------------------------------------
-    # 2. Compute proposed positions
-    # -------------------------------------------------------------------
+    return new_dir, is_mover
+
+
+def _compute_proposed_positions(agent_pos, new_dir, is_mover, wall_map,
+                                object_type_map, can_overlap):
+    """Compute proposed positions after direction, bounds, wall, and overlap checks."""
+    H, W = wall_map.shape
+
+    # Direction vectors and position offset
     DIR_VEC_TABLE = xp.array(
         [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
     )
     dir_vecs = DIR_VEC_TABLE[new_dir]  # (n_agents, 2)
     proposed = agent_pos + dir_vecs * is_mover[:, None].astype(xp.int32)
 
-    # -------------------------------------------------------------------
-    # 3. Bounds clipping
-    # -------------------------------------------------------------------
+    # Bounds clipping
     proposed = xp.clip(proposed, xp.array([0, 0], dtype=xp.int32),
                        xp.array([H - 1, W - 1], dtype=xp.int32))
 
-    # -------------------------------------------------------------------
-    # 4. Wall check -- revert to current pos if hitting a wall
-    # -------------------------------------------------------------------
+    # Wall check -- revert to current pos if hitting a wall
     hits_wall = wall_map[proposed[:, 0], proposed[:, 1]].astype(xp.bool_)
     proposed = xp.where(hits_wall[:, None], agent_pos, proposed)
 
-    # -------------------------------------------------------------------
-    # 5. Overlap check -- revert if cell has non-overlappable object
-    # -------------------------------------------------------------------
+    # Overlap check -- revert if cell has non-overlappable object
     fwd_type = object_type_map[proposed[:, 0], proposed[:, 1]]
     can_overlap_fwd = can_overlap[fwd_type]
     blocked_by_object = (fwd_type > 0) & (can_overlap_fwd == 0)
     proposed = xp.where(blocked_by_object[:, None], agent_pos, proposed)
 
-    # -------------------------------------------------------------------
-    # 6. Identify agents staying in place
-    # -------------------------------------------------------------------
-    staying = xp.all(proposed == agent_pos, axis=1)
+    return proposed
 
-    # -------------------------------------------------------------------
-    # 7. Vectorized collision resolution
-    #
-    # Replaces both the Python for-loop (numpy path) and lax.fori_loop
-    # (JAX path) with pairwise conflict detection and priority masking.
-    #
-    # For each agent, determine if it is "blocked" from reaching its
-    # proposed position. An agent is blocked if:
-    #   (a) Another agent proposes the same cell and has higher priority
-    #   (b) It proposes a cell occupied by a staying agent
-    #   (c) It proposes a cell occupied by an unresolved (lower-priority)
-    #       agent whose current position is still "claimed"
-    #
-    # After the initial pass, blocked agents stay at their current
-    # positions. A cascade pass then blocks any agent whose proposed
-    # position matches a newly-blocked agent's current position. For
-    # n_agents <= 4 (typical grid-world), one cascade pass suffices.
-    # -------------------------------------------------------------------
+
+def _resolve_collisions(proposed, agent_pos, priority):
+    """Resolve pairwise conflicts via priority masking with cascade pass."""
+    n_agents = agent_pos.shape[0]
+
+    # Identify agents staying in place
+    staying = xp.all(proposed == agent_pos, axis=1)
 
     # Priority rank: rank[i] = position of agent i in priority order
     # (0 = highest priority, resolves first). Double argsort gives rank.
@@ -180,12 +129,13 @@ def move_agents(
 
     final_pos = xp.where(blocked[:, None], agent_pos, proposed)
 
-    # -------------------------------------------------------------------
-    # 8. Vectorized swap detection
-    #
-    # Two agents "swap" if each moved to the other's original position.
-    # Revert both to their original positions.
-    # -------------------------------------------------------------------
+    return final_pos
+
+
+def _resolve_swaps(final_pos, agent_pos):
+    """Detect and revert agent swaps (two agents exchanging positions)."""
+    n_agents = agent_pos.shape[0]
+
     moved_to_old = xp.all(
         final_pos[:, None, :] == agent_pos[None, :, :], axis=2
     )
@@ -194,4 +144,47 @@ def move_agents(
     any_swap = xp.any(swapped, axis=1)
     final_pos = xp.where(any_swap[:, None], agent_pos, final_pos)
 
+    return final_pos
+
+
+def move_agents(
+    agent_pos,        # (n_agents, 2) int32 -- current positions [row, col]
+    agent_dir,        # (n_agents,) int32 -- current directions
+    actions,          # (n_agents,) int32 -- action indices
+    wall_map,         # (H, W) int32 -- 1 where walls exist
+    object_type_map,  # (H, W) int32 -- type IDs at each cell
+    can_overlap,      # (n_types,) int32 -- 1 if overlappable, 0 if not
+    priority,         # (n_agents,) int32 -- pre-computed priority ordering
+    action_set,       # str -- "cardinal" or "rotation"
+):
+    """Compute new agent positions and directions from actions.
+
+    All proposed positions, collision resolution, and swap detection are
+    computed via ``xp`` array operations. The function works identically
+    on numpy and JAX backends.
+
+    Args:
+        agent_pos: Current positions, shape ``(n_agents, 2)``, int32.
+        agent_dir: Current direction enums, shape ``(n_agents,)``, int32.
+        actions: Action indices, shape ``(n_agents,)``, int32.
+        wall_map: Binary wall mask, shape ``(H, W)``, int32.
+        object_type_map: Object type IDs per cell, shape ``(H, W)``, int32.
+        can_overlap: Per-type overlap flag, shape ``(n_types,)``, int32.
+        priority: Agent indices in resolution order, shape ``(n_agents,)``,
+            int32. ``priority[0]`` is the highest-priority agent. The caller
+            generates this via ``rng.permutation(n_agents)`` (numpy) or
+            ``jax.random.permutation(key, n_agents)`` (JAX).
+        action_set: ``"cardinal"`` or ``"rotation"``.
+
+    Returns:
+        Tuple ``(new_pos, new_dir)`` where:
+        - ``new_pos``: int32 array of shape ``(n_agents, 2)``
+        - ``new_dir``: int32 array of shape ``(n_agents,)``
+    """
+    new_dir, is_mover = _update_directions(agent_dir, actions, action_set)
+    proposed = _compute_proposed_positions(
+        agent_pos, new_dir, is_mover, wall_map, object_type_map, can_overlap,
+    )
+    final_pos = _resolve_collisions(proposed, agent_pos, priority)
+    final_pos = _resolve_swaps(final_pos, agent_pos)
     return final_pos, new_dir
