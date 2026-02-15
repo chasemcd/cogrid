@@ -17,7 +17,25 @@ import numpy
 # Module-level globals
 _backend_name: str = "numpy"
 _backend_set: bool = False
-xp = numpy
+xp_module = numpy
+
+
+class BackendProxy:
+    """Proxy that delegates attribute access to the current backend module.
+
+    This allows ``from cogrid.backend import xp`` at module level.
+    When code calls ``xp.zeros(...)``, the proxy resolves ``zeros`` on the
+    *current* backend (numpy or jax.numpy), not the one active at import time.
+    """
+
+    def __getattr__(self, name):
+        return getattr(xp_module, name)
+
+    def __repr__(self):
+        return f"BackendProxy(current={_backend_name})"
+
+
+xp = BackendProxy()
 
 
 def set_backend(name: str) -> None:
@@ -34,7 +52,7 @@ def set_backend(name: str) -> None:
         ImportError: If 'jax' requested but JAX is not installed.
         ValueError: If name is not 'numpy' or 'jax'.
     """
-    global _backend_name, _backend_set, xp
+    global _backend_name, _backend_set, xp_module
 
     if _backend_set and name != _backend_name:
         raise RuntimeError(
@@ -43,11 +61,11 @@ def set_backend(name: str) -> None:
         )
 
     if name == "numpy":
-        xp = numpy
+        xp_module = numpy
     elif name == "jax":
         try:
             import jax.numpy as jnp
-            xp = jnp
+            xp_module = jnp
         except ImportError:
             raise ImportError(
                 "Backend 'jax' requested but JAX is not installed.\n"
@@ -80,10 +98,10 @@ def _reset_backend_for_testing() -> None:
     Also resets the EnvState pytree registration flag since a fresh backend
     requires fresh registration.
     """
-    global _backend_name, _backend_set, xp
+    global _backend_name, _backend_set, xp_module
     _backend_name = "numpy"
     _backend_set = False
-    xp = numpy
+    xp_module = numpy
 
     # NOTE: Do NOT reset _pytree_registered here. JAX's internal pytree
     # registry is process-global and cannot be un-registered. Setting
