@@ -1,5 +1,3 @@
-import collections
-from itertools import combinations
 import copy
 
 import numpy as np
@@ -16,7 +14,6 @@ from cogrid.core import grid_object
 from cogrid.core import grid_utils
 from cogrid.core import typing
 from cogrid.core import agent
-from cogrid.core import directions
 
 from cogrid.core import layouts
 from cogrid.rendering import EnvRenderer
@@ -25,8 +22,7 @@ from cogrid.rendering import EnvRenderer
 from cogrid.backend import set_backend
 from cogrid.core.grid_object import build_lookup_tables
 from cogrid.core.grid_utils import layout_to_array_state
-from cogrid.core.agent import create_agent_arrays, sync_arrays_to_agents, get_dir_vec_table
-from cogrid.core.movement import move_agents
+from cogrid.core.agent import create_agent_arrays
 
 
 RNG = RandomNumberGenerator = np.random.Generator

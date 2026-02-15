@@ -4,8 +4,6 @@ Contains the built-in object types (Wall, Floor, Counter, Key, Door) that are
 registered in the global scope via @register_object_type.
 """
 
-from __future__ import annotations
-
 import numpy as np
 
 from cogrid.constants import GridConstants

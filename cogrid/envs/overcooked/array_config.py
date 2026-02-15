@@ -18,8 +18,6 @@ Functions:
     - ``overcooked_interaction_body()`` -- unified per-agent interaction body
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 from cogrid.core.grid_object import object_to_idx, get_object_names

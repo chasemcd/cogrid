@@ -1,8 +1,6 @@
 from cogrid.core import grid_object
 
-from cogrid.constants import GridConstants
 from cogrid.core.roles import Roles
-from cogrid.core.constants import ObjectColors, COLORS
 from cogrid.core import constants
 from cogrid.core.grid_utils import adjacent_positions
 from cogrid.core import typing

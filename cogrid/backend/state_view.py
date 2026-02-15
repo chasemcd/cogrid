@@ -22,8 +22,6 @@ Usage::
     state.nonexistent     # raises AttributeError
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 

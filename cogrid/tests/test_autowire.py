@@ -17,7 +17,6 @@ Covers:
 """
 
 import numpy as np
-import pytest
 
 from cogrid.core.autowire import (
     build_reward_config_from_components,

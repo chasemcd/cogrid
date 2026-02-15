@@ -1,7 +1,5 @@
 import dataclasses
 
-import numpy as np
-
 """
 Define all constants for CoGridEnv environments.
 """

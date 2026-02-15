@@ -14,8 +14,6 @@ identically on both numpy and JAX backends. No ``_jax`` variants exist; a single
 implementation serves both paths.
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 from cogrid.core.array_features import ArrayFeature, register_feature_type
 

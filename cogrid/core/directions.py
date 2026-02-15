@@ -1,6 +1,4 @@
 # Enumeration of possible actions
-from __future__ import annotations
-
 from enum import IntEnum
 
 

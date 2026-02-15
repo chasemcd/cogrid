@@ -18,8 +18,6 @@ Key function:
   condition computation per agent.
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 

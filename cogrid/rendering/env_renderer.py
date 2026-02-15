@@ -5,8 +5,6 @@ blitting, font rendering, event pumping) so that cogrid_env.py remains
 free of any PyGame dependency.
 """
 
-from __future__ import annotations
-
 import numpy as np
 
 try:

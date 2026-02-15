@@ -4,12 +4,9 @@ This module contains the OBJECT_REGISTRY, type property metadata, and all
 functions for registering, looking up, encoding, and decoding grid objects.
 """
 
-from __future__ import annotations
-
 import numpy as np
 
 from cogrid.backend import xp
-from cogrid.constants import GridConstants
 from cogrid.core.grid_object_base import GridObj
 
 

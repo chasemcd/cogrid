@@ -11,8 +11,6 @@ Feature composition is handled by autowire via ArrayFeature subclasses
 registered in this module.
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 from cogrid.core.array_features import ArrayFeature, register_feature_type
 

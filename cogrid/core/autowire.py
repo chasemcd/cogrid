@@ -10,8 +10,6 @@ Composes scope_config, reward_config, and feature_config automatically
 from registered components. This is the sole environment configuration path.
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 
 

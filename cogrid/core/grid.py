@@ -5,13 +5,12 @@ https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 from copy import deepcopy
 
 import numpy as np
 
 from cogrid.core.grid_object import GridObj, Wall, object_to_idx, GridAgent
-from cogrid.core import grid_object
 from cogrid.core.constants import CoreConstants
 from cogrid.constants import GridConstants
 from cogrid.visualization.rendering import (

@@ -26,8 +26,6 @@ Usage::
     state = parse_layout(layout_strings, "overcooked", scope_config)
 """
 
-from __future__ import annotations
-
 import numpy as np
 
 from cogrid.core.grid_object import object_to_idx

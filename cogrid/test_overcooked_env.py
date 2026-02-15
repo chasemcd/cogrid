@@ -1,12 +1,8 @@
 import sys
-import time
 import unittest
 import functools
-import numpy as np
 from cogrid.core.actions import Actions, ActionSets
-from cogrid.core.directions import Directions
 from cogrid.envs.overcooked import overcooked_grid_objects
-from cogrid.core import grid_object
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs.overcooked.agent import OvercookedAgent

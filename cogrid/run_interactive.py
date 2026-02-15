@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry

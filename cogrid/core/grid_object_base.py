@@ -16,12 +16,9 @@ import uuid
 import numpy as np
 
 from cogrid.constants import GridConstants
-from cogrid.core.constants import Colors
-from cogrid.core import constants
 from cogrid.core.directions import Directions
 from cogrid.visualization.rendering import (
     fill_coords,
-    point_in_circle,
     point_in_rect,
     point_in_triangle,
     rotate_fn,

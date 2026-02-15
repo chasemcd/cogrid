@@ -7,8 +7,6 @@ Run with:
     python -c "from cogrid.envs.overcooked.test_interactions import test_interaction_parity; test_interaction_parity()"
 """
 
-from __future__ import annotations
-
 from cogrid.core.interactions import process_interactions
 from cogrid.envs.overcooked.array_config import overcooked_tick
 from cogrid.core.autowire import build_scope_config_from_components
@@ -40,16 +38,12 @@ def test_interaction_parity():
 
         python -c "from cogrid.envs.overcooked.test_interactions import test_interaction_parity; test_interaction_parity()"
     """
-    import copy
     import numpy as np
     from cogrid.backend._dispatch import _reset_backend_for_testing
     _reset_backend_for_testing()
-    import cogrid.envs  # trigger environment registration
-    from cogrid.envs import registry
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx, get_object_names
-    from cogrid.core.grid_utils import layout_to_array_state
-    from cogrid.core.agent import create_agent_arrays, get_dir_vec_table
-    from cogrid.core import actions as grid_actions
+    import cogrid.envs  # noqa: F401 -- trigger environment registration
+    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.core.agent import get_dir_vec_table
 
     scope = "overcooked"
     tables = build_lookup_tables(scope=scope)

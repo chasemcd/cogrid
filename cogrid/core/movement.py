@@ -19,8 +19,6 @@ Usage::
     )
 """
 
-from __future__ import annotations
-
 from cogrid.backend import xp
 
 

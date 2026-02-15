@@ -1,18 +1,9 @@
-from __future__ import annotations
-from copy import deepcopy
-import math
-
 import numpy as np
 
-from cogrid.constants import GridConstants
-from cogrid.core.constants import COLORS
 from cogrid.core import constants
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
-    point_in_rect,
-    point_in_triangle,
-    rotate_fn,
     add_text_to_image,
 )
 

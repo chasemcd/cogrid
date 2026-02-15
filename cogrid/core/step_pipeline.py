@@ -28,8 +28,6 @@ Usage::
     from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
 """
 
-from __future__ import annotations
-
 import dataclasses
 
 from cogrid.backend import xp

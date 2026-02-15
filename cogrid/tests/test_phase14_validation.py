@@ -192,7 +192,7 @@ def test_goal_finding_component_api_numpy():
     _reset_backend_for_testing()
 
     # Import the goal_finding example module to trigger registration
-    import examples.goal_finding as gf  # noqa: F401
+    import examples.goal_finding  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("GoalFinding-Simple-V0", backend="numpy")
