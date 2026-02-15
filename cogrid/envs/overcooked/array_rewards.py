@@ -25,6 +25,7 @@ array operations. Fully vectorized across agents -- no Python loops, no
 int() casts.
 """
 
+from cogrid.backend import xp
 from cogrid.core.array_rewards import ArrayReward, register_reward_type
 
 
@@ -45,8 +46,6 @@ def _compute_fwd_positions(prev_state):
             in_bounds: (n_agents,) bool -- whether forward position is in grid
             fwd_types: (n_agents,) int32 -- object type IDs at forward positions
     """
-    from cogrid.backend import xp
-
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
@@ -97,8 +96,6 @@ def delivery_reward(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    from cogrid.backend import xp
-
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )
@@ -155,8 +152,6 @@ def onion_in_pot_reward(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    from cogrid.backend import xp
-
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )
@@ -238,8 +233,6 @@ def soup_in_dish_reward(
     Returns:
         (n_agents,) float32 array of rewards.
     """
-    from cogrid.backend import xp
-
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )

@@ -20,6 +20,7 @@ Functions:
 
 from __future__ import annotations
 
+from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 from cogrid.core.grid_object import object_to_idx, get_object_names
 
@@ -113,8 +114,6 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
     Args:
         scope: Object registry scope.
     """
-    from cogrid.backend import xp
-
     names = get_object_names(scope=scope)
     n_types = len(names)
 
@@ -273,8 +272,6 @@ def overcooked_tick(pot_contents, pot_timer, capacity=3, cooking_time=30):
     Returns:
         Tuple of ``(pot_contents, new_timer, pot_state)``.
     """
-    from cogrid.backend import xp
-
     n_items = xp.sum(pot_contents != -1, axis=1).astype(xp.int32)
     is_cooking = (n_items == capacity) & (pot_timer > 0)
     new_timer = xp.where(is_cooking, pot_timer - 1, pot_timer)
@@ -369,8 +366,6 @@ def overcooked_interaction_body(
         Tuple of ``(agent_inv, object_type_map, object_state_map,
         pot_contents, pot_timer)``.
     """
-    from cogrid.backend import xp
-
     # Unpack static tables (Python-level, not traced)
     CAN_PICKUP = static_tables["CAN_PICKUP"]
     CAN_PICKUP_FROM = static_tables["CAN_PICKUP_FROM"]
