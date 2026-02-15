@@ -6,6 +6,7 @@
 - v1.1 Unified Functional Architecture - Phases 5-9 (shipped 2026-02-12)
 - v1.2 Component-Based Environment API - Phases 10-14 (shipped 2026-02-13)
 - v1.3 Composable Array Feature System - Phases 15-19 (shipped 2026-02-14)
+- v1.4 Developer Experience & Code Clarity - Phases 20-24 (in progress)
 
 ## Phases
 
@@ -84,104 +85,137 @@
 
 </details>
 
-### v1.3 Composable Array Feature System (In Progress)
-
-**Milestone Goal:** Extend the component API pattern to features. Each feature is an ArrayFeature subclass with a classmethod builder that returns a pure function. Scopes declare which features to use. The old OOP feature system is removed -- single code path.
-
-**Phase Numbering:**
-- Integer phases (15, 16, 17, 18, 19): Planned milestone work
-- Decimal phases (e.g. 15.1): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 15: ArrayFeature Infrastructure** - Base class, registration decorator, and composition layer that assembles per-agent + global features into ego-centric obs
-- [x] **Phase 16: Core ArrayFeature Subclasses** - Generic features (direction, position, movement, inventory) as ArrayFeature subclasses validating the pattern
-- [x] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
-- [x] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
-- [x] **Phase 18.1: Remove environment-specific logic from core files (INSERTED)** - Feature order & layout index registration APIs; all domain knowledge pushed to domain modules
-- [x] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
-
-## Phase Details
+<details>
+<summary>v1.3 Composable Array Feature System (Phases 15-19) - SHIPPED 2026-02-14</summary>
 
 ### Phase 15: ArrayFeature Infrastructure
 **Goal**: A standardized ArrayFeature base class with `@register_feature_type` decorator and composition layer exists, enabling features to be declared as subclasses and auto-composed into ego-centric observation vectors
 **Depends on**: Phase 14 (v1.2 complete)
 **Requirements**: FEAT-01, FEAT-02, FEAT-03, FEAT-04
-**Success Criteria** (what must be TRUE):
-  1. An ArrayFeature subclass with `per_agent = True` and a `build_feature_fn` classmethod can be registered via `@register_feature_type("agent_dir", scope="global")` and retrieved from the feature registry by scope
-  2. The composition layer discovers all registered features for a scope and returns a single `fn(state_dict, agent_idx) -> (obs_dim,) float32` that concatenates all feature outputs
-  3. Composed observations are ego-centric -- focal agent's per-agent features appear first, then other agents' per-agent features in index order, then global features
-  4. A minimal test with 2 dummy features (one per-agent, one global) produces the expected concatenated output with correct ego-centric ordering
-**Plans:** 2 plans
-- [x] 15-01-PLAN.md -- ArrayFeature base class, FeatureMetadata, @register_feature_type decorator
-- [x] 15-02-PLAN.md -- Composition layer (compose_feature_fns, obs_dim_for_features) with TDD test suite
+**Plans:** 2/2 complete
 
 ### Phase 16: Core ArrayFeature Subclasses
 **Goal**: The generic feature extractors (agent direction, position, movement, inventory) are wrapped as ArrayFeature subclasses registered to the global scope, proving the pattern works end-to-end with real feature functions
 **Depends on**: Phase 15
 **Requirements**: CORE-01, CORE-02, CORE-03, CORE-04
-**Success Criteria** (what must be TRUE):
-  1. `AgentDir` ArrayFeature produces a `(4,)` one-hot direction vector identical to the existing `agent_dir_feature()` function output
-  2. `AgentPosition` ArrayFeature produces a `(2,)` position vector identical to `agent_pos_feature()`
-  3. `CanMoveDirection` ArrayFeature produces a `(4,)` movement vector identical to `can_move_direction_feature()`
-  4. `Inventory` ArrayFeature produces a one-hot inventory vector identical to `inventory_feature()`
-  5. All four features are registered to the global scope and discoverable via the feature registry
-**Plans:** 1 plan
-- [x] 16-01-PLAN.md -- TDD: four ArrayFeature subclasses with parity tests
+**Plans:** 1/1 complete
 
 ### Phase 17: Overcooked ArrayFeature Subclasses
 **Goal**: Every Overcooked-specific feature function is wrapped as an individual ArrayFeature subclass registered to the "overcooked" scope, producing numerically identical outputs to the existing loose functions
 **Depends on**: Phase 16
 **Requirements**: OVCK-01, OVCK-02, OVCK-03, OVCK-04, OVCK-05, OVCK-06, OVCK-07, OVCK-08
-**Success Criteria** (what must be TRUE):
-  1. `OvercookedInventory` produces `(5,)` one-hot, `NextToCounter` produces `(4,)`, `NextToPot` produces `(16,)`, and `ClosestObj` (parameterized) produces `(2n,)` -- all matching existing function outputs
-  2. `OrderedPotFeatures` produces `(12 * max_pots,)` and `DistToOtherPlayers` produces `(2 * (n_agents-1),)` -- matching existing function outputs
-  3. `LayoutID` and `EnvironmentLayout` are registered as global features (`per_agent = False`) producing `(5,)` and binary masks respectively
-  4. All 8 Overcooked features are registered to the "overcooked" scope (or global for layout features) and discoverable via the feature registry
-**Plans:** 2 plans
-- [x] 17-01-PLAN.md -- TDD: 6 per-agent Overcooked ArrayFeature subclasses (OvercookedInventory, NextToCounter, NextToPot, ClosestObj x7, OrderedPotFeatures, DistToOtherPlayers)
-- [x] 17-02-PLAN.md -- TDD: 2 global Overcooked ArrayFeature subclasses (LayoutID, EnvironmentLayout) + full registry validation
+**Plans:** 2/2 complete
 
 ### Phase 18: Autowire Integration & Parity
 **Goal**: The autowire module discovers registered features for a scope, composes them into the observation function, CoGridEnv uses this composed function, and Overcooked produces the exact same 677-dim observation as before
 **Depends on**: Phase 17
 **Requirements**: OVCK-09, INTG-01, INTG-02, INTG-03
-**Success Criteria** (what must be TRUE):
-  1. `build_feature_config_from_components(scope)` discovers registered ArrayFeature subclasses for a scope and returns a composed feature function -- no manual feature list assembly
-  2. CoGridEnv uses the autowired feature composition instead of the current `feature_fn_builder` / `build_feature_fn` fallback paths -- no manual feature function construction in `cogrid_env.py`
-  3. The step pipeline receives the composed feature function without interface changes -- the `get_all_agent_obs` call site works unchanged
-  4. Overcooked composed output matches the existing 677-dim observation exactly -- verified by automated parity test comparing element-by-element across multiple states
-**Plans:** 2 plans
-- [ ] 18-01-PLAN.md -- Extend compose_feature_fns (multi-scope, preserve_order) + build_feature_config_from_components in autowire
-- [ ] 18-02-PLAN.md -- Wire CoGridEnv to autowired feature composition + element-by-element 677-dim parity test
+**Plans:** 2/2 complete
 
 ### Phase 18.1: Remove environment-specific logic from core files (INSERTED)
-
-**Goal:** Zero environment-specific logic in cogrid_env.py or any file under cogrid/core/ -- all domain knowledge (feature ordering, layout index mapping, conditional imports) pushed to domain modules via registration APIs
+**Goal:** Zero environment-specific logic in cogrid_env.py or any file under cogrid/core/ -- all domain knowledge pushed to domain modules via registration APIs
 **Depends on:** Phase 18
-**Plans:** 1 plan
-
-Plans:
-- [x] 18.1-01-PLAN.md -- Add feature order / layout index registration APIs, move Overcooked-specific logic to domain module, clean up core docstrings
+**Plans:** 1/1 complete
 
 ### Phase 19: Legacy Feature System Removal
 **Goal**: The old OOP feature system is deleted, `build_feature_fn` is removed from the GridObject component classmethod convention, and the codebase has a single code path for features
 **Depends on**: Phase 18
 **Requirements**: CLNP-01, CLNP-02, CLNP-03, CLNP-04
-**Success Criteria** (what must be TRUE):
-  1. `feature.py` and `feature_space.py` no longer exist in `cogrid/feature_space/` -- the old OOP Feature base class and FeatureSpace registry are deleted
-  2. `features.py` and `overcooked_features.py` no longer exist -- old OOP feature implementations are deleted
-  3. `build_feature_fn` is no longer a recognized classmethod in the component registry -- `_EXPECTED_SIGNATURES` and `ComponentMetadata.has_feature_fn` no longer reference it, and Pot no longer defines it
-  4. All tests pass and training produces identical results to pre-v1.3 -- no behavioral regression
-**Plans:** 1 plan
+**Plans:** 1/1 complete
 
+</details>
+
+### v1.4 Developer Experience & Code Clarity (In Progress)
+
+**Milestone Goal:** Make the codebase instantly readable to someone with cursory experience -- minimal complexity, clean imports, well-structured files, consistent naming. Zero behavioral changes -- all existing tests must pass.
+
+**Key Constraints:**
+- Zero behavioral changes -- all tests must pass after every phase
+- Single code path -- `xp` operations everywhere
+- JAX optional -- numpy backend works without JAX installed
+- JIT/vmap compatible -- component methods produce JIT-compilable code
+- Import paths may change (full restructure approved)
+
+**Phase Numbering:**
+- Integer phases (20, 21, 22, 23, 24): Planned milestone work
+- Decimal phases (e.g. 20.1): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 20: Imports & Backend Cleanup** - Module-level xp/dispatch imports everywhere, backend conditionals reduced to structural minimum
+- [ ] **Phase 21: File Restructuring** - Rendering extracted, grid_object.py split, cogrid_env.py init/reset decomposed
+- [ ] **Phase 22: Function Decomposition** - move_agents() and overcooked_interaction_body() broken into named sub-functions
+- [ ] **Phase 23: Naming & Consistency** - state_dict renamed to state, no abbreviations, consistent terminology
+- [ ] **Phase 24: Cleanup Pass** - Stale TODOs resolved, dead code removed, docstrings trimmed, full test parity verified
+
+## Phase Details
+
+### Phase 20: Imports & Backend Cleanup
+**Goal**: Every file follows standard Python import conventions -- `xp` and `get_backend` imported at module level, backend-conditional blocks are the only place raw `jax`/`numpy` imports appear, and those blocks are reduced to the structural minimum where the two backends genuinely differ
+**Depends on**: Phase 19 (v1.3 complete)
+**Requirements**: IMP-01, IMP-02, IMP-03, IMP-04
+**Success Criteria** (what must be TRUE):
+  1. Running `grep -r "from cogrid.backend import xp" --include="*.py"` inside any function body returns zero hits -- all `xp` imports are at module level
+  2. Running `grep -r "from cogrid.backend._dispatch import get_backend" --include="*.py"` inside any function body returns zero hits -- all dispatch imports are at module level
+  3. Raw `import jax` or `import numpy` statements appear only inside `if get_backend() == "jax"` conditional blocks (RNG splitting, stop_gradient, pytree registration, immutable array workarounds) -- nowhere else
+  4. Backend conditional checks (`get_backend() == "jax"`) exist in at most 6 locations, each corresponding to a genuine behavioral difference between backends (not a convenience shortcut)
+  5. All existing tests pass without modification
+**Plans:** 3 plans
 Plans:
-- [ ] 19-01-PLAN.md -- Delete old OOP feature system, remove build_feature_fn from component convention, update all tests
+- [ ] 20-01-PLAN.md -- BackendProxy and module-level xp imports in core/ files
+- [ ] 20-02-PLAN.md -- Module-level xp imports in feature and env-specific files
+- [ ] 20-03-PLAN.md -- Consolidate backend conditionals to 6 locations
+
+### Phase 21: File Restructuring
+**Goal**: Large files are split along clear responsibility boundaries -- rendering lives in its own module, grid object concerns are separated, and cogrid_env.py is decomposed into focused methods that each do one thing
+**Depends on**: Phase 20
+**Requirements**: STRC-01, STRC-02, STRC-03
+**Success Criteria** (what must be TRUE):
+  1. `cogrid_env.py` contains zero PyGame/rendering logic -- all rendering code lives in a dedicated module (e.g. `cogrid/rendering/`) that cogrid_env.py imports and delegates to
+  2. `grid_object.py` no longer exists as a monolith -- registration machinery lives in one file, the GridObject base class in another, and concrete object definitions (Wall, Floor, etc.) in a third
+  3. `CoGridEnv.__init__` and `CoGridEnv.reset` each read as a sequence of clearly named method calls -- no method exceeds ~50 lines
+  4. All existing imports that referenced the old locations still resolve (either via re-exports or the files genuinely moved)
+  5. All existing tests pass without modification
+**Plans**: TBD
+
+### Phase 22: Function Decomposition
+**Goal**: The two longest monolithic functions are broken into named sub-functions that each handle one concern, making the logic scannable and each piece independently testable
+**Depends on**: Phase 21
+**Requirements**: FUNC-01, FUNC-02
+**Success Criteria** (what must be TRUE):
+  1. `move_agents()` is a short orchestrator (~20-30 lines) that calls named sub-functions for direction update, position computation, collision resolution, and state mutation -- each sub-function has a clear name describing what it does
+  2. `overcooked_interaction_body()` is a short dispatcher that calls named per-object-type handlers (e.g. `_interact_with_pot`, `_interact_with_counter`, `_interact_with_serving_loc`) -- each handler encapsulates the logic for one object type
+  3. No individual sub-function exceeds ~50 lines
+  4. All existing tests pass without modification
+**Plans**: TBD
+
+### Phase 23: Naming & Consistency
+**Goal**: A developer reading any function signature or variable name immediately understands what it refers to -- no ambiguity from abbreviations, no confusion from inconsistent terminology, no legacy naming that no longer matches the architecture
+**Depends on**: Phase 22
+**Requirements**: NAME-01, NAME-02, NAME-03
+**Success Criteria** (what must be TRUE):
+  1. The parameter name `state_dict` does not appear anywhere in the codebase -- all feature, reward, and termination functions use `state` as the parameter name for the environment state
+  2. No function signature contains single-letter parameter names (except standard loop variables `i`, `j`, `k` and established conventions like `n` for count in local scope) -- grep of `def .*\b[a-z]\b:` in signatures returns zero hits outside loop vars
+  3. Terminology is consistent: one convention used throughout (e.g. `n_agents` everywhere, not sometimes `num_agents`; `obs` everywhere, not sometimes `observation`) -- a grep for the deprecated variant returns zero hits
+  4. All existing tests pass without modification
+**Plans**: TBD
+
+### Phase 24: Cleanup Pass
+**Goal**: The codebase contains zero stale artifacts -- every TODO is actionable or gone, every line of code is reachable and serves a purpose, every docstring adds information the code does not already convey, and the full test suite confirms zero behavioral regression
+**Depends on**: Phase 23
+**Requirements**: CLNP-01, CLNP-02, CLNP-03, CLNP-04
+**Success Criteria** (what must be TRUE):
+  1. `grep -r "TODO" --include="*.py"` returns zero stale TODOs -- each remaining TODO (if any) has an associated issue or is tagged with a specific phase/milestone
+  2. No dead code remains: unused imports (flagged by a linter or manual audit), unreachable branches, and commented-out code blocks are all removed
+  3. Docstrings are concise and informative -- no docstring restates what the function signature already says (e.g. no "Args: x: the x parameter"), no boilerplate template docstrings
+  4. The full test suite (125+ tests + 5 overcooked env tests) passes with zero modifications to test assertions -- confirming zero behavioral changes across the entire v1.4 milestone
+  5. A clean `git diff --stat` against the v1.3 tag shows only refactoring changes (no new features, no changed test assertions)
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
+Phases execute in numeric order: 20 -> 21 -> 22 -> 23 -> 24
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -206,3 +240,8 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 18. Autowire Integration & Parity | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 18.1. Remove environment-specific logic from core files | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 19. Legacy Feature System Removal | v1.3 | 1/1 | Complete | 2026-02-14 |
+| 20. Imports & Backend Cleanup | v1.4 | 0/3 | Not started | - |
+| 21. File Restructuring | v1.4 | 0/? | Not started | - |
+| 22. Function Decomposition | v1.4 | 0/? | Not started | - |
+| 23. Naming & Consistency | v1.4 | 0/? | Not started | - |
+| 24. Cleanup Pass | v1.4 | 0/? | Not started | - |

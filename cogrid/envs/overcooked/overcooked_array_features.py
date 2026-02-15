@@ -13,6 +13,7 @@ registered in this module.
 
 from __future__ import annotations
 
+from cogrid.backend import xp
 from cogrid.core.array_features import ArrayFeature, register_feature_type
 
 
@@ -26,16 +27,12 @@ def overcooked_inventory_feature(agent_inv, agent_idx, inv_type_ids):
 
     Empty inventory (-1) matches nothing -> all zeros.
     """
-    from cogrid.backend import xp
-
     held = agent_inv[agent_idx, 0]
     return (inv_type_ids == held).astype(xp.int32)
 
 
 def next_to_counter_feature(agent_pos, agent_idx, object_type_map, counter_type_id):
     """Multi-hot cardinal adjacency to counters. (4,) = [R, L, D, U]."""
-    from cogrid.backend import xp
-
     H, W = object_type_map.shape
     deltas = xp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=xp.int32)
     pos = agent_pos[agent_idx]
@@ -61,8 +58,6 @@ def next_to_pot_feature(
     Layout: [empty(4), partial(4), cooking(4), ready(4)], indexed by direction.
     Fully vectorized over directions and pots — no Python control flow on traced values.
     """
-    from cogrid.backend import xp
-
     H, W = object_type_map.shape
     n_pots = pot_positions.shape[0]
     deltas = xp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=xp.int32)
@@ -119,8 +114,6 @@ def closest_obj_feature(agent_pos, agent_idx, object_type_map, object_state_map,
     object_state_map (for items placed on counters).
     Fully vectorized — uses argsort with masked distances.
     """
-    from cogrid.backend import xp
-
     H, W = object_type_map.shape
     pos = agent_pos[agent_idx]  # (2,)
 
@@ -175,8 +168,6 @@ def ordered_pot_features(
     Status one-hot: [ready, empty, full/cooking, partial] matching _calc_pot_features order.
     Fully vectorized — no Python control flow on traced values.
     """
-    from cogrid.backend import xp
-
     pos = agent_pos[agent_idx]  # (2,)
 
     # Items per pot: (n_pots,)
@@ -223,8 +214,6 @@ def ordered_pot_features(
 
 def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
     """(2 * (n_agents - 1),) distance to other agents."""
-    from cogrid.backend import xp
-
     pos = agent_pos[agent_idx]
     result = xp.zeros(2 * (n_agents - 1), dtype=xp.int32)
     out_idx = 0
@@ -241,8 +230,6 @@ def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
 
 def layout_id_feature(layout_idx, num_layouts=5):
     """(num_layouts,) one-hot layout identifier."""
-    from cogrid.backend import xp
-
     return (xp.arange(num_layouts) == layout_idx).astype(xp.int32)
 
 
@@ -254,8 +241,6 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
     as the Python ``EnvironmentLayout`` feature: ``flat_index = row * max_shape[1] + col``.
     Vectorized using scatter-style indexing (no Python loops on traced values).
     """
-    from cogrid.backend import xp
-
     H, W = object_type_map.shape
     dim0, dim1 = max_shape
     channel_size = dim0 * dim1
@@ -310,7 +295,6 @@ class OvercookedInventory(ArrayFeature):
 
     @classmethod
     def build_feature_fn(cls, scope):
-        from cogrid.backend import xp
         from cogrid.core.grid_object import object_to_idx
 
         inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
