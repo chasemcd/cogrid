@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 21 of 24 (File Restructuring)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-15 -- Completed 21-02 (extract PyGame rendering)
+Phase: 21 of 24 (File Restructuring) -- COMPLETE
+Plan: 3 of 3 in current phase
+Status: Phase Complete
+Last activity: 2026-02-15 -- Completed 21-03 (decompose __init__ and reset)
 
-Progress: [████████░░░░░░░░░░░░░░░░░░░░░░] 5/12 v1.4 plans complete
+Progress: [██████████░░░░░░░░░░░░░░░░░░░░] 6/12 v1.4 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 53 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 5 v1.4)
+- Total plans completed: 54 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 6 v1.4)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -49,7 +49,7 @@ Progress: [████████░░░░░░░░░░░░░░░
 | 18.1 | 1/1 | 7min | 7min |
 | 19 | 1/1 | 8min | 8min |
 | 20 | 3/3 | 15min | 5min |
-| 21 | 2/3 | 7min | 3.5min |
+| 21 | 3/3 | 12min | 4min |
 
 *Updated after each plan completion*
 
@@ -60,6 +60,7 @@ Progress: [████████░░░░░░░░░░░░░░░
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [21-03]: Pure mechanical extraction of __init__/reset into named helpers -- zero behavioral changes
 - [21-02]: EnvRenderer receives numpy image by value (no env reference); get_frame/get_full_render stay on CoGridEnv
 - [21-01]: Re-export shim pattern for module splits; lazy imports in method bodies to break circular deps
 - [20-03]: Backend conditional helpers (_backend_rng, _maybe_stop_gradient, _maybe_jit) consolidate 11 conditionals to exactly 6
@@ -85,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 21-02-PLAN.md
+Stopped at: Completed 21-03-PLAN.md (Phase 21 complete)
 Resume file: None
