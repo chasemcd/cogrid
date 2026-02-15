@@ -351,37 +351,45 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :return: Tuple of observations and info.
         :rtype: tuple[dict[typing.AgentID, typing.ObsType], dict[str, typing.Any]]
         """
+        self._reset_agents(seed)
+        self._build_array_state()
+        layout_arrays, spawn_positions, action_set_name = self._build_layout_arrays()
+        obs = self._build_pipeline(layout_arrays, spawn_positions, action_set_name, seed)
+
+        if self.render_mode is not None:
+            self._sync_objects_from_state()
+            self.render()
+
+        return obs, {agent_id: {} for agent_id in self.agent_ids}
+
+    def _reset_agents(self, seed):
+        """Reset RNG, regenerate grid, and re-initialize agents."""
         if seed is not None:
             self._np_random, _ = self._set_np_random(seed=seed)
 
         self.agents = copy.copy(self.possible_agents)
-
         self._gen_grid()
 
-        # Clear out past agents and re-initialize
         self.env_agents = {}
         self.setup_agents()
 
-        # Initialize previous actions as no-op
         self.prev_actions = {
             a_id: grid_actions.Actions.Noop for a_id in self.agent_ids
         }
 
         self.t = 0
-
         self.on_reset()
-
         self.update_grid_agents()
 
-        # Build array state from grid and agents
-        self._array_state = layout_to_array_state(self.grid, scope=self.scope, scope_config=self._scope_config)
+    def _build_array_state(self):
+        """Build array state from grid layout, extra state, and agent arrays."""
+        self._array_state = layout_to_array_state(
+            self.grid, scope=self.scope, scope_config=self._scope_config
+        )
 
-        # Build extra state from autowired builder (e.g. scope-specific container arrays)
         extra_state_builder = self._scope_config.get("extra_state_builder")
         if extra_state_builder is not None:
             extra = extra_state_builder(self._array_state, self.scope)
-            # Strip scope prefix from keys: the step_pipeline.reset() will
-            # re-add the prefix when building EnvState.extra_state.
             scope_prefix = f"{self.scope}."
             stripped = {
                 (k[len(scope_prefix):] if k.startswith(scope_prefix) else k): v
@@ -391,21 +399,20 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
         self._array_state.update(agent_arrays)
-
         self.cumulative_score = 0
 
-        # -------------------------------------------------------------------
-        # Build layout arrays and step/reset pipeline (both backends)
-        # -------------------------------------------------------------------
-        # Determine the array module for this backend
+    def _build_layout_arrays(self):
+        """Convert array state to typed layout arrays and determine action set name.
+
+        Returns:
+            Tuple of (layout_arrays, spawn_positions, action_set_name).
+        """
         if self._backend == 'jax':
-            import jax
             import jax.numpy as jnp
             xp = jnp
         else:
             xp = np
 
-        # Build layout arrays from array_state (scope-generic)
         skip_keys = {"agent_pos", "agent_dir", "agent_inv", "spawn_points"}
         layout_arrays = {}
         for key, val in self._array_state.items():
@@ -419,18 +426,24 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._array_state["agent_pos"], dtype=xp.int32
         )
 
-        n_agents = self.config["num_agents"]
-
-        # Determine action set name
         if self.action_set == grid_actions.ActionSets.CardinalActions:
             action_set_name = "cardinal"
         else:
             action_set_name = "rotation"
 
-        # Build feature function via autowired ArrayFeature composition
+        return layout_arrays, spawn_positions, action_set_name
+
+    def _build_pipeline(self, layout_arrays, spawn_positions, action_set_name, seed):
+        """Build feature/step/reset pipeline and run initial reset.
+
+        Returns:
+            Dict of per-agent observations.
+        """
         from cogrid.core.autowire import build_feature_config_from_components
         from cogrid.core.component_registry import get_layout_index
+        from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
 
+        n_agents = self.config["num_agents"]
         _layout_idx = get_layout_index(self.scope, self.current_layout_id)
 
         feature_config = build_feature_config_from_components(
@@ -439,38 +452,26 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
         self._feature_fn = feature_config["feature_fn"]
 
-        # Build step and reset functions from the unified pipeline
-        from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
-
         self._reset_fn = build_reset_fn(
-            layout_arrays,
-            spawn_positions,
-            n_agents,
-            self._feature_fn,
-            self._scope_config,
-            action_set_name,
+            layout_arrays, spawn_positions, n_agents,
+            self._feature_fn, self._scope_config, action_set_name,
         )
 
         self._step_fn = build_step_fn(
-            self._scope_config,
-            self._lookup_tables,
-            self._feature_fn,
-            self._reward_config,
-            self._action_pickup_drop_idx,
-            self._action_toggle_idx,
-            self.max_steps,
+            self._scope_config, self._lookup_tables, self._feature_fn,
+            self._reward_config, self._action_pickup_drop_idx,
+            self._action_toggle_idx, self.max_steps,
             terminated_fn=self._terminated_fn,
         )
 
-        # Create RNG and run reset
         if self._backend == 'jax':
+            import jax
             rng = jax.random.key(seed if seed is not None else 42)
         else:
             rng = seed if seed is not None else 42
 
         self._env_state, obs_arr = self._reset_fn(rng)
 
-        # Convert obs array to PettingZoo dict format
         obs = {
             aid: np.array(obs_arr[i])
             for i, aid in enumerate(self._agent_id_order)
@@ -478,13 +479,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.per_agent_reward = self.get_empty_reward_dict()
         self.per_component_reward = {}
-
-        # Sync rendering objects from state if needed
-        if self.render_mode is not None:
-            self._sync_objects_from_state()
-            self.render()
-
-        return obs, {agent_id: {} for agent_id in self.agent_ids}
+        return obs
 
     def _action_idx_to_str(
         self, actions: dict[typing.AgentID, int | str]
