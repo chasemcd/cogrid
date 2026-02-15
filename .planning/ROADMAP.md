@@ -142,7 +142,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 20: Imports & Backend Cleanup** - Module-level xp/dispatch imports everywhere, backend conditionals reduced to structural minimum
+- [x] **Phase 20: Imports & Backend Cleanup** - Module-level xp/dispatch imports everywhere, backend conditionals reduced to structural minimum (completed 2026-02-15)
 - [ ] **Phase 21: File Restructuring** - Rendering extracted, grid_object.py split, cogrid_env.py init/reset decomposed
 - [ ] **Phase 22: Function Decomposition** - move_agents() and overcooked_interaction_body() broken into named sub-functions
 - [ ] **Phase 23: Naming & Consistency** - state_dict renamed to state, no abbreviations, consistent terminology
@@ -160,11 +160,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Raw `import jax` or `import numpy` statements appear only inside `if get_backend() == "jax"` conditional blocks (RNG splitting, stop_gradient, pytree registration, immutable array workarounds) -- nowhere else
   4. Backend conditional checks (`get_backend() == "jax"`) exist in at most 6 locations, each corresponding to a genuine behavioral difference between backends (not a convenience shortcut)
   5. All existing tests pass without modification
-**Plans:** 3 plans
+**Plans:** 3/3 complete
 Plans:
-- [ ] 20-01-PLAN.md -- BackendProxy and module-level xp imports in core/ files
-- [ ] 20-02-PLAN.md -- Module-level xp imports in feature and env-specific files
-- [ ] 20-03-PLAN.md -- Consolidate backend conditionals to 6 locations
+- [x] 20-01-PLAN.md -- BackendProxy and module-level xp imports in core/ files
+- [x] 20-02-PLAN.md -- Module-level xp imports in feature and env-specific files
+- [x] 20-03-PLAN.md -- Consolidate backend conditionals to 6 locations
 
 ### Phase 21: File Restructuring
 **Goal**: Large files are split along clear responsibility boundaries -- rendering lives in its own module, grid object concerns are separated, and cogrid_env.py is decomposed into focused methods that each do one thing
@@ -176,7 +176,11 @@ Plans:
   3. `CoGridEnv.__init__` and `CoGridEnv.reset` each read as a sequence of clearly named method calls -- no method exceeds ~50 lines
   4. All existing imports that referenced the old locations still resolve (either via re-exports or the files genuinely moved)
   5. All existing tests pass without modification
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 21-01-PLAN.md -- Split grid_object.py into registry, base class, and concrete objects
+- [ ] 21-02-PLAN.md -- Extract PyGame/rendering from cogrid_env.py into cogrid/rendering/
+- [ ] 21-03-PLAN.md -- Decompose __init__ and reset into focused helper methods
 
 ### Phase 22: Function Decomposition
 **Goal**: The two longest monolithic functions are broken into named sub-functions that each handle one concern, making the logic scannable and each piece independently testable
@@ -240,8 +244,8 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23 -> 24
 | 18. Autowire Integration & Parity | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 18.1. Remove environment-specific logic from core files | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 19. Legacy Feature System Removal | v1.3 | 1/1 | Complete | 2026-02-14 |
-| 20. Imports & Backend Cleanup | v1.4 | 0/3 | Not started | - |
-| 21. File Restructuring | v1.4 | 0/? | Not started | - |
+| 20. Imports & Backend Cleanup | v1.4 | 3/3 | Complete | 2026-02-15 |
+| 21. File Restructuring | v1.4 | 0/3 | Not started | - |
 | 22. Function Decomposition | v1.4 | 0/? | Not started | - |
 | 23. Naming & Consistency | v1.4 | 0/? | Not started | - |
 | 24. Cleanup Pass | v1.4 | 0/? | Not started | - |
