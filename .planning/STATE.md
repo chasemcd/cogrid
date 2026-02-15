@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 22 -- Function Decomposition
+**Current focus:** Phase 23 -- Naming & Consistency
 
 ## Current Position
 
-Phase: 22 of 24 (Function Decomposition)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-15 -- Completed 22-02 (decompose overcooked_interaction_body)
+Phase: 23 of 24 (Naming & Consistency)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-15 -- Completed 23-01 (rename state_dict to state)
 
-Progress: [████████████░░░░░░░░░░░░░░░░░░] 8/? v1.4 plans complete
+Progress: [█████████████░░░░░░░░░░░░░░░░░] 9/? v1.4 plans complete
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [████████████░░░░░░░░░░░
 | 20 | 3/3 | 15min | 5min |
 | 21 | 3/3 | 12min | 4min |
 | 22 | 2/2 | 8min | 4min |
+| 23 | 1/2 | 9min | 9min |
 
 *Updated after each plan completion*
 
@@ -61,6 +62,7 @@ Progress: [████████████░░░░░░░░░░░
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [23-01]: step_pipeline locals renamed to sv/prev_sv (not state) to avoid shadowing EnvState parameter
 - [22-02]: Pot matching computed once in dispatcher, passed to both pickup_from_pot and place_on_pot (DRY); b4_base shared across place-on handlers
 - [22-01]: Staying-agent identification moved into _resolve_collisions; sub-functions at module level not closures
 - [21-03]: Pure mechanical extraction of __init__/reset into named helpers -- zero behavioral changes
@@ -89,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 22 complete, ready for Phase 23
+Stopped at: Completed 23-01-PLAN.md, ready for 23-02
 Resume file: None
