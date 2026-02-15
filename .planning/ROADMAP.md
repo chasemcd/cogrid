@@ -5,7 +5,7 @@
 - v1.0 Vectorization & Dual Backend - Phases 1-4 (shipped 2026-02-12)
 - v1.1 Unified Functional Architecture - Phases 5-9 (shipped 2026-02-12)
 - v1.2 Component-Based Environment API - Phases 10-14 (shipped 2026-02-13)
-- v1.3 Composable Array Feature System - Phases 15-19 (in progress)
+- v1.3 Composable Array Feature System - Phases 15-19 (shipped 2026-02-14)
 
 ## Phases
 
@@ -99,7 +99,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 17: Overcooked ArrayFeature Subclasses** - All Overcooked-specific features wrapped as individual ArrayFeature subclasses
 - [x] **Phase 18: Autowire Integration & Parity** - Autowire discovers registered features, CoGridEnv uses composed feature function, Overcooked 677-dim obs matches exactly
 - [x] **Phase 18.1: Remove environment-specific logic from core files (INSERTED)** - Feature order & layout index registration APIs; all domain knowledge pushed to domain modules
-- [ ] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
+- [x] **Phase 19: Legacy Feature System Removal** - Old OOP feature system deleted, build_feature_fn removed from GridObject convention, single code path
 
 ## Phase Details
 
@@ -205,4 +205,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19
 | 17. Overcooked ArrayFeature Subclasses | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 18. Autowire Integration & Parity | v1.3 | 2/2 | Complete | 2026-02-14 |
 | 18.1. Remove environment-specific logic from core files | v1.3 | 1/1 | Complete | 2026-02-14 |
-| 19. Legacy Feature System Removal | v1.3 | 0/TBD | Not started | - |
+| 19. Legacy Feature System Removal | v1.3 | 1/1 | Complete | 2026-02-14 |
