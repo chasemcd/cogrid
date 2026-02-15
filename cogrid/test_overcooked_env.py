@@ -8,8 +8,8 @@ from cogrid.core.directions import Directions
 from cogrid.envs.overcooked import overcooked_grid_objects
 from cogrid.core import grid_object
 
-from cogrid.envs.overcooked import overcooked
-from cogrid import cogrid_env
+from cogrid.cogrid_env import CoGridEnv
+from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.core import layouts
 from cogrid.envs import registry
 
@@ -51,7 +51,6 @@ N_agent_overcooked_config = {
         "layout_id",
         "environment_layout",
     ],
-    "rewards": ["onion_in_pot_reward", "soup_in_dish_reward"],
     "scope": "overcooked",
     "grid": {"layout": "overcooked_cramped_room_v1"},
     "max_steps": 1000,
@@ -65,7 +64,7 @@ def make_env(num_agents=4, layout="overcooked_cramped_room_v1", render_mode="hum
     registry.register(
         "NAgentOvercooked-V0",
         functools.partial(
-            overcooked.Overcooked, config=config
+            CoGridEnv, config=config, agent_class=OvercookedAgent,
         ),
     )
     return registry.make(

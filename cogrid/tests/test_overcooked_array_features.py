@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 from cogrid.envs import cramped_room_config
-from cogrid.envs.overcooked.overcooked import Overcooked
 
 
 OVERCOOKED_LAYOUTS = [
@@ -28,7 +27,9 @@ def _make_env(layout_name):
 
     config = copy.deepcopy(cramped_room_config)
     config["grid"]["layout"] = layout_name
-    return Overcooked(config=config)
+    from cogrid.cogrid_env import CoGridEnv
+    from cogrid.envs.overcooked.agent import OvercookedAgent
+    return CoGridEnv(config=config, agent_class=OvercookedAgent)
 
 
 # ---------------------------------------------------------------------------

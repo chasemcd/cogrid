@@ -20,11 +20,9 @@ from cogrid.core import directions
 from cogrid.core import grid
 from cogrid.core import grid_object
 from cogrid.core import grid_utils
-from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
 from cogrid.core import directions
-from cogrid.core import reward
 
 from cogrid.core import layouts
 
@@ -139,16 +137,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             i: None for i in self.agents
         }  # will contain: {'agent_id': agent}
 
-        # Establish reward function through reward modules
-        reward_names = config.get("rewards", [])
-        self.rewards = []
-        for reward_name in reward_names:
-            self.rewards.append(
-                reward.make_reward(reward_name, agent_ids=self._agent_ids)
-            )
-
-        # The reward at each timestep is the sum of the rewards from each reward module
-        # but can also be added to via environment hooks.
         self.per_agent_reward: dict[typing.AgentID, float] = (
             self.get_empty_reward_dict()
         )
@@ -883,57 +871,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     # ------------------------------------------------------------------
     # Observation and reward helpers
     # ------------------------------------------------------------------
-
-    def compute_rewards(
-        self,
-    ) -> None:
-        """Compute the per agent and per component rewards for the current state transition
-        using the reward modules provided in the environment configuration.
-
-        The rewards are added to self.per_agent_rewards and self.per_component_rewards.
-        """
-
-        for reward in self.rewards:
-            calculated_rewards = reward.calculate_reward(
-                state=self.prev_grid,
-                agent_actions=self.prev_actions,
-                new_state=self.grid,
-            )
-
-            # Add component rewards to per agent reward
-            for agent_id, reward_value in calculated_rewards.items():
-                self.per_agent_reward[agent_id] += reward_value
-
-            # Save reward by component
-            self.per_component_reward[reward.name] = calculated_rewards
-
-        for agent_id, val in self.reward_this_step.items():
-            self.per_agent_reward[agent_id] += val
-
-        self.reward_this_step = self.get_empty_reward_dict()
-
-    def get_terminateds_truncateds(
-        self,
-    ) -> tuple[dict[typing.AgentID, bool], dict[typing.AgentID, bool]]:
-        """Determine the done status for each agent."""
-        terminateds = {
-            agent_id: agent.terminated
-            for agent_id, agent in self.env_agents.items()
-        }
-
-        if self.t >= self.max_steps:
-            truncateds = {agent_id: True for agent_id in self.agent_ids}
-        else:
-            truncateds = {agent_id: False for agent_id in self.agent_ids}
-
-        # Update active agents
-        self.agents = [
-            agent_id
-            for agent_id in self.possible_agents
-            if not terminateds[agent_id] and not truncateds[agent_id]
-        ]
-
-        return terminateds, truncateds
 
     def get_infos(
         self, **kwargs

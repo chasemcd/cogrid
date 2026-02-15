@@ -389,36 +389,7 @@ if __name__ == "__main__":
     }
 
     # Build CoGrid env (JAX backend) to get pure step/reset functions
-    env = CoGridEnv(
-        config={
-            "name": "overcooked",
-            "scope": "overcooked",
-            "num_agents": 2,
-            "max_steps": 400,
-            "action_set": "cardinal_actions",
-            "features": [
-                "agent_dir",
-                "overcooked_inventory",
-                "next_to_counter",
-                "next_to_pot",
-                "closest_onion",
-                "closest_plate",
-                "closest_plate_stack",
-                "closest_onion_stack",
-                "closest_onion_soup",
-                "closest_delivery_zone",
-                "closest_counter",
-                "ordered_pot_features",
-                "dist_to_other_players",
-                "agent_position",
-                "can_move_direction",
-                "layout_id",
-                "environment_layout",
-            ],
-            "grid": {"layout": "overcooked_cramped_room_v0"},
-        },
-        backend="jax",
-    )
+    env = cogrid.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=config["SEED"])
 
     # Extract pure JAX functions (already JIT-compiled)
