@@ -35,10 +35,64 @@ import dataclasses
 from cogrid.backend import xp
 from cogrid.backend._dispatch import get_backend
 from cogrid.backend.env_state import create_env_state
-from cogrid.backend.state_view import StateView, register_stateview_pytree
+from cogrid.backend.state_view import StateView
 from cogrid.core.interactions import process_interactions
 from cogrid.core.movement import move_agents
 from cogrid.feature_space.array_features import get_all_agent_obs
+
+
+# ---------------------------------------------------------------------------
+# Backend-conditional helpers (each contains exactly one get_backend check)
+# ---------------------------------------------------------------------------
+
+
+def _backend_rng(rng_key, mode, n):
+    """Backend-specific RNG operation.
+
+    Args:
+        rng_key: JAX PRNG key, int seed, or None.
+        mode: "permutation" (for step priority) or "directions" (for reset).
+        n: Number of agents.
+
+    Returns:
+        (new_key, result_array) -- new_key is updated JAX key or None on numpy.
+    """
+    if get_backend() == "jax":
+        import jax
+
+        key, subkey = jax.random.split(rng_key)
+        if mode == "permutation":
+            return key, jax.random.permutation(subkey, n)
+        else:
+            return key, jax.random.randint(subkey, (n,), 0, 4)
+    else:
+        import numpy as _np
+
+        if mode == "permutation":
+            return rng_key, _np.random.default_rng().permutation(n).astype(_np.int32)
+        else:
+            seed = rng_key if isinstance(rng_key, int) else None
+            return None, _np.random.default_rng(seed).integers(0, 4, size=(n,)).astype(
+                _np.int32
+            )
+
+
+def _maybe_stop_gradient(*arrays):
+    """Apply jax.lax.stop_gradient on JAX backend; identity on numpy."""
+    if get_backend() == "jax":
+        import jax.lax as lax
+
+        return tuple(lax.stop_gradient(a) for a in arrays)
+    return arrays
+
+
+def _maybe_jit(fn, jit_compile=None):
+    """Optionally JIT-compile fn. Auto-JIT when backend is JAX unless disabled."""
+    if get_backend() == "jax" and jit_compile is not False:
+        import jax
+
+        return jax.jit(fn)
+    return fn
 
 
 def envstate_to_dict(state):
@@ -61,9 +115,6 @@ def envstate_to_dict(state):
         ``agent_inv``, ``wall_map``, ``object_type_map``,
         ``object_state_map``) plus scope-stripped extras.
     """
-    if get_backend() == "jax":
-        register_stateview_pytree()
-
     extra = {}
     for key, val in state.extra_state.items():
         short_key = key.split(".", 1)[-1] if "." in key else key
@@ -150,16 +201,7 @@ def step(
         state = tick_handler(state, scope_config)
 
     # c. Movement -- backend-specific RNG for priority
-    if get_backend() == "jax":
-        import jax
-
-        key, subkey = jax.random.split(state.rng_key)
-        priority = jax.random.permutation(subkey, state.n_agents)
-    else:
-        import numpy as _np
-
-        priority = _np.random.default_rng().permutation(state.n_agents).astype(_np.int32)
-        key = state.rng_key
+    key, priority = _backend_rng(state.rng_key, "permutation", state.n_agents)
 
     new_pos, new_dir = move_agents(
         state.agent_pos,
@@ -244,13 +286,9 @@ def step(
     state = dataclasses.replace(state, done=new_done)
 
     # j. Stop gradient (JAX only, no-op on numpy)
-    if get_backend() == "jax":
-        import jax.lax as lax
-
-        obs = lax.stop_gradient(obs)
-        rewards = lax.stop_gradient(rewards)
-        terminateds = lax.stop_gradient(terminateds)
-        truncateds = lax.stop_gradient(truncateds)
+    obs, rewards, terminateds, truncateds = _maybe_stop_gradient(
+        obs, rewards, terminateds, truncateds
+    )
 
     # k. Return
     return state, obs, rewards, terminateds, truncateds, {}
@@ -295,18 +333,8 @@ def reset(
         - ``obs``: Initial observations, shape ``(n_agents, obs_dim)``.
     """
     # Backend-specific RNG for random initial directions
-    if get_backend() == "jax":
-        import jax
-
-        key, subkey = jax.random.split(rng)
-        agent_dir = jax.random.randint(subkey, (n_agents,), 0, 4).astype(xp.int32)
-    else:
-        import numpy as _np
-
-        agent_dir = _np.random.default_rng(
-            rng if isinstance(rng, int) else None
-        ).integers(0, 4, size=(n_agents,)).astype(_np.int32)
-        key = None
+    key, agent_dir = _backend_rng(rng, "directions", n_agents)
+    agent_dir = agent_dir.astype(xp.int32)
 
     # Agent positions from fixed spawn points
     agent_pos = spawn_positions.astype(xp.int32)
@@ -357,10 +385,7 @@ def reset(
     obs = get_all_agent_obs(feature_fn, state_dict, n_agents)
 
     # Stop gradient (JAX only, no-op on numpy)
-    if get_backend() == "jax":
-        import jax.lax as lax
-
-        obs = lax.stop_gradient(obs)
+    (obs,) = _maybe_stop_gradient(obs)
 
     return state, obs
 
@@ -409,12 +434,7 @@ def build_step_fn(
             terminated_fn=terminated_fn,
         )
 
-    should_jit = jit_compile if jit_compile is not None else (get_backend() == "jax")
-    if should_jit:
-        import jax
-
-        return jax.jit(step_fn)
-    return step_fn
+    return _maybe_jit(step_fn, jit_compile)
 
 
 def build_reset_fn(
@@ -457,9 +477,4 @@ def build_reset_fn(
             **kwargs,
         )
 
-    should_jit = jit_compile if jit_compile is not None else (get_backend() == "jax")
-    if should_jit:
-        import jax
-
-        return jax.jit(reset_fn)
-    return reset_fn
+    return _maybe_jit(reset_fn, jit_compile)
