@@ -46,13 +46,13 @@ from cogrid.feature_space.array_features import get_all_agent_obs
 # ---------------------------------------------------------------------------
 
 
-def _backend_rng(rng_key, mode, n):
+def _backend_rng(rng_key, mode, n_agents):
     """Backend-specific RNG operation.
 
     Args:
         rng_key: JAX PRNG key, int seed, or None.
         mode: "permutation" (for step priority) or "directions" (for reset).
-        n: Number of agents.
+        n_agents: Number of agents.
 
     Returns:
         (new_key, result_array) -- new_key is updated JAX key or None on numpy.
@@ -62,17 +62,17 @@ def _backend_rng(rng_key, mode, n):
 
         key, subkey = jax.random.split(rng_key)
         if mode == "permutation":
-            return key, jax.random.permutation(subkey, n)
+            return key, jax.random.permutation(subkey, n_agents)
         else:
-            return key, jax.random.randint(subkey, (n,), 0, 4)
+            return key, jax.random.randint(subkey, (n_agents,), 0, 4)
     else:
         import numpy as _np
 
         if mode == "permutation":
-            return rng_key, _np.random.default_rng().permutation(n).astype(_np.int32)
+            return rng_key, _np.random.default_rng().permutation(n_agents).astype(_np.int32)
         else:
             seed = rng_key if isinstance(rng_key, int) else None
-            return None, _np.random.default_rng(seed).integers(0, 4, size=(n,)).astype(
+            return None, _np.random.default_rng(seed).integers(0, 4, size=(n_agents,)).astype(
                 _np.int32
             )
 

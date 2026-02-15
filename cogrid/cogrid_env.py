@@ -748,7 +748,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Update the grid agents to reflect the current state of each Agent."""
         self.grid.grid_agents = {
             a_id: grid_object.GridAgent(
-                agent, num_agents=self.config["num_agents"], scope=self.scope
+                agent, n_agents=self.config["num_agents"], scope=self.scope
             )
             for a_id, agent in self.env_agents.items()
         }
@@ -934,7 +934,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         :param col: The column to place the object.
         :type col: int
         """
-        self.grid.set(row=row, col=col, v=obj)
+        self.grid.set(row=row, col=col, obj=obj)
         obj.pos = (row, col)
         obj.init_pos = (row, col)
 

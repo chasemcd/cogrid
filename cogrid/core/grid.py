@@ -109,15 +109,15 @@ class Grid:
         """
         return deepcopy(self)
 
-    def set(self, row: int, col: int, v: GridObj | None) -> None:
+    def set(self, row: int, col: int, obj: GridObj | None) -> None:
         """Set a GridObj at a given position in the grid.
 
         :param row: The row index.
         :type row: int
         :param col: The column index.
         :type col: int
-        :param v: The GridObj (or None) to set.
-        :type v: GridObj | None
+        :param obj: The GridObj (or None) to set.
+        :type obj: GridObj | None
         """
         assert (
             0 <= col < self.width
@@ -125,7 +125,7 @@ class Grid:
         assert (
             0 <= row < self.height
         ), f"row index {row} outside of grid of height {self.height}"
-        self.grid[row * self.width + col] = v
+        self.grid[row * self.width + col] = obj
 
     def get(self, row: int, col: int) -> GridObj | None:
         """Get the GridObj at a given position in the grid.
@@ -175,7 +175,7 @@ class Grid:
         if length is None:
             length = self.width - col
         for i in range(length):
-            self.set(row=row, col=col + i, v=obj_type())
+            self.set(row=row, col=col + i, obj=obj_type())
 
     def vert_wall(
         self,
@@ -198,7 +198,7 @@ class Grid:
         if length is None:
             length = self.height - row
         for j in range(length):
-            self.set(row=row + j, col=col, v=obj_type())
+            self.set(row=row + j, col=col, obj=obj_type())
 
     def wall_rect(
         self, col: int, row: int, w: int, h: int, grid_obj: GridObj = Wall
@@ -237,7 +237,7 @@ class Grid:
 
                 new_row = grid.height - 1 - col
                 new_col = row
-                grid.set(row=new_row, col=new_col, v=v)
+                grid.set(row=new_row, col=new_col, obj=v)
 
                 agent = get_grid_agent_at_position(self, (row, col))
                 if agent:
@@ -282,7 +282,7 @@ class Grid:
                 else:
                     v = Wall()
 
-                grid.set(row=row, col=col, v=v)
+                grid.set(row=row, col=col, obj=v)
 
         return grid
 
@@ -471,7 +471,7 @@ class Grid:
                     grid.grid_agents[agent_count] = v
                     agent_count += 1
                 else:
-                    grid.set(row=row, col=col, v=v)
+                    grid.set(row=row, col=col, obj=v)
 
         return grid, vis_mask
 

@@ -170,7 +170,7 @@ def _is_int(chk):
 
 
 class GridAgent(GridObj):
-    def __init__(self, agent, num_agents: int, scope: str = "global"):
+    def __init__(self, agent, n_agents: int, scope: str = "global"):
         """
         Grid agents are initialized slightly differently. State corresponds to the object they are holding
         and char/colors are unique for each agent.
@@ -208,7 +208,7 @@ class GridAgent(GridObj):
 
         # Generate high-contrast colors based on HSV color space
         # Hue values are evenly spaced around the color wheel
-        hue = (agent.agent_number - 1) * (360 / num_agents)
+        hue = (agent.agent_number - 1) * (360 / n_agents)
         # Use high saturation (0.7-1.0) and value (0.8-1.0) for vibrant colors
         # This avoids whites (high V, low S), blacks (low V), and greys (low S)
         rgb_color = self._hsv_to_rgb(hue, 0.35, 0.99)

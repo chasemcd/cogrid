@@ -60,7 +60,7 @@ def _build_base_otm(delivery_zone_pos=None, pot_pos=None):
 _CORE_FIELDS = {"agent_pos", "agent_dir", "agent_inv", "wall_map", "object_type_map", "object_state_map"}
 
 
-def _dict_to_sv(d):
+def _dict_to_sv(fields):
     """Convert a plain dict of arrays to a StateView, filling missing core fields."""
     import numpy as _np
     defaults = dict(
@@ -72,7 +72,7 @@ def _dict_to_sv(d):
         object_state_map=_np.zeros((H, W), dtype=_np.int32),
     )
     extra = {}
-    for k, v in d.items():
+    for k, v in fields.items():
         if k in _CORE_FIELDS:
             defaults[k] = v
         else:
