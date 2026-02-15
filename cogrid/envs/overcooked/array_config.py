@@ -322,86 +322,27 @@ def overcooked_tick_state(state, scope_config):
     )
 
 
-def overcooked_interaction_body(
-    i,                    # agent index
-    agent_inv,            # (n_agents, 1) int32
-    object_type_map,      # (H, W) int32
-    object_state_map,     # (H, W) int32
-    fwd_r, fwd_c,         # forward cell coordinates (scalar arrays)
-    fwd_type,             # type at forward cell (scalar array)
-    inv_item,             # inventory item (scalar array)
-    base_ok,              # bool scalar -- is this agent interacting and no agent ahead
-    pot_contents,         # (n_pots, 3) int32
-    pot_timer,            # (n_pots,) int32
-    pot_positions,        # (n_pots, 2) int32
-    static_tables,        # dict of static lookup arrays
-):
-    """Unified per-agent Overcooked interaction body using xp.
-
-    Computes ALL branch conditions using xp.where cascading (no Python
-    control flow on traced values). Uses ``array_ops.set_at`` /
-    ``set_at_2d`` for mutations instead of ``.at[].set()`` or in-place
-    assignment.
-
-    Processes one agent at a time. The caller (process_interactions)
-    calls this sequentially for each agent, re-reading state between
-    calls so that agent 0's mutations are visible to agent 1.
-
-    Args:
-        i: Agent index (Python int or scalar array).
-        agent_inv: Agent inventories, shape ``(n_agents, 1)``.
-        object_type_map: Grid object type IDs, shape ``(H, W)``.
-        object_state_map: Grid object states, shape ``(H, W)``.
-        fwd_r: Forward cell row (scalar array, not Python int).
-        fwd_c: Forward cell column (scalar array, not Python int).
-        fwd_type: Type ID at forward cell (scalar array).
-        inv_item: Type ID in agent inventory (scalar array).
-        base_ok: Whether this agent is interacting and no agent ahead.
-        pot_contents: Pot ingredient arrays, shape ``(n_pots, 3)``.
-        pot_timer: Pot cooking timers, shape ``(n_pots,)``.
-        pot_positions: Pot positions, shape ``(n_pots, 2)``.
-        static_tables: Dict of static lookup arrays and int constants.
-
-    Returns:
-        Tuple of ``(agent_inv, object_type_map, object_state_map,
-        pot_contents, pot_timer)``.
-    """
-    # Unpack static tables (Python-level, not traced)
-    CAN_PICKUP = static_tables["CAN_PICKUP"]
-    CAN_PICKUP_FROM = static_tables["CAN_PICKUP_FROM"]
-    CAN_PLACE_ON = static_tables["CAN_PLACE_ON"]
-    pickup_from_produces = static_tables["pickup_from_produces"]
-    legal_pot_ingredients = static_tables["legal_pot_ingredients"]
-    pot_id = static_tables["pot_id"]
-    plate_id = static_tables["plate_id"]
-    tomato_id = static_tables["tomato_id"]
-    onion_soup_id = static_tables["onion_soup_id"]
-    tomato_soup_id = static_tables["tomato_soup_id"]
-    delivery_zone_id = static_tables["delivery_zone_id"]
-    cooking_time = static_tables["cooking_time"]
-
-    # --- Branch 1: can_pickup ---
+def _interact_pickup(base_ok, fwd_type, fwd_r, fwd_c, inv_item, i,
+                     agent_inv, object_type_map, object_state_map, CAN_PICKUP):
+    """Pick up a loose object from the forward cell."""
     b1_cond = base_ok & (fwd_type > 0) & (CAN_PICKUP[fwd_type] == 1) & (inv_item == -1)
-
     b1_inv = set_at(agent_inv, (i, 0), fwd_type)
     b1_otm = set_at_2d(object_type_map, fwd_r, fwd_c, 0)
     b1_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
+    return b1_cond, b1_inv, b1_otm, b1_osm
 
-    # --- Branch 2: can_pickup_from (Overcooked-specific) ---
-    # Sub-case A: pot pickup (soup ready + agent has plate)
+
+def _interact_pickup_from_pot(base_ok, b1_cond, fwd_type, inv_item, i,
+                              agent_inv, pot_contents, pot_timer,
+                              pot_idx, has_pot_match, pot_id, plate_id,
+                              tomato_id, onion_soup_id, tomato_soup_id,
+                              cooking_time):
+    """Pick up cooked soup from a ready pot (requires plate in hand)."""
     is_pot = (fwd_type == pot_id)
 
-    # Find pot index via array matching
-    fwd_pos_2d = xp.stack([fwd_r, fwd_c])
-    pot_match = xp.all(pot_positions == fwd_pos_2d[None, :], axis=1)
-    pot_idx = xp.argmax(pot_match)
-    has_pot_match = xp.any(pot_match)
-
-    # Check pot state
     has_contents = xp.sum(pot_contents[pot_idx] != -1) > 0
     is_ready = pot_timer[pot_idx] == 0
 
-    # Determine soup type
     all_tomato = xp.all(
         (pot_contents[pot_idx] == -1) | (pot_contents[pot_idx] == tomato_id)
     )
@@ -410,66 +351,91 @@ def overcooked_interaction_body(
     b2_pot_cond = (base_ok & ~b1_cond & is_pot & has_pot_match
                    & has_contents & is_ready & (inv_item == plate_id))
 
-    # Branch 2A results: pick up soup from pot
     b2_pot_inv = set_at(agent_inv, (i, 0), soup_type)
     b2_pot_pc = set_at(pot_contents, (pot_idx, slice(None)), -1)
     b2_pot_pt = set_at(pot_timer, pot_idx, cooking_time)
+    return b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt
 
-    # Sub-case B: stack pickup
-    is_stack = ~is_pot & (CAN_PICKUP_FROM[fwd_type] == 1)
+
+def _interact_pickup_from_stack(base_ok, b1_cond, fwd_type, inv_item, i,
+                                agent_inv, pot_id, CAN_PICKUP_FROM,
+                                pickup_from_produces):
+    """Pick up a produced item from a dispenser stack."""
+    is_stack = ~(fwd_type == pot_id) & (CAN_PICKUP_FROM[fwd_type] == 1)
     produced = pickup_from_produces[fwd_type]
     b2_stack_cond = base_ok & ~b1_cond & is_stack & (inv_item == -1) & (produced > 0)
-
-    # Branch 2B results: pick up produced item from stack
     b2_stack_inv = set_at(agent_inv, (i, 0), produced)
+    return b2_stack_cond, b2_stack_inv
 
-    # --- Branch 3: drop on empty ---
+
+def _interact_drop_on_empty(base_ok, b1_cond, b2_pot_cond, b2_stack_cond,
+                            fwd_type, fwd_r, fwd_c, inv_item, i,
+                            agent_inv, object_type_map, object_state_map):
+    """Drop held item onto an empty cell."""
     b3_cond = (base_ok & ~b1_cond & ~b2_pot_cond & ~b2_stack_cond
                & (fwd_type == 0) & (inv_item != -1))
-
     b3_otm = set_at_2d(object_type_map, fwd_r, fwd_c, inv_item)
     b3_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
     b3_inv = set_at(agent_inv, (i, 0), -1)
+    return b3_cond, b3_inv, b3_otm, b3_osm
 
-    # --- Branch 4: place_on ---
-    b4_base = (base_ok & ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & ~b3_cond
-               & (fwd_type > 0) & (CAN_PLACE_ON[fwd_type] == 1) & (inv_item != -1))
 
-    # Sub-case A: place on pot
+def _interact_place_on_pot(b4_base, fwd_type, inv_item, i, agent_inv,
+                           pot_contents, pot_idx, has_pot_match, pot_id,
+                           legal_pot_ingredients):
+    """Place an ingredient into a pot with capacity and same-type checks."""
+    is_pot = (fwd_type == pot_id)
     is_legal = legal_pot_ingredients[inv_item] == 1
     n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
     has_capacity = n_items_in_pot < 3
 
-    # Same-type constraint: first non-sentinel slot must match inv_item
     first_slot = pot_contents[pot_idx, 0]
     same_type = (n_items_in_pot == 0) | (first_slot == inv_item)
 
-    # Find first empty slot index (0, 1, or 2)
     slot_empty = (pot_contents[pot_idx] == -1)
     first_empty_slot = xp.argmax(slot_empty)
 
     b4_pot_cond = (b4_base & is_pot & has_pot_match
                    & is_legal & has_capacity & same_type)
-
     b4_pot_pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
     b4_pot_inv = set_at(agent_inv, (i, 0), -1)
+    return b4_pot_cond, b4_pot_inv, b4_pot_pc
 
-    # Sub-case B: place on delivery zone
+
+def _interact_place_on_delivery(b4_base, fwd_type, inv_item, i, agent_inv,
+                                delivery_zone_id, onion_soup_id,
+                                tomato_soup_id):
+    """Place a soup on the delivery zone."""
     is_dz = (fwd_type == delivery_zone_id)
     is_soup = (inv_item == onion_soup_id) | (inv_item == tomato_soup_id)
     b4_dz_cond = b4_base & is_dz & is_soup
-
     b4_dz_inv = set_at(agent_inv, (i, 0), -1)
+    return b4_dz_cond, b4_dz_inv
 
-    # Sub-case C: generic counter place_on
-    is_generic = ~is_pot & ~is_dz
+
+def _interact_place_on_counter(b4_base, fwd_type, fwd_r, fwd_c, inv_item, i,
+                               agent_inv, object_state_map, pot_id,
+                               delivery_zone_id):
+    """Place a held item on a generic counter cell."""
+    is_generic = ~(fwd_type == pot_id) & ~(fwd_type == delivery_zone_id)
     counter_empty = (object_state_map[fwd_r, fwd_c] == 0)
     b4_gen_cond = b4_base & is_generic & counter_empty
-
     b4_gen_osm = set_at_2d(object_state_map, fwd_r, fwd_c, inv_item)
     b4_gen_inv = set_at(agent_inv, (i, 0), -1)
+    return b4_gen_cond, b4_gen_inv, b4_gen_osm
 
-    # --- Apply all updates with cascading xp.where ---
+
+def _apply_interaction_updates(
+    b1_cond, b1_inv, b1_otm, b1_osm,
+    b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt,
+    b2_stack_cond, b2_stack_inv,
+    b3_cond, b3_inv, b3_otm, b3_osm,
+    b4_pot_cond, b4_pot_inv, b4_pot_pc,
+    b4_dz_cond, b4_dz_inv,
+    b4_gen_cond, b4_gen_inv, b4_gen_osm,
+    agent_inv, object_type_map, object_state_map, pot_contents, pot_timer,
+):
+    """Merge all branch results with cascading xp.where."""
     # agent_inv
     new_inv = xp.where(b1_cond, b1_inv, agent_inv)
     new_inv = xp.where(b2_pot_cond, b2_pot_inv, new_inv)
@@ -495,7 +461,121 @@ def overcooked_interaction_body(
     # pot_timer
     new_pt = xp.where(b2_pot_cond, b2_pot_pt, pot_timer)
 
-    return (new_inv, new_otm, new_osm, new_pc, new_pt)
+    return new_inv, new_otm, new_osm, new_pc, new_pt
+
+
+def overcooked_interaction_body(
+    i,                    # agent index
+    agent_inv,            # (n_agents, 1) int32
+    object_type_map,      # (H, W) int32
+    object_state_map,     # (H, W) int32
+    fwd_r, fwd_c,         # forward cell coordinates (scalar arrays)
+    fwd_type,             # type at forward cell (scalar array)
+    inv_item,             # inventory item (scalar array)
+    base_ok,              # bool scalar -- is this agent interacting and no agent ahead
+    pot_contents,         # (n_pots, 3) int32
+    pot_timer,            # (n_pots,) int32
+    pot_positions,        # (n_pots, 2) int32
+    static_tables,        # dict of static lookup arrays
+):
+    """Dispatch per-agent interaction to named branch handlers.
+
+    Each handler computes its condition and result arrays. The final
+    ``_apply_interaction_updates`` merges all results with cascading
+    ``xp.where``.  See individual ``_interact_*`` functions for branch
+    details.
+
+    Args:
+        i: Agent index (Python int or scalar array).
+        agent_inv: Agent inventories, shape ``(n_agents, 1)``.
+        object_type_map: Grid object type IDs, shape ``(H, W)``.
+        object_state_map: Grid object states, shape ``(H, W)``.
+        fwd_r: Forward cell row (scalar array, not Python int).
+        fwd_c: Forward cell column (scalar array, not Python int).
+        fwd_type: Type ID at forward cell (scalar array).
+        inv_item: Type ID in agent inventory (scalar array).
+        base_ok: Whether this agent is interacting and no agent ahead.
+        pot_contents: Pot ingredient arrays, shape ``(n_pots, 3)``.
+        pot_timer: Pot cooking timers, shape ``(n_pots,)``.
+        pot_positions: Pot positions, shape ``(n_pots, 2)``.
+        static_tables: Dict of static lookup arrays and int constants.
+
+    Returns:
+        Tuple of ``(agent_inv, object_type_map, object_state_map,
+        pot_contents, pot_timer)``.
+    """
+    # Unpack static tables
+    CAN_PICKUP = static_tables["CAN_PICKUP"]
+    CAN_PICKUP_FROM = static_tables["CAN_PICKUP_FROM"]
+    CAN_PLACE_ON = static_tables["CAN_PLACE_ON"]
+    pickup_from_produces = static_tables["pickup_from_produces"]
+    legal_pot_ingredients = static_tables["legal_pot_ingredients"]
+    pot_id = static_tables["pot_id"]
+    plate_id = static_tables["plate_id"]
+    tomato_id = static_tables["tomato_id"]
+    onion_soup_id = static_tables["onion_soup_id"]
+    tomato_soup_id = static_tables["tomato_soup_id"]
+    delivery_zone_id = static_tables["delivery_zone_id"]
+    cooking_time = static_tables["cooking_time"]
+
+    # Shared pot matching (used by pickup_from_pot and place_on_pot)
+    fwd_pos_2d = xp.stack([fwd_r, fwd_c])
+    pot_match = xp.all(pot_positions == fwd_pos_2d[None, :], axis=1)
+    pot_idx = xp.argmax(pot_match)
+    has_pot_match = xp.any(pot_match)
+
+    # Branch 1: pickup
+    b1_cond, b1_inv, b1_otm, b1_osm = _interact_pickup(
+        base_ok, fwd_type, fwd_r, fwd_c, inv_item, i,
+        agent_inv, object_type_map, object_state_map, CAN_PICKUP)
+
+    # Branch 2A: pickup from pot
+    b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt = _interact_pickup_from_pot(
+        base_ok, b1_cond, fwd_type, inv_item, i,
+        agent_inv, pot_contents, pot_timer,
+        pot_idx, has_pot_match, pot_id, plate_id,
+        tomato_id, onion_soup_id, tomato_soup_id, cooking_time)
+
+    # Branch 2B: pickup from stack
+    b2_stack_cond, b2_stack_inv = _interact_pickup_from_stack(
+        base_ok, b1_cond, fwd_type, inv_item, i,
+        agent_inv, pot_id, CAN_PICKUP_FROM, pickup_from_produces)
+
+    # Branch 3: drop on empty
+    b3_cond, b3_inv, b3_otm, b3_osm = _interact_drop_on_empty(
+        base_ok, b1_cond, b2_pot_cond, b2_stack_cond,
+        fwd_type, fwd_r, fwd_c, inv_item, i,
+        agent_inv, object_type_map, object_state_map)
+
+    # Shared base condition for all place-on branches
+    b4_base = (base_ok & ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & ~b3_cond
+               & (fwd_type > 0) & (CAN_PLACE_ON[fwd_type] == 1) & (inv_item != -1))
+
+    # Branch 4A: place on pot
+    b4_pot_cond, b4_pot_inv, b4_pot_pc = _interact_place_on_pot(
+        b4_base, fwd_type, inv_item, i, agent_inv,
+        pot_contents, pot_idx, has_pot_match, pot_id, legal_pot_ingredients)
+
+    # Branch 4B: place on delivery zone
+    b4_dz_cond, b4_dz_inv = _interact_place_on_delivery(
+        b4_base, fwd_type, inv_item, i, agent_inv,
+        delivery_zone_id, onion_soup_id, tomato_soup_id)
+
+    # Branch 4C: place on counter
+    b4_gen_cond, b4_gen_inv, b4_gen_osm = _interact_place_on_counter(
+        b4_base, fwd_type, fwd_r, fwd_c, inv_item, i,
+        agent_inv, object_state_map, pot_id, delivery_zone_id)
+
+    # Merge all branch results
+    return _apply_interaction_updates(
+        b1_cond, b1_inv, b1_otm, b1_osm,
+        b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt,
+        b2_stack_cond, b2_stack_inv,
+        b3_cond, b3_inv, b3_otm, b3_osm,
+        b4_pot_cond, b4_pot_inv, b4_pot_pc,
+        b4_dz_cond, b4_dz_inv,
+        b4_gen_cond, b4_gen_inv, b4_gen_osm,
+        agent_inv, object_type_map, object_state_map, pot_contents, pot_timer)
 
 
 # ======================================================================
