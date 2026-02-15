@@ -23,6 +23,9 @@ OVERCOOKED_LAYOUTS = [
 
 
 def _make_env(layout_name):
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    _reset_backend_for_testing()
+
     config = copy.deepcopy(cramped_room_config)
     config["grid"]["layout"] = layout_name
     return Overcooked(config=config)

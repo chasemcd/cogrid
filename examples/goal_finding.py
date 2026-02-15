@@ -110,7 +110,7 @@ goal_config = {
     "name": "goal_finding",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "features": ["agent_position", "full_map_encoding"],
+    "features": ["agent_dir", "agent_position", "can_move_direction", "inventory"],
     "rewards": [],  # We use the ArrayReward component pipeline, not the legacy one
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,

@@ -111,6 +111,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.name = config["name"]
         self.cumulative_score = 0
 
+        if "features" not in config or not isinstance(config["features"], list):
+            raise ValueError(
+                "config['features'] must be a list of feature names."
+            )
+
         self.max_steps = config["max_steps"]
         self.visualizer = None
         self.roles = self.config.get("roles", True)
@@ -457,7 +462,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         _layout_idx = get_layout_index(self.scope, self.current_layout_id)
 
         feature_config = build_feature_config_from_components(
-            self.scope, n_agents=n_agents, layout_idx=_layout_idx,
+            self.scope, self.config["features"],
+            n_agents=n_agents, layout_idx=_layout_idx,
         )
         self._feature_fn = feature_config["feature_fn"]
 

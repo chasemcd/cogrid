@@ -82,7 +82,6 @@ class FeatureMetadata:
 _COMPONENT_METADATA: dict[tuple[str, str], ComponentMetadata] = {}
 _REWARD_TYPE_REGISTRY: dict[tuple[str, str], RewardMetadata] = {}
 _FEATURE_TYPE_REGISTRY: dict[tuple[str, str], FeatureMetadata] = {}
-_FEATURE_ORDER_REGISTRY: dict[str, list[str]] = {}
 _PRE_COMPOSE_HOOKS: dict[str, callable] = {}
 _LAYOUT_INDEX_REGISTRY: dict[str, dict[str, int]] = {}
 
@@ -350,33 +349,20 @@ def get_components_with_extra_state(scope: str = "global") -> list[ComponentMeta
 
 
 # ---------------------------------------------------------------------------
-# Feature order registration
+# Pre-compose hook registration
 # ---------------------------------------------------------------------------
 
-def register_feature_order(
-    scope: str,
-    feature_names: list[str],
-    pre_compose_hook: callable | None = None,
-) -> None:
-    """Register an explicit feature ordering for a scope.
+def register_pre_compose_hook(scope: str, hook: callable) -> None:
+    """Register a pre-compose hook for a scope.
 
-    Scopes with a registered order get that exact ordering during
-    feature composition.  Scopes without fall back to alphabetical.
+    The hook is called before feature composition with signature
+    ``(layout_idx: int, scope: str) -> None``.
 
     Args:
         scope: Registry scope name.
-        feature_names: Ordered list of feature IDs.
-        pre_compose_hook: Optional callable invoked before feature
-            composition with signature ``(layout_idx: int, scope: str) -> None``.
+        hook: Callable invoked before feature composition.
     """
-    _FEATURE_ORDER_REGISTRY[scope] = list(feature_names)
-    if pre_compose_hook is not None:
-        _PRE_COMPOSE_HOOKS[scope] = pre_compose_hook
-
-
-def get_feature_order(scope: str) -> list[str] | None:
-    """Return the registered feature order for *scope*, or None."""
-    return _FEATURE_ORDER_REGISTRY.get(scope)
+    _PRE_COMPOSE_HOOKS[scope] = hook
 
 
 def get_pre_compose_hook(scope: str) -> callable | None:

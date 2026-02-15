@@ -448,12 +448,33 @@ def test_reward_config_passes_reward_config_to_compute():
 # =======================================================================
 
 
+_OVERCOOKED_FEATURES = [
+    "agent_dir",
+    "overcooked_inventory",
+    "next_to_counter",
+    "next_to_pot",
+    "closest_onion",
+    "closest_plate",
+    "closest_plate_stack",
+    "closest_onion_stack",
+    "closest_onion_soup",
+    "closest_delivery_zone",
+    "closest_counter",
+    "ordered_pot_features",
+    "dist_to_other_players",
+    "agent_position",
+    "can_move_direction",
+    "layout_id",
+    "environment_layout",
+]
+
+
 def test_build_feature_config_overcooked():
     """build_feature_config_from_components returns correct structure for overcooked."""
     import cogrid.envs  # noqa: F401 -- triggers registration
     from cogrid.core.autowire import build_feature_config_from_components
 
-    config = build_feature_config_from_components("overcooked", n_agents=2, layout_idx=0)
+    config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
 
     # Required keys
     assert "feature_fn" in config
@@ -475,7 +496,7 @@ def test_build_feature_config_sets_layout_idx():
     from cogrid.core.autowire import build_feature_config_from_components
     from cogrid.envs.overcooked.overcooked_array_features import LayoutID
 
-    build_feature_config_from_components("overcooked", n_agents=2, layout_idx=3)
+    build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=3)
     assert LayoutID._layout_idx == 3, (
         f"Expected _layout_idx=3, got {LayoutID._layout_idx}"
     )
@@ -491,7 +512,7 @@ def test_build_feature_config_returns_callable():
     from cogrid.core.step_pipeline import envstate_to_dict
     from cogrid.envs.overcooked.overcooked_array_features import LayoutID
 
-    config = build_feature_config_from_components("overcooked", n_agents=2, layout_idx=0)
+    config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
     feature_fn = config["feature_fn"]
 
     # Build a state_dict from a real Overcooked environment
@@ -504,6 +525,7 @@ def test_build_feature_config_returns_callable():
             "num_agents": 2,
             "max_steps": 10,
             "action_set": "cardinal_actions",
+            "features": _OVERCOOKED_FEATURES,
             "grid": {"layout": "overcooked_cramped_room_v0"},
         }
     )

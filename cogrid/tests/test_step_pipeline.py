@@ -7,6 +7,26 @@ factories work with optional JIT compilation.
 import pytest
 import numpy as np
 
+_OVERCOOKED_FEATURES = [
+    "agent_dir",
+    "overcooked_inventory",
+    "next_to_counter",
+    "next_to_pot",
+    "closest_onion",
+    "closest_plate",
+    "closest_plate_stack",
+    "closest_onion_stack",
+    "closest_onion_soup",
+    "closest_delivery_zone",
+    "closest_counter",
+    "ordered_pot_features",
+    "dist_to_other_players",
+    "agent_position",
+    "can_move_direction",
+    "layout_id",
+    "environment_layout",
+]
+
 
 def _setup_overcooked_config():
     """Create Overcooked env config on numpy backend, return all pipeline inputs.
@@ -38,7 +58,7 @@ def _setup_overcooked_config():
     lookup_tables = build_lookup_tables(scope="overcooked")
 
     n_agents = array_state["n_agents"]
-    feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+    feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
     feature_fn = feature_config["feature_fn"]
 
     type_ids = scope_config["type_ids"]
@@ -200,7 +220,7 @@ def test_step_jax_backend_eager():
 
         # Rebuild feature function on JAX backend
         from cogrid.core.autowire import build_feature_config_from_components
-        feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+        feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
         feature_fn = feature_config["feature_fn"]
 
         # Reset
@@ -297,7 +317,7 @@ def test_build_step_fn_jit_compiles():
 
         # Rebuild feature function on JAX backend
         from cogrid.core.autowire import build_feature_config_from_components
-        feature_config = build_feature_config_from_components("overcooked", n_agents=n_agents)
+        feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
         feature_fn = feature_config["feature_fn"]
 
         # Build factories (should auto-JIT on JAX backend)

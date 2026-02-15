@@ -15,18 +15,19 @@ from __future__ import annotations
 
 def build_feature_config_from_components(
     scope: str,
+    feature_names: list[str],
     n_agents: int,
     layout_idx: int = 0,
 ) -> dict:
     """Build a feature_config dict from registered ArrayFeature subclasses.
 
-    Discovers all ArrayFeature subclasses registered to the given *scope*
-    and the ``"global"`` scope, determines the feature order (explicit for
-    known scopes, alphabetical otherwise), and returns a composed feature
-    function matching the legacy monolithic builder output.
+    Uses the explicit *feature_names* list provided by the caller (from
+    ``config["features"]``) to determine which features to compose and in
+    what order.
 
     Args:
         scope: Registry scope name (e.g. "my_domain").
+        feature_names: Ordered list of feature IDs to include.
         n_agents: Number of agents.
         layout_idx: Integer index of the current layout (used by LayoutID).
 
@@ -38,11 +39,7 @@ def build_feature_config_from_components(
         - ``feature_names``: Ordered list of feature names used.
     """
     from cogrid.core.array_features import compose_feature_fns, obs_dim_for_features
-    from cogrid.core.component_registry import (
-        get_feature_types,
-        get_feature_order,
-        get_pre_compose_hook,
-    )
+    from cogrid.core.component_registry import get_pre_compose_hook
 
     # Ensure global ArrayFeature subclasses are registered
     import cogrid.feature_space.array_features  # noqa: F401
@@ -53,30 +50,11 @@ def build_feature_config_from_components(
     if pre_hook is not None:
         pre_hook(layout_idx=layout_idx, scope=scope)
 
-    # Discover features from both scope and global registries
-    scope_metas = get_feature_types(scope)
-    global_metas = get_feature_types("global")
-
-    scope_ids = {m.feature_id for m in scope_metas}
-    global_ids = {m.feature_id for m in global_metas}
-    all_ids = scope_ids | global_ids
-
-    # Determine feature order
-    registered_order = get_feature_order(scope)
-    if registered_order is not None:
-        # Use explicit order -- only features present in registries
-        feature_names = [n for n in registered_order if n in all_ids]
-        preserve_order = True
-    else:
-        # Alphabetical fallback -- include everything
-        feature_names = sorted(all_ids)
-        preserve_order = False
-
     lookup_scopes = [scope, "global"]
 
     composed_fn = compose_feature_fns(
         feature_names, scope, n_agents,
-        scopes=lookup_scopes, preserve_order=preserve_order,
+        scopes=lookup_scopes, preserve_order=True,
     )
 
     total_dim = obs_dim_for_features(

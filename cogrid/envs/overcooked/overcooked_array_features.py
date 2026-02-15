@@ -485,7 +485,7 @@ class EnvironmentLayout(ArrayFeature):
 # ---------------------------------------------------------------------------
 
 from cogrid.core.component_registry import (
-    register_feature_order,
+    register_pre_compose_hook,
     register_layout_indices,
 )
 
@@ -495,25 +495,7 @@ def _overcooked_pre_compose_hook(layout_idx: int, scope: str) -> None:
     LayoutID._layout_idx = layout_idx
 
 
-register_feature_order("overcooked", [
-    "agent_dir",
-    "overcooked_inventory",
-    "next_to_counter",
-    "next_to_pot",
-    "closest_onion",
-    "closest_plate",
-    "closest_plate_stack",
-    "closest_onion_stack",
-    "closest_onion_soup",
-    "closest_delivery_zone",
-    "closest_counter",
-    "ordered_pot_features",
-    "dist_to_other_players",
-    "agent_position",
-    "can_move_direction",
-    "layout_id",
-    "environment_layout",
-], pre_compose_hook=_overcooked_pre_compose_hook)
+register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)
 
 register_layout_indices("overcooked", {
     "overcooked_cramped_room_v0": 0,
