@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 21 of 24 (File Restructuring)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-02-15 -- Phase 20 verified and complete
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-02-15 -- Completed 21-01 (grid_object.py split)
 
-Progress: [██████░░░░░░░░░░░░░░░░░░░░░░░░] 3/? v1.4 plans complete
+Progress: [███████░░░░░░░░░░░░░░░░░░░░░░░] 4/12 v1.4 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 51 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 3 v1.4)
+- Total plans completed: 52 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 4 v1.4)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -49,6 +49,7 @@ Progress: [██████░░░░░░░░░░░░░░░░░
 | 18.1 | 1/1 | 7min | 7min |
 | 19 | 1/1 | 8min | 8min |
 | 20 | 3/3 | 15min | 5min |
+| 21 | 1/3 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -59,6 +60,7 @@ Progress: [██████░░░░░░░░░░░░░░░░░
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [21-01]: Re-export shim pattern for module splits; lazy imports in method bodies to break circular deps
 - [20-03]: Backend conditional helpers (_backend_rng, _maybe_stop_gradient, _maybe_jit) consolidate 11 conditionals to exactly 6
 - [20-01]: BackendProxy uses __getattr__ delegation to xp_module -- simplest proxy, xp singleton never reassigned
 - [v1.4]: Module-level xp imports -- standard Python pattern; backend __getattr__ handles lazy resolution
@@ -82,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 20 verified complete, ready to plan Phase 21
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None
