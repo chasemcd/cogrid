@@ -58,8 +58,6 @@ class Counter(GridObj):
     char = "C"
 
     def __init__(self, state: int = 0, **kwargs):
-        # TODO(chase): need to be able to initialize an object on top
-        #   via the state. Take state and map it to an object.
         super().__init__(
             state=state,
         )

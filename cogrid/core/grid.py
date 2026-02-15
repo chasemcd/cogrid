@@ -72,7 +72,6 @@ class Grid:
         :return: Whether the item is in the grid.
         :rtype: bool
         """
-        # TODO(chase): Add the ability to pass an encoding.
         if isinstance(item, GridObj):
             for grid_obj in self.grid:
                 if grid_obj is item:
@@ -366,9 +365,6 @@ class Grid:
         :return: An RGB image of the rendered grid.
         :rtype: np.ndarray
         """
-
-        # TODO(chase): Make efficiency improvements here. One option is to use
-        # "dirty tiles" so we only render the tiles that have changed.
 
         if highlight_mask is None:
             highlight_mask = np.zeros(

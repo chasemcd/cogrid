@@ -113,7 +113,7 @@ class GridObj:
 
         return (
             self.char if encode_char else object_to_idx(self, scope=scope),
-            0,  # TODO(chase): Remove. This used to be color, but we're no longer using it.
+            0,
             int(self.state),
         )
 
@@ -190,8 +190,6 @@ class GridAgent(GridObj):
 
         self.object_id = f"agent_{self.char}"
 
-        # TODO(chase): State must encapsulate carried objects and role
-        # state = agent.role_idx
         state = (
             0
             if len(agent.inventory) == 0

@@ -9,21 +9,6 @@ from cogrid.core import typing
 
 import numpy as np
 
-# try:
-#     import onnxruntime as ort
-# except ImportError:
-#     raise ImportError(
-#         "Must `pip install onnxruntime` to use the ONNX inference utils!"
-#     )
-
-# try:
-#     from scipy import special
-# except ImportError:
-#     raise ImportError(
-#         "Must `pip install scipy` to use the ONNX inference utils!"
-#     )
-
-
 try:
     import pygame
 except ImportError:
@@ -141,8 +126,6 @@ class HumanPlay:
                 if a_id == self.human_agent_id:
                     continue
                 actions[a_id] = self.env.action_spaces[a_id].sample()
-                # if self.env.t % 5 == 0:
-                #     actions[a_id] = onnx_model_inference_fn(obs, model)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -178,9 +161,6 @@ class HumanPlay:
         }
         self.obs, rewards, terminateds, truncateds, _ = self.env.step(int_actions)
         self.cumulative_reward += [*rewards.values()][0]
-        # print(
-        #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
-        # )
 
         if not self.env.agents:
             print("All agents done!")

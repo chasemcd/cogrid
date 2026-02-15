@@ -162,7 +162,7 @@ class Pot(grid_object.GridObj):
 
         self.objects_in_pot = []
         self.cooking_timer = self.cooking_time
-        agent.inventory.pop(0)  # TODO(chase): assumes size 1 inventory
+        agent.inventory.pop(0)
         return soup
 
     def can_place_on(

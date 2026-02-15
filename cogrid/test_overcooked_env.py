@@ -96,7 +96,6 @@ class TestOvercookedEnv(unittest.TestCase):
         """
         Move agent 0 to the pot
         agent 0 assume to start next to the tomato facing up. in cramped room
-        TODO: how to set orientation and position of the agent?
         """
         NOOP = self._a(Actions.Noop)
 

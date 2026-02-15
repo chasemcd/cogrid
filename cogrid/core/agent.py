@@ -56,16 +56,6 @@ class Agent:
 
     @property
     def dir_vec(self):
-        # dir_to_vec = [
-        #     # Pointing right (positive X)
-        #     np.array((0, 1)),
-        #     # Down (positive Y)
-        #     np.array((1, 0)),
-        #     # Pointing left (negative X)
-        #     np.array((0, -1)),
-        #     # Up (negative Y)
-        #     np.array((-1, 0)),
-        # ]
         dir_to_vec = {
             Directions.Right: np.array((0, 1)),  # Increase col away from 0
             Directions.Down: np.array(
@@ -82,7 +72,6 @@ class Agent:
 
     @property
     def right_vec(self):
-        # TODO(chase): check that this is correct
         dy, dx = self.dir_vec
         return np.array((dx, -dy))
 
@@ -111,7 +100,6 @@ class Agent:
 # Direction vectors as an array for vectorized lookups.
 # Indexed by direction enum: Right=0, Down=1, Left=2, Up=3
 # Each row is [delta_row, delta_col].
-# PHASE2: DIR_VEC_TABLE will be a constant in the EnvState module
 DIR_VEC_TABLE = None  # Initialized lazily after backend is set
 
 
@@ -189,7 +177,6 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
     }
 
 
-# PHASE2: This function will be removed when Grid/Agent objects are replaced by EnvState
 def sync_arrays_to_agents(agent_arrays: dict, env_agents: dict) -> None:
     """Update Agent objects from array state.
 
