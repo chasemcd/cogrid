@@ -5,12 +5,6 @@ import copy
 import numpy as np
 
 
-try:
-    import pygame
-except ImportError:
-    pygame = None
-
-
 from gymnasium import spaces
 import pettingzoo
 from cogrid import constants
@@ -25,6 +19,7 @@ from cogrid.core import agent
 from cogrid.core import directions
 
 from cogrid.core import layouts
+from cogrid.rendering import EnvRenderer
 
 # Vectorized components
 from cogrid.backend import set_backend
@@ -93,9 +88,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         set_backend(backend)
         self._backend = backend
 
-        # TODO(chase): Move PyGame/rendering logic outside of this class.
-        self.clock = None
-        self.render_size = None
         self.config = config
         self.render_mode = render_mode
         self.render_message = (
@@ -105,8 +97,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.screen_size = (
             kwargs.get("screen_size") or self.metadata["screen_size"]
         )
-        self.window = None
         self.name = config["name"]
+        self._renderer = EnvRenderer(
+            name=self.name,
+            screen_size=self.screen_size,
+            render_fps=self.metadata["render_fps"],
+        ) if render_mode else None
         self.cumulative_score = 0
 
         if "features" not in config or not isinstance(config["features"], list):
@@ -1172,70 +1168,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         if self.render_mode == "human":
-            if pygame is None:
-                raise ImportError(
-                    "Must install pygame to use interactive mode."
-                )
-            # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
-            if self.render_size is None:
-                self.render_size = img.shape[:2]
-            if self.window is None:
-                pygame.init()
-                pygame.display.init()
-                self.window = pygame.display.set_mode(
-                    (self.screen_size, self.screen_size)
-                )
-                pygame.display.set_caption(self.name)
-            if self.clock is None:
-                self.clock = pygame.time.Clock()
-
-            surf = pygame.surfarray.make_surface(img)
-
-            # For some reason, pygame is rotating/flipping the image...
-            surf = pygame.transform.flip(surf, False, True)
-            surf = pygame.transform.rotate(surf, 270)
-
-            # Create background with mission description
-            offset = surf.get_size()[0] * 0.1
-            bg = pygame.Surface(
-                (
-                    int(surf.get_size()[0] + offset),
-                    int(surf.get_size()[1] + offset),
-                )
-            )
-            bg.convert()
-            bg.fill((255, 255, 255))
-            bg.blit(surf, (offset / 2, 0))
-
-            bg = pygame.transform.smoothscale(
-                bg, (self.screen_size, self.screen_size)
-            )
-
-            font_size = 22
-            text = (
-                f"Score: {np.round(self.cumulative_score, 2)}"
-                + self.render_message
-            )
-
-            font = pygame.freetype.SysFont(
-                pygame.font.get_default_font(), font_size
-            )
-            text_rect = font.get_rect(text, size=font_size)
-            text_rect.center = bg.get_rect().center
-            text_rect.y = bg.get_height() - font_size * 1.5
-            font.render_to(bg, text_rect, text, size=font_size)
-
-            self.window.blit(bg, (0, 0))
-            pygame.event.pump()
-            self.clock.tick(self.metadata["render_fps"])
-            pygame.display.update()
-
+            self._renderer.render_human(img, self.cumulative_score, self.render_message)
         elif self.render_mode == "rgb_array":
             return img
 
     def close(self):
-        if self.window:
-            pygame.quit()
+        if self._renderer is not None:
+            self._renderer.close()
 
     def get_action_mask(self, agent_id):
         raise NotImplementedError
