@@ -84,11 +84,30 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
-        # Backend dispatch: first env sets global backend, subsequent verify match
         set_backend(backend)
         self._backend = backend
-
         self.config = config
+        self.name = config["name"]
+        self.cumulative_score = 0
+        self.max_steps = config["max_steps"]
+        self.roles = config.get("roles", True)
+        self.agent_class = agent_class or agent.Agent
+        self.t = 0
+
+        if "features" not in config or not isinstance(config["features"], list):
+            raise ValueError(
+                "config['features'] must be a list of feature names."
+            )
+
+        self._init_rendering(render_mode, kwargs)
+        self._init_grid(config)
+        self._init_agents(config)
+        self._init_action_space(config)
+        self._init_vectorized_infrastructure()
+        self._init_jax_arrays()
+
+    def _init_rendering(self, render_mode, kwargs):
+        """Set up rendering attributes and optional EnvRenderer."""
         self.render_mode = render_mode
         self.render_message = (
             kwargs.get("render_message") or self.metadata["render_message"]
@@ -97,26 +116,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.screen_size = (
             kwargs.get("screen_size") or self.metadata["screen_size"]
         )
-        self.name = config["name"]
         self._renderer = EnvRenderer(
             name=self.name,
             screen_size=self.screen_size,
             render_fps=self.metadata["render_fps"],
         ) if render_mode else None
-        self.cumulative_score = 0
-
-        if "features" not in config or not isinstance(config["features"], list):
-            raise ValueError(
-                "config['features'] must be a list of feature names."
-            )
-
-        self.max_steps = config["max_steps"]
         self.visualizer = None
-        self.roles = self.config.get("roles", True)
-        self.agent_class = agent_class or agent.Agent
-        self.t = 0
 
-        # grid data is set by _gen_grid()
+    def _init_grid(self, config):
+        """Initialize grid, spawn points, and shape from config."""
         self.scope: str = config.get("scope", "global")
         self.grid: grid.Grid | None = None
         self.spawn_points: list = []
@@ -124,22 +132,23 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._gen_grid()
         self.shape = (self.grid.height, self.grid.width)
 
-        self.agent_view_size = self.config.get("agent_view_size", 7)
-
+    def _init_agents(self, config):
+        """Initialize agent bookkeeping: IDs, env_agents dict, rewards."""
         self.possible_agents = [i for i in range(config["num_agents"])]
         self.agents = copy.copy(self.possible_agents)
         self._agent_ids: set[typing.AgentID] = set(self.agents)
         self.env_agents: dict[typing.AgentID, agent.Agent] = {
             i: None for i in self.agents
-        }  # will contain: {'agent_id': agent}
-
+        }
         self.per_agent_reward: dict[typing.AgentID, float] = (
             self.get_empty_reward_dict()
         )
         self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
         self.reward_this_step = self.get_empty_reward_dict()
+        self.agent_view_size = self.config.get("agent_view_size", 7)
 
-        # Action space describes the set of actions available to agents.
+    def _init_action_space(self, config):
+        """Parse action set from config and build per-agent action spaces."""
         action_str = config.get("action_set")
         if action_str == "rotation_actions":
             self.action_set = grid_actions.ActionSets.RotationActions
@@ -150,21 +159,23 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 f"Invalid or None action set string: {action_str}."
             )
 
-        # Set the action space for the gym environment
         self.action_spaces = {
             a_id: spaces.Discrete(len(self.action_set))
             for a_id in self.agent_ids
         }
 
+        self._action_pickup_drop_idx = self.action_set.index(
+            grid_actions.Actions.PickupDrop
+        )
+        self._action_toggle_idx = self.action_set.index(
+            grid_actions.Actions.Toggle
+        )
         self.prev_actions = None
 
-        # -------------------------------------------------------------------
-        # Vectorized infrastructure (backend-agnostic)
-        # -------------------------------------------------------------------
-        # Build lookup tables for the current scope
+    def _init_vectorized_infrastructure(self):
+        """Build lookup tables, scope config, reward config, and pipeline placeholders."""
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
-        # Build scope config via auto-wiring from registered components
         from cogrid.core.autowire import (
             build_scope_config_from_components,
             build_reward_config_from_components,
@@ -173,25 +184,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._type_ids = self._scope_config["type_ids"]
         self._interaction_tables = self._scope_config.get("interaction_tables")
 
-        # Array state is built in reset() after agents are placed
         self._array_state = None
-
-        # Enable shadow parity validation (set to False for performance)
         self._validate_array_parity = False
-
-        # Feature function is built in reset() after layout is known,
-        # using autowired ArrayFeature composition.
         self._feature_fn = None
 
-        # Compute action indices for PickupDrop and Toggle
-        self._action_pickup_drop_idx = self.action_set.index(
-            grid_actions.Actions.PickupDrop
-        )
-        self._action_toggle_idx = self.action_set.index(
-            grid_actions.Actions.Toggle
-        )
-
-        # Auto-wire reward config from registered ArrayReward subclasses
         self._reward_config = build_reward_config_from_components(
             self.scope,
             n_agents=self.config["num_agents"],
@@ -199,49 +195,41 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             action_pickup_drop_idx=self._action_pickup_drop_idx,
         )
 
-        # Sorted agent ID order for dict<->array conversion (both backends)
         self._agent_id_order = sorted(self.possible_agents)
+        self._terminated_fn = self.config.get("terminated_fn")
 
-        # Optional per-agent termination function.  Can be provided via
-        # config["terminated_fn"] or set_terminated_fn() before reset().
-        self._terminated_fn = config.get("terminated_fn")
-
-        # Step/reset pipeline functions -- initialized lazily in reset()
         self._step_fn = None
         self._reset_fn = None
         self._env_state = None
 
-        # -------------------------------------------------------------------
-        # JAX-specific setup: pytree registration, array conversion
-        # -------------------------------------------------------------------
-        if self._backend == 'jax':
-            import jax.numpy as jnp
-            from cogrid.backend.env_state import register_envstate_pytree
+    def _init_jax_arrays(self):
+        """Convert lookup and scope config tables to JAX arrays (JAX backend only)."""
+        if self._backend != 'jax':
+            return
 
-            # Register EnvState as JAX pytree (idempotent)
-            register_envstate_pytree()
+        import jax.numpy as jnp
+        from cogrid.backend.env_state import register_envstate_pytree
 
-            # Convert lookup tables to JAX arrays for JIT compatibility
-            for key in self._lookup_tables:
-                self._lookup_tables[key] = jnp.array(
-                    self._lookup_tables[key], dtype=jnp.int32
-                )
+        register_envstate_pytree()
 
-            # Convert static_tables in scope_config to JAX arrays
-            if "static_tables" in self._scope_config:
-                import numpy as _np
-                st = self._scope_config["static_tables"]
-                for key in st:
-                    if isinstance(st[key], _np.ndarray):
-                        st[key] = jnp.array(st[key], dtype=jnp.int32)
+        for key in self._lookup_tables:
+            self._lookup_tables[key] = jnp.array(
+                self._lookup_tables[key], dtype=jnp.int32
+            )
 
-            # Convert interaction_tables arrays to JAX
-            if self._scope_config.get("interaction_tables") is not None:
-                import numpy as _np
-                it = self._scope_config["interaction_tables"]
-                for key in it:
-                    if isinstance(it[key], _np.ndarray):
-                        it[key] = jnp.array(it[key], dtype=jnp.int32)
+        if "static_tables" in self._scope_config:
+            import numpy as _np
+            st = self._scope_config["static_tables"]
+            for key in st:
+                if isinstance(st[key], _np.ndarray):
+                    st[key] = jnp.array(st[key], dtype=jnp.int32)
+
+        if self._scope_config.get("interaction_tables") is not None:
+            import numpy as _np
+            it = self._scope_config["interaction_tables"]
+            for key in it:
+                if isinstance(it[key], _np.ndarray):
+                    it[key] = jnp.array(it[key], dtype=jnp.int32)
 
     def _gen_grid(self) -> None:
         """Generates the grid for the environment.
