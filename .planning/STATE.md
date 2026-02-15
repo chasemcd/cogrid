@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 22 of 24 (Function Decomposition)
-Plan: 1 of 2 in current phase
-Status: Executing
-Last activity: 2026-02-15 -- Completed 22-01 (decompose move_agents)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-15 -- Completed 22-02 (decompose overcooked_interaction_body)
 
-Progress: [███████████░░░░░░░░░░░░░░░░░░░] 7/? v1.4 plans complete
+Progress: [████████████░░░░░░░░░░░░░░░░░░] 8/? v1.4 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 55 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 7 v1.4)
+- Total plans completed: 56 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 8 v1.4)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -50,7 +50,7 @@ Progress: [███████████░░░░░░░░░░░░
 | 19 | 1/1 | 8min | 8min |
 | 20 | 3/3 | 15min | 5min |
 | 21 | 3/3 | 12min | 4min |
-| 22 | 1/2 | 3min | 3min |
+| 22 | 2/2 | 8min | 4min |
 
 *Updated after each plan completion*
 
@@ -61,6 +61,7 @@ Progress: [███████████░░░░░░░░░░░░
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [22-02]: Pot matching computed once in dispatcher, passed to both pickup_from_pot and place_on_pot (DRY); b4_base shared across place-on handlers
 - [22-01]: Staying-agent identification moved into _resolve_collisions; sub-functions at module level not closures
 - [21-03]: Pure mechanical extraction of __init__/reset into named helpers -- zero behavioral changes
 - [21-02]: EnvRenderer receives numpy image by value (no env reference); get_frame/get_full_render stay on CoGridEnv
@@ -88,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 22-01-PLAN.md
+Stopped at: Phase 22 complete, ready for Phase 23
 Resume file: None
