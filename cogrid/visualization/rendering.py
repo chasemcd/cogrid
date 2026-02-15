@@ -145,21 +145,7 @@ def add_text_to_image(
     color=(255, 255, 255),
     thickness=2,
 ):
-    """
-    Add text to an RGB image.
-
-    Parameters:
-    - image: numpy array representing the RGB image
-    - text: string, the text to add to the image
-    - position: tuple, the (x, y) position of the text on the image
-    - font: OpenCV font type
-    - font_scale: float, the scale of the font
-    - color: tuple, the color of the text in BGR format
-    - thickness: int, the thickness of the text
-
-    Returns:
-    - The image (numpy array) with text added
-    """
+    """Add text to an RGB image using OpenCV."""
     assert (
         cv2 is not None
     ), "Must have cv2 installed to add text. Try `pip install opencv-python`."

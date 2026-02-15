@@ -104,12 +104,9 @@ _EXPECTED_REWARD_COMPUTE_PARAMS = ["prev_state", "state", "actions", "reward_con
 
 
 def _validate_classmethod_signature(cls: type, method_name: str, method: Any) -> None:
-    """Validate that *method* on *cls* matches the expected signature.
+    """Validate that *method* matches expected params.
 
-    For classmethods the ``cls`` parameter is auto-stripped by
-    ``inspect.signature``.  If an author accidentally defines an instance
-    method (``def build_tick_fn(self)``), ``self`` will appear in the
-    params list and the check will fail with a clear message.
+    Catches instance methods mistyped as classmethods (``self`` in params).
     """
     expected = _EXPECTED_SIGNATURES.get(method_name)
     if expected is None:
@@ -131,10 +128,7 @@ def _validate_classmethod_signature(cls: type, method_name: str, method: Any) ->
 
 
 def _validate_reward_compute_signature(cls: type) -> None:
-    """Validate that ``cls.compute`` has the expected signature.
-
-    Expected: ``(self, prev_state, state, actions, reward_config)``.
-    """
+    """Validate ``cls.compute(self, prev_state, state, actions, reward_config)``."""
     sig = inspect.signature(cls.compute)
     params = list(sig.parameters.keys())
 
@@ -353,14 +347,9 @@ def get_components_with_extra_state(scope: str = "global") -> list[ComponentMeta
 # ---------------------------------------------------------------------------
 
 def register_pre_compose_hook(scope: str, hook: callable) -> None:
-    """Register a pre-compose hook for a scope.
+    """Register a hook called before feature composition.
 
-    The hook is called before feature composition with signature
-    ``(layout_idx: int, scope: str) -> None``.
-
-    Args:
-        scope: Registry scope name.
-        hook: Callable invoked before feature composition.
+    ``hook(layout_idx: int, scope: str) -> None``
     """
     _PRE_COMPOSE_HOOKS[scope] = hook
 
@@ -375,12 +364,7 @@ def get_pre_compose_hook(scope: str) -> callable | None:
 # ---------------------------------------------------------------------------
 
 def register_layout_indices(scope: str, layout_map: dict[str, int]) -> None:
-    """Register a layout-name-to-index mapping for a scope.
-
-    Args:
-        scope: Registry scope name.
-        layout_map: Dict mapping layout name strings to integer indices.
-    """
+    """Register a layout-name-to-index mapping for a scope."""
     _LAYOUT_INDEX_REGISTRY[scope] = dict(layout_map)
 
 

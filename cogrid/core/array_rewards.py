@@ -35,16 +35,9 @@ class ArrayReward:
         self.common_reward = common_reward
 
     def compute(self, prev_state, state, actions, reward_config):
-        """Compute reward for this component.
+        """Compute and return (n_agents,) float32 reward array.
 
-        Args:
-            prev_state: Dict of state arrays before step.
-            state: Dict of state arrays after step.
-            actions: (n_agents,) int32 action indices.
-            reward_config: Dict with type_ids, n_agents, etc.
-
-        Returns:
-            (n_agents,) float32 reward array.
+        Subclasses must override.
         """
         raise NotImplementedError(
             f"{type(self).__name__}.compute() is not implemented. "

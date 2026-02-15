@@ -45,15 +45,9 @@ from cogrid.feature_space.array_features import get_all_agent_obs
 
 
 def _backend_rng(rng_key, mode, n_agents):
-    """Backend-specific RNG operation.
+    """Generate random arrays (permutation or directions) via the active backend.
 
-    Args:
-        rng_key: JAX PRNG key, int seed, or None.
-        mode: "permutation" (for step priority) or "directions" (for reset).
-        n_agents: Number of agents.
-
-    Returns:
-        (new_key, result_array) -- new_key is updated JAX key or None on numpy.
+    Returns ``(new_key, result_array)`` -- splits JAX key or uses numpy Generator.
     """
     if get_backend() == "jax":
         import jax
@@ -94,24 +88,10 @@ def _maybe_jit(fn, jit_compile=None):
 
 
 def envstate_to_dict(state):
-    """Convert an EnvState to a :class:`~cogrid.backend.state_view.StateView`.
+    """Convert EnvState to a StateView with dot access and scope-stripped extras.
 
-    Creates Python-level aliases for EnvState fields. This is zero-cost
-    under JIT -- no array copies occur. The returned StateView provides
-    dot access for all fields expected by :func:`get_all_agent_obs` and
-    :func:`compute_rewards`.
-
-    Extra_state entries are flattened into ``StateView.extra`` with their
-    scope prefix stripped (e.g. ``"scope.key"`` becomes ``"key"``),
-    accessible via ``state_view.key``.
-
-    Args:
-        state: An :class:`EnvState` instance.
-
-    Returns:
-        :class:`StateView` with core fields (``agent_pos``, ``agent_dir``,
-        ``agent_inv``, ``wall_map``, ``object_type_map``,
-        ``object_state_map``) plus scope-stripped extras.
+    Zero-cost under JIT (no array copies). Extra_state keys like
+    ``"scope.key"`` become ``state_view.key``.
     """
     extra = {}
     for key, val in state.extra_state.items():
@@ -142,53 +122,15 @@ def step(
     max_steps,
     terminated_fn=None,
 ):
-    """End-to-end step function operating on EnvState.
+    """End-to-end step: tick, move, interact, observe, reward, done.
 
-    Composes tick, movement, interactions, observations, rewards, and
-    done computation into a single pure function. Non-array keyword
-    arguments are designed to be closed over via ``functools.partial``
-    or a ``build_step_fn`` factory.
+    Keyword arguments are designed to be closed over via ``build_step_fn``.
 
-    Uses ``xp`` for all array operations.  Backend-specific code is
-    limited to two conditional blocks: RNG for movement priority and
-    ``stop_gradient`` for RL training.
+    Pipeline order: (1) capture prev_state, (2) tick, (3) movement,
+    (4) interactions, (5) observations, (6) rewards, (7) terminateds/
+    truncateds, (8) stop_gradient (JAX only).
 
-    Step ordering:
-
-    1. Capture ``prev_state`` before any mutations
-    2. Tick (object timers via scope config handler)
-    3. Movement (``move_agents``)
-    4. Interactions (``process_interactions``)
-    5. Observations (``get_all_agent_obs``)
-    6. Rewards (``compute_rewards`` using prev_state)
-    7. Terminateds/truncateds (``terminated_fn`` + ``time >= max_steps``)
-    8. Stop gradient (JAX only)
-
-    Args:
-        state: Current :class:`EnvState`.
-        actions: int32 array of shape ``(n_agents,)`` with action indices.
-        scope_config: Scope config dict (static, closed over).
-        lookup_tables: Dict of property arrays (static, closed over).
-        feature_fn: Composed feature function (static, closed over).
-        reward_config: Reward config dict (static, closed over). Must
-            contain a ``"compute_fn"`` key pointing to the reward function.
-        action_pickup_drop_idx: int, PickupDrop action index.
-        action_toggle_idx: int, Toggle action index.
-        max_steps: int, maximum timesteps per episode.
-        terminated_fn: Optional callable
-            ``(prev_state, state, reward_config) -> bool array``.
-            Returns per-agent termination flags. If None, all-False.
-
-    Returns:
-        Tuple ``(state, obs, rewards, terminateds, truncateds, infos)`` where:
-        - ``state``: Updated :class:`EnvState`.
-        - ``obs``: array of shape ``(n_agents, obs_dim)``.
-        - ``rewards``: float32 array of shape ``(n_agents,)``.
-        - ``terminateds``: bool array of shape ``(n_agents,)`` from
-          ``terminated_fn`` (or all-False).
-        - ``truncateds``: bool array of shape ``(n_agents,)`` broadcast
-          from ``time >= max_steps``.
-        - ``infos``: empty dict ``{}``.
+    Returns ``(state, obs, rewards, terminateds, truncateds, infos)``.
     """
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
@@ -305,30 +247,8 @@ def reset(
 ):
     """Build initial EnvState from pre-computed layout arrays.
 
-    All layout-dependent data (``layout_arrays``, ``spawn_positions``)
-    is pre-computed at init time from the ASCII layout.  This function
-    only randomizes agent initial directions.
-
-    Uses ``xp`` for all array operations.  Backend-specific code is
-    limited to RNG (random directions) and ``stop_gradient``.
-
-    Args:
-        rng: JAX PRNG key, integer seed, or None.
-        layout_arrays: Dict with keys ``wall_map``, ``object_type_map``,
-            ``object_state_map``, plus any scope-specific arrays
-            (e.g. scope-specific extra_state arrays).
-        spawn_positions: int32 array of shape ``(n_agents, 2)`` with
-            fixed spawn points ``[row, col]``.
-        n_agents: Number of agents.
-        feature_fn: Composed feature function for initial obs.
-        scope_config: Scope config dict with ``"scope"`` key for prefix.
-        action_set: ``"cardinal"`` or ``"rotation"``.
-        max_inv_size: Maximum inventory slots per agent (default 1).
-
-    Returns:
-        Tuple ``(state, obs)`` where:
-        - ``state``: Initial :class:`EnvState`.
-        - ``obs``: Initial observations, shape ``(n_agents, obs_dim)``.
+    Layout data is pre-computed at init time; this function only
+    randomizes agent initial directions. Returns ``(state, obs)``.
     """
     # Backend-specific RNG for random initial directions
     key, agent_dir = _backend_rng(rng, "directions", n_agents)
@@ -399,24 +319,11 @@ def build_step_fn(
     terminated_fn=None,
     jit_compile=None,
 ):
-    """Build a step function with all static config closed over.
+    """Close over static config and return a step function.
 
-    Returns a function with signature
-    ``(state, actions) -> (state, obs, rewards, terminateds, truncateds, infos)``.
+    ``(state, actions) -> (state, obs, rewards, terminateds, truncateds, infos)``
 
-    Args:
-        scope_config: Scope config dict.
-        lookup_tables: Dict of property arrays.
-        feature_fn: Composed feature function.
-        reward_config: Reward config dict.
-        action_pickup_drop_idx: int, PickupDrop action index.
-        action_toggle_idx: int, Toggle action index.
-        max_steps: int, maximum timesteps per episode.
-        terminated_fn: Optional callable for per-agent termination.
-        jit_compile: If None, auto-detect from backend. If True/False, force.
-
-    Returns:
-        Step function (optionally JIT-compiled on JAX backend).
+    Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
     def step_fn(state, actions):
         return step(
@@ -445,23 +352,11 @@ def build_reset_fn(
     jit_compile=None,
     **kwargs,
 ):
-    """Build a reset function with all layout config closed over.
+    """Close over layout config and return a reset function.
 
-    Returns a function with signature ``(rng) -> (state, obs)``.
+    ``(rng) -> (state, obs)``
 
-    Args:
-        layout_arrays: Dict of pre-computed layout arrays.
-        spawn_positions: int32 array of shape (n_agents, 2).
-        n_agents: Number of agents.
-        feature_fn: Composed feature function.
-        scope_config: Scope config dict.
-        action_set: "cardinal" or "rotation".
-        jit_compile: If None, auto-detect from backend. If True/False, force.
-        **kwargs: Additional keyword args forwarded to reset()
-            (e.g., max_inv_size).
-
-    Returns:
-        Reset function (optionally JIT-compiled on JAX backend).
+    Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
     def reset_fn(rng):
         return reset(

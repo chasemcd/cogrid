@@ -36,14 +36,9 @@ SYMBOL_REGISTRY: dict[str, dict[str, dict]] = {}
 
 
 def register_symbols(scope: str, symbols: dict[str, dict]) -> None:
-    """Register symbol mappings for a scope.
+    """Register char-to-properties mappings for a scope.
 
-    Each entry maps a single character to a properties dict, e.g.
-    ``{"object_id": "wall", "is_wall": True}``.
-
-    Args:
-        scope: Scope name (e.g. "overcooked").
-        symbols: Dict mapping characters to property dicts.
+    Example entry: ``{"#": {"object_id": "wall", "is_wall": True}}``.
     """
     SYMBOL_REGISTRY[scope] = symbols
 
@@ -51,18 +46,8 @@ def register_symbols(scope: str, symbols: dict[str, dict]) -> None:
 def get_symbols(scope: str, scope_config: dict | None = None) -> dict[str, dict]:
     """Return symbol mappings for a scope.
 
-    Checks the explicit :data:`SYMBOL_REGISTRY` first. Falls back to
-    the ``symbol_table`` key in *scope_config* if provided.
-
-    Args:
-        scope: Scope name.
-        scope_config: Optional scope config dict with a ``symbol_table`` key.
-
-    Returns:
-        Dict mapping characters to property dicts.
-
-    Raises:
-        ValueError: If no symbols are found for the scope.
+    Checks :data:`SYMBOL_REGISTRY` first, falls back to
+    ``scope_config["symbol_table"]``.
     """
     if scope in SYMBOL_REGISTRY:
         return SYMBOL_REGISTRY[scope]
@@ -82,34 +67,15 @@ def parse_layout(
     action_set: str = "cardinal",
     rng_key=None,
 ) -> "EnvState":
-    """Parse ASCII layout strings into a fully initialized EnvState.
+    """Parse ASCII layout strings directly into a fully initialized EnvState.
 
-    Iterates over the layout character-by-character, building numpy
-    arrays for the grid state. No Grid, GridObj, or Agent objects are
-    created.
+    No Grid, GridObj, or Agent objects are created. Special characters:
+    ``' '`` (empty), ``'#'`` (wall), ``'+'`` (spawn); all others are
+    looked up in the symbol table.
 
-    Special characters:
-        - ``' '`` (space): free/empty cell (type 0).
-        - ``'#'``: wall (wall_map=1, object_type_map=wall type ID).
-        - ``'+'``: spawn position (cell stays empty, position collected).
-        - All others: looked up in the symbol table.
-
-    After grid parsing, calls the scope config's ``extra_state_builder``
-    (if present) to produce environment-specific extra_state arrays,
-    then validates against ``extra_state_schema``.
-
-    All arrays are converted to JAX arrays when the JAX backend is active.
-
-    Args:
-        layout_strings: List of strings, each string is one row of the grid.
-        scope: Scope name for type ID lookups and symbol resolution.
-        scope_config: Scope config dict (from ``build_scope_config_from_components``).
-        n_agents: Number of agents (default 2).
-        action_set: Action set name (default "cardinal").
-        rng_key: JAX PRNG key, or None for numpy backend.
-
-    Returns:
-        A fully initialized :class:`~cogrid.backend.env_state.EnvState`.
+    Calls the scope config's ``extra_state_builder`` if present, then
+    validates against ``extra_state_schema``. Arrays are converted to
+    JAX when the JAX backend is active.
     """
     from cogrid.backend import get_backend
     from cogrid.backend.env_state import create_env_state, validate_extra_state

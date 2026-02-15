@@ -37,42 +37,13 @@ def process_interactions(
     extra_state=None,         # dict of scope-specific state arrays
     **extra_state_kwargs,     # backward compat with **kwargs callers
 ):
-    """Process interactions for all agents using xp array operations.
+    """Process pickup/drop/place_on interactions for all agents.
 
-    Implements the same priority order as ``CoGridEnv.interact()``:
+    Priority order: (1) pickup, (2) pickup_from (scope-specific),
+    (3) drop on empty, (4) place_on. Agents are processed sequentially
+    (lower index = higher priority).
 
-    1. can_pickup -- pick up a pickupable object (empty inventory required)
-    2. can_pickup_from -- delegated to scope config interaction_body
-    3. drop on empty -- drop held item onto empty grid cell
-    4. place_on -- generic structure with scope-specific delegation
-
-    For N agents, interactions are unrolled as N sequential calls to the
-    scope config's ``interaction_body``. Agent 0 has priority (processes
-    first), and later agents see the updated state. All per-agent condition
-    computation uses xp.where cascading with zero int() casts.
-
-    Args:
-        agent_pos: Agent positions, shape ``(n_agents, 2)``.
-        agent_dir: Agent directions, shape ``(n_agents,)``.
-        agent_inv: Agent inventories, shape ``(n_agents, 1)``. -1 = empty.
-        actions: Action indices, shape ``(n_agents,)``.
-        object_type_map: Grid object type IDs, shape ``(H, W)``.
-        object_state_map: Grid object states, shape ``(H, W)``.
-        lookup_tables: Dict of property arrays from ``build_lookup_tables()``.
-        scope_config: Scope config dict from ``build_scope_config_from_components()``.
-        dir_vec_table: Direction vector lookup, shape ``(4, 2)``.
-        action_pickup_drop_idx: Integer index of the PickupDrop action.
-        action_toggle_idx: Integer index of the Toggle action.
-        extra_state: Dict of scope-specific state arrays passed through
-            to the interaction_body. The interaction_body reads/writes
-            what it needs; core code never inspects the contents.
-        **extra_state_kwargs: Backward-compatible kwargs form. If
-            ``extra_state`` is None, kwargs are collected into a dict.
-
-    Returns:
-        Tuple of ``(agent_inv, object_type_map, object_state_map, extra_state)``
-        where extra_state is the dict of scope-specific arrays (potentially
-        mutated by the interaction_body).
+    Returns ``(agent_inv, object_type_map, object_state_map, extra_state)``.
     """
     if extra_state is None:
         extra_state = extra_state_kwargs if extra_state_kwargs else {}

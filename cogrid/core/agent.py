@@ -7,21 +7,6 @@ from cogrid.core.grid_object import GridObj
 
 class Agent:
     def __init__(self, agent_id, start_position, start_direction, **kwargs):
-        """
-        When developing a subclass, you must, at the very least, implement `consume()`. This
-        defines how an agent interacts with their current position on the map and sets their reward
-        for that turn.
-
-        :param agent_id: unique identifier
-        :param start_position: starting spawn position
-        :param env: 2d grid environment
-        :param obs_type: `position' or 'view'. Position simply returns (row, col) coordinates,
-                view returns a matrix representing the FoV.
-        :param image: (boolean) If true, a `view' observation will return an RGB image (e.g., for CNNs)
-        :param row_view: how many rows in either direction the agent can view
-        :param col_view: how many columns in either direction the agent can view
-        :param actions: dict keyed by integers with corresponding string actions
-        """
         self.id: str = agent_id
         self.pos: tuple[int, int] = start_position
         self.dir: Directions = start_direction
@@ -125,23 +110,11 @@ def get_dir_vec_table():
 
 
 def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
-    """Convert Agent objects to array-based representation.
+    """Convert Agent objects to parallel arrays (pos, dir, inv).
 
-    Takes the existing ``env_agents`` dict (mapping AgentID -> Agent) and
-    creates parallel array representations for use by vectorized operations.
-
-    Args:
-        env_agents: Dict mapping AgentID -> Agent instance.
-        scope: Object registry scope for inventory type ID lookups.
-
-    Returns:
-        Dict containing:
-        - ``"agent_pos"``: int32 array of shape ``(n_agents, 2)`` with ``[row, col]``.
-        - ``"agent_dir"``: int32 array of shape ``(n_agents,)`` with direction integers.
-        - ``"agent_inv"``: int32 array of shape ``(n_agents, 1)`` with held item type IDs,
-          or -1 if inventory is empty.
-        - ``"agent_ids"``: list of AgentID in array index order.
-        - ``"n_agents"``: integer agent count.
+    Returns dict with ``agent_pos`` (n_agents, 2), ``agent_dir`` (n_agents,),
+    ``agent_inv`` (n_agents, 1) with -1 sentinel for empty, ``agent_ids``,
+    and ``n_agents``. Agents are sorted by ID for deterministic ordering.
     """
     import numpy as _np
     from cogrid.core.grid_object import object_to_idx
@@ -178,17 +151,7 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
 
 
 def sync_arrays_to_agents(agent_arrays: dict, env_agents: dict) -> None:
-    """Update Agent objects from array state.
-
-    Inverse of :func:`create_agent_arrays`. Updates position and direction
-    on each Agent from the corresponding array entries. Inventory sync is
-    deferred to Plan 04 (interactions) since mapping type IDs back to
-    GridObj instances requires more context.
-
-    Args:
-        agent_arrays: Dict produced by :func:`create_agent_arrays`.
-        env_agents: Dict mapping AgentID -> Agent instance.
-    """
+    """Write array-state pos/dir back to Agent objects (inverse of create_agent_arrays)."""
     sorted_items = sorted(env_agents.items(), key=lambda x: x[0])
 
     for i, (a_id, agent) in enumerate(sorted_items):

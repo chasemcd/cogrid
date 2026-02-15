@@ -155,29 +155,10 @@ def move_agents(
     priority,         # (n_agents,) int32 -- pre-computed priority ordering
     action_set,       # str -- "cardinal" or "rotation"
 ):
-    """Compute new agent positions and directions from actions.
+    """Compute new positions and directions with collision/swap resolution.
 
-    All proposed positions, collision resolution, and swap detection are
-    computed via ``xp`` array operations. The function works identically
-    on numpy and JAX backends.
-
-    Args:
-        agent_pos: Current positions, shape ``(n_agents, 2)``, int32.
-        agent_dir: Current direction enums, shape ``(n_agents,)``, int32.
-        actions: Action indices, shape ``(n_agents,)``, int32.
-        wall_map: Binary wall mask, shape ``(H, W)``, int32.
-        object_type_map: Object type IDs per cell, shape ``(H, W)``, int32.
-        can_overlap: Per-type overlap flag, shape ``(n_types,)``, int32.
-        priority: Agent indices in resolution order, shape ``(n_agents,)``,
-            int32. ``priority[0]`` is the highest-priority agent. The caller
-            generates this via ``rng.permutation(n_agents)`` (numpy) or
-            ``jax.random.permutation(key, n_agents)`` (JAX).
-        action_set: ``"cardinal"`` or ``"rotation"``.
-
-    Returns:
-        Tuple ``(new_pos, new_dir)`` where:
-        - ``new_pos``: int32 array of shape ``(n_agents, 2)``
-        - ``new_dir``: int32 array of shape ``(n_agents,)``
+    ``priority[0]`` is the highest-priority agent (caller provides via
+    ``rng.permutation``). Returns ``(new_pos, new_dir)``.
     """
     new_dir, is_mover = _update_directions(agent_dir, actions, action_set)
     proposed = _compute_proposed_positions(

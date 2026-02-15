@@ -30,22 +30,7 @@ from cogrid.core.array_rewards import ArrayReward, register_reward_type
 
 
 def _compute_fwd_positions(prev_state):
-    """Compute forward positions for all agents.
-
-    Shared helper used by all reward functions. Returns the forward position,
-    clipped coordinates for safe indexing, in-bounds mask, and forward type IDs.
-
-    Args:
-        prev_state: dict of state arrays.
-
-    Returns:
-        Tuple of (fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types) where:
-            fwd_pos: (n_agents, 2) int32 -- raw forward positions
-            fwd_r: (n_agents,) int32 -- clipped row indices
-            fwd_c: (n_agents,) int32 -- clipped col indices
-            in_bounds: (n_agents,) bool -- whether forward position is in grid
-            fwd_types: (n_agents,) int32 -- object type IDs at forward positions
-    """
+    """Compute forward positions, clipped indices, bounds mask, and forward type IDs."""
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
@@ -76,26 +61,7 @@ def delivery_reward(
     common_reward=True,
     action_pickup_drop_idx=4,
 ):
-    """Reward for delivering OnionSoup to a DeliveryZone.
-
-    Fully vectorized across all agents. No Python loops or int() casts.
-    type_ids is a Python dict used at trace time (not traced).
-    common_reward and coefficient are Python values used at trace time.
-
-    Args:
-        prev_state: dict of state arrays (agent_pos, agent_dir, agent_inv,
-            object_type_map).
-        state: dict of state arrays after step (unused, matches signature).
-        actions: (n_agents,) int32 action indices.
-        type_ids: Python dict mapping type names to int IDs.
-        n_agents: int (Python, not traced).
-        coefficient: float reward value.
-        common_reward: bool, if True all agents share the reward.
-        action_pickup_drop_idx: int action index for pickup/drop.
-
-    Returns:
-        (n_agents,) float32 array of rewards.
-    """
+    """Reward for delivering soup to a DeliveryZone. Fully vectorized."""
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )
@@ -131,27 +97,7 @@ def onion_in_pot_reward(
     common_reward=False,
     action_pickup_drop_idx=4,
 ):
-    """Reward for placing an onion into a pot with capacity.
-
-    Fully vectorized across all agents. Uses array-based pot position matching
-    instead of Python loop pot index lookup.
-
-    pot_positions must be a (n_pots, 2) array (not a Python list).
-
-    Args:
-        prev_state: dict of state arrays including pot_positions (n_pots, 2),
-            pot_contents (n_pots, 3).
-        state: dict (unused, matches signature).
-        actions: (n_agents,) int32 action indices.
-        type_ids: Python dict mapping type names to int IDs.
-        n_agents: int.
-        coefficient: float reward value.
-        common_reward: bool.
-        action_pickup_drop_idx: int.
-
-    Returns:
-        (n_agents,) float32 array of rewards.
-    """
+    """Reward for placing an onion into a pot with capacity. Fully vectorized."""
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )
@@ -215,24 +161,7 @@ def soup_in_dish_reward(
     common_reward=False,
     action_pickup_drop_idx=4,
 ):
-    """Reward for picking up a ready soup from a pot with a plate.
-
-    Fully vectorized across all agents. Uses array-based pot position matching.
-
-    Args:
-        prev_state: dict of state arrays including pot_positions (n_pots, 2),
-            pot_timer (n_pots,).
-        state: dict (unused, matches signature).
-        actions: (n_agents,) int32 action indices.
-        type_ids: Python dict mapping type names to int IDs.
-        n_agents: int.
-        coefficient: float reward value.
-        common_reward: bool.
-        action_pickup_drop_idx: int.
-
-    Returns:
-        (n_agents,) float32 array of rewards.
-    """
+    """Reward for picking up a ready soup from a pot with a plate. Fully vectorized."""
     fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
         prev_state
     )

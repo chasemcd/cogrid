@@ -24,19 +24,7 @@ from cogrid.core.grid_object import object_to_idx, get_object_names
 
 
 def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
-    """Build extra_state dict for Overcooked from parsed layout arrays.
-
-    Called by the layout parser when scope='overcooked'. Finds pot
-    positions from object_type_map and creates the pot state arrays.
-
-    Args:
-        parsed_arrays: Dict with "object_type_map" and other grid arrays.
-        scope: Scope name for type ID lookups.
-
-    Returns:
-        Dict with scope-prefixed keys: overcooked.pot_contents,
-        overcooked.pot_timer, overcooked.pot_positions.
-    """
+    """Build pot state arrays (contents, timer, positions) from the layout."""
     import numpy as _np
 
     pot_type_id = object_to_idx("pot", scope=scope)
@@ -64,21 +52,9 @@ def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
 
 
 def _wrap_overcooked_interaction_body(original_fn):
-    """Wrap positional-arg interaction_body for generic extra_state dict protocol.
+    """Adapt the positional-arg interaction body to the generic extra_state dict protocol.
 
-    Unpacks pot arrays from the ``extra_state`` dict, calls the original
-    Overcooked interaction body with positional args, and repacks the
-    returned pot arrays back into a new dict.  ``pot_positions`` is
-    read-only and preserved via the ``{**extra_state, ...}`` spread.
-
-    Args:
-        original_fn: The positional-arg ``overcooked_interaction_body``.
-
-    Returns:
-        Wrapped function matching the generic interaction_body protocol:
-        ``(agent_idx, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
-        base_ok, extra_state, static_tables) -> (agent_inv, otm, osm,
-        extra_state)``.
+    Unpacks pot arrays from ``extra_state``, calls the original, repacks.
     """
     def wrapped(agent_idx, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
                 base_ok, extra_state, static_tables):
@@ -98,20 +74,7 @@ def _wrap_overcooked_interaction_body(original_fn):
 
 
 def _build_interaction_tables(scope: str = "overcooked") -> dict:
-    """Build auxiliary lookup tables for interaction processing.
-
-    Moved from ``cogrid.core.interactions.build_interaction_tables()``.
-
-    Returns a dict containing:
-    - ``"pickup_from_produces"``: int32 array indexed by type_id, giving the
-      type_id of the item produced when picking up from that object. 0 = N/A.
-    - ``"legal_pot_ingredients"``: int32 array indexed by type_id, 1 if the
-      type is a legal pot ingredient.
-    - ``"type_ids"``: dict mapping human-readable names to type_id integers.
-
-    Args:
-        scope: Object registry scope.
-    """
+    """Build pickup_from_produces and legal_pot_ingredients lookup arrays."""
     names = get_object_names(scope=scope)
     n_types = len(names)
 
@@ -161,17 +124,7 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
 
 
 def _build_type_ids(scope: str = "overcooked") -> dict:
-    """Build a mapping of type name -> type_id for the Overcooked scope.
-
-    Moved from ``CoGridEnv._build_type_ids()``.
-
-    Args:
-        scope: Object registry scope.
-
-    Returns:
-        Dict mapping type name strings to integer type IDs.
-        Returns -1 for types that do not exist in the scope.
-    """
+    """Map Overcooked type names to integer type IDs (-1 if missing)."""
     names = get_object_names(scope=scope)
     type_ids = {}
     type_names_needed = [
@@ -196,27 +149,9 @@ def _build_type_ids(scope: str = "overcooked") -> dict:
 
 
 def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
-    """Extract Overcooked-specific state arrays from a Grid object.
+    """Extract pot positions, contents, and timer arrays from a Grid object.
 
-    Moved from the pot-specific extraction in ``layout_to_array_state()``.
-
-    Given a Grid object, iterates cells to find pots and extracts their
-    positions, contents, and timer values into parallel arrays.
-
-    Always uses numpy for mutable array construction (called during reset's
-    layout parsing phase). Callers convert to JAX arrays when needed.
-
-    Args:
-        grid: A Grid instance.
-        scope: Object registry scope for type ID lookups.
-
-    Returns:
-        Dict containing:
-        - ``"pot_positions"``: list of ``(row, col)`` tuples for all pots.
-        - ``"pot_contents"``: int32 array of shape ``(n_pots, 3)`` with
-          ingredient type IDs, -1 sentinel for empty slots.
-        - ``"pot_timer"``: int32 array of shape ``(n_pots,)`` with cooking
-          timer values.
+    Uses numpy (init-time only). Returns pot_positions, pot_contents, pot_timer.
     """
     import numpy as _np
 
@@ -253,22 +188,10 @@ def _extract_overcooked_state(grid, scope: str = "overcooked") -> dict:
 
 
 def overcooked_tick(pot_contents, pot_timer, capacity=3, cooking_time=30):
-    """Unified pot cooking timer update using xp.
+    """Decrement cooking timer for full pots and compute pot state encoding.
 
-    Matches existing ``Pot.tick()`` behavior: count non-sentinel items
-    per pot; if pot is full and timer > 0, decrement; compute pot state
-    encoding as ``n_items + n_items * timer``.
-
-    Works on both numpy and JAX backends via xp.
-
-    Args:
-        pot_contents: Pot ingredient arrays, shape ``(n_pots, 3)``.
-        pot_timer: Pot cooking timers, shape ``(n_pots,)``.
-        capacity: Maximum items per pot (default 3).
-        cooking_time: Initial timer value (default 30).
-
-    Returns:
-        Tuple of ``(pot_contents, new_timer, pot_state)``.
+    ``pot_state = n_items + n_items * timer``. Returns
+    ``(pot_contents, new_timer, pot_state)``.
     """
     n_items = xp.sum(pot_contents != -1, axis=1).astype(xp.int32)
     is_cooking = (n_items == capacity) & (pot_timer > 0)
@@ -278,22 +201,7 @@ def overcooked_tick(pot_contents, pot_timer, capacity=3, cooking_time=30):
 
 
 def overcooked_tick_state(state, scope_config):
-    """Tick handler with the generic (state, scope_config) signature.
-
-    Wraps :func:`overcooked_tick` to conform to the scope-generic
-    tick handler interface expected by ``step_pipeline.step()``.
-    Extracts pot arrays from ``state.extra_state``, calls
-    ``overcooked_tick()``, writes ``pot_state`` into
-    ``object_state_map``, and returns the updated ``EnvState``.
-
-    Args:
-        state: Current :class:`EnvState`.
-        scope_config: Scope config dict (unused beyond convention).
-
-    Returns:
-        Updated :class:`EnvState` with ticked pot timers and
-        updated object_state_map.
-    """
+    """Generic tick handler: extract pot arrays, tick, write back to EnvState."""
     import dataclasses
 
     pot_contents = state.extra_state["overcooked.pot_contents"]
@@ -476,31 +384,11 @@ def overcooked_interaction_body(
     pot_positions,        # (n_pots, 2) int32
     static_tables,        # dict of static lookup arrays
 ):
-    """Dispatch per-agent interaction to named branch handlers.
+    """Dispatch per-agent interaction to branch handlers and merge results.
 
-    Each handler computes its condition and result arrays. The final
-    ``_apply_interaction_updates`` merges all results with cascading
-    ``xp.where``.  See individual ``_interact_*`` functions for branch
-    details.
-
-    Args:
-        agent_idx: Agent index (Python int or scalar array).
-        agent_inv: Agent inventories, shape ``(n_agents, 1)``.
-        object_type_map: Grid object type IDs, shape ``(H, W)``.
-        object_state_map: Grid object states, shape ``(H, W)``.
-        fwd_r: Forward cell row (scalar array, not Python int).
-        fwd_c: Forward cell column (scalar array, not Python int).
-        fwd_type: Type ID at forward cell (scalar array).
-        inv_item: Type ID in agent inventory (scalar array).
-        base_ok: Whether this agent is interacting and no agent ahead.
-        pot_contents: Pot ingredient arrays, shape ``(n_pots, 3)``.
-        pot_timer: Pot cooking timers, shape ``(n_pots,)``.
-        pot_positions: Pot positions, shape ``(n_pots, 2)``.
-        static_tables: Dict of static lookup arrays and int constants.
-
-    Returns:
-        Tuple of ``(agent_inv, object_type_map, object_state_map,
-        pot_contents, pot_timer)``.
+    Branches: (1) pickup, (2a) pickup from pot, (2b) pickup from stack,
+    (3) drop on empty, (4a) place on pot, (4b) place on delivery zone,
+    (4c) place on counter. All results merged via cascading ``xp.where``.
     """
     # Unpack static tables
     CAN_PICKUP = static_tables["CAN_PICKUP"]
@@ -582,21 +470,9 @@ def overcooked_interaction_body(
 
 
 def _build_static_tables(scope, itables, type_ids):
-    """Build the static tables dict consumed by the interaction body.
+    """Build the static tables dict closed over by the interaction body.
 
-    All values are Python ints or arrays created at config-build time.
-    They are closed over by the interaction body at trace time,
-    not traced themselves.
-
-    Args:
-        scope: Object registry scope.
-        itables: Interaction tables dict from ``_build_interaction_tables``.
-        type_ids: Type IDs dict from ``_build_type_ids``.
-
-    Returns:
-        Dict with CAN_PICKUP, CAN_PICKUP_FROM, CAN_PLACE_ON arrays,
-        pickup_from_produces, legal_pot_ingredients arrays, and all
-        Overcooked-specific type ID constants.
+    Includes property arrays, interaction tables, and type ID constants.
     """
     from cogrid.core.grid_object import build_lookup_tables
 

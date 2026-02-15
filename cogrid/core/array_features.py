@@ -54,13 +54,8 @@ class ArrayFeature:
     def build_feature_fn(cls, scope):
         """Build and return the feature extraction function.
 
-        Args:
-            scope: Registry scope name for pre-computing type IDs
-                and scope-dependent lookups.
-
-        Returns:
-            For per_agent=True: fn(state, agent_idx) -> ndarray
-            For per_agent=False: fn(state) -> ndarray
+        Must return ``fn(state, agent_idx) -> ndarray`` for per-agent
+        features, or ``fn(state) -> ndarray`` for global features.
         """
         raise NotImplementedError(
             f"{cls.__name__}.build_feature_fn() is not implemented. "
@@ -76,14 +71,7 @@ class ArrayFeature:
 def _resolve_feature_metas(feature_names, scope, scopes=None):
     """Look up FeatureMetadata for each name, raising on missing entries.
 
-    Args:
-        feature_names: List of feature name strings to resolve.
-        scope: Default registry scope (used when *scopes* is None).
-        scopes: Optional list of scope strings.  When provided, metadata
-            is merged from ALL listed scopes, allowing cross-scope lookup.
-
-    Returns:
-        dict mapping feature_id -> FeatureMetadata
+    When *scopes* is provided, metadata is merged from all listed scopes.
     """
     from cogrid.core.component_registry import get_feature_types
 
@@ -106,17 +94,8 @@ def _resolve_feature_metas(feature_names, scope, scopes=None):
 def obs_dim_for_features(feature_names, scope, n_agents, scopes=None):
     """Compute total observation dimension for a list of feature names.
 
-    Per-agent features contribute ``obs_dim * n_agents`` (one block per agent
-    in ego-centric order).  Global features contribute ``obs_dim`` once.
-
-    Args:
-        feature_names: List of registered feature name strings.
-        scope: Registry scope.
-        n_agents: Number of agents.
-        scopes: Optional list of scope strings for multi-scope lookup.
-
-    Returns:
-        int: Total observation dimension.
+    Per-agent features contribute ``obs_dim * n_agents`` (one block per
+    agent in ego-centric order). Global features contribute ``obs_dim`` once.
     """
     meta_by_id = _resolve_feature_metas(feature_names, scope, scopes=scopes)
 
@@ -133,35 +112,16 @@ def obs_dim_for_features(feature_names, scope, n_agents, scopes=None):
 def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_order=False):
     """Compose registered features into a single ego-centric observation function.
 
-    Discovers features by name from the registry for the given *scope* (or
-    multiple *scopes*).  Builds each feature's function via
-    ``build_feature_fn(scope)``.  Returns a single function that concatenates
-    all features in ego-centric order.  ``state`` is a
-    :class:`~cogrid.backend.state_view.StateView`.
+    Concatenation order:
 
     1. Focal agent's per-agent features
-    2. Other agents' per-agent features in ascending index order (skipping focal),
-       each agent's features in the same order
+    2. Other agents' per-agent features (ascending index, skipping focal)
     3. Global features
 
-    When ``preserve_order`` is False (default), per-agent and global name lists
-    are sorted alphabetically.  When True, the caller-provided order within
-    ``feature_names`` is preserved (per-agent and global groups are extracted
-    in list order).
+    By default, names within each group are sorted alphabetically.
+    Set ``preserve_order=True`` to keep the caller-provided order.
 
-    All feature outputs are raveled and cast to float32 before concatenation.
-
-    Args:
-        feature_names: List of registered feature name strings.
-        scope: Registry scope (used as default when *scopes* is None, and
-            as the scope passed to ``build_feature_fn``).
-        n_agents: Number of agents.
-        scopes: Optional list of scope strings for multi-scope lookup.
-        preserve_order: If True, keep the caller-provided feature order
-            instead of sorting alphabetically.
-
-    Returns:
-        fn(state, agent_idx) -> (obs_dim,) float32 ndarray
+    Returns ``fn(state, agent_idx) -> (obs_dim,) float32``.
     """
     meta_by_id = _resolve_feature_metas(feature_names, scope, scopes=scopes)
 

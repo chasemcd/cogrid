@@ -106,18 +106,7 @@ def register_envstate_pytree() -> None:
 
 
 def create_env_state(**kwargs) -> EnvState:
-    """Create an :class:`EnvState` from keyword arguments.
-
-    If the active backend is ``'jax'``, calls
-    :func:`register_envstate_pytree` first to ensure the pytree
-    registration is in place.
-
-    All keyword arguments are forwarded to the :class:`EnvState`
-    constructor.
-
-    Returns:
-        A new :class:`EnvState` instance.
-    """
+    """Create an EnvState, ensuring JAX pytree registration if needed."""
     from cogrid.backend import get_backend
 
     if get_backend() == "jax":
@@ -152,13 +141,10 @@ def replace_extra(state, key, value, scope=None):
 
 
 def validate_extra_state(extra_state, schema):
-    """Validate extra_state dict against a schema.
+    """Validate extra_state keys/shapes against a schema dict.
 
-    Schema is a dict mapping key -> {"shape": tuple, "dtype": str}.
-    Shape tuples may contain symbolic dims (strings) which are checked
-    for dimensional consistency only (not exact value).
-
-    Raises ValueError if validation fails.
+    Schema maps ``key -> {"shape": tuple, "dtype": str}``. Symbolic
+    dims (strings) are checked for ndim consistency only.
     """
     for key, spec in schema.items():
         if key not in extra_state:

@@ -39,18 +39,10 @@ xp = BackendProxy()
 
 
 def set_backend(name: str) -> None:
-    """Set the active array backend.
+    """Set the active array backend ('numpy' or 'jax').
 
-    Must be called before any simulation code accesses xp. Once set, the backend
-    cannot be changed to a different one within the same process.
-
-    Args:
-        name: Backend name, either 'numpy' or 'jax'.
-
-    Raises:
-        RuntimeError: If backend already set to a different value.
-        ImportError: If 'jax' requested but JAX is not installed.
-        ValueError: If name is not 'numpy' or 'jax'.
+    Must be called before any simulation code accesses ``xp``. Once set,
+    the backend cannot be changed within the same process.
     """
     global _backend_name, _backend_set, xp_module
 
@@ -80,11 +72,7 @@ def set_backend(name: str) -> None:
 
 
 def get_backend() -> str:
-    """Return the name of the currently active backend.
-
-    Returns:
-        str: Either 'numpy' or 'jax'.
-    """
+    """Return the currently active backend name ('numpy' or 'jax')."""
     return _backend_name
 
 

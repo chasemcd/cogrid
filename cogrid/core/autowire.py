@@ -19,24 +19,10 @@ def build_feature_config_from_components(
     n_agents: int,
     layout_idx: int = 0,
 ) -> dict:
-    """Build a feature_config dict from registered ArrayFeature subclasses.
+    """Build feature_config from registered ArrayFeature subclasses.
 
-    Uses the explicit *feature_names* list provided by the caller (from
-    ``config["features"]``) to determine which features to compose and in
-    what order.
-
-    Args:
-        scope: Registry scope name (e.g. "my_domain").
-        feature_names: Ordered list of feature IDs to include.
-        n_agents: Number of agents.
-        layout_idx: Integer index of the current layout (used by LayoutID).
-
-    Returns:
-        Dict with keys:
-
-        - ``feature_fn``: fn(state, agent_idx) -> (obs_dim,) float32
-        - ``obs_dim``: Total observation dimension.
-        - ``feature_names``: Ordered list of feature names used.
+    Composes features listed in *feature_names* into a single
+    ``feature_fn(state, agent_idx) -> (obs_dim,) float32``.
     """
     from cogrid.core.array_features import compose_feature_fns, obs_dim_for_features
     from cogrid.core.component_registry import get_pre_compose_hook
@@ -76,28 +62,13 @@ def build_scope_config_from_components(
     interaction_tables=None,
     state_extractor=None,
 ) -> dict:
-    """Build a complete scope_config dict from registered component metadata.
+    """Build a complete scope_config from registered component metadata.
 
-    Queries the component registry for all GridObject subclasses in the
-    given scope (plus global scope), and assembles type_ids, symbol_table,
-    extra_state_schema, and static_tables automatically.
+    Assembles type_ids, symbol_table, extra_state_schema, static_tables,
+    tick_handler, interaction_body, and render_sync automatically from
+    GridObject classmethods registered in the given scope (plus global).
 
-    Pass-through fields (tick_handler, interaction_body, interaction_tables,
-    state_extractor) default to None and can be overridden via keyword
-    arguments for backward compatibility with environments that have
-    monolithic handler functions.
-
-    Args:
-        scope: Registry scope name (e.g. "my_domain").
-        tick_handler: Optional tick handler callable.
-        interaction_body: Optional per-agent interaction body callable.
-        interaction_tables: Optional interaction tables dict.
-        state_extractor: Optional state extractor callable.
-
-    Returns:
-        Dict with keys: scope, interaction_tables, type_ids, state_extractor,
-        tick_handler, interaction_body, static_tables, symbol_table,
-        extra_state_schema, extra_state_builder.
+    Pass-through kwargs override auto-composed handlers.
     """
     from cogrid.core.component_registry import (
         get_all_components,
@@ -276,22 +247,10 @@ def build_reward_config_from_components(
     type_ids: dict,
     action_pickup_drop_idx: int = 4,
 ) -> dict:
-    """Build a reward_config dict from registered ArrayReward components.
+    """Build reward_config from registered ArrayReward subclasses.
 
-    Queries the component registry for all ArrayReward subclasses in the
-    given scope (plus global scope), instantiates each with its default
-    coefficient/common_reward, and composes a single ``compute_fn`` closure
-    that calls each reward's ``compute()``, applies coefficient weighting
-    and common_reward broadcasting, and sums results.
-
-    Args:
-        scope: Registry scope name (e.g. "my_domain").
-        n_agents: Number of agents (determines reward array shape).
-        type_ids: Mapping of object names to integer indices.
-        action_pickup_drop_idx: Action index for pickup/drop. Defaults to 4.
-
-    Returns:
-        Dict with keys: compute_fn, type_ids, n_agents, action_pickup_drop_idx.
+    Composes a single ``compute_fn`` that sums all registered rewards
+    with their default coefficient and common_reward settings.
     """
     from cogrid.core.component_registry import get_reward_types
 

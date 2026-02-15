@@ -90,27 +90,16 @@ def register_object_type(
     can_pickup_from: bool = False,
     is_wall: bool = False,
 ):
-    """Decorator that registers a GridObj subclass with static property metadata.
+    """Register a GridObj subclass with static property metadata.
 
-    This replaces the manual ``register_object(id, cls, scope)`` pattern.
-    The decorator calls ``register_object()`` internally for backward
-    compatibility and additionally stores boolean properties in
-    ``_OBJECT_TYPE_PROPERTIES`` for use by ``build_lookup_tables()``.
+    Stores boolean properties for ``build_lookup_tables()`` and
+    auto-discovers component classmethods (tick, interaction, etc.).
 
     Usage::
 
         @register_object_type("wall", is_wall=True)
         class Wall(GridObj):
             ...
-
-    Args:
-        object_id: Unique string identifier for this object type.
-        scope: Registry scope (e.g. "global", "overcooked").
-        can_pickup: Whether agents can pick up this object.
-        can_overlap: Whether agents can walk over this object.
-        can_place_on: Whether another object can be placed on this one.
-        can_pickup_from: Whether agents can pick up an item from this object.
-        is_wall: Whether this object acts as a wall (blocks movement and sight).
     """
 
     def decorator(cls):
@@ -169,22 +158,10 @@ def register_object_type(
 
 
 def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
-    """Build integer-indexed property lookup tables from the type registry.
+    """Build per-type boolean property arrays (CAN_PICKUP, CAN_OVERLAP, etc.).
 
-    Returns a dict of 1-D ``int32`` arrays, one per boolean property. Each
-    array is indexed by the same integer encoding produced by
-    ``object_to_idx()`` / ``get_object_names()``.
-
-    The arrays are created with the backend array library (``xp``) so they
-    work on both numpy and JAX backends.
-
-    Args:
-        scope: The registry scope to build tables for.
-
-    Returns:
-        Dict with keys ``"CAN_PICKUP"``, ``"CAN_OVERLAP"``, ``"CAN_PLACE_ON"``,
-        ``"CAN_PICKUP_FROM"``, ``"IS_WALL"``, each mapping to an array of
-        shape ``(n_types,)`` with dtype ``int32``.
+    Returns ``(n_types,)`` int32 arrays indexed by the integer encoding
+    from ``object_to_idx()``.
     """
     from cogrid.backend.array_ops import set_at
 
@@ -274,14 +251,9 @@ def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
 
 
 def get_object_names(scope: str = "global") -> list[str]:
-    """Get a list of all registered object IDs in a consistent order.
+    """Return all registered object IDs in stable encoding order.
 
-    The order is important for encoding/decoding and must remain stable.
-    Returns a list starting with [None, "free_space"] followed by global objects,
-    then scope-specific objects, and finally agent directions.
-
-    Args:
-        scope: The scope to include objects from, in addition to global scope
+    Order: [None, "free_space", sorted globals, sorted scope, agent directions].
     """
     # Start with None and free_space which are special cases
     names = [None, "free_space"]

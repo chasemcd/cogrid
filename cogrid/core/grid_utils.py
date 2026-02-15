@@ -20,30 +20,10 @@ def adjacent_positions(row, col):
 
 
 def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dict:
-    """Convert a Grid object into the array-based state representation.
+    """Convert a Grid instance into array-based state (type map, state map, wall map).
 
-    Takes an existing Grid instance (already created from an ASCII layout via
-    the _gen_grid() path) and produces parallel array representations for use
-    by vectorized operations.
-
-    Scope-specific container state (e.g. scope-specific container arrays) is
-    extracted by the scope config's ``state_extractor`` callback if provided.
-
-    Args:
-        grid: A Grid instance populated from an ASCII layout.
-        scope: Object registry scope for type ID lookups.
-        scope_config: Optional scope config dict from ``build_scope_config_from_components()``.
-            If provided and contains a ``state_extractor``, it is called to
-            extract scope-specific state (e.g. container positions/contents/timer).
-
-    Returns:
-        Dict containing:
-        - ``"object_type_map"``: int32 array of shape ``(height, width)`` with type IDs.
-          Empty cells = 0 (matching ``object_to_idx(None) == 0``).
-        - ``"object_state_map"``: int32 array of shape ``(height, width)`` with object state values.
-        - ``"wall_map"``: int32 array of shape ``(height, width)``, 1 where cell is a Wall.
-        - ``"spawn_points"``: list of ``(row, col)`` tuples where spawn markers exist.
-        - Plus any scope-specific keys from the state_extractor.
+    Scope-specific state is extracted via scope_config's ``state_extractor``
+    if provided.
     """
     from cogrid.core.grid_object import object_to_idx, Wall
 
@@ -93,22 +73,7 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
 
 
 def grid_to_array_state(grid, env_agents, scope: str = "global", scope_config=None) -> dict:
-    """Convenience wrapper that converts both grid and agents to array state.
-
-    Calls :func:`layout_to_array_state` for the grid and
-    :func:`~cogrid.core.agent.create_agent_arrays` for the agents,
-    returning a combined dict.
-
-    Args:
-        grid: A Grid instance.
-        env_agents: Dict mapping AgentID -> Agent.
-        scope: Object registry scope for type ID lookups.
-        scope_config: Optional scope config dict from ``build_scope_config_from_components()``.
-
-    Returns:
-        Dict containing all keys from ``layout_to_array_state()`` plus all
-        keys from ``create_agent_arrays()``.
-    """
+    """Convenience wrapper: layout_to_array_state + create_agent_arrays."""
     from cogrid.core.agent import create_agent_arrays
 
     result = layout_to_array_state(grid, scope=scope, scope_config=scope_config)
