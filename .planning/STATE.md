@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 23 -- Naming & Consistency
+**Current focus:** Phase 24 -- Cleanup Pass
 
 ## Current Position
 
-Phase: 23 of 24 (Naming & Consistency)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-15 -- Completed 23-02 (rename single-letter params, standardize n_agents)
+Phase: 24 of 24 (Cleanup Pass)
+Plan: 1 of 2 in current phase
+Status: Executing phase
+Last activity: 2026-02-15 -- Completed 24-01 (remove stale TODOs, dead code, and unused imports)
 
-Progress: [██████████████░░░░░░░░░░░░░░░░] 10/? v1.4 plans complete
+Progress: [███████████████░░░░░░░░░░░░░░░] 11/? v1.4 plans complete
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 58 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 10 v1.4)
+- Total plans completed: 59 (18 v1.0 + 12 v1.1 + 9 v1.2 + 9 v1.3 + 11 v1.4)
 - Average duration: ~3 min/plan (v1.2)
 - Total execution time: --
 
@@ -52,6 +52,7 @@ Progress: [██████████████░░░░░░░░░
 | 21 | 3/3 | 12min | 4min |
 | 22 | 2/2 | 8min | 4min |
 | 23 | 2/2 | 22min | 11min |
+| 24 | 1/2 | 25min | 25min |
 
 *Updated after each plan completion*
 
@@ -62,6 +63,7 @@ Progress: [██████████████░░░░░░░░░
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [24-01]: Retained from __future__ import annotations in 3 files needing forward references; removed from 20 files
 - [23-02]: Only function parameter names renamed, not config dict keys; geometry/color conventions exempt
 - [23-01]: step_pipeline locals renamed to sv/prev_sv (not state) to avoid shadowing EnvState parameter
 - [22-02]: Pot matching computed once in dispatcher, passed to both pickup_from_pot and place_on_pot (DRY); b4_base shared across place-on handlers
@@ -92,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 23 complete, ready for Phase 24
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
