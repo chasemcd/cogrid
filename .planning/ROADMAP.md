@@ -144,7 +144,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 20: Imports & Backend Cleanup** - Module-level xp/dispatch imports everywhere, backend conditionals reduced to structural minimum (completed 2026-02-15)
 - [x] **Phase 21: File Restructuring** - Rendering extracted, grid_object.py split, cogrid_env.py init/reset decomposed (completed 2026-02-15)
-- [ ] **Phase 22: Function Decomposition** - move_agents() and overcooked_interaction_body() broken into named sub-functions
+- [x] **Phase 22: Function Decomposition** - move_agents() and overcooked_interaction_body() broken into named sub-functions (completed 2026-02-15)
 - [ ] **Phase 23: Naming & Consistency** - state_dict renamed to state, no abbreviations, consistent terminology
 - [ ] **Phase 24: Cleanup Pass** - Stale TODOs resolved, dead code removed, docstrings trimmed, full test parity verified
 
@@ -191,10 +191,10 @@ Plans:
   2. `overcooked_interaction_body()` is a short dispatcher that calls named per-object-type handlers (e.g. `_interact_with_pot`, `_interact_with_counter`, `_interact_with_serving_loc`) -- each handler encapsulates the logic for one object type
   3. No individual sub-function exceeds ~50 lines
   4. All existing tests pass without modification
-**Plans:** 2 plans
+**Plans:** 2/2 complete
 Plans:
-- [ ] 22-01-PLAN.md -- Decompose move_agents() into named sub-functions
-- [ ] 22-02-PLAN.md -- Decompose overcooked_interaction_body() into named handlers
+- [x] 22-01-PLAN.md -- Decompose move_agents() into named sub-functions
+- [x] 22-02-PLAN.md -- Decompose overcooked_interaction_body() into named handlers
 
 ### Phase 23: Naming & Consistency
 **Goal**: A developer reading any function signature or variable name immediately understands what it refers to -- no ambiguity from abbreviations, no confusion from inconsistent terminology, no legacy naming that no longer matches the architecture
@@ -205,7 +205,10 @@ Plans:
   2. No function signature contains single-letter parameter names (except standard loop variables `i`, `j`, `k` and established conventions like `n` for count in local scope) -- grep of `def .*\b[a-z]\b:` in signatures returns zero hits outside loop vars
   3. Terminology is consistent: one convention used throughout (e.g. `n_agents` everywhere, not sometimes `num_agents`; `obs` everywhere, not sometimes `observation`) -- a grep for the deprecated variant returns zero hits
   4. All existing tests pass without modification
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 23-01-PLAN.md -- Rename state_dict to state across all feature/reward/termination functions
+- [ ] 23-02-PLAN.md -- Eliminate single-letter params and standardize num_agents terminology
 
 ### Phase 24: Cleanup Pass
 **Goal**: The codebase contains zero stale artifacts -- every TODO is actionable or gone, every line of code is reachable and serves a purpose, every docstring adds information the code does not already convey, and the full test suite confirms zero behavioral regression
@@ -249,6 +252,6 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23 -> 24
 | 19. Legacy Feature System Removal | v1.3 | 1/1 | Complete | 2026-02-14 |
 | 20. Imports & Backend Cleanup | v1.4 | 3/3 | Complete | 2026-02-15 |
 | 21. File Restructuring | v1.4 | 3/3 | Complete | 2026-02-15 |
-| 22. Function Decomposition | v1.4 | 0/? | Not started | - |
-| 23. Naming & Consistency | v1.4 | 0/? | Not started | - |
+| 22. Function Decomposition | v1.4 | 2/2 | Complete | 2026-02-15 |
+| 23. Naming & Consistency | v1.4 | 0/2 | Not started | - |
 | 24. Cleanup Pass | v1.4 | 0/? | Not started | - |
