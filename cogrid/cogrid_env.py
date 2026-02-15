@@ -328,7 +328,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         is closed over by the JIT-compiled step pipeline.
 
         Args:
-            fn: Callable ``(prev_state_dict, state_dict, reward_config)``
+            fn: Callable ``(prev_state, state, reward_config)``
                 returning a bool array of shape ``(n_agents,)``.
         """
         self._terminated_fn = fn

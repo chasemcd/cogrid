@@ -3,8 +3,8 @@
 Each feature is a subclass with class attributes ``per_agent`` and ``obs_dim``,
 and a ``build_feature_fn`` classmethod that returns a pure function.
 
-Per-agent features: ``fn(state_dict, agent_idx) -> ndarray``
-Global features: ``fn(state_dict) -> ndarray``
+Per-agent features: ``fn(state, agent_idx) -> ndarray``
+Global features: ``fn(state) -> ndarray``
 
 Feature composition is handled by ``compose_feature_fns()`` in this module.
 
@@ -25,10 +25,10 @@ class ArrayFeature:
         - ``obs_dim``: int class attribute. Dimensionality of the feature
           output after ravel().
         - ``build_feature_fn(cls, scope)``: classmethod that returns a pure
-          function. For per_agent=True: fn(state_dict, agent_idx) -> ndarray.
-          For per_agent=False: fn(state_dict) -> ndarray.
+          function. For per_agent=True: fn(state, agent_idx) -> ndarray.
+          For per_agent=False: fn(state) -> ndarray.
 
-    ``state_dict`` is a :class:`~cogrid.backend.state_view.StateView` —
+    ``state`` is a :class:`~cogrid.backend.state_view.StateView` —
     a frozen dataclass with dot access for core fields (``agent_pos``,
     ``agent_dir``, etc.) and ``__getattr__`` fallthrough for extras.
 
@@ -41,9 +41,9 @@ class ArrayFeature:
 
             @classmethod
             def build_feature_fn(cls, scope):
-                def fn(state_dict, agent_idx):
+                def fn(state, agent_idx):
                     from cogrid.backend import xp
-                    return (xp.arange(4) == state_dict.agent_dir[agent_idx]).astype(xp.int32)
+                    return (xp.arange(4) == state.agent_dir[agent_idx]).astype(xp.int32)
                 return fn
     """
 
@@ -59,8 +59,8 @@ class ArrayFeature:
                 and scope-dependent lookups.
 
         Returns:
-            For per_agent=True: fn(state_dict, agent_idx) -> ndarray
-            For per_agent=False: fn(state_dict) -> ndarray
+            For per_agent=True: fn(state, agent_idx) -> ndarray
+            For per_agent=False: fn(state) -> ndarray
         """
         raise NotImplementedError(
             f"{cls.__name__}.build_feature_fn() is not implemented. "
@@ -136,7 +136,7 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
     Discovers features by name from the registry for the given *scope* (or
     multiple *scopes*).  Builds each feature's function via
     ``build_feature_fn(scope)``.  Returns a single function that concatenates
-    all features in ego-centric order.  ``state_dict`` is a
+    all features in ego-centric order.  ``state`` is a
     :class:`~cogrid.backend.state_view.StateView`.
 
     1. Focal agent's per-agent features
@@ -161,7 +161,7 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
             instead of sorting alphabetically.
 
     Returns:
-        fn(state_dict, agent_idx) -> (obs_dim,) float32 ndarray
+        fn(state, agent_idx) -> (obs_dim,) float32 ndarray
     """
     meta_by_id = _resolve_feature_metas(feature_names, scope, scopes=scopes)
 
@@ -181,23 +181,23 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
         meta_by_id[name].cls.build_feature_fn(scope) for name in global_names
     ]
 
-    def composed_fn(state_dict, agent_idx):
+    def composed_fn(state, agent_idx):
         parts = []
 
         # 1. Focal agent's per-agent features
         for fn in per_agent_fns:
-            parts.append(fn(state_dict, agent_idx).ravel().astype(xp.float32))
+            parts.append(fn(state, agent_idx).ravel().astype(xp.float32))
 
         # 2. Other agents in ascending index order (skip focal)
         for i in range(n_agents):
             if i == agent_idx:
                 continue
             for fn in per_agent_fns:
-                parts.append(fn(state_dict, i).ravel().astype(xp.float32))
+                parts.append(fn(state, i).ravel().astype(xp.float32))
 
         # 3. Global features
         for fn in global_fns:
-            parts.append(fn(state_dict).ravel().astype(xp.float32))
+            parts.append(fn(state).ravel().astype(xp.float32))
 
         return xp.concatenate(parts)
 

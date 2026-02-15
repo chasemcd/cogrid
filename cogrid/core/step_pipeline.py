@@ -178,7 +178,7 @@ def step(
         action_toggle_idx: int, Toggle action index.
         max_steps: int, maximum timesteps per episode.
         terminated_fn: Optional callable
-            ``(prev_state_dict, state_dict, reward_config) -> bool array``.
+            ``(prev_state, state, reward_config) -> bool array``.
             Returns per-agent termination flags. If None, all-False.
 
     Returns:
@@ -260,17 +260,17 @@ def step(
     )
 
     # e. Observations
-    state_dict = envstate_to_dict(state)
-    obs = get_all_agent_obs(feature_fn, state_dict, state.n_agents)
+    sv = envstate_to_dict(state)
+    obs = get_all_agent_obs(feature_fn, sv, state.n_agents)
 
     # f. Rewards -- compute_fn comes from reward_config (no env-specific import)
-    prev_dict = envstate_to_dict(prev_state)
+    prev_sv = envstate_to_dict(prev_state)
     compute_fn = reward_config["compute_fn"]
-    rewards = compute_fn(prev_dict, state_dict, actions, reward_config)
+    rewards = compute_fn(prev_sv, sv, actions, reward_config)
 
     # g. Terminateds and truncateds
     if terminated_fn is not None:
-        terminateds = terminated_fn(prev_dict, state_dict, reward_config)
+        terminateds = terminated_fn(prev_sv, sv, reward_config)
     else:
         terminateds = xp.zeros(state.n_agents, dtype=xp.bool_)
 
@@ -381,8 +381,8 @@ def reset(
     )
 
     # Compute initial observations
-    state_dict = envstate_to_dict(state)
-    obs = get_all_agent_obs(feature_fn, state_dict, n_agents)
+    sv = envstate_to_dict(state)
+    obs = get_all_agent_obs(feature_fn, sv, n_agents)
 
     # Stop gradient (JAX only, no-op on numpy)
     (obs,) = _maybe_stop_gradient(obs)

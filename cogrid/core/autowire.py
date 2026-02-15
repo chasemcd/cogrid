@@ -36,7 +36,7 @@ def build_feature_config_from_components(
     Returns:
         Dict with keys:
 
-        - ``feature_fn``: fn(state_dict, agent_idx) -> (obs_dim,) float32
+        - ``feature_fn``: fn(state, agent_idx) -> (obs_dim,) float32
         - ``obs_dim``: Total observation dimension.
         - ``feature_names``: Ordered list of feature names used.
     """

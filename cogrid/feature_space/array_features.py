@@ -181,8 +181,8 @@ class AgentDir(ArrayFeature):
 
     @classmethod
     def build_feature_fn(cls, scope):
-        def fn(state_dict, agent_idx):
-            return agent_dir_feature(state_dict.agent_dir, agent_idx)
+        def fn(state, agent_idx):
+            return agent_dir_feature(state.agent_dir, agent_idx)
         return fn
 
 
@@ -193,8 +193,8 @@ class AgentPosition(ArrayFeature):
 
     @classmethod
     def build_feature_fn(cls, scope):
-        def fn(state_dict, agent_idx):
-            return agent_pos_feature(state_dict.agent_pos, agent_idx)
+        def fn(state, agent_idx):
+            return agent_pos_feature(state.agent_pos, agent_idx)
         return fn
 
 
@@ -209,12 +209,12 @@ class CanMoveDirection(ArrayFeature):
         tables = build_lookup_tables(scope=scope)
         can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
 
-        def fn(state_dict, agent_idx):
+        def fn(state, agent_idx):
             return can_move_direction_feature(
-                state_dict.agent_pos,
+                state.agent_pos,
                 agent_idx,
-                state_dict.wall_map,
-                state_dict.object_type_map,
+                state.wall_map,
+                state.object_type_map,
                 can_overlap_table,
             )
         return fn
@@ -227,8 +227,8 @@ class Inventory(ArrayFeature):
 
     @classmethod
     def build_feature_fn(cls, scope):
-        def fn(state_dict, agent_idx):
-            return inventory_feature(state_dict.agent_inv, agent_idx)
+        def fn(state, agent_idx):
+            return inventory_feature(state.agent_inv, agent_idx)
         return fn
 
 
@@ -237,18 +237,18 @@ class Inventory(ArrayFeature):
 # ---------------------------------------------------------------------------
 
 
-def get_all_agent_obs(feature_fn, state_dict, n_agents):
+def get_all_agent_obs(feature_fn, state, n_agents):
     """Generate observations for all agents.
 
     Returns (n_agents, obs_dim) array. Uses Python loop with xp.stack.
     vmap optimization deferred to Phase 8.
 
     Args:
-        feature_fn: Callable with signature (state_dict, agent_idx) -> obs_array.
-        state_dict: Dict of state arrays.
+        feature_fn: Callable with signature (state, agent_idx) -> obs_array.
+        state: StateView of state arrays.
         n_agents: Number of agents.
 
     Returns:
         ndarray of shape (n_agents, obs_dim).
     """
-    return xp.stack([feature_fn(state_dict, i) for i in range(n_agents)])
+    return xp.stack([feature_fn(state, i) for i in range(n_agents)])
