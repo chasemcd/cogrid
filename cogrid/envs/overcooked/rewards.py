@@ -185,7 +185,10 @@ def soup_in_dish_reward(
 
 @register_reward_type("delivery", scope="overcooked")
 class DeliveryReward(Reward):
+    """Reward for delivering soup to a delivery zone."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery reward for the current step."""
         return delivery_reward(
             prev_state,
             state,
@@ -200,7 +203,10 @@ class DeliveryReward(Reward):
 
 @register_reward_type("onion_in_pot", scope="overcooked")
 class OnionInPotReward(Reward):
+    """Reward for placing an onion into a pot."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute onion-in-pot reward for the current step."""
         return onion_in_pot_reward(
             prev_state,
             state,
@@ -215,7 +221,10 @@ class OnionInPotReward(Reward):
 
 @register_reward_type("soup_in_dish", scope="overcooked")
 class SoupInDishReward(Reward):
+    """Reward for picking up completed soup from a pot."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute soup-in-dish reward for the current step."""
         return soup_in_dish_reward(
             prev_state,
             state,

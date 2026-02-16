@@ -1,3 +1,5 @@
+"""Core rendering and color constants."""
+
 import dataclasses
 
 import numpy as np
@@ -5,11 +7,15 @@ import numpy as np
 
 @dataclasses.dataclass
 class CoreConstants:
+    """Core rendering constants."""
+
     TilePixels = 32
 
 
 @dataclasses.dataclass
 class Colors:
+    """RGB color palette for grid objects."""
+
     Red = [255, 0, 0]
     Green = [0, 255, 0]
     Blue = [0, 0, 255]
@@ -32,6 +38,8 @@ class Colors:
 
 @dataclasses.dataclass
 class ObjectColors:
+    """Per-agent color assignments."""
+
     AgentOne = Colors.Cyan
     AgentTwo = Colors.Lavender
     AgentThree = Colors.YellowGrey

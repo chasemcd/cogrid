@@ -34,18 +34,22 @@ class ComponentMetadata:
 
     @property
     def has_tick(self) -> bool:
+        """True if this component provides a tick function."""
         return "build_tick_fn" in self.methods
 
     @property
     def has_extra_state(self) -> bool:
+        """True if this component defines extra state schema."""
         return "extra_state_schema" in self.methods
 
     @property
     def has_static_tables(self) -> bool:
+        """True if this component provides static lookup tables."""
         return "build_static_tables" in self.methods
 
     @property
     def has_render_sync(self) -> bool:
+        """True if this component provides a render sync function."""
         return "build_render_sync_fn" in self.methods
 
 

@@ -1,3 +1,5 @@
+"""Environment definitions and registry."""
+
 import copy
 import functools
 import random
@@ -140,6 +142,7 @@ registry.register(
 
 
 def randomized_layout_fn(**kwargs):
+    """Return a randomly chosen Overcooked layout name and data."""
     layout_name = random.choice(
         [
             "overcooked_cramped_room_v0",

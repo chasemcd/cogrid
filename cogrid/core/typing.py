@@ -1,3 +1,5 @@
+"""Type aliases shared across the codebase."""
+
 import typing
 
 from pettingzoo.utils import env

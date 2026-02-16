@@ -1,5 +1,6 @@
-"""Grid representation derived from Minigrid:
-https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
+"""Grid representation derived from Minigrid.
+
+See https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
 """
 
 from __future__ import annotations
@@ -136,9 +137,7 @@ class Grid:
         return self.grid[row * self.width + col]
 
     def tick(self):
-        """Tick the grid, which calls the tick() method of all GridObjs.
-        This is useful for any GridOjbs with time-dependent behavior.
-        """
+        """Advance all GridObjs by one timestep."""
         for grid_obj in self.grid:
             if grid_obj is not None:
                 grid_obj.tick()
@@ -209,11 +208,7 @@ class Grid:
         self.vert_wall(row=row + w - 1, col=col, length=h, obj_type=grid_obj)
 
     def rotate_left(self) -> Grid:
-        """Rotate the grid to the left (counter-clockwise)
-
-        :return: The rotated grid.
-        :rtype: Grid
-        """
+        """Rotate the grid to the left (counter-clockwise)."""
         grid = Grid(width=self.height, height=self.width)
 
         for col in range(self.width):
@@ -236,19 +231,7 @@ class Grid:
         return grid
 
     def slice(self, topX: int, topY: int, width: int, height: int) -> Grid:
-        """Get a subset of the grid
-
-        :param topX: The top x-coordinate of the slice.
-        :type topX: int
-        :param topY: The top y-coordinate of the slice.
-        :type topY: int
-        :param width: Width of the slice.
-        :type width: int
-        :param height: Height of the slice.
-        :type height: int
-        :return: The sliced grid.
-        :rtype: Grid
-        """
+        """Get a subset of the grid."""
         grid = Grid(height=height, width=width)
         for row in range(height):
             for col in range(width):
@@ -420,7 +403,7 @@ class Grid:
 
     @staticmethod
     def decode(array: np.ndarray, scope: str = "global") -> tuple[Grid, np.ndarray]:
-        """Decode ASCII encoding back into a Grid"""
+        """Decode ASCII encoding back into a Grid."""
         channels, height, width = array.shape
         assert channels == 2
 
@@ -460,6 +443,7 @@ class Grid:
         return count
 
     def process_vis(self, agent_pos: tuple[int, int]) -> np.ndarray:
+        """Compute visibility mask from the agent's position."""
         mask = np.zeros(shape=(self.width, self.height), dtype=bool)
 
         mask[agent_pos[1], agent_pos[0]] = True

@@ -1,3 +1,5 @@
+"""Goal-seeking grid environment."""
+
 import operator
 
 from cogrid.cogrid_env import CoGridEnv
@@ -5,12 +7,14 @@ from cogrid.envs.goal_seeking.agent import GoalSeekingAgent
 
 
 class GoalSeeking(CoGridEnv):
-    """Goal Seeking GridWorld task. A remake with multi-agent capability. For reference, see:
+    """Goal Seeking GridWorld task. A remake with multi-agent capability. For reference, see:.
+
     https://www.cmu.edu/dietrich/sds/ddmlab/papers/2020ICCM_Ngoc-CameraReady.pdf
     https://www.cmu.edu/dietrich/sds/ddmlab/papers/NguyenGonzalez2020.pdf
     """
 
     def __init__(self, grid_path, config):
+        """Initialize the goal-seeking environment from config."""
         super().__init__(grid_path=grid_path, agent_class=GoalSeekingAgent, config=config)
 
         self.target_values = self.grid_data["values"]
@@ -35,6 +39,7 @@ class GoalSeeking(CoGridEnv):
         self.setup_agents()
 
     def select_spawn_point(self, random_spawn=True) -> tuple:
+        """Select an available spawn point for a new agent."""
         curr_pos = [agent.pos for agent in self.env_agents.values()]
 
         if (
@@ -42,9 +47,9 @@ class GoalSeeking(CoGridEnv):
             and self.config["env"]["gen_random_spawn"]
         ):
             self.np_random.shuffle(self.free_spaces)
-            # note that here, we specify that a random spawn should not be the specified spawn on the map,
-            # this behavior may or may not be desired in various experiments, although it is the case
-            # for the SoU transfer experiments that we want random positions to be distinct from the pre-defined ones.
+            # Random spawn excludes pre-defined spawn points so that
+            # random positions are distinct from map-specified ones
+            # (required for SoU transfer experiments).
             available = [
                 sp for sp in self.free_spaces if sp not in curr_pos and sp not in self.spawns
             ]
@@ -69,10 +74,12 @@ class GoalSeeking(CoGridEnv):
         return selected_spawn
 
     def custom_reset(self):
+        """Reset goal positions and broadcast agent positions."""
         self.add_goals()
         for agent in self.env_agents.values():
             agent.all_agent_pos = self.agent_pos
 
     def add_goals(self):
+        """Place goal targets on the world map."""
         for target, pos in self.targets.items():
             self.world_map[pos] = target

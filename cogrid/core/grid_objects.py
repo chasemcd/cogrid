@@ -23,47 +23,60 @@ from cogrid.visualization.rendering import (
 
 @register_object_type("wall", is_wall=True)
 class Wall(GridObj):
+    """An impassable wall tile."""
+
     object_id = "wall"
     color = constants.Colors.Grey
     char = "#"
 
     def __init__(self, *args, **kwargs):
+        """Initialize wall with default state."""
         super().__init__(state=0)
 
     def see_behind(self) -> bool:
+        """Return False; walls block visibility."""
         return False
 
 
 @register_object_type("floor", can_overlap=True)
 class Floor(GridObj):
+    """An empty floor tile that agents can walk over."""
+
     object_id = "floor"
     color = constants.Colors.PaleBlue
     char = GridConstants.FreeSpace
 
     def __init__(self, **kwargs):
+        """Initialize floor with default state."""
         super().__init__(
             state=0,
         )
 
     def can_overlap(self) -> bool:
+        """Return True; agents can walk over floor tiles."""
         return True
 
 
 @register_object_type("counter", can_place_on=True)
 class Counter(GridObj):
+    """A counter surface that can hold one object on top."""
+
     object_id = "counter"
     color = constants.Colors.LightBrown
     char = "C"
 
     def __init__(self, state: int = 0, **kwargs):
+        """Initialize counter with given state."""
         super().__init__(
             state=state,
         )
 
     def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
+        """True when the counter has no object on it."""
         return self.obj_placed_on is None
 
     def render(self, tile_img):
+        """Draw counter and any object placed on it."""
         super().render(tile_img)
 
         if self.obj_placed_on is not None:
@@ -71,6 +84,8 @@ class Counter(GridObj):
 
     @classmethod
     def build_render_sync_fn(cls):
+        """Return a render-sync callback for counter objects."""
+
         def counter_render_sync(grid, env_state, scope):
             """Sync obj_placed_on for counters from object_state_map."""
             osm = env_state.object_state_map
@@ -93,17 +108,22 @@ class Counter(GridObj):
 
 @register_object_type("key", can_pickup=True)
 class Key(GridObj):
+    """A key that can be picked up to unlock doors."""
+
     object_id = "key"
     color = constants.Colors.Yellow
     char = "K"
 
     def __init__(self, state=0):
+        """Initialize key with given state."""
         super().__init__(state=state)
 
     def can_pickup(self, agent: GridAgent):
+        """Return True; keys are always pickable."""
         return True
 
     def render(self, tile_img):
+        """Draw key icon with ring and teeth."""
         # Vertical quad
         fill_coords(tile_img, point_in_rect(0.50, 0.63, 0.31, 0.88), self.color)
 
@@ -118,23 +138,28 @@ class Key(GridObj):
 
 @register_object_type("door")
 class Door(GridObj):
+    """A door that can be open, closed, or locked (requires Key)."""
+
     object_id = "door"
     color = constants.Colors.DarkGrey
     char = "D"
 
     def __init__(self, state):
+        """Initialize door with state (0=locked, 1=closed, 2=open)."""
         super().__init__(state=state)
         self.is_open = state == 2
         self.is_locked = state == 0
 
     def can_overlap(self, agent: GridAgent) -> bool:
-        """The agent can only walk over this cell when the door is open"""
+        """The agent can only walk over this cell when the door is open."""
         return self.is_open
 
     def see_behind(self, agent: GridAgent) -> bool:
+        """Return True only when the door is open."""
         return self.is_open
 
     def toggle(self, env, agent: GridAgent) -> bool:
+        """Unlock (if agent has Key) or open/close the door."""
         if self.is_locked:
             if any([isinstance(obj, Key) for obj in agent.inventory]):
                 self.is_locked = False
@@ -146,7 +171,7 @@ class Door(GridObj):
         return True
 
     def encode(self, encode_char=False):
-        """Encode the a description of this object as a 3-tuple of integers"""
+        """Encode the door as a 3-tuple of integers."""
         # State, 0: open, 1: closed, 2: locked
         if self.is_open:
             self.state = 2
@@ -157,13 +182,13 @@ class Door(GridObj):
             self.state = 1
         else:
             raise ValueError(
-                f"There is no possible state encoding for the state:\n -Door Open: {self.is_open}\n -Door Closed: {not self.is_open}\n -Door Locked: {self.is_locked}"
+                f"No possible state encoding for door: open={self.is_open}, locked={self.is_locked}"
             )
 
         return super().encode(encode_char=encode_char)
 
     def render(self, tile_img):
-
+        """Draw the door based on its state (open, closed, or locked)."""
         if self.state == 2:
             fill_coords(tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), self.color)
             fill_coords(tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0))

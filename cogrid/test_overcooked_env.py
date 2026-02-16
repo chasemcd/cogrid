@@ -99,7 +99,8 @@ class TestOvercookedEnv(unittest.TestCase):
         return result
 
     def pick_tomato_and_move_to_pot(self):
-        """Move agent 0 to the pot
+        """Move agent 0 to the pot.
+
         agent 0 assume to start next to the tomato facing up. in cramped room
         """
         NOOP = self._a(Actions.Noop)
@@ -151,6 +152,7 @@ class TestOvercookedEnv(unittest.TestCase):
 
     def test_cooking_tomato_soup(self):
         """Test tat puts 3 tomatoes in the pot and then simulates cooking.
+
         Lastly, check if the soup is ready and can be picked up.
 
         Tests Pot.can_pickup_from() for TomatoSoup objects

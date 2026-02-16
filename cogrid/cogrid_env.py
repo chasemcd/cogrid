@@ -1,3 +1,5 @@
+"""CoGrid environment: stateful wrapper around the functional step/reset pipeline."""
+
 import copy
 
 import numpy as np
@@ -209,7 +211,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         if layout_name is None and layout_fn is None:
             raise ValueError(
-                "Must provide either a `layout` name or layout-generating function in config['grid']"
+                "Must provide either a `layout` name or layout-generating"
+                " function in config['grid']"
             )
         elif layout_name is not None:
             layout, state_encoding = layouts.get_layout(layout_name)
@@ -649,6 +652,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return self._reset_fn
 
     def setup_agents(self):
+        """Set up agents using the default agent factory."""
         self._setup_agents()
 
     def _setup_agents(self):
@@ -797,8 +801,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         assert len(grid.grid_agents) >= 1
         assert grid.grid_agents[agent_id].dir == directions.Directions.Up
 
-        # NOTE: In Minigrid, they replace the agent's position with the item they're carrying. We don't do that
-        #   here. Rather, we'll provide an additional observation space that represents the item(s) in inventory.
+        # NOTE: In Minigrid, they replace the agent's position with the item
+        #   they're carrying. We don't do that here. Rather, we'll provide an
+        #   additional observation space that represents the item(s) in inventory.
 
         return grid, vis_mask
 
@@ -903,23 +908,28 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             return img
 
     def close(self):
+        """Close the renderer if active."""
         if self._renderer is not None:
             self._renderer.close()
 
     def get_action_mask(self, agent_id):
+        """Return action mask for the given agent (not implemented)."""
         raise NotImplementedError
 
     @property
     def agent_ids(self) -> list:
+        """Return list of active agent IDs."""
         return list(self.env_agents.keys())
 
     @property
     def agent_pos(self) -> list:
+        """Return list of agent positions."""
         return [tuple(agent.pos) for agent in self.env_agents.values() if agent is not None]
 
     def id_to_numeric(self, agent_id) -> str:
-        """Converts agent id to integer, beginning with 1,
-        e.g., agent-0 -> 1, agent-1 -> 2, etc.
+        """Convert agent id to its numeric string representation.
+
+        For example, agent-0 -> 1, agent-1 -> 2, etc.
         """
         agent = self.env_agents[agent_id]
         return str(agent.agent_number)

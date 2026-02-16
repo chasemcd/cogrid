@@ -56,6 +56,7 @@ class StateView:
     extra: dict = field(default_factory=dict)
 
     def __getattr__(self, name):
+        """Look up extra-state fields by name via the extra dict."""
         # Only called for attributes not found by normal lookup.
         # Frozen dataclass stores fields in __dict__, so core fields
         # never reach here.

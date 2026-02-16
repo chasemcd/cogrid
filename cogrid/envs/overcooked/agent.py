@@ -1,11 +1,16 @@
+"""Overcooked environment agent with role support."""
+
 from cogrid.core.agent import Agent
 from cogrid.core.grid_object import GridObj
 from cogrid.envs.overcooked import overcooked_grid_objects
 
 
 class OvercookedAgent(Agent):
+    """Agent subclass for Overcooked with role support."""
+
     def can_pickup(self, grid_object: GridObj) -> bool:
         """Determine if the agent can pickup a specified grid object.
+
         The Overcooked agent can pick up objects until it reaches capacity,
 
 

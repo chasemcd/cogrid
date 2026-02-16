@@ -1,8 +1,12 @@
+"""Action definitions and action set groupings."""
+
 import dataclasses
 
 
 @dataclasses.dataclass
 class Actions:
+    """Available agent actions (movement, interaction, no-op)."""
+
     # Common
     PickupDrop = "pick_up_or_drop"  # Pick up an object
     Toggle = "toggle"  # Interact with/toggle/activate an object
@@ -22,6 +26,8 @@ class Actions:
 
 @dataclasses.dataclass
 class ActionSets:
+    """Predefined tuples of actions for rotation and cardinal control modes."""
+
     RotationActions = (
         Actions.Forward,
         Actions.PickupDrop,

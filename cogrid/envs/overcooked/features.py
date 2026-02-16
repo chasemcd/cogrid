@@ -335,11 +335,14 @@ def _set_idx(arr, idx, value):
 
 @register_feature_type("overcooked_inventory", scope="overcooked")
 class OvercookedInventory(Feature):
+    """One-hot inventory encoding feature."""
+
     per_agent = True
     obs_dim = 5
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the inventory feature function for the given scope."""
         from cogrid.core.grid_object import object_to_idx
 
         inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
@@ -360,11 +363,14 @@ class OvercookedInventory(Feature):
 
 @register_feature_type("next_to_counter", scope="overcooked")
 class NextToCounter(Feature):
+    """Cardinal adjacency to counters feature."""
+
     per_agent = True
     obs_dim = 4
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the counter adjacency feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         counter_type_id = object_to_idx("counter", scope=scope)
@@ -382,11 +388,14 @@ class NextToCounter(Feature):
 
 @register_feature_type("next_to_pot", scope="overcooked")
 class NextToPot(Feature):
+    """Cardinal adjacency to pots with status encoding."""
+
     per_agent = True
     obs_dim = 16
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the pot adjacency feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         pot_type_id = object_to_idx("pot", scope=scope)
@@ -457,11 +466,14 @@ for _name, _n in _CLOSEST_OBJ_SPECS:
 
 @register_feature_type("ordered_pot_features", scope="overcooked")
 class OrderedPotFeatures(Feature):
+    """Per-pot features in grid-scan order."""
+
     per_agent = True
     obs_dim = 24  # 12 features * max_num_pots=2
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the ordered pot feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
@@ -484,11 +496,15 @@ class OrderedPotFeatures(Feature):
 
 @register_feature_type("dist_to_other_players", scope="overcooked")
 class DistToOtherPlayers(Feature):
+    """Distance to other agents feature."""
+
     per_agent = True
     obs_dim = 2  # 2 * (2 agents - 1) = 2
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the distance-to-others feature function."""
+
         def fn(state, agent_idx):
             return dist_to_other_players_feature(
                 state.agent_pos,
@@ -501,12 +517,15 @@ class DistToOtherPlayers(Feature):
 
 @register_feature_type("layout_id", scope="overcooked")
 class LayoutID(Feature):
+    """One-hot layout identifier feature."""
+
     per_agent = False
     obs_dim = 5
     _layout_idx = 0  # Set before build_feature_fn; Phase 18 wires this
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the layout ID feature function."""
         idx = cls._layout_idx
 
         def fn(state):
@@ -517,12 +536,15 @@ class LayoutID(Feature):
 
 @register_feature_type("environment_layout", scope="overcooked")
 class EnvironmentLayout(Feature):
+    """Binary masks for object types across the layout."""
+
     per_agent = False
     obs_dim = 462  # 6 types * 11 * 7 (max layout shape)
     _max_layout_shape = (11, 7)
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the environment layout feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
@@ -544,7 +566,7 @@ class EnvironmentLayout(Feature):
 # (moved from cogrid/core/autowire.py -- domain-specific, not core logic)
 # ---------------------------------------------------------------------------
 
-from cogrid.core.component_registry import (
+from cogrid.core.component_registry import (  # noqa: E402
     register_layout_indices,
     register_pre_compose_hook,
 )

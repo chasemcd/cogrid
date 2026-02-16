@@ -28,6 +28,7 @@ class EnvRenderer:
     """
 
     def __init__(self, name: str, screen_size: int, render_fps: int) -> None:
+        """Initialize the renderer with name, screen size, and FPS."""
         self.name = name
         self.screen_size = screen_size
         self.render_fps = render_fps

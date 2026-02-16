@@ -13,7 +13,7 @@ from cogrid.backend import set_backend
 
 set_backend("numpy")
 
-from cogrid.core.movement import move_agents
+from cogrid.core.movement import move_agents  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

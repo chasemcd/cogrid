@@ -3,8 +3,10 @@
 Validates that array-based Overcooked interactions match the object-based
 implementation using the new state-in/state-out process_interactions API.
 
-Run with:
-    python -c "from cogrid.envs.overcooked.test_interactions import test_interaction_parity; test_interaction_parity()"
+Run with::
+
+    python -c "from cogrid.envs.overcooked.test_interactions import \
+        test_interaction_parity; test_interaction_parity()"
 """
 
 from cogrid.core.autowire import build_scope_config_from_components

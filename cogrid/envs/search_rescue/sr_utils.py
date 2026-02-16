@@ -1,3 +1,5 @@
+"""Search-and-rescue layout utilities."""
+
 import dataclasses
 
 import numpy as np
@@ -16,6 +18,7 @@ def generate_sr_grid(
     populate_rubble=True,
     np_random=None,
 ):
+    """Generate or load a search-and-rescue grid layout."""
     if np_random is None:
         np_random = np.random.RandomState(seed=42)
 
@@ -70,6 +73,7 @@ def generate_sr_grid(
 
 
 def surround_by_rubble(grid, row, col):
+    """Place rubble in all free cardinal neighbors of a cell."""
     for r, c in grid_utils.adjacent_positions(row, col):
         if grid[r, c] == constants.GridConstants.FreeSpace:
             grid[r, c] = constants.GridConstants.Rubble
@@ -78,6 +82,8 @@ def surround_by_rubble(grid, row, col):
 
 @dataclasses.dataclass
 class FixedGrids:
+    """Pre-defined search-and-rescue grid layouts."""
+
     m3minimap = [
         "#############",
         "#S  S#      #",
