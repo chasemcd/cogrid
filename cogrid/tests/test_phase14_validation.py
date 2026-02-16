@@ -21,7 +21,6 @@ Satisfies TEST-01, TEST-02, TEST-03 for Phase 14.
 import numpy as np
 import pytest
 
-
 # ======================================================================
 # TEST-01: Auto-wired Overcooked determinism + invariants (numpy)
 # ======================================================================
@@ -38,6 +37,7 @@ def test_autowired_overcooked_determinism_and_invariants():
     - Agent positions are within grid bounds
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401 -- trigger registration
@@ -59,7 +59,8 @@ def test_autowired_overcooked_determinism_and_invariants():
     # Verify initial obs parity
     for aid in agent_ids:
         np.testing.assert_array_equal(
-            obs_a[aid], obs_b[aid],
+            obs_a[aid],
+            obs_b[aid],
             err_msg=f"Initial obs mismatch for agent {aid}",
         )
 
@@ -73,27 +74,24 @@ def test_autowired_overcooked_determinism_and_invariants():
         for aid in agent_ids:
             # Parity checks
             np.testing.assert_array_equal(
-                obs_a[aid], obs_b[aid],
+                obs_a[aid],
+                obs_b[aid],
                 err_msg=f"Step {step_idx}, agent {aid}: obs mismatch",
             )
             np.testing.assert_allclose(
-                rew_a[aid], rew_b[aid], atol=1e-7,
+                rew_a[aid],
+                rew_b[aid],
+                atol=1e-7,
                 err_msg=f"Step {step_idx}, agent {aid}: reward mismatch",
             )
-            assert term_a[aid] == term_b[aid], (
-                f"Step {step_idx}, agent {aid}: terminated mismatch"
-            )
-            assert trunc_a[aid] == trunc_b[aid], (
-                f"Step {step_idx}, agent {aid}: truncated mismatch"
-            )
+            assert term_a[aid] == term_b[aid], f"Step {step_idx}, agent {aid}: terminated mismatch"
+            assert trunc_a[aid] == trunc_b[aid], f"Step {step_idx}, agent {aid}: truncated mismatch"
 
             # Invariant: rewards are finite and non-negative
             assert np.isfinite(rew_a[aid]), (
                 f"Step {step_idx}, agent {aid}: reward not finite: {rew_a[aid]}"
             )
-            assert rew_a[aid] >= 0.0, (
-                f"Step {step_idx}, agent {aid}: negative reward: {rew_a[aid]}"
-            )
+            assert rew_a[aid] >= 0.0, f"Step {step_idx}, agent {aid}: negative reward: {rew_a[aid]}"
 
             # Invariant: terminateds and truncateds are bool
             assert isinstance(term_a[aid], bool), (
@@ -129,9 +127,12 @@ def test_autowired_overcooked_jit_vmap_1024():
     - Output shapes have batch dimension 1024
     - Rewards are finite (no NaN/inf)
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
+    import jax
     import jax.numpy as jnp
+
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401
@@ -155,9 +156,7 @@ def test_autowired_overcooked_jit_vmap_1024():
     states, obs = batched_reset(keys)
 
     # Verify batch dimension on obs
-    assert obs.shape[0] == N_ENVS, (
-        f"Expected obs batch dim {N_ENVS}, got {obs.shape[0]}"
-    )
+    assert obs.shape[0] == N_ENVS, f"Expected obs batch dim {N_ENVS}, got {obs.shape[0]}"
 
     # Run N_STEPS of batched steps with scripted actions
     for step_i in range(N_STEPS):
@@ -172,9 +171,7 @@ def test_autowired_overcooked_jit_vmap_1024():
         )
 
         # Finite rewards
-        assert jnp.all(jnp.isfinite(rew)), (
-            f"Step {step_i}: non-finite rewards detected"
-        )
+        assert jnp.all(jnp.isfinite(rew)), f"Step {step_i}: non-finite rewards detected"
 
 
 # ======================================================================
@@ -189,6 +186,7 @@ def test_goal_finding_component_api_numpy():
     resets, runs 10 steps, and verifies no errors and correct reward shapes.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     # Import the goal_finding example module to trigger registration
@@ -199,7 +197,6 @@ def test_goal_finding_component_api_numpy():
     obs, info = env.reset(seed=42)
 
     agent_ids = sorted(env.possible_agents)
-    n_agents = len(agent_ids)
 
     # Verify obs dict structure
     assert set(obs.keys()) == set(agent_ids), (
@@ -211,15 +208,11 @@ def test_goal_finding_component_api_numpy():
         obs, rewards, terminateds, truncateds, infos = env.step(actions)
 
         # Rewards are returned for all agents
-        assert set(rewards.keys()) == set(agent_ids), (
-            f"Step {step_i}: reward keys mismatch"
-        )
+        assert set(rewards.keys()) == set(agent_ids), f"Step {step_i}: reward keys mismatch"
 
         # Reward values are finite floats
         for aid in agent_ids:
-            assert np.isfinite(rewards[aid]), (
-                f"Step {step_i}, agent {aid}: reward not finite"
-            )
+            assert np.isfinite(rewards[aid]), f"Step {step_i}, agent {aid}: reward not finite"
 
 
 # ======================================================================
@@ -239,15 +232,13 @@ def test_goal_finding_cross_backend_parity():
     ThreeFry produce different random values from the same seed. After
     the first cardinal move, directions become deterministic.
     """
-    jax = pytest.importorskip("jax")
-    from cogrid.backend._dispatch import _reset_backend_for_testing
-
+    pytest.importorskip("jax")
     import examples.goal_finding  # noqa: F401 -- trigger registration
+    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.envs import registry
 
     N_STEPS = 50
-    STATE_FIELDS = ["agent_pos", "agent_dir", "agent_inv",
-                    "object_type_map", "object_state_map"]
+    STATE_FIELDS = ["agent_pos", "agent_dir", "agent_inv", "object_type_map", "object_state_map"]
 
     def _get_state_arrays(env):
         es = env._env_state
@@ -291,7 +282,8 @@ def test_goal_finding_cross_backend_parity():
         if field == "agent_dir":
             continue
         np.testing.assert_array_equal(
-            np_states[0][field], jax_s0[field],
+            np_states[0][field],
+            jax_s0[field],
             err_msg=f"Initial state mismatch: {field}",
         )
 
@@ -302,12 +294,15 @@ def test_goal_finding_cross_backend_parity():
 
         for field in STATE_FIELDS:
             np.testing.assert_array_equal(
-                np_states[step_idx + 1][field], jax_state[field],
+                np_states[step_idx + 1][field],
+                jax_state[field],
                 err_msg=f"Step {step_idx}, field {field}: numpy vs JAX mismatch",
             )
 
         for aid in agent_ids:
             np.testing.assert_allclose(
-                np_rewards[step_idx][aid], float(rewards[aid]), atol=1e-7,
+                np_rewards[step_idx][aid],
+                float(rewards[aid]),
+                atol=1e-7,
                 err_msg=f"Step {step_idx}, agent {aid}: reward mismatch",
             )

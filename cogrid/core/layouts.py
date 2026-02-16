@@ -1,6 +1,5 @@
 import numpy as np
 
-
 LAYOUT_REGISTRY: dict[str, tuple[list[str], list[int]]] = {}
 
 

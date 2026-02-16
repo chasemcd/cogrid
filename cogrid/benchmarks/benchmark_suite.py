@@ -12,17 +12,17 @@ Includes a pytest test for reproducibility verification:
     python -m pytest cogrid/benchmarks/benchmark_suite.py::test_benchmark_reproducibility -v -s
 """
 
-import time
 import statistics
+import time
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-N_BENCHMARK_STEPS = 500    # Steps per measurement (enough to amortize overhead)
-N_WARMUP_STEPS = 5         # Warmup calls before timing
-N_TRIALS = 3               # Number of measurement trials
-BATCH_SIZE = 1024           # vmap batch size
+N_BENCHMARK_STEPS = 500  # Steps per measurement (enough to amortize overhead)
+N_WARMUP_STEPS = 5  # Warmup calls before timing
+N_TRIALS = 3  # Number of measurement trials
+BATCH_SIZE = 1024  # vmap batch size
 VARIANCE_THRESHOLD = 10.0  # Max allowed % variance between trials
 LAYOUT = "Overcooked-CrampedRoom-V0"  # Standard benchmark layout (smallest, fastest)
 SEED = 42
@@ -31,6 +31,7 @@ SEED = 42
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def compute_variance(trials):
     """Compute variance as range-over-median percentage.
@@ -54,6 +55,7 @@ def _create_numpy_env(layout=LAYOUT, seed=SEED):
         Tuple of (env, agent_ids) after reset.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401 -- trigger registration
@@ -72,6 +74,7 @@ def _create_jax_env(layout=LAYOUT, seed=SEED):
         Tuple of (env, step_fn, reset_fn, n_agents) after reset.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401 -- trigger registration
@@ -88,6 +91,7 @@ def _create_jax_env(layout=LAYOUT, seed=SEED):
 # ---------------------------------------------------------------------------
 # Benchmark functions
 # ---------------------------------------------------------------------------
+
 
 def benchmark_numpy_single(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS):
     """Measure numpy single-env throughput.
@@ -158,8 +162,7 @@ def benchmark_jax_single(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS):
     return trials
 
 
-def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS,
-                       batch_size=BATCH_SIZE):
+def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS, batch_size=BATCH_SIZE):
     """Measure JAX vmap batched throughput.
 
     Args:
@@ -212,6 +215,7 @@ def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS,
 # Suite runner
 # ---------------------------------------------------------------------------
 
+
 def run_benchmark_suite():
     """Run all three benchmarks and print a formatted results table.
 
@@ -235,7 +239,6 @@ def run_benchmark_suite():
     # Speedup ratios
     jax_single_vs_numpy = jax_single_median / numpy_median if numpy_median > 0 else 0
     jax_vmap_vs_numpy = jax_vmap_median / numpy_median if numpy_median > 0 else 0
-    jax_vmap_vs_single = jax_vmap_median / jax_single_median if jax_single_median > 0 else 0
     jax_vmap_per_env = jax_vmap_median / BATCH_SIZE
 
     # Variance
@@ -255,8 +258,14 @@ def run_benchmark_suite():
     print(f"Results (median of {N_TRIALS} trials):")
     print("-------------------------------------------------------")
     print(f"NumPy single-env:         {numpy_median:>10,.0f} steps/sec")
-    print(f"JAX single-env (JIT):     {jax_single_median:>10,.0f} steps/sec  ({jax_single_vs_numpy:.1f}x vs numpy)")
-    print(f"JAX vmap@{BATCH_SIZE} (total):    {jax_vmap_median:>10,.0f} steps/sec  ({jax_vmap_vs_numpy:.1f}x vs numpy)")
+    print(
+        f"JAX single-env (JIT):     {jax_single_median:>10,.0f} steps/sec"
+        f"  ({jax_single_vs_numpy:.1f}x vs numpy)"
+    )
+    print(
+        f"JAX vmap@{BATCH_SIZE} (total):    {jax_vmap_median:>10,.0f} steps/sec"
+        f"  ({jax_vmap_vs_numpy:.1f}x vs numpy)"
+    )
     print(f"JAX vmap@{BATCH_SIZE} (per-env):  {jax_vmap_per_env:>10,.0f} steps/sec")
     print("-------------------------------------------------------")
     print()
@@ -293,6 +302,7 @@ def run_benchmark_suite():
 # pytest test
 # ---------------------------------------------------------------------------
 
+
 def test_benchmark_reproducibility():
     """Verify benchmark reproducibility and measurable speedup.
 
@@ -319,11 +329,12 @@ def test_benchmark_reproducibility():
     # Assert reproducibility: at least vmap meets the 10% threshold
     vmap_var = results["jax_vmap_1024"]["variance_pct"]
     assert vmap_var <= VARIANCE_THRESHOLD, (
-        f"JAX vmap@{BATCH_SIZE} variance {vmap_var:.1f}% exceeds "
-        f"{VARIANCE_THRESHOLD}% threshold"
+        f"JAX vmap@{BATCH_SIZE} variance {vmap_var:.1f}% exceeds {VARIANCE_THRESHOLD}% threshold"
     )
 
-    print(f"\n  PASSED: vmap speedup = {results['jax_vmap_1024']['speedup_vs_numpy']:.1f}x vs numpy")
+    print(
+        f"\n  PASSED: vmap speedup = {results['jax_vmap_1024']['speedup_vs_numpy']:.1f}x vs numpy"
+    )
     print(f"  PASSED: vmap variance = {vmap_var:.1f}% <= {VARIANCE_THRESHOLD}%")
 
 

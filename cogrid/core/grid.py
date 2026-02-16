@@ -1,18 +1,17 @@
-"""
-Grid representation derived from Minigrid:
+"""Grid representation derived from Minigrid:
 https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
 """
 
 from __future__ import annotations
 
-from typing import Any
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
 
-from cogrid.core.grid_object import GridObj, Wall, object_to_idx, GridAgent
-from cogrid.core.constants import CoreConstants
 from cogrid.constants import GridConstants
+from cogrid.core.constants import CoreConstants
+from cogrid.core.grid_object import GridAgent, GridObj, Wall, object_to_idx
 from cogrid.visualization.rendering import (
     downsample,
     fill_coords,
@@ -117,12 +116,8 @@ class Grid:
         :param obj: The GridObj (or None) to set.
         :type obj: GridObj | None
         """
-        assert (
-            0 <= col < self.width
-        ), f"column index {col} outside of grid of width {self.width}"
-        assert (
-            0 <= row < self.height
-        ), f"row index {row} outside of grid of height {self.height}"
+        assert 0 <= col < self.width, f"column index {col} outside of grid of width {self.width}"
+        assert 0 <= row < self.height, f"row index {row} outside of grid of height {self.height}"
         self.grid[row * self.width + col] = obj
 
     def get(self, row: int, col: int) -> GridObj | None:
@@ -135,12 +130,8 @@ class Grid:
         :return: The GridObj at the given position, if any.
         :rtype: GridObj | None
         """
-        assert (
-            0 <= col < self.width
-        ), f"column index {col} outside of grid of width {self.width}"
-        assert (
-            0 <= row < self.height
-        ), f"row index {row} outside of grid of height {self.height}"
+        assert 0 <= col < self.width, f"column index {col} outside of grid of width {self.width}"
+        assert 0 <= row < self.height, f"row index {row} outside of grid of height {self.height}"
         assert self.grid is not None
         return self.grid[row * self.width + col]
 
@@ -198,9 +189,7 @@ class Grid:
         for j in range(length):
             self.set(row=row + j, col=col, obj=obj_type())
 
-    def wall_rect(
-        self, col: int, row: int, w: int, h: int, grid_obj: GridObj = Wall
-    ):
+    def wall_rect(self, col: int, row: int, w: int, h: int, grid_obj: GridObj = Wall):
         """Create a rectangle of walls in the grid.
 
         :param col: Initial column index.
@@ -268,15 +257,11 @@ class Grid:
                 if 0 <= x < self.width and 0 <= y < self.height:
                     v = self.get(row=y, col=x)
 
-                    agent = get_grid_agent_at_position(
-                        grid=self, position=(y, x)
-                    )
+                    agent = get_grid_agent_at_position(grid=self, position=(y, x))
                     if agent is not None:
                         grid_slice_agent = deepcopy(agent)
                         grid_slice_agent.pos = (row, col)
-                        grid.grid_agents[grid_slice_agent.agent_id] = (
-                            grid_slice_agent
-                        )
+                        grid.grid_agents[grid_slice_agent.agent_id] = grid_slice_agent
                 else:
                     v = Wall()
 
@@ -311,9 +296,7 @@ class Grid:
         agent_dir = grid_agent.dir if grid_agent else None
         agent_color = grid_agent.agent_id if grid_agent else None
         agent_inventory_names = (
-            tuple([obj.object_id for obj in grid_agent.inventory])
-            if grid_agent
-            else None
+            tuple([obj.object_id for obj in grid_agent.inventory]) if grid_agent else None
         )
         key: tuple[Any, ...] = (
             (agent_dir, agent_color, agent_inventory_names),
@@ -325,9 +308,7 @@ class Grid:
         if key in self.__class__.tile_cache:
             return self.__class__.tile_cache[key]
 
-        tile_img = np.zeros(
-            shape=(tile_size * subdivs, tile_size * subdivs, 3), dtype=np.uint8
-        )
+        tile_img = np.zeros(shape=(tile_size * subdivs, tile_size * subdivs, 3), dtype=np.uint8)
 
         # Draw grid lines (separating each tile)
         fill_coords(tile_img, point_in_rect(0, 0.031, 0, 1), (100, 100, 100))
@@ -364,11 +345,8 @@ class Grid:
         :return: An RGB image of the rendered grid.
         :rtype: np.ndarray
         """
-
         if highlight_mask is None:
-            highlight_mask = np.zeros(
-                shape=(self.width, self.height), dtype=bool
-            )
+            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=bool)
 
         # Compute total size
         width_px = self.width * tile_size
@@ -441,11 +419,8 @@ class Grid:
         return array
 
     @staticmethod
-    def decode(
-        array: np.ndarray, scope: str = "global"
-    ) -> tuple[Grid, np.ndarray]:
+    def decode(array: np.ndarray, scope: str = "global") -> tuple[Grid, np.ndarray]:
         """Decode ASCII encoding back into a Grid"""
-
         channels, height, width = array.shape
         assert channels == 2
 

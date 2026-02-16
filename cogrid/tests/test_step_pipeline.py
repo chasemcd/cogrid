@@ -4,8 +4,9 @@ Tests both numpy and JAX backends, verifying that step() and reset()
 produce correct outputs and that build_step_fn/build_reset_fn
 factories work with optional JIT compilation.
 """
-import pytest
+
 import numpy as np
+import pytest
 
 _OVERCOOKED_FEATURES = [
     "agent_dir",
@@ -35,20 +36,20 @@ def _setup_overcooked_config():
     and builds scope config, lookup tables, feature function, and reward
     config.  Returns everything needed to call step()/reset()/build_*().
     """
-    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     set_backend("numpy")
 
     import cogrid.envs  # noqa: F401 -- trigger registration
-    from cogrid.envs import registry
-    from cogrid.core.grid_object import build_lookup_tables
     from cogrid.core.autowire import (
-        build_scope_config_from_components,
-        build_reward_config_from_components,
         build_feature_config_from_components,
+        build_reward_config_from_components,
+        build_scope_config_from_components,
     )
+    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
@@ -58,7 +59,9 @@ def _setup_overcooked_config():
     lookup_tables = build_lookup_tables(scope="overcooked")
 
     n_agents = array_state["n_agents"]
-    feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
+    feature_config = build_feature_config_from_components(
+        "overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents
+    )
     feature_fn = feature_config["feature_fn"]
 
     type_ids = scope_config["type_ids"]
@@ -111,10 +114,10 @@ def _setup_overcooked_config():
 
 def test_step_numpy_backend():
     """step() and reset() produce correct outputs on the numpy backend."""
-    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend import set_backend
-    from cogrid.core.step_pipeline import step, reset
+    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend.env_state import EnvState
+    from cogrid.core.step_pipeline import reset, step
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
@@ -142,7 +145,8 @@ def test_step_numpy_backend():
         # Step with noop actions
         actions = np.zeros(n_agents, dtype=np.int32)
         result = step(
-            state, actions,
+            state,
+            actions,
             scope_config=cfg["scope_config"],
             lookup_tables=cfg["lookup_tables"],
             feature_fn=cfg["feature_fn"],
@@ -163,7 +167,8 @@ def test_step_numpy_backend():
         # Run 5 more steps
         for _ in range(5):
             state, obs, rewards, terminateds, truncateds, infos = step(
-                state, actions,
+                state,
+                actions,
                 scope_config=cfg["scope_config"],
                 lookup_tables=cfg["lookup_tables"],
                 feature_fn=cfg["feature_fn"],
@@ -183,10 +188,11 @@ def test_step_jax_backend_eager():
     """step() and reset() produce correct outputs on the JAX backend (eager)."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    from cogrid.backend._dispatch import _reset_backend_for_testing
+
     from cogrid.backend import set_backend
-    from cogrid.core.step_pipeline import step, reset
+    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend.env_state import EnvState, register_envstate_pytree
+    from cogrid.core.step_pipeline import reset, step
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
@@ -197,12 +203,8 @@ def test_step_jax_backend_eager():
         register_envstate_pytree()
 
         # Convert all arrays to JAX
-        lookup_tables = {
-            k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["lookup_tables"].items()
-        }
-        layout_arrays = {
-            k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["layout_arrays"].items()
-        }
+        lookup_tables = {k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["lookup_tables"].items()}
+        layout_arrays = {k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["layout_arrays"].items()}
         spawn_positions = jnp.array(cfg["spawn_positions"], dtype=jnp.int32)
 
         # Convert scope_config tables to JAX arrays
@@ -220,7 +222,10 @@ def test_step_jax_backend_eager():
 
         # Rebuild feature function on JAX backend
         from cogrid.core.autowire import build_feature_config_from_components
-        feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
+
+        feature_config = build_feature_config_from_components(
+            "overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents
+        )
         feature_fn = feature_config["feature_fn"]
 
         # Reset
@@ -242,7 +247,8 @@ def test_step_jax_backend_eager():
         # Step
         actions = jnp.zeros(n_agents, dtype=jnp.int32)
         state, obs, rewards, terminateds, truncateds, infos = step(
-            state, actions,
+            state,
+            actions,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
             feature_fn=feature_fn,
@@ -260,7 +266,8 @@ def test_step_jax_backend_eager():
         # Run 5 more steps
         for _ in range(5):
             state, obs, rewards, terminateds, truncateds, infos = step(
-                state, actions,
+                state,
+                actions,
                 scope_config=scope_config,
                 lookup_tables=lookup_tables,
                 feature_fn=feature_fn,
@@ -280,10 +287,11 @@ def test_build_step_fn_jit_compiles():
     """build_step_fn/build_reset_fn produce JIT-compiled functions that execute correctly."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    from cogrid.backend._dispatch import _reset_backend_for_testing
+
     from cogrid.backend import set_backend
-    from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
-    from cogrid.backend.env_state import EnvState, register_envstate_pytree, get_extra
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    from cogrid.backend.env_state import EnvState, get_extra, register_envstate_pytree
+    from cogrid.core.step_pipeline import build_reset_fn, build_step_fn
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
@@ -294,12 +302,8 @@ def test_build_step_fn_jit_compiles():
         register_envstate_pytree()
 
         # Convert all arrays to JAX
-        lookup_tables = {
-            k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["lookup_tables"].items()
-        }
-        layout_arrays = {
-            k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["layout_arrays"].items()
-        }
+        lookup_tables = {k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["lookup_tables"].items()}
+        layout_arrays = {k: jnp.array(v, dtype=jnp.int32) for k, v in cfg["layout_arrays"].items()}
         spawn_positions = jnp.array(cfg["spawn_positions"], dtype=jnp.int32)
 
         # Convert scope_config tables to JAX arrays
@@ -317,17 +321,28 @@ def test_build_step_fn_jit_compiles():
 
         # Rebuild feature function on JAX backend
         from cogrid.core.autowire import build_feature_config_from_components
-        feature_config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents)
+
+        feature_config = build_feature_config_from_components(
+            "overcooked", _OVERCOOKED_FEATURES, n_agents=n_agents
+        )
         feature_fn = feature_config["feature_fn"]
 
         # Build factories (should auto-JIT on JAX backend)
         reset_fn = build_reset_fn(
-            layout_arrays, spawn_positions, n_agents, feature_fn,
-            scope_config, "cardinal",
+            layout_arrays,
+            spawn_positions,
+            n_agents,
+            feature_fn,
+            scope_config,
+            "cardinal",
         )
         step_fn = build_step_fn(
-            scope_config, lookup_tables, feature_fn, cfg["reward_config"],
-            cfg["action_pickup_drop_idx"], cfg["action_toggle_idx"],
+            scope_config,
+            lookup_tables,
+            feature_fn,
+            cfg["reward_config"],
+            cfg["action_pickup_drop_idx"],
+            cfg["action_toggle_idx"],
             cfg["max_steps"],
         )
 
@@ -361,5 +376,3 @@ def test_build_step_fn_jit_compiles():
         assert pt.shape[0] == pp.shape[0], "pot_timer and pot_positions row mismatch"
     finally:
         _reset_backend_for_testing()
-
-

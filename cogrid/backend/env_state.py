@@ -71,16 +71,16 @@ class EnvState:
     """
 
     # --- Dynamic fields (JAX arrays when on jax backend, numpy otherwise) ---
-    agent_pos: object          # (n_agents, 2) int32
-    agent_dir: object          # (n_agents,) int32
-    agent_inv: object          # (n_agents, 1) int32, -1 sentinel for empty
-    wall_map: object           # (H, W) int32
-    object_type_map: object    # (H, W) int32
-    object_state_map: object   # (H, W) int32
-    extra_state: object        # dict[str, array], scope-prefixed keys
-    rng_key: object            # (2,) uint32 JAX PRNG key, or None on numpy
-    time: object               # () int32 scalar timestep
-    done: object               # (n_agents,) bool -- True once terminated/truncated
+    agent_pos: object  # (n_agents, 2) int32
+    agent_dir: object  # (n_agents,) int32
+    agent_inv: object  # (n_agents, 1) int32, -1 sentinel for empty
+    wall_map: object  # (H, W) int32
+    object_type_map: object  # (H, W) int32
+    object_state_map: object  # (H, W) int32
+    extra_state: object  # dict[str, array], scope-prefixed keys
+    rng_key: object  # (2,) uint32 JAX PRNG key, or None on numpy
+    time: object  # () int32 scalar timestep
+    done: object  # (n_agents,) bool -- True once terminated/truncated
 
     # --- Static fields (compile-time constants, not traced) ---
     n_agents: int = field(metadata=dict(static=True), default=2)
@@ -101,6 +101,7 @@ def register_envstate_pytree() -> None:
         return
 
     import jax.tree_util
+
     jax.tree_util.register_dataclass(EnvState)
     _pytree_registered = True
 
@@ -112,6 +113,7 @@ def create_env_state(**kwargs) -> EnvState:
     if get_backend() == "jax":
         register_envstate_pytree()
         from cogrid.backend.state_view import register_stateview_pytree
+
         register_stateview_pytree()
 
     return EnvState(**kwargs)
@@ -127,8 +129,7 @@ def get_extra(state, key, scope=None):
     full_key = f"{scope}.{key}" if scope else key
     if full_key not in state.extra_state:
         raise KeyError(
-            f"extra_state key '{full_key}' not found. "
-            f"Available: {list(state.extra_state.keys())}"
+            f"extra_state key '{full_key}' not found. Available: {list(state.extra_state.keys())}"
         )
     return state.extra_state[full_key]
 
@@ -153,8 +154,7 @@ def validate_extra_state(extra_state, schema):
         expected_ndim = len(spec["shape"])
         if len(arr.shape) != expected_ndim:
             raise ValueError(
-                f"extra_state['{key}'] has {len(arr.shape)} dims, "
-                f"expected {expected_ndim}"
+                f"extra_state['{key}'] has {len(arr.shape)} dims, expected {expected_ndim}"
             )
 
 

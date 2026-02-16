@@ -1,9 +1,6 @@
-from cogrid.core import grid_object
-
-from cogrid.core.roles import Roles
-from cogrid.core import constants
+from cogrid.core import constants, grid_object, typing
 from cogrid.core.grid_utils import adjacent_positions
-from cogrid.core import typing
+from cogrid.core.roles import Roles
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
@@ -27,15 +24,9 @@ class MedKit(grid_object.GridObj):
 
     def render(self, tile_img):
         # red background with white cross
-        fill_coords(
-            tile_img, point_in_rect(0.1, 0.9, 0.1, 0.9), (255, 0, 0)
-        )  # red background
-        fill_coords(
-            tile_img, point_in_rect(0.4, 0.6, 0.2, 0.8), (255, 255, 255)
-        )  # vertical bar
-        fill_coords(
-            tile_img, point_in_rect(0.2, 0.8, 0.4, 0.6), (255, 255, 255)
-        )  # horizontal bar
+        fill_coords(tile_img, point_in_rect(0.1, 0.9, 0.1, 0.9), (255, 0, 0))  # red background
+        fill_coords(tile_img, point_in_rect(0.4, 0.6, 0.2, 0.8), (255, 255, 255))  # vertical bar
+        fill_coords(tile_img, point_in_rect(0.2, 0.8, 0.4, 0.6), (255, 255, 255))  # horizontal bar
 
 
 grid_object.register_object(MedKit.object_id, MedKit, scope="search_rescue")
@@ -57,9 +48,7 @@ class Pickaxe(grid_object.GridObj):
     def render(self, tile_img):
 
         # Brown Handle
-        fill_coords(
-            tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), constants.Colors.Brown
-        )
+        fill_coords(tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), constants.Colors.Brown)
 
         # Use two triangles to make the pickaxe head
         # These are of the specified color
@@ -195,16 +184,14 @@ class YellowVictim(grid_object.GridObj):
         )
 
     def toggle(self, env, agent=None) -> bool:
-        """
-        Toggling a victim rescues them. A YellowVictim can be rescued if a Medic is adjcent to it or the agent
+        """Toggling a victim rescues them. A YellowVictim can be rescued if a Medic is adjcent to it or the agent
         is carrying a MedKit
         """
         assert agent
         adj_positions = [*adjacent_positions(*self.pos)]
         toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
         toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in agent.inventory])
-            or agent.role == Roles.Medic
+            any([isinstance(obj, MedKit) for obj in agent.inventory]) or agent.role == Roles.Medic
         )
 
         assert toggling_agent_is_adjacent, "YellowVictim toggled by non-adjacent agent."
@@ -242,13 +229,10 @@ class RedVictim(grid_object.GridObj):
 
     def toggle(self, env, agent) -> bool:
         """A RedVictim can be rescued if a Medic (or agent carrying MedKit) is the adjacent toggling agent
-        and then another agent toggles within 30 timesteps."""
-
+        and then another agent toggles within 30 timesteps.
+        """
         if self.toggle_countdown == 0:
-
-            toggling_agent_has_medkit = any(
-                [isinstance(obj, MedKit) for obj in agent.inventory]
-            )
+            toggling_agent_has_medkit = any([isinstance(obj, MedKit) for obj in agent.inventory])
 
             if toggling_agent_has_medkit:
                 self.first_toggle_agent = agent.agent_id

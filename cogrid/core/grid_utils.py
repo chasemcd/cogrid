@@ -25,7 +25,7 @@ def layout_to_state(grid, scope: str = "global", scope_config=None) -> dict:
     Scope-specific state is extracted via scope_config's ``state_extractor``
     if provided.
     """
-    from cogrid.core.grid_object import object_to_idx, Wall
+    from cogrid.core.grid_object import Wall, object_to_idx
 
     height, width = grid.height, grid.width
 

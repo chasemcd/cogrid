@@ -16,10 +16,10 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ComponentMetadata:
@@ -140,6 +140,7 @@ def _validate_reward_compute_signature(cls: type) -> None:
 # Registration functions
 # ---------------------------------------------------------------------------
 
+
 def register_component_metadata(
     scope: str,
     object_id: str,
@@ -194,11 +195,9 @@ def register_reward_type(
             existing = _REWARD_TYPE_REGISTRY[key]
             # Allow re-registration from module reload (same class name and
             # module). Reject genuinely different classes claiming the same ID.
-            same_class = (
-                existing.cls.__name__ == cls.__name__
-                and getattr(existing.cls, "__module__", None)
-                == getattr(cls, "__module__", None)
-            )
+            same_class = existing.cls.__name__ == cls.__name__ and getattr(
+                existing.cls, "__module__", None
+            ) == getattr(cls, "__module__", None)
             if not same_class:
                 raise ValueError(
                     f"Duplicate reward type '{reward_id}' in scope '{scope}': "
@@ -226,25 +225,18 @@ def register_feature_type(feature_id: str, scope: str = "global"):
             obs_dim = 4
 
             @classmethod
-            def build_feature_fn(cls, scope):
-                ...
+            def build_feature_fn(cls, scope): ...
     """
 
     def decorator(cls):
         # Validate cls has per_agent (bool) and obs_dim (int) class attributes
         if not hasattr(cls, "per_agent") or not isinstance(cls.per_agent, bool):
-            raise TypeError(
-                f"{cls.__name__} must define 'per_agent' as a bool class attribute."
-            )
+            raise TypeError(f"{cls.__name__} must define 'per_agent' as a bool class attribute.")
         if not hasattr(cls, "obs_dim") or not isinstance(cls.obs_dim, int):
-            raise TypeError(
-                f"{cls.__name__} must define 'obs_dim' as an int class attribute."
-            )
+            raise TypeError(f"{cls.__name__} must define 'obs_dim' as an int class attribute.")
 
         # Validate build_feature_fn exists and has correct signature
-        if not hasattr(cls, "build_feature_fn") or not callable(
-            getattr(cls, "build_feature_fn")
-        ):
+        if not hasattr(cls, "build_feature_fn") or not callable(getattr(cls, "build_feature_fn")):
             raise TypeError(
                 f"{cls.__name__} must define a callable 'build_feature_fn' classmethod."
             )
@@ -266,11 +258,9 @@ def register_feature_type(feature_id: str, scope: str = "global"):
         key = (scope, feature_id)
         if key in _FEATURE_TYPE_REGISTRY:
             existing = _FEATURE_TYPE_REGISTRY[key]
-            same_class = (
-                existing.cls.__name__ == cls.__name__
-                and getattr(existing.cls, "__module__", None)
-                == getattr(cls, "__module__", None)
-            )
+            same_class = existing.cls.__name__ == cls.__name__ and getattr(
+                existing.cls, "__module__", None
+            ) == getattr(cls, "__module__", None)
             if not same_class:
                 raise ValueError(
                     f"Duplicate feature type '{feature_id}' in scope '{scope}': "
@@ -292,6 +282,7 @@ def register_feature_type(feature_id: str, scope: str = "global"):
 # ---------------------------------------------------------------------------
 # Query API
 # ---------------------------------------------------------------------------
+
 
 def get_component_metadata(object_id: str, scope: str = "global") -> ComponentMetadata | None:
     """Look up component metadata by (scope, object_id). Returns None if not found."""
@@ -336,6 +327,7 @@ def get_components_with_extra_state(scope: str = "global") -> list[ComponentMeta
 # Pre-compose hook registration
 # ---------------------------------------------------------------------------
 
+
 def register_pre_compose_hook(scope: str, hook: callable) -> None:
     """Register a hook called before feature composition.
 
@@ -352,6 +344,7 @@ def get_pre_compose_hook(scope: str) -> callable | None:
 # ---------------------------------------------------------------------------
 # Layout index registration
 # ---------------------------------------------------------------------------
+
 
 def register_layout_indices(scope: str, layout_map: dict[str, int]) -> None:
     """Register a layout-name-to-index mapping for a scope."""

@@ -1,14 +1,14 @@
+import functools
 import sys
 import unittest
-import functools
-from cogrid.core.actions import Actions, ActionSets
-from cogrid.envs.overcooked import overcooked_grid_objects
 
 from cogrid.cogrid_env import CoGridEnv
+from cogrid.core import layouts
+from cogrid.core.actions import Actions, ActionSets
+from cogrid.envs import registry
+from cogrid.envs.overcooked import overcooked_grid_objects
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import overcooked_interaction_fn
-from cogrid.core import layouts
-from cogrid.envs import registry
 
 # Map string action names to their integer indices for the cardinal action set.
 _ACTION_IDX = {action: idx for idx, action in enumerate(ActionSets.CardinalActions)}
@@ -54,6 +54,7 @@ N_agent_overcooked_config = {
     "max_steps": 1000,
 }
 
+
 def make_env(num_agents=4, layout="overcooked_cramped_room_v1", render_mode="human"):
     config = N_agent_overcooked_config.copy()  # get config obj
     config["num_agents"] = num_agents
@@ -62,7 +63,9 @@ def make_env(num_agents=4, layout="overcooked_cramped_room_v1", render_mode="hum
     registry.register(
         "NAgentOvercooked-V0",
         functools.partial(
-            CoGridEnv, config=config, agent_class=OvercookedAgent,
+            CoGridEnv,
+            config=config,
+            agent_class=OvercookedAgent,
         ),
     )
     return registry.make(
@@ -70,14 +73,17 @@ def make_env(num_agents=4, layout="overcooked_cramped_room_v1", render_mode="hum
         render_mode=render_mode,
     )
 
+
 def pause_until_keypress():
     print("Press any key to continue...")
     while sys.stdin.read(1):
         break
 
+
 class TestOvercookedEnv(unittest.TestCase):
     def setUp(self):
         from cogrid.backend._dispatch import _reset_backend_for_testing
+
         _reset_backend_for_testing()
         self.env = make_env(num_agents=2, layout="overcooked_cramped_room_v1", render_mode=None)
         self.env.reset()
@@ -93,8 +99,7 @@ class TestOvercookedEnv(unittest.TestCase):
         return result
 
     def pick_tomato_and_move_to_pot(self):
-        """
-        Move agent 0 to the pot
+        """Move agent 0 to the pot
         agent 0 assume to start next to the tomato facing up. in cramped room
         """
         NOOP = self._a(Actions.Noop)
@@ -111,10 +116,9 @@ class TestOvercookedEnv(unittest.TestCase):
 
         # make sure that object in front is a pot
         self.assertIsInstance(pot_tile, overcooked_grid_objects.Pot)
-    
+
     def test_tomato_in_pot(self):
-        """
-        Test that we can get tomato from the stack and put it in the pot.
+        """Test that we can get tomato from the stack and put it in the pot.
 
         Tests Pot.can_place_on() for Tomato objects
         """
@@ -127,26 +131,26 @@ class TestOvercookedEnv(unittest.TestCase):
 
         self.assertIsInstance(pot_tile, overcooked_grid_objects.Pot)
 
-        can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())  
+        can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())
 
         # testing can_place_on to return the rigt boolean
         self.assertTrue(can_place_tomato)
 
         # agent 0 Drop the tomato in the pot
-        obs, reward, _, _, _ = self._step({0: self._a(Actions.PickupDrop), 1: self._a(Actions.Noop)})
+        obs, reward, _, _, _ = self._step(
+            {0: self._a(Actions.PickupDrop), 1: self._a(Actions.Noop)}
+        )
         pot_tile = self.env.grid.get(*agent_0_forward_pos)
 
         # assert that tomato is in the pot
-        self.assertTrue(any(  
-            isinstance(obj, overcooked_grid_objects.Tomato)
-            for obj in pot_tile.objects_in_pot
-        ))
+        self.assertTrue(
+            any(isinstance(obj, overcooked_grid_objects.Tomato) for obj in pot_tile.objects_in_pot)
+        )
 
         return
-    
+
     def test_cooking_tomato_soup(self):
-        """
-        Test tat puts 3 tomatoes in the pot and then simulates cooking.
+        """Test tat puts 3 tomatoes in the pot and then simulates cooking.
         Lastly, check if the soup is ready and can be picked up.
 
         Tests Pot.can_pickup_from() for TomatoSoup objects
@@ -176,18 +180,21 @@ class TestOvercookedEnv(unittest.TestCase):
 
         # simulate cooking
         agent_0 = self.env.grid.grid_agents[0]
-        agent_0.inventory.append(overcooked_grid_objects.Plate())  # just to make sure the agent has a plate in inventory
+        agent_0.inventory.append(
+            overcooked_grid_objects.Plate()
+        )  # just to make sure the agent has a plate in inventory
         while True:
             # ticks cooking_timer down per step
-            obs, reward, _, _, _ = self._step({0: NOOP, 1: NOOP})  
+            obs, reward, _, _, _ = self._step({0: NOOP, 1: NOOP})
             # check if the pot is cooking
             pot_tile = self.env.grid.get(*agent_0.front_pos)
-            if pot_tile.can_pickup_from(agent_0):  # true if pot timer is 0 and agent has plate in inventory
+            if pot_tile.can_pickup_from(
+                agent_0
+            ):  # true if pot timer is 0 and agent has plate in inventory
                 # FOOD IS READY
                 break
         soup = pot_tile.pick_up_from(agent_0)
         self.assertIsInstance(soup, overcooked_grid_objects.TomatoSoup)
-
 
         self.assertEqual(1, 1)
         return
@@ -205,7 +212,7 @@ class TestOvercookedEnv(unittest.TestCase):
 
         # test that we can place a tomato on the pot
         can_place_tomato = pot_tile.can_place_on(agent_0, overcooked_grid_objects.Tomato())
-        
+
         self.assertTrue(can_place_tomato)
 
         # place the tomato on the pot
@@ -229,7 +236,6 @@ class TestOvercookedEnv(unittest.TestCase):
         # agent 0 move down 1 time
         obs, reward, _, _, _ = self._step({0: self._a(Actions.MoveDown), 1: NOOP})
 
-
         # now agent 0 is in front of the delivery zone
         agent_0 = self.env.grid.grid_agents[0]
         agent_0_forward_pos = agent_0.front_pos
@@ -242,25 +248,26 @@ class TestOvercookedEnv(unittest.TestCase):
         agent_0.inventory.append(overcooked_grid_objects.TomatoSoup())
 
         # test that we can place a tomato soup on the delivery zone
-        can_place_tomato_soup = delivery_zone_tile.can_place_on(agent_0, overcooked_grid_objects.TomatoSoup())
+        can_place_tomato_soup = delivery_zone_tile.can_place_on(
+            agent_0, overcooked_grid_objects.TomatoSoup()
+        )
         self.assertTrue(can_place_tomato_soup)
 
         # put onion soup agent inventory
         agent_0.inventory[0] = overcooked_grid_objects.OnionSoup()
         # test that we can place a onion soup on the delivery zone
-        can_place_onion_soup = delivery_zone_tile.can_place_on(agent_0, overcooked_grid_objects.OnionSoup())
+        can_place_onion_soup = delivery_zone_tile.can_place_on(
+            agent_0, overcooked_grid_objects.OnionSoup()
+        )
         self.assertTrue(can_place_onion_soup)
         return
-    
+
     def test_random_actions(self):
-        """
-        Test that random actions are valid and do not crash the environment.
-        """
+        """Test that random actions are valid and do not crash the environment."""
         for _ in range(100):
             action = {0: self.env.action_spaces[0].sample(), 1: self.env.action_spaces[1].sample()}
             obs, reward, _, _, _ = self.env.step(action)
-    
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

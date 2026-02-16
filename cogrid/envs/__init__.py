@@ -1,13 +1,12 @@
-import functools
 import copy
+import functools
 import random
 
 from cogrid.cogrid_env import CoGridEnv
+from cogrid.core import layouts
+from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import overcooked_interaction_fn
-from cogrid.envs import registry
-from cogrid.core import layouts
-
 
 layouts.register_layout(
     "overcooked_cramped_room_v0",
@@ -124,9 +123,7 @@ registry.register(
 )
 
 forced_coordination_config = copy.deepcopy(cramped_room_config)
-forced_coordination_config["grid"][
-    "layout"
-] = "overcooked_forced_coordination_v0"
+forced_coordination_config["grid"]["layout"] = "overcooked_forced_coordination_v0"
 
 registry.register(
     "Overcooked-ForcedCoordination-V0",
@@ -161,7 +158,9 @@ overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
 registry.register(
     "Overcooked-RandomizedLayout-V0",
     functools.partial(
-        CoGridEnv, config=overcooked_randomized_config, agent_class=OvercookedAgent,
+        CoGridEnv,
+        config=overcooked_randomized_config,
+        agent_class=OvercookedAgent,
     ),
 )
 

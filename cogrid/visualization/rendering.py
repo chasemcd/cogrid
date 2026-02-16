@@ -9,16 +9,11 @@ except:
 
 
 def downsample(img, factor):
-    """
-    Downsample an image along both dimensions by some factor
-    """
-
+    """Downsample an image along both dimensions by some factor"""
     assert img.shape[0] % factor == 0
     assert img.shape[1] % factor == 0
 
-    img = img.reshape(
-        [img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3]
-    )
+    img = img.reshape([img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3])
     img = img.mean(axis=3)
     img = img.mean(axis=1)
 
@@ -26,10 +21,7 @@ def downsample(img, factor):
 
 
 def fill_coords(img, fn, color):
-    """
-    Fill pixels of an image with coordinates matching a filter function
-    """
-
+    """Fill pixels of an image with coordinates matching a filter function"""
     for y in range(img.shape[0]):
         for x in range(img.shape[1]):
             yf = (y + 0.5) / img.shape[0]
@@ -127,10 +119,7 @@ def point_in_triangle(a, b, c):
 
 
 def highlight_img(img, color=(255, 255, 255), alpha=0.30):
-    """
-    Add highlighting to an image
-    """
-
+    """Add highlighting to an image"""
     blend_img = img + alpha * (np.array(color, dtype=np.uint8) - img)
     blend_img = blend_img.clip(0, 255).astype(np.uint8)
     img[:, :, :] = blend_img
@@ -146,9 +135,7 @@ def add_text_to_image(
     thickness=2,
 ):
     """Add text to an RGB image using OpenCV."""
-    assert (
-        cv2 is not None
-    ), "Must have cv2 installed to add text. Try `pip install opencv-python`."
+    assert cv2 is not None, "Must have cv2 installed to add text. Try `pip install opencv-python`."
 
     # Add the text to the image
     cv2.putText(image, text, position, font, font_scale, color, thickness)

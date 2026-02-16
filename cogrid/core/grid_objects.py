@@ -8,11 +8,11 @@ import numpy as np
 
 from cogrid.constants import GridConstants
 from cogrid.core import constants
-from cogrid.core.grid_object_base import GridObj, GridAgent
+from cogrid.core.grid_object_base import GridAgent, GridObj
 from cogrid.core.grid_object_registry import (
-    register_object_type,
     idx_to_object,
     make_object,
+    register_object_type,
 )
 from cogrid.visualization.rendering import (
     fill_coords,
@@ -87,6 +87,7 @@ class Counter(GridObj):
                         )
                     else:
                         cell.obj_placed_on = None
+
         return counter_render_sync
 
 
@@ -111,12 +112,8 @@ class Key(GridObj):
         fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.81, 0.88), self.color)
 
         # Ring
-        fill_coords(
-            tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0)
-        )
+        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0))
 
 
 @register_object_type("door")
@@ -150,7 +147,6 @@ class Door(GridObj):
 
     def encode(self, encode_char=False):
         """Encode the a description of this object as a 3-tuple of integers"""
-
         # State, 0: open, 1: closed, 2: locked
         if self.is_open:
             self.state = 2
@@ -169,19 +165,13 @@ class Door(GridObj):
     def render(self, tile_img):
 
         if self.state == 2:
-            fill_coords(
-                tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), self.color
-            )
-            fill_coords(
-                tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0)
-            )
+            fill_coords(tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), self.color)
+            fill_coords(tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0))
             return
 
         # Door frame and door
         if self.state == 0:
-            fill_coords(
-                tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color
-            )
+            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color)
             fill_coords(
                 tile_img,
                 point_in_rect(0.06, 0.94, 0.06, 0.94),
@@ -189,24 +179,12 @@ class Door(GridObj):
             )
 
             # Draw key slot
-            fill_coords(
-                tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), self.color
-            )
+            fill_coords(tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), self.color)
         else:
-            fill_coords(
-                tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color
-            )
-            fill_coords(
-                tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0)
-            )
-            fill_coords(
-                tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), self.color
-            )
-            fill_coords(
-                tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0)
-            )
+            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color)
+            fill_coords(tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0))
+            fill_coords(tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), self.color)
+            fill_coords(tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0))
 
             # Draw door handle
-            fill_coords(
-                tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), self.color
-            )
+            fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), self.color)

@@ -43,7 +43,9 @@ class Feature:
             def build_feature_fn(cls, scope):
                 def fn(state, agent_idx):
                     from cogrid.backend import xp
+
                     return (xp.arange(4) == state.agent_dir[agent_idx]).astype(xp.int32)
+
                 return fn
     """
 
@@ -85,9 +87,7 @@ def _resolve_feature_metas(feature_names, scope, scopes=None):
 
     for name in feature_names:
         if name not in meta_by_id:
-            raise ValueError(
-                f"Feature '{name}' not registered in scope '{scope}'."
-            )
+            raise ValueError(f"Feature '{name}' not registered in scope '{scope}'.")
     return meta_by_id
 
 
@@ -134,12 +134,8 @@ def compose_feature_fns(feature_names, scope, n_agents, scopes=None, preserve_or
         global_names = sorted(n for n in feature_names if not meta_by_id[n].per_agent)
 
     # Build feature functions once at compose time (not per call)
-    per_agent_fns = [
-        meta_by_id[name].cls.build_feature_fn(scope) for name in per_agent_names
-    ]
-    global_fns = [
-        meta_by_id[name].cls.build_feature_fn(scope) for name in global_names
-    ]
+    per_agent_fns = [meta_by_id[name].cls.build_feature_fn(scope) for name in per_agent_names]
+    global_fns = [meta_by_id[name].cls.build_feature_fn(scope) for name in global_names]
 
     def composed_fn(state, agent_idx):
         parts = []

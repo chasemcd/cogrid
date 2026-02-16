@@ -13,17 +13,20 @@ through ``jax.jit`` and ``jax.vmap`` without issue.
 Usage::
 
     state = StateView(
-        agent_pos=..., agent_dir=..., agent_inv=...,
-        wall_map=..., object_type_map=..., object_state_map=...,
+        agent_pos=...,
+        agent_dir=...,
+        agent_inv=...,
+        wall_map=...,
+        object_type_map=...,
+        object_state_map=...,
         extra={"pot_timer": ...},
     )
-    state.agent_pos       # core field  – full autocomplete
-    state.pot_timer       # extra field – resolved via __getattr__
-    state.nonexistent     # raises AttributeError
+    state.agent_pos  # core field  – full autocomplete
+    state.pot_timer  # extra field – resolved via __getattr__
+    state.nonexistent  # raises AttributeError
 """
 
 from dataclasses import dataclass, field
-
 
 _stateview_pytree_registered: bool = False
 
@@ -44,12 +47,12 @@ class StateView:
         Stored in ``extra`` dict.  Access as ``state.<key>``.
     """
 
-    agent_pos: object        # (n_agents, 2) int32
-    agent_dir: object        # (n_agents,) int32
-    agent_inv: object        # (n_agents, 1) int32
-    wall_map: object         # (H, W) int32
+    agent_pos: object  # (n_agents, 2) int32
+    agent_dir: object  # (n_agents,) int32
+    agent_inv: object  # (n_agents, 1) int32
+    wall_map: object  # (H, W) int32
     object_type_map: object  # (H, W) int32
-    object_state_map: object # (H, W) int32
+    object_state_map: object  # (H, W) int32
     extra: dict = field(default_factory=dict)
 
     def __getattr__(self, name):
@@ -69,5 +72,6 @@ def register_stateview_pytree() -> None:
         return
 
     import jax.tree_util
+
     jax.tree_util.register_dataclass(StateView)
     _stateview_pytree_registered = True

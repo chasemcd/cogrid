@@ -32,7 +32,6 @@ class Colors:
 
 @dataclasses.dataclass
 class ObjectColors:
-
     AgentOne = Colors.Cyan
     AgentTwo = Colors.Lavender
     AgentThree = Colors.YellowGrey

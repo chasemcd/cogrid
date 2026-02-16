@@ -38,7 +38,6 @@ from cogrid.core.interactions import process_interactions
 from cogrid.core.movement import move_agents
 from cogrid.feature_space.features import get_all_agent_obs
 
-
 # ---------------------------------------------------------------------------
 # Backend-conditional helpers (each contains exactly one get_backend check)
 # ---------------------------------------------------------------------------
@@ -153,19 +152,21 @@ def step(
         priority,
         state.action_set,
     )
-    state = dataclasses.replace(
-        state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key
-    )
+    state = dataclasses.replace(state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key)
 
     # d. Interactions
-    dir_vec_table = xp.array(
-        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
-    )
+    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
     interaction_fn = scope_config.get("interaction_fn") if scope_config else None
 
     state = process_interactions(
-        state, actions, interaction_fn, lookup_tables, scope_config,
-        dir_vec_table, action_pickup_drop_idx, action_toggle_idx,
+        state,
+        actions,
+        interaction_fn,
+        lookup_tables,
+        scope_config,
+        dir_vec_table,
+        action_pickup_drop_idx,
+        action_toggle_idx,
     )
     state = dataclasses.replace(state, time=state.time + 1)
 
@@ -295,6 +296,7 @@ def build_step_fn(
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
+
     def step_fn(state, actions):
         return step(
             state,
@@ -328,6 +330,7 @@ def build_reset_fn(
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
+
     def reset_fn(rng):
         return reset(
             rng,

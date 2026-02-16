@@ -22,9 +22,8 @@ The test strategy accounts for two key differences between backends:
   actions verify structural correctness only.
 """
 
-import pytest
 import numpy as np
-
+import pytest
 
 # Registry IDs for the 3 test layouts
 LAYOUTS = [
@@ -44,8 +43,11 @@ N_RANDOM_STEPS = 100
 # Core EnvState fields are direct attributes; extra_state fields
 # (pot_contents, pot_timer) are in the extra_state dict with scope prefix.
 CORE_STATE_FIELDS = [
-    "agent_pos", "agent_dir", "agent_inv",
-    "object_type_map", "object_state_map",
+    "agent_pos",
+    "agent_dir",
+    "agent_inv",
+    "object_type_map",
+    "object_state_map",
 ]
 EXTRA_STATE_FIELDS = ["pot_contents", "pot_timer"]
 STATE_FIELDS = CORE_STATE_FIELDS + EXTRA_STATE_FIELDS
@@ -67,6 +69,7 @@ def _create_env(registry_id, backend, seed=42, max_steps=200):
         Tuple of (env, obs_dict) after reset.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401 -- trigger registration
@@ -169,11 +172,10 @@ def test_scripted_parity(layout):
     Uses assert_array_equal for int-valued state arrays and
     assert_allclose(atol=1e-7) for float32 rewards.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
     # --- Phase 1: Run numpy env, save state + rewards at each step ---
-    np_env, _ = _create_env(layout, backend="numpy", seed=42,
-                            max_steps=N_SCRIPTED_STEPS + 10)
+    np_env, _ = _create_env(layout, backend="numpy", seed=42, max_steps=N_SCRIPTED_STEPS + 10)
     agent_ids = sorted(np_env.possible_agents)
     scripted = _scripted_actions(agent_ids, N_SCRIPTED_STEPS)
 
@@ -186,12 +188,9 @@ def test_scripted_parity(layout):
         np_rewards.append(rewards)
 
     # --- Phase 2: Run JAX env, compare at each step ---
-    jax_env, _ = _create_env(layout, backend="jax", seed=42,
-                             max_steps=N_SCRIPTED_STEPS + 10)
+    jax_env, _ = _create_env(layout, backend="jax", seed=42, max_steps=N_SCRIPTED_STEPS + 10)
     jax_agent_ids = sorted(jax_env.possible_agents)
-    assert jax_agent_ids == agent_ids, (
-        f"Agent IDs differ: numpy={agent_ids}, jax={jax_agent_ids}"
-    )
+    assert jax_agent_ids == agent_ids, f"Agent IDs differ: numpy={agent_ids}, jax={jax_agent_ids}"
 
     # Compare initial state (skip agent_dir: it is randomly initialized
     # and numpy PCG64 vs JAX ThreeFry produce different values from the
@@ -201,8 +200,9 @@ def test_scripted_parity(layout):
     init_fields = [f for f in STATE_FIELDS if f != "agent_dir"]
     for field in init_fields:
         np.testing.assert_array_equal(
-            np_states[0][field], jax_init_state[field],
-            err_msg=f"Layout {layout}, initial state, field {field}: mismatch"
+            np_states[0][field],
+            jax_init_state[field],
+            err_msg=f"Layout {layout}, initial state, field {field}: mismatch",
         )
 
     # Step through and compare (all fields from step 1 onward, since
@@ -217,10 +217,7 @@ def test_scripted_parity(layout):
             np.testing.assert_array_equal(
                 np_states[step_idx + 1][field],
                 jax_state[field],
-                err_msg=(
-                    f"Layout {layout}, step {step_idx}, "
-                    f"field {field}: state mismatch"
-                ),
+                err_msg=(f"Layout {layout}, step {step_idx}, field {field}: state mismatch"),
             )
 
         # Compare rewards
@@ -229,10 +226,7 @@ def test_scripted_parity(layout):
                 np_rewards[step_idx][aid],
                 rewards[aid],
                 atol=1e-7,
-                err_msg=(
-                    f"Layout {layout}, step {step_idx}, agent {aid}: "
-                    f"reward mismatch"
-                ),
+                err_msg=(f"Layout {layout}, step {step_idx}, agent {aid}: reward mismatch"),
             )
 
 
@@ -249,10 +243,9 @@ def test_random_structural(layout):
     100+ steps. Does NOT compare against numpy (RNG divergence means
     collision resolution may differ).
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
-    env, obs = _create_env(layout, backend="jax", seed=42,
-                           max_steps=N_RANDOM_STEPS + 10)
+    env, obs = _create_env(layout, backend="jax", seed=42, max_steps=N_RANDOM_STEPS + 10)
     agent_ids = sorted(env.possible_agents)
     rng = np.random.default_rng(123)
 
@@ -273,8 +266,7 @@ def test_random_structural(layout):
 
             # Dtype check: numeric (int or float)
             assert np.issubdtype(obs[aid].dtype, np.number), (
-                f"Step {step_idx}, agent {aid}: obs dtype {obs[aid].dtype} "
-                f"is not numeric"
+                f"Step {step_idx}, agent {aid}: obs dtype {obs[aid].dtype} is not numeric"
             )
 
             # Finite values (no NaN, no inf)
@@ -284,8 +276,7 @@ def test_random_structural(layout):
 
             # Reward is finite
             assert np.isfinite(rewards[aid]), (
-                f"Step {step_idx}, agent {aid}: reward is not finite: "
-                f"{rewards[aid]}"
+                f"Step {step_idx}, agent {aid}: reward is not finite: {rewards[aid]}"
             )
 
         # Correct dict keys
@@ -317,8 +308,7 @@ def _compare_states(s1, s2, label):
         v1 = _get_state_field(s1, field_name)
         v2 = _get_state_field(s2, field_name)
         np.testing.assert_array_equal(
-            np.array(v1), np.array(v2),
-            err_msg=f"{label}: state.{field_name} mismatch"
+            np.array(v1), np.array(v2), err_msg=f"{label}: state.{field_name} mismatch"
         )
 
 
@@ -329,10 +319,13 @@ def test_eager_vs_jit():
     and compares outputs of eager vs jax.jit execution for both reset
     and 10 sequential steps.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
+    import jax
     import jax.numpy as jnp
+
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.step_pipeline import step as step_fn_eager, reset as reset_fn_eager
+    from cogrid.core.step_pipeline import reset as reset_fn_eager
+    from cogrid.core.step_pipeline import step as step_fn_eager
 
     _reset_backend_for_testing()
 
@@ -364,7 +357,9 @@ def test_eager_vs_jit():
         "object_state_map": jnp.array(env._state["object_state_map"], dtype=jnp.int32),
         "pot_contents": jnp.array(env._state["pot_contents"], dtype=jnp.int32),
         "pot_timer": jnp.array(env._state["pot_timer"], dtype=jnp.int32),
-        "pot_positions": jnp.array(env._state.get("pot_positions", np.zeros((0, 2), dtype=np.int32)), dtype=jnp.int32),
+        "pot_positions": jnp.array(
+            env._state.get("pot_positions", np.zeros((0, 2), dtype=np.int32)), dtype=jnp.int32
+        ),
     }
     spawn_positions = jnp.array(env._state["agent_pos"], dtype=jnp.int32)
 
@@ -384,8 +379,7 @@ def test_eager_vs_jit():
     state_jit, obs_jit = reset_fn(rng_key)
 
     np.testing.assert_array_equal(
-        np.array(obs_eager), np.array(obs_jit),
-        err_msg="Reset: obs mismatch between eager and JIT"
+        np.array(obs_eager), np.array(obs_jit), err_msg="Reset: obs mismatch between eager and JIT"
     )
     _compare_states(state_eager, state_jit, "Reset")
 
@@ -397,7 +391,8 @@ def test_eager_vs_jit():
         actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
 
         state_e, obs_e, rew_e, term_e, trunc_e, _ = step_fn_eager(
-            state_e, actions,
+            state_e,
+            actions,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
             feature_fn=feature_fn,
@@ -410,20 +405,25 @@ def test_eager_vs_jit():
         state_j, obs_j, rew_j, term_j, trunc_j, _ = step_fn(state_j, actions)
 
         np.testing.assert_array_equal(
-            np.array(obs_e), np.array(obs_j),
-            err_msg=f"Step {step_i}: obs mismatch between eager and JIT"
+            np.array(obs_e),
+            np.array(obs_j),
+            err_msg=f"Step {step_i}: obs mismatch between eager and JIT",
         )
         np.testing.assert_allclose(
-            np.array(rew_e), np.array(rew_j), atol=1e-7,
-            err_msg=f"Step {step_i}: reward mismatch between eager and JIT"
+            np.array(rew_e),
+            np.array(rew_j),
+            atol=1e-7,
+            err_msg=f"Step {step_i}: reward mismatch between eager and JIT",
         )
         np.testing.assert_array_equal(
-            np.array(term_e), np.array(term_j),
-            err_msg=f"Step {step_i}: terminateds mismatch between eager and JIT"
+            np.array(term_e),
+            np.array(term_j),
+            err_msg=f"Step {step_i}: terminateds mismatch between eager and JIT",
         )
         np.testing.assert_array_equal(
-            np.array(trunc_e), np.array(trunc_j),
-            err_msg=f"Step {step_i}: truncateds mismatch between eager and JIT"
+            np.array(trunc_e),
+            np.array(trunc_j),
+            err_msg=f"Step {step_i}: truncateds mismatch between eager and JIT",
         )
         _compare_states(state_e, state_j, f"Step {step_i}")
 
@@ -439,8 +439,9 @@ def test_step_determinism():
     Catches hidden statefulness (global counters, in-place mutation, etc.)
     that would cause non-deterministic behavior under the same inputs.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
     import jax.numpy as jnp
+
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
@@ -461,27 +462,29 @@ def test_step_determinism():
     state2, obs2, rew2, term2, trunc2, _ = step_fn(state, actions)
 
     np.testing.assert_array_equal(
-        np.array(obs1), np.array(obs2),
-        err_msg="Determinism: obs differ between identical calls"
+        np.array(obs1), np.array(obs2), err_msg="Determinism: obs differ between identical calls"
     )
     np.testing.assert_array_equal(
-        np.array(rew1), np.array(rew2),
-        err_msg="Determinism: rewards differ between identical calls"
+        np.array(rew1),
+        np.array(rew2),
+        err_msg="Determinism: rewards differ between identical calls",
     )
     np.testing.assert_array_equal(
-        np.array(term1), np.array(term2),
-        err_msg="Determinism: terminateds differ between identical calls"
+        np.array(term1),
+        np.array(term2),
+        err_msg="Determinism: terminateds differ between identical calls",
     )
     np.testing.assert_array_equal(
-        np.array(trunc1), np.array(trunc2),
-        err_msg="Determinism: truncateds differ between identical calls"
+        np.array(trunc1),
+        np.array(trunc2),
+        err_msg="Determinism: truncateds differ between identical calls",
     )
 
     for field_name in STATE_FIELDS:
         np.testing.assert_array_equal(
             np.array(_get_state_field(state1, field_name)),
             np.array(_get_state_field(state2, field_name)),
-            err_msg=f"Determinism: state.{field_name} differs"
+            err_msg=f"Determinism: state.{field_name} differs",
         )
 
 
@@ -497,6 +500,7 @@ def _setup_jax_env():
     everything needed to call individual JAX sub-functions.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401
@@ -509,10 +513,11 @@ def _setup_jax_env():
 
 def test_obs_eager_vs_jit():
     """get_all_agent_obs produces identical outputs eagerly and under jax.jit."""
-    jax = pytest.importorskip("jax")
-    import jax.numpy as jnp
-    from cogrid.feature_space.features import get_all_agent_obs
+    pytest.importorskip("jax")
+    import jax
+
     from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.feature_space.features import get_all_agent_obs
 
     env = _setup_jax_env()
     state = env._env_state
@@ -531,15 +536,18 @@ def test_obs_eager_vs_jit():
     obs_j = jitted_obs(state_view)
 
     np.testing.assert_array_equal(
-        np.array(obs_e), np.array(obs_j),
-        err_msg="get_all_agent_obs: obs mismatch between eager and JIT"
+        np.array(obs_e),
+        np.array(obs_j),
+        err_msg="get_all_agent_obs: obs mismatch between eager and JIT",
     )
 
 
 def test_rewards_eager_vs_jit():
     """Auto-wired compute_fn produces identical outputs eagerly and under jax.jit."""
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
+    import jax
     import jax.numpy as jnp
+
     from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()
@@ -566,6 +574,8 @@ def test_rewards_eager_vs_jit():
     rew_j = jitted_rewards(prev_sv, curr_sv, actions)
 
     np.testing.assert_allclose(
-        np.array(rew_e), np.array(rew_j), atol=1e-7,
-        err_msg="compute_fn: reward mismatch between eager and JIT"
+        np.array(rew_e),
+        np.array(rew_j),
+        atol=1e-7,
+        err_msg="compute_fn: reward mismatch between eager and JIT",
     )

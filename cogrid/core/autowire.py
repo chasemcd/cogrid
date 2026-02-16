@@ -24,11 +24,10 @@ def build_feature_config_from_components(
     Composes features listed in *feature_names* into a single
     ``feature_fn(state, agent_idx) -> (obs_dim,) float32``.
     """
-    from cogrid.core.features import compose_feature_fns, obs_dim_for_features
-    from cogrid.core.component_registry import get_pre_compose_hook
-
     # Ensure global Feature subclasses are registered
     import cogrid.feature_space.features  # noqa: F401
+    from cogrid.core.component_registry import get_pre_compose_hook
+    from cogrid.core.features import compose_feature_fns, obs_dim_for_features
 
     # Run scope-specific pre-compose hook (e.g. set layout index state
     # before feature closures capture it).
@@ -39,12 +38,18 @@ def build_feature_config_from_components(
     lookup_scopes = [scope, "global"]
 
     composed_fn = compose_feature_fns(
-        feature_names, scope, n_agents,
-        scopes=lookup_scopes, preserve_order=True,
+        feature_names,
+        scope,
+        n_agents,
+        scopes=lookup_scopes,
+        preserve_order=True,
     )
 
     total_dim = obs_dim_for_features(
-        feature_names, scope, n_agents, scopes=lookup_scopes,
+        feature_names,
+        scope,
+        n_agents,
+        scopes=lookup_scopes,
     )
 
     return {
@@ -94,9 +99,7 @@ def build_scope_config_from_components(
     symbol_table = _build_symbol_table(scope, get_all_components)
 
     # -- extra_state_schema: merged from all components, scope-prefixed, sorted --
-    extra_state_schema = _build_extra_state_schema(
-        scope, get_components_with_extra_state
-    )
+    extra_state_schema = _build_extra_state_schema(scope, get_components_with_extra_state)
 
     # -- static_tables: CAN_PICKUP, CAN_OVERLAP, etc. from build_lookup_tables --
     static_tables = build_lookup_tables(scope=scope)
@@ -118,15 +121,13 @@ def build_scope_config_from_components(
 
     # -- Compose extra_state_builder from components --
     extra_state_builder = None
-    builders = [
-        m for m in all_components
-        if "extra_state_builder" in m.methods
-    ]
+    builders = [m for m in all_components if "extra_state_builder" in m.methods]
     if builders:
         builder_fns = [m.methods["extra_state_builder"]() for m in builders]
         if len(builder_fns) == 1:
             extra_state_builder = builder_fns[0]
         else:
+
             def _composed_builder(parsed_arrays, scope=scope, _fns=builder_fns):
                 merged = {}
                 for fn in _fns:
@@ -151,9 +152,11 @@ def build_scope_config_from_components(
         if len(render_fns) == 1:
             render_sync = render_fns[0]
         else:
+
             def _composed_render_sync(grid, env_state, scope, _fns=render_fns):
                 for fn in _fns:
                     fn(grid, env_state, scope)
+
             render_sync = _composed_render_sync
 
     return {

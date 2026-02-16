@@ -15,10 +15,7 @@ class OvercookedAgent(Agent):
         :rtype: bool
         """
         if isinstance(grid_object, overcooked_grid_objects.Pot) and any(
-            [
-                isinstance(inv_obj, overcooked_grid_objects.Plate)
-                for inv_obj in self.inventory
-            ]
+            [isinstance(inv_obj, overcooked_grid_objects.Plate) for inv_obj in self.inventory]
         ):
             return True
 

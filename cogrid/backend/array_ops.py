@@ -3,6 +3,7 @@
 This is the ONLY module that branches on numpy vs JAX for mutation.
 All other code uses ``xp`` for operations that work identically.
 """
+
 from cogrid.backend._dispatch import get_backend
 
 

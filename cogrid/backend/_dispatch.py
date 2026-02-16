@@ -57,6 +57,7 @@ def set_backend(name: str) -> None:
     elif name == "jax":
         try:
             import jax.numpy as jnp
+
             xp_module = jnp
         except ImportError:
             raise ImportError(

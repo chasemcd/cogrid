@@ -16,7 +16,6 @@ implementation serves both paths.
 from cogrid.backend import xp
 from cogrid.core.features import Feature, register_feature_type
 
-
 # ---------------------------------------------------------------------------
 # Core feature extractors
 # ---------------------------------------------------------------------------
@@ -124,6 +123,7 @@ class AgentDir(Feature):
     def build_feature_fn(cls, scope):
         def fn(state, agent_idx):
             return agent_dir_feature(state.agent_dir, agent_idx)
+
         return fn
 
 
@@ -136,6 +136,7 @@ class AgentPosition(Feature):
     def build_feature_fn(cls, scope):
         def fn(state, agent_idx):
             return agent_pos_feature(state.agent_pos, agent_idx)
+
         return fn
 
 
@@ -147,6 +148,7 @@ class CanMoveDirection(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         from cogrid.core.grid_object import build_lookup_tables
+
         tables = build_lookup_tables(scope=scope)
         can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
 
@@ -158,6 +160,7 @@ class CanMoveDirection(Feature):
                 state.object_type_map,
                 can_overlap_table,
             )
+
         return fn
 
 
@@ -170,6 +173,7 @@ class Inventory(Feature):
     def build_feature_fn(cls, scope):
         def fn(state, agent_idx):
             return inventory_feature(state.agent_inv, agent_idx)
+
         return fn
 
 

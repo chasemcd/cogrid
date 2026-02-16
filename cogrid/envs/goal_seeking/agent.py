@@ -22,10 +22,7 @@ class GoalSeekingAgent(Agent):
         # return " "
 
     def create_inventory_ob(self):
-        return [
-            1 if obj in self.inventory else 0
-            for obj in self.target_values.keys()
-        ]
+        return [1 if obj in self.inventory else 0 for obj in self.target_values.keys()]
 
     @property
     def inventory_capacity(self):

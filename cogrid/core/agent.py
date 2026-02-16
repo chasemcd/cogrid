@@ -43,15 +43,9 @@ class Agent:
     def dir_vec(self):
         dir_to_vec = {
             Directions.Right: np.array((0, 1)),  # Increase col away from 0
-            Directions.Down: np.array(
-                (1, 0)
-            ),  # Down increases the row number (0 is top)
-            Directions.Left: np.array(
-                (0, -1)
-            ),  # Left decreases the col towards 0
-            Directions.Up: np.array(
-                (-1, 0)
-            ),  # Up decreases the row to 0 (move towards the top)
+            Directions.Down: np.array((1, 0)),  # Down increases the row number (0 is top)
+            Directions.Left: np.array((0, -1)),  # Left decreases the col towards 0
+            Directions.Up: np.array((-1, 0)),  # Up decreases the row to 0 (move towards the top)
         }
         return dir_to_vec[self.dir]
 
@@ -117,6 +111,7 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
     and ``n_agents``. Agents are sorted by ID for deterministic ordering.
     """
     import numpy as _np
+
     from cogrid.core.grid_object import object_to_idx
 
     # Sort by agent_id for deterministic array ordering
@@ -137,9 +132,7 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
         agent_dir[i] = int(agent.dir)
 
         if len(agent.inventory) > 0:
-            agent_inv[i, 0] = object_to_idx(
-                agent.inventory[0].object_id, scope=scope
-            )
+            agent_inv[i, 0] = object_to_idx(agent.inventory[0].object_id, scope=scope)
 
     return {
         "agent_pos": agent_pos,

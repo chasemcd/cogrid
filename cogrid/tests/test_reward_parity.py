@@ -17,11 +17,10 @@ Satisfies TEST-01: cross-backend parity for unified reward functions.
 import numpy as np
 import pytest
 
-from cogrid.backend.state_view import StateView
-
 # Trigger Overcooked object and reward registration before building scope config
 import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
 import cogrid.envs.overcooked.rewards  # noqa: F401
+from cogrid.backend.state_view import StateView
 
 # Build type_ids once before any backend switching (pure Python dict, no array ops)
 from cogrid.core.autowire import build_scope_config_from_components
@@ -57,12 +56,20 @@ def _build_base_otm(delivery_zone_pos=None, pot_pos=None):
     return otm
 
 
-_CORE_FIELDS = {"agent_pos", "agent_dir", "agent_inv", "wall_map", "object_type_map", "object_state_map"}
+_CORE_FIELDS = {
+    "agent_pos",
+    "agent_dir",
+    "agent_inv",
+    "wall_map",
+    "object_type_map",
+    "object_state_map",
+}
 
 
 def _dict_to_sv(fields):
     """Convert a plain dict of arrays to a StateView, filling missing core fields."""
     import numpy as _np
+
     defaults = dict(
         agent_pos=_np.zeros((N_AGENTS, 2), dtype=_np.int32),
         agent_dir=_np.zeros(N_AGENTS, dtype=_np.int32),
@@ -97,8 +104,9 @@ def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=N
         Tuple of (result_numpy, result_jax) as numpy arrays.
     """
     import importlib
-    from cogrid.backend._dispatch import _reset_backend_for_testing
+
     from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
 
     if fn_kwargs is None:
         fn_kwargs = {}
@@ -121,7 +129,9 @@ def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=N
     _reset_backend_for_testing()
     set_backend("jax")
     import jax.numpy as jnp
+
     from cogrid.backend.state_view import register_stateview_pytree
+
     register_stateview_pytree()
 
     importlib.reload(ar_mod)
@@ -152,16 +162,14 @@ def test_reward_parity_delivery():
     performs PickupDrop (action 4). Agent 1 is idle (Noop, action 6).
     With common_reward=True (default), both agents receive the reward.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
     # Agent 0 at (1,2) facing Right (dir=0), forward position is (1,3)
     # Agent 1 at (3,3) facing Down (dir=1), forward position is (4,3)
     prev_state = {
         "agent_pos": np.array([[1, 2], [3, 3]], dtype=np.int32),
         "agent_dir": np.array([0, 1], dtype=np.int32),
-        "agent_inv": np.array(
-            [[_TYPE_IDS["onion_soup"]], [-1]], dtype=np.int32
-        ),
+        "agent_inv": np.array([[_TYPE_IDS["onion_soup"]], [-1]], dtype=np.int32),
         "object_type_map": _build_base_otm(delivery_zone_pos=(1, 3)),
         "object_state_map": np.zeros((H, W), dtype=np.int32),
         "pot_contents": np.full((1, 3), -1, dtype=np.int32),
@@ -184,8 +192,7 @@ def test_reward_parity_delivery():
 
     # Agent 0 earns delivery reward; common_reward=True means both get 1.0
     np.testing.assert_allclose(
-        result_np, result_jax, atol=1e-7,
-        err_msg="delivery_reward: numpy vs JAX mismatch"
+        result_np, result_jax, atol=1e-7, err_msg="delivery_reward: numpy vs JAX mismatch"
     )
 
     # Sanity check: agent 0 should earn the reward (both agents get 1.0)
@@ -210,7 +217,7 @@ def test_reward_parity_onion_in_pot():
     Agent 1 is idle. common_reward=False (default), so only agent 0
     gets the reward.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
     pot_contents = np.full((1, 3), -1, dtype=np.int32)
     pot_contents[0, 0] = _TYPE_IDS["onion"]  # 1 onion in slot 0
@@ -218,9 +225,7 @@ def test_reward_parity_onion_in_pot():
     prev_state = {
         "agent_pos": np.array([[1, 2], [3, 3]], dtype=np.int32),
         "agent_dir": np.array([0, 1], dtype=np.int32),  # Right, Down
-        "agent_inv": np.array(
-            [[_TYPE_IDS["onion"]], [-1]], dtype=np.int32
-        ),
+        "agent_inv": np.array([[_TYPE_IDS["onion"]], [-1]], dtype=np.int32),
         "object_type_map": _build_base_otm(pot_pos=(1, 3)),
         "object_state_map": np.zeros((H, W), dtype=np.int32),
         "pot_contents": pot_contents,
@@ -242,8 +247,7 @@ def test_reward_parity_onion_in_pot():
     )
 
     np.testing.assert_allclose(
-        result_np, result_jax, atol=1e-7,
-        err_msg="onion_in_pot_reward: numpy vs JAX mismatch"
+        result_np, result_jax, atol=1e-7, err_msg="onion_in_pot_reward: numpy vs JAX mismatch"
     )
 
     # Only agent 0 earns (common_reward=False)
@@ -266,7 +270,7 @@ def test_reward_parity_soup_in_dish():
     Scenario: Agent 0 holds plate, faces a pot at (1,3) with timer==0
     (soup is ready). Performs PickupDrop. Agent 1 is idle.
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
     # Pot is full (3 onions) and ready (timer=0)
     pot_contents = np.full((1, 3), _TYPE_IDS["onion"], dtype=np.int32)
@@ -274,9 +278,7 @@ def test_reward_parity_soup_in_dish():
     prev_state = {
         "agent_pos": np.array([[1, 2], [3, 3]], dtype=np.int32),
         "agent_dir": np.array([0, 1], dtype=np.int32),
-        "agent_inv": np.array(
-            [[_TYPE_IDS["plate"]], [-1]], dtype=np.int32
-        ),
+        "agent_inv": np.array([[_TYPE_IDS["plate"]], [-1]], dtype=np.int32),
         "object_type_map": _build_base_otm(pot_pos=(1, 3)),
         "object_state_map": np.zeros((H, W), dtype=np.int32),
         "pot_contents": pot_contents,
@@ -298,8 +300,7 @@ def test_reward_parity_soup_in_dish():
     )
 
     np.testing.assert_allclose(
-        result_np, result_jax, atol=1e-7,
-        err_msg="soup_in_dish_reward: numpy vs JAX mismatch"
+        result_np, result_jax, atol=1e-7, err_msg="soup_in_dish_reward: numpy vs JAX mismatch"
     )
 
     assert result_np[0] == pytest.approx(0.3, abs=1e-7), (
@@ -322,18 +323,16 @@ def test_reward_parity_compute_rewards():
     compute_fn from build_reward_config_from_components. Only delivery
     should trigger (agent holds soup, not onion).
     """
-    jax = pytest.importorskip("jax")
+    pytest.importorskip("jax")
 
-    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.core.autowire import build_reward_config_from_components
 
     prev_state_np = {
         "agent_pos": np.array([[1, 2], [3, 3]], dtype=np.int32),
         "agent_dir": np.array([0, 1], dtype=np.int32),
-        "agent_inv": np.array(
-            [[_TYPE_IDS["onion_soup"]], [-1]], dtype=np.int32
-        ),
+        "agent_inv": np.array([[_TYPE_IDS["onion_soup"]], [-1]], dtype=np.int32),
         "object_type_map": _build_base_otm(delivery_zone_pos=(1, 3)),
         "object_state_map": np.zeros((H, W), dtype=np.int32),
         "pot_contents": np.full((1, 3), -1, dtype=np.int32),
@@ -347,25 +346,29 @@ def test_reward_parity_compute_rewards():
     set_backend("numpy")
 
     reward_config_np = build_reward_config_from_components(
-        "overcooked", n_agents=N_AGENTS, type_ids=_TYPE_IDS,
+        "overcooked",
+        n_agents=N_AGENTS,
+        type_ids=_TYPE_IDS,
         action_pickup_drop_idx=4,
     )
     compute_fn_np = reward_config_np["compute_fn"]
     sv_np = _dict_to_sv(prev_state_np)
-    result_np = compute_fn_np(
-        sv_np, sv_np, actions_np, reward_config_np
-    )
+    result_np = compute_fn_np(sv_np, sv_np, actions_np, reward_config_np)
     result_np = np.array(result_np)
 
     # --- JAX path ---
     _reset_backend_for_testing()
     set_backend("jax")
     import jax.numpy as jnp
+
     from cogrid.backend.state_view import register_stateview_pytree
+
     register_stateview_pytree()
 
     reward_config_jax = build_reward_config_from_components(
-        "overcooked", n_agents=N_AGENTS, type_ids=_TYPE_IDS,
+        "overcooked",
+        n_agents=N_AGENTS,
+        type_ids=_TYPE_IDS,
         action_pickup_drop_idx=4,
     )
     compute_fn_jax = reward_config_jax["compute_fn"]
@@ -374,17 +377,14 @@ def test_reward_parity_compute_rewards():
     sv_jax = _dict_to_sv(prev_state_jax)
     actions_jax = jnp.array(actions_np)
 
-    result_jax = compute_fn_jax(
-        sv_jax, sv_jax, actions_jax, reward_config_jax
-    )
+    result_jax = compute_fn_jax(sv_jax, sv_jax, actions_jax, reward_config_jax)
     result_jax = np.array(result_jax)
 
     # Reset
     _reset_backend_for_testing()
 
     np.testing.assert_allclose(
-        result_np, result_jax, atol=1e-7,
-        err_msg="compute_fn: numpy vs JAX mismatch"
+        result_np, result_jax, atol=1e-7, err_msg="compute_fn: numpy vs JAX mismatch"
     )
 
     # Only delivery triggers: both agents get 1.0 (common_reward=True)

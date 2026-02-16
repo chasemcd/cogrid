@@ -3,8 +3,7 @@ import dataclasses
 import numpy as np
 
 from cogrid import constants
-from cogrid.core import grid_utils
-from cogrid.core import grid_object
+from cogrid.core import grid_object, grid_utils
 
 
 def generate_sr_grid(
@@ -37,9 +36,9 @@ def generate_sr_grid(
     free_spaces = list(np.argwhere(grid[:, :, 0] == constants.GridConstants.FreeSpace))
 
     objs_to_place = num_green + num_yellow + num_red + num_agents
-    assert (
-        len(free_spaces) >= objs_to_place
-    ), "Not enough free spaces for specified number of objects!"
+    assert len(free_spaces) >= objs_to_place, (
+        "Not enough free spaces for specified number of objects!"
+    )
 
     np_random.shuffle(free_spaces)
 

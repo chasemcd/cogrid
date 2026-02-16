@@ -9,9 +9,10 @@ handling direction-based rendering and inventory display.
 """
 
 from __future__ import annotations
-from copy import deepcopy
+
 import math
 import uuid
+from copy import deepcopy
 
 import numpy as np
 
@@ -66,26 +67,23 @@ class GridObj:
         return False
 
     def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        """
-        Can another object be placed on top of this object? e.g., a countertop that can't be walked through
+        """Can another object be placed on top of this object? e.g., a countertop that can't be walked through
         but can have an item on top of it.
         """
         return False
 
     def can_pickup_from(self, agent: GridAgent) -> bool:
         """Can the agent pick up an object from this one?"""
-        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(
-            agent=agent
-        )
+        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(agent=agent)
 
     def place_on(self, agent: GridAgent, cell: GridObj) -> None:
         self.obj_placed_on = cell
         self.state = hash(cell.__class__.__name__) % (2**31 - 1)
 
     def pick_up_from(self, agent: GridAgent) -> GridObj:
-        assert (
-            self.obj_placed_on is not None
-        ), f"Picking up from but there's no object placed on {self.object_id}"
+        assert self.obj_placed_on is not None, (
+            f"Picking up from but there's no object placed on {self.object_id}"
+        )
         cell = self.obj_placed_on
         self.obj_placed_on = None
         self.state = 0
@@ -99,8 +97,7 @@ class GridObj:
         return True
 
     def toggle(self, env, agent: GridAgent = None) -> bool:
-        """
-        Trigger/Toggle an action this object performs. Some toggles are conditioned on the environment
+        """Trigger/Toggle an action this object performs. Some toggles are conditioned on the environment
         and require specific conditions to be met, which can be checked with the end.
         """
         return False
@@ -146,8 +143,7 @@ class GridObj:
         pass
 
     def tick(self):
-        """
-        Some objects have a time component (e.g., cooking soup), so we call the tick
+        """Some objects have a time component (e.g., cooking soup), so we call the tick
         method on all objects for each env.step()
         """
         pass
@@ -168,8 +164,7 @@ def _is_int(chk):
 
 class GridAgent(GridObj):
     def __init__(self, agent, n_agents: int, scope: str = "global"):
-        """
-        Grid agents are initialized slightly differently. State corresponds to the object they are holding
+        """Grid agents are initialized slightly differently. State corresponds to the object they are holding
         and char/colors are unique for each agent.
         """
         from cogrid.core.grid_object_registry import object_to_idx
@@ -181,17 +176,13 @@ class GridAgent(GridObj):
             Directions.Right: ">",
         }[agent.dir]
 
-        assert (
-            len(agent.inventory) <= 1
-        ), "Current implementation requires maximum inventory size of 1."
+        assert len(agent.inventory) <= 1, (
+            "Current implementation requires maximum inventory size of 1."
+        )
 
         self.object_id = f"agent_{self.char}"
 
-        state = (
-            0
-            if len(agent.inventory) == 0
-            else object_to_idx(agent.inventory[0], scope=scope)
-        )
+        state = 0 if len(agent.inventory) == 0 else object_to_idx(agent.inventory[0], scope=scope)
 
         super().__init__(state=state)
         self.dir = agent.dir
@@ -225,9 +216,7 @@ class GridAgent(GridObj):
 
         # Rotate the triangle based on agent direction
         assert self.dir is not None
-        tri_fn = rotate_fn(
-            tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir
-        )
+        tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir)
         fill_coords(tile_img, tri_fn, self.color)
 
         # add any item in the inventory to the corner
@@ -235,9 +224,9 @@ class GridAgent(GridObj):
             tile_img.shape[0] // 3,
             tile_img.shape[1] // 3,
         )
-        assert (
-            len(self.inventory) <= 3
-        ), "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+        assert len(self.inventory) <= 3, (
+            "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+        )
 
         offset = 4  # offset so we still see grid lines
         for i, obj in enumerate(self.inventory):

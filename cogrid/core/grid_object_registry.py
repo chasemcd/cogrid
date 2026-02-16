@@ -9,7 +9,6 @@ import numpy as np
 from cogrid.backend import xp
 from cogrid.core.grid_object_base import GridObj
 
-
 # The OBJECT_REGISTRY holds all registered objects under a "scope" (e.g., "global", "search_rescue", "overcooked")
 # which allows us to re-use IDs and character representations across environments (e.g., P is a purple target in
 # search_rescue and a plate in overcooked).
@@ -20,18 +19,18 @@ OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 _OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
 
 # Known classmethod names to scan for during component registration.
-_COMPONENT_METHODS = frozenset({
-    "build_tick_fn",
-    "extra_state_schema",
-    "extra_state_builder",
-    "build_static_tables",
-    "build_render_sync_fn",
-})
+_COMPONENT_METHODS = frozenset(
+    {
+        "build_tick_fn",
+        "extra_state_schema",
+        "extra_state_builder",
+        "build_static_tables",
+        "build_render_sync_fn",
+    }
+)
 
 
-def make_object(
-    object_id: str | None, scope: str = "global", **kwargs
-) -> GridObj:
+def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridObj:
     if object_id is None:
         return None
 
@@ -55,12 +54,8 @@ def get_object_class(object_id: str, scope: str = "global") -> GridObj:
     return OBJECT_REGISTRY[scope][object_id]
 
 
-def register_object(
-    object_id: str, obj_class: GridObj, scope: str = "global"
-) -> None:
-    global_scope_chars = [
-        obj.char for obj in OBJECT_REGISTRY.get("global", {}).values()
-    ]
+def register_object(object_id: str, obj_class: GridObj, scope: str = "global") -> None:
+    global_scope_chars = [obj.char for obj in OBJECT_REGISTRY.get("global", {}).values()]
 
     if obj_class.char in global_scope_chars:
         raise ValueError(
@@ -97,16 +92,15 @@ def register_object_type(
     Usage::
 
         @register_object_type("wall", is_wall=True)
-        class Wall(GridObj):
-            ...
+        class Wall(GridObj): ...
     """
 
     def decorator(cls):
         # Lazy import to avoid circular dependency
         from cogrid.core.component_registry import (
+            _validate_classmethod_signature,
             get_all_components,
             register_component_metadata,
-            _validate_classmethod_signature,
         )
 
         properties = {
@@ -201,6 +195,7 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
             # Object registered via old register_object() without decorator.
             # Default to all-False properties.
             import warnings
+
             warnings.warn(
                 f"Object '{name}' in scope '{scope}' has no static properties "
                 f"(not registered via @register_object_type). "
@@ -259,11 +254,7 @@ def get_object_names(scope: str = "global") -> list[str]:
 
     # Add all registered global objects in sorted order (except free_space which we already added)
     global_objects = sorted(
-        [
-            obj_id
-            for obj_id in OBJECT_REGISTRY.get("global", {}).keys()
-            if obj_id != "free_space"
-        ]
+        [obj_id for obj_id in OBJECT_REGISTRY.get("global", {}).keys() if obj_id != "free_space"]
     )
     names.extend(global_objects)
 

@@ -10,12 +10,12 @@ Covers:
 import numpy as np
 import pytest
 
-from cogrid.core.features import Feature
+from cogrid.backend.state_view import StateView
 from cogrid.core.component_registry import (
     get_feature_types,
     register_feature_type,
 )
-from cogrid.backend.state_view import StateView
+from cogrid.core.features import Feature
 
 
 def _sv(**kwargs):
@@ -54,6 +54,7 @@ def test_register_feature_type_per_agent():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.zeros(3)
+
             return fn
 
     metas = get_feature_types(scope="test_af_reg_pa")
@@ -76,6 +77,7 @@ def test_register_feature_type_global():
         def build_feature_fn(cls, scope):
             def fn(state):
                 return np.zeros(5)
+
             return fn
 
     metas = get_feature_types(scope="test_af_reg_gl")
@@ -191,6 +193,7 @@ def test_compose_single_per_agent_feature():
                     [agent_idx * 10, agent_idx * 10 + 1, agent_idx * 10 + 2],
                     dtype=np.int32,
                 )
+
             return fn
 
     composed = compose_feature_fns(["feat_pa"], "test_af_compose_single_pa", n_agents=2)
@@ -214,6 +217,7 @@ def test_compose_single_global_feature():
         def build_feature_fn(cls, scope):
             def fn(state):
                 return np.array([42, 43], dtype=np.float32)
+
             return fn
 
     composed = compose_feature_fns(["feat_gl"], "test_af_compose_single_gl", n_agents=2)
@@ -239,6 +243,7 @@ def test_compose_per_agent_and_global():
                     [agent_idx * 10, agent_idx * 10 + 1, agent_idx * 10 + 2],
                     dtype=np.float32,
                 )
+
             return fn
 
     @register_feature_type("gl_feat", scope="test_af_compose_pa_gl")
@@ -250,11 +255,10 @@ def test_compose_per_agent_and_global():
         def build_feature_fn(cls, scope):
             def fn(state):
                 return np.array([99, 100], dtype=np.float32)
+
             return fn
 
-    composed = compose_feature_fns(
-        ["pa_feat", "gl_feat"], "test_af_compose_pa_gl", n_agents=2
-    )
+    composed = compose_feature_fns(["pa_feat", "gl_feat"], "test_af_compose_pa_gl", n_agents=2)
     result = composed({}, agent_idx=0)
     # Per-agent focal(0): [0,1,2], other(1): [10,11,12], global: [99,100]
     expected = np.array([0, 1, 2, 10, 11, 12, 99, 100], dtype=np.float32)
@@ -275,6 +279,7 @@ def test_ego_centric_ordering():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([agent_idx], dtype=np.float32)
+
             return fn
 
     composed = compose_feature_fns(["ego_feat"], "test_af_ego_order", n_agents=3)
@@ -297,6 +302,7 @@ def test_alphabetical_feature_ordering():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([20, 21], dtype=np.float32)
+
             return fn
 
     @register_feature_type("alpha", scope="test_af_alpha_order")
@@ -308,11 +314,10 @@ def test_alphabetical_feature_ordering():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([10], dtype=np.float32)
+
             return fn
 
-    composed = compose_feature_fns(
-        ["beta", "alpha"], "test_af_alpha_order", n_agents=1
-    )
+    composed = compose_feature_fns(["beta", "alpha"], "test_af_alpha_order", n_agents=1)
     result = composed({}, agent_idx=0)
     # alpha (1,) comes before beta (2,) alphabetically
     expected = np.array([10, 20, 21], dtype=np.float32)
@@ -359,6 +364,7 @@ def test_output_is_float32():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([1, 2], dtype=np.int32)
+
             return fn
 
     composed = compose_feature_fns(["int_feat"], "test_af_dtype", n_agents=1)
@@ -405,12 +411,11 @@ def test_agent_position_parity():
 
 def test_can_move_direction_parity():
     """CanMoveDirection Feature produces output identical to can_move_direction_feature."""
+    import cogrid.envs  # noqa: F401 -- triggers global scope registration
     from cogrid.feature_space.features import (
         CanMoveDirection,
         can_move_direction_feature,
     )
-
-    import cogrid.envs  # noqa: F401 -- triggers global scope registration
 
     wall_map = np.zeros((5, 5), dtype=np.int32)
     object_type_map = np.zeros((5, 5), dtype=np.int32)
@@ -492,9 +497,7 @@ def test_overcooked_inventory_parity():
     )
 
     # Agent 0 holds onion, agent 1 holds nothing
-    agent_inv = np.array(
-        [[object_to_idx("onion", scope="overcooked")], [-1]], dtype=np.int32
-    )
+    agent_inv = np.array([[object_to_idx("onion", scope="overcooked")], [-1]], dtype=np.int32)
     state = _sv(agent_inv=agent_inv)
 
     fn = OvercookedInventory.build_feature_fn("overcooked")
@@ -530,9 +533,7 @@ def test_next_to_counter_parity():
 
     for idx in (0, 1):
         result = fn(state, idx)
-        expected = next_to_counter_feature(
-            agent_pos, idx, object_type_map, counter_type_id
-        )
+        expected = next_to_counter_feature(agent_pos, idx, object_type_map, counter_type_id)
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (4,)
         assert result.dtype == np.int32
@@ -571,8 +572,13 @@ def test_next_to_pot_parity():
     for idx in (0, 1):
         result = fn(state, idx)
         expected = next_to_pot_feature(
-            agent_pos, idx, object_type_map, pot_type_id,
-            pot_positions, pot_contents, pot_timer,
+            agent_pos,
+            idx,
+            object_type_map,
+            pot_type_id,
+            pot_positions,
+            pot_contents,
+            pot_timer,
         )
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (16,)
@@ -611,16 +617,24 @@ def test_closest_obj_parity():
     for idx in (0, 1):
         result = fn(state, idx)
         expected = closest_obj_feature(
-            agent_pos, idx, object_type_map, object_state_map,
-            onion_type_id, 4,
+            agent_pos,
+            idx,
+            object_type_map,
+            object_state_map,
+            onion_type_id,
+            4,
         )
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (8,)
 
     # Verify all 7 ClosestObj variants are registered
     expected_closest_ids = [
-        "closest_onion", "closest_plate", "closest_plate_stack",
-        "closest_onion_stack", "closest_onion_soup", "closest_delivery_zone",
+        "closest_onion",
+        "closest_plate",
+        "closest_plate_stack",
+        "closest_onion_stack",
+        "closest_onion_soup",
+        "closest_delivery_zone",
         "closest_counter",
     ]
     for feat_id in expected_closest_ids:
@@ -657,8 +671,14 @@ def test_ordered_pot_features_parity():
     for idx in (0, 1):
         result = fn(state, idx)
         expected = ordered_pot_features(
-            agent_pos, idx, pot_positions, pot_contents, pot_timer,
-            max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
+            agent_pos,
+            idx,
+            pot_positions,
+            pot_contents,
+            pot_timer,
+            max_num_pots=2,
+            onion_id=onion_id,
+            tomato_id=tomato_id,
         )
         np.testing.assert_array_equal(result, expected)
         assert result.shape == (24,)
@@ -844,6 +864,7 @@ def test_compose_preserve_order():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([30], dtype=np.float32)
+
             return fn
 
     @register_feature_type("po_alpha", scope="test_af_preserve_order")
@@ -855,6 +876,7 @@ def test_compose_preserve_order():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([10], dtype=np.float32)
+
             return fn
 
     @register_feature_type("po_bravo", scope="test_af_preserve_order")
@@ -866,6 +888,7 @@ def test_compose_preserve_order():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([20], dtype=np.float32)
+
             return fn
 
     # With preserve_order=True, the order should be charlie, alpha, bravo
@@ -891,7 +914,7 @@ def test_compose_preserve_order():
 
 
 def test_compose_multi_scope():
-    """scopes parameter merges features from multiple scopes."""
+    """Scopes parameter merges features from multiple scopes."""
     from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("ms_feat_a", scope="test_scope_a")
@@ -903,6 +926,7 @@ def test_compose_multi_scope():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([1, 2], dtype=np.float32)
+
             return fn
 
     @register_feature_type("ms_feat_b", scope="test_scope_b")
@@ -914,6 +938,7 @@ def test_compose_multi_scope():
         def build_feature_fn(cls, scope):
             def fn(state, agent_idx):
                 return np.array([3, 4, 5], dtype=np.float32)
+
             return fn
 
     # Use scopes to merge both
