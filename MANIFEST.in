@@ -1,5 +1,0 @@
-include README.rst
-include LICENSE
-include MANIFEST.in
-recursive-include mypackage *
-recursive-include tests *
