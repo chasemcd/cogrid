@@ -1,466 +1,183 @@
-"""Feature generators takes the CoGridEnv object and turns it into the desired observation"""
+"""Feature extractors operating on state arrays.
 
-import numpy as np
-from gymnasium import spaces
-from collections import deque
+These functions operate directly on state arrays (agent_pos, agent_dir,
+object_type_map, etc.) produced by layout_to_state() and create_agent_arrays(),
+producing numerically identical observations to the existing feature system.
 
-from cogrid.core.grid_object import get_object_names
-from cogrid.feature_space import feature, feature_space
-from cogrid.core import grid_utils
+Feature composition is handled by autowire via ``compose_feature_fns()`` in
+``cogrid/core/features.py``. Each Feature subclass provides a
+``build_feature_fn(cls, scope)`` classmethod that returns a closure.
 
-try:
-    import cv2
-except ImportError:
-    cv2 = None
+All functions use ``xp`` (the backend-agnostic array namespace) so they work
+identically on both numpy and JAX backends. No ``_jax`` variants exist; a single
+implementation serves both paths.
+"""
 
+from cogrid.backend import xp
+from cogrid.core.features import Feature, register_feature_type
 
-class FullMapImage(feature.Feature):
-    def __init__(self, map_size, tile_size, **kwargs):
-        rows, cols = map_size
-        super().__init__(
-            low=0,
-            high=1,
-            shape=(rows * tile_size, cols * tile_size, 3),
-            name="full_map_image",
-            **kwargs
-        )
 
-    def generate(self, env, player_id, **kwargs):
-        img = env.get_full_render(highlight=False)
-        img = (img / 255.0).astype(np.float32)
-        return img
+# ---------------------------------------------------------------------------
+# Core feature extractors
+# ---------------------------------------------------------------------------
 
 
-feature_space.register_feature("full_map_image", FullMapImage)
+def agent_pos_feature(agent_pos, agent_idx):
+    """Extract agent position as (2,) int32 array."""
+    return agent_pos[agent_idx].astype(xp.int32)
 
 
-class StackedFullMapResizedGrayscale(feature.Feature):
-    def __init__(self, **kwargs):
-        assert (
-            cv2 is not None
-        ), "Must install cv2 to use image resizing. Run `pip install opencv-python` then try again."
-        super().__init__(
-            low=0,
-            high=1,
-            shape=(84, 84, 4),
-            name="stacked_full_map_resized_grayscale_image",
-            **kwargs
-        )
-        self.frames = deque(maxlen=4)
-        for _ in range(4):
-            self.frames.append(np.zeros((84, 84, 1)))
+def agent_dir_feature(agent_dir, agent_idx):
+    """One-hot encoding of agent direction as (4,) int32 array."""
+    return (xp.arange(4) == agent_dir[agent_idx]).astype(xp.int32)
 
-        self.player_id = None
 
-    def generate(self, env, player_id, **kwargs):
-        if self.player_id is not None:
-            assert player_id == self.player_id
-        else:
-            self.player_id = player_id
+def full_map_encoding_feature(
+    object_type_map,
+    object_state_map,
+    agent_pos,
+    agent_dir,
+    agent_inv,
+    agent_type_ids,
+    max_map_size=(12, 12),
+):
+    """3-channel map encoding (max_H, max_W, 3) int8 with agent overlays.
 
-        img_rgb = env.get_full_render(highlight=False)
-
-        assert img_rgb.shape[-1] == 3
-
-        img_resized = cv2.resize(
-            img_rgb, (84, 84), interpolation=cv2.INTER_AREA
-        )
-        img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
-        img_grayscale = np.expand_dims(img_grayscale, -1)
-        self.frames.append(img_grayscale / 255.0)
-
-        stacked = np.stack(self.frames, axis=-1).reshape(self.shape)
-
-        return stacked
-
-
-feature_space.register_feature(
-    "stacked_full_map_resized_grayscale_image",
-    StackedFullMapResizedGrayscale,
-)
-
-
-class FullMapResizedGrayscale(feature.Feature):
-    def __init__(self, shape=(42, 42, 1), **kwargs):
-        super().__init__(
-            low=0,
-            high=1,
-            shape=shape,
-            name="full_map_resized_grayscale_image",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        img_rgb = env.get_full_render(highlight=False)
-        img_resized = cv2.resize(
-            img_rgb, self.shape[0:2], interpolation=cv2.INTER_AREA
-        )
-        img_grayscale = cv2.cvtColor(img_resized, cv2.COLOR_RGB2GRAY)
-        img_grayscale = np.expand_dims(img_grayscale, -1)
-
-        return img_grayscale / 255.0
-
-
-feature_space.register_feature(
-    "full_map_resized_grayscale_image",
-    FullMapResizedGrayscale,
-)
-
-
-class FoVImage(feature.Feature):
-    def __init__(self, view_len, tile_size, **kwargs):
-        super().__init__(
-            low=0,
-            high=1,
-            shape=(view_len * tile_size, view_len * tile_size, 3),
-            name="fov_image",
-            **kwargs
-        )
-        self.view_len = view_len
-
-    def generate(self, env, player_id, **kwargs):
-        img = env.get_pov_render(agent_id=player_id)
-        img = (img / 255.0).astype(np.float32)
-        return img
-
-
-feature_space.register_feature("fov_image", FoVImage)
-
-
-class FullMapEncoding(feature.Feature):
-    max_map_size = (12, 12)
-
-    def __init__(self, **kwargs):
-        # TODO(chase): We need to determine a high value for the encodings
-        super().__init__(
-            low=0,
-            high=np.inf,
-            shape=(*self.max_map_size, 3),
-            name="full_map_encoding",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        encoding = np.zeros(self.shape, dtype=np.uint8)
-        encoded_map = env.grid.encode(encode_char=False)
-
-        # Fill out the encoding with the encoded map, the encoding will be 0 padded if the map is smaller than the max map size
-        encoding[: encoded_map.shape[0], : encoded_map.shape[1], :] = (
-            encoded_map
-        )
-        return encoding
-
-
-feature_space.register_feature("full_map_encoding", FullMapEncoding)
-
-
-class FoVEncoding(feature.Feature):
-    def __init__(self, view_len, **kwargs):
-        # TODO(chase): We need to determine a high value for the encodings
-        super().__init__(
-            low=0,
-            high=100,
-            shape=(view_len, view_len, 3),
-            name="fov_encoding",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
-        encoded_agent_grid = agent_grid.encode(encode_char=False)
-        return encoded_agent_grid
-
-
-feature_space.register_feature("fov_encoding", FoVEncoding)
-
-
-class FullMapASCII(feature.Feature):
-    def __init__(self, map_size, **kwargs):
-        super().__init__(
-            low=-np.inf,
-            high=np.inf,
-            shape=(*map_size, 3),
-            name="full_map_ascii",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        encoded_map = env.grid.encode(encode_char=True)
-        return encoded_map
-
-
-feature_space.register_feature("full_map_ascii", FullMapASCII)
-
-
-class FoVASCII(feature.Feature):
-    def __init__(self, view_len, **kwargs):
-        super().__init__(
-            low=-np.inf,
-            high=np.inf,
-            shape=(view_len, view_len, 3),
-            name="fov_ascii",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        agent_grid, _ = env.gen_obs_grid(agent_id=player_id)
-        encoded_agent_grid = agent_grid.encode(encode_char=True)
-
-        # TODO(chase): Confirm that this shouldn't already be correct
-        # assert encoded_agent_grid[0, -1, agent_grid.width // 2] == "^"
-        encoded_agent_grid[0, -1, agent_grid.width // 2] = "^"
-
-        return encoded_agent_grid
-
-
-feature_space.register_feature("fov_ascii", FoVASCII)
-
-
-class AgentPosition(feature.Feature):
-
-    def __init__(self, **kwargs):
-        super().__init__(
-            low=0, high=np.inf, shape=(2,), name="agent_position", **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        return np.asarray(env.env_agents[player_id].pos, dtype=np.int32)
-
-
-feature_space.register_feature("agent_position", AgentPosition)
-
-
-class AgentPositions(feature.Feature):
-    def __init__(self, map_shape, **kwargs):
-        self.rgb = True
-        super().__init__(
-            low=0,
-            high=1,
-            shape=(
-                *map_shape,
-                1 if not self.rgb else 3,
-            ),
-            name="agent_positions",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        channel_dim = 1 if not self.rgb else 3
-        grid = np.full((*env.map_with_agents.shape, channel_dim), fill_value=0)
-        for a_id, agent in env.env_agents.items():
-            if (
-                agent is not None
-            ):  # will be None before being set by subclassed env
-                assert not self.rgb, "RGB not implemented for new grid."
-                # if self.rgb:
-                #     grid[:, agent.pos[0], agent.pos[1]] = (
-                #         np.array(constants.DEFAULT_COLORS[str(env.id_to_numeric(a_id))]) / 255.0
-                #     )
-                # else:
-                grid[:, agent.pos[0], agent.pos[1]] = int(
-                    env.id_to_numeric(a_id)
-                )
-
-        return grid
-
-
-feature_space.register_feature("agent_positions", AgentPositions)
-
-
-class AgentDir(feature.Feature):
-    """One-hot encoding of the agent's direction."""
-
-    def __init__(self, **kwargs):
-        super().__init__(low=0, high=1, shape=(4,), name="agent_dir")
-
-    def generate(self, env, player_id, **kwargs):
-        encoding = np.zeros(self.shape, dtype=np.int32)
-        encoding[env.env_agents[player_id].dir] = 1
-        return encoding
-
-
-feature_space.register_feature("agent_dir", AgentDir)
-
-
-class OtherAgentActions(feature.Feature):
-    def __init__(self, num_agents, num_actions, **kwargs):
-        super().__init__(
-            low=0,
-            high=num_actions,
-            shape=(num_actions * (num_agents - 1),),
-            name="other_agent_actions",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        return (
-            np.array(
-                [
-                    self.one_hot_encode_actions(
-                        env.prev_actions[a_id], self.high
-                    )
-                    for a_id in env.agent_ids
-                    if a_id is not player_id
-                ]
-            )
-            .reshape(-1)
-            .astype(np.uint8)
-        )
-
-    @staticmethod
-    def one_hot_encode_actions(action, num_actions):
-        oh_action = np.zeros(num_actions)
-        oh_action[action] = 1
-        return oh_action
-
-
-feature_space.register_feature("other_agent_actions", OtherAgentActions)
-
-
-class OtherAgentVisibility(feature.Feature):
-    def __init__(self, num_agents, view_len, **kwargs):
-        super().__init__(
-            low=0,
-            high=1,
-            shape=(num_agents - 1,),
-            name="other_agent_visibility",
-            **kwargs
-        )
-        self.view_len = view_len
-        self.num_other_agents = num_agents - 1
-
-    def generate(self, env, player_id, **kwargs):
-        raise NotImplementedError
-        # agent = env.env_agents[player_id]
-        # view = ascii_view(env.ascii_map, agent.pos, self.view_len)
-        # visibility = np.zeros((len(env.agent_ids) - 1,))
-        # other_agent_ids = [pid for pid in env.agent_ids if pid != player_id]
-        # for i, other_agent_id in enumerate(other_agent_ids):
-        #     numeric_id = env.id_to_numeric(other_agent_id)
-        #     visibility[i] = int(numeric_id in view)
-        # return visibility
-
-
-feature_space.register_feature("other_agent_visibility", OtherAgentVisibility)
-
-
-class Role(feature.Feature):
-    def __init__(self, num_roles, **kwargs):
-        super().__init__(
-            low=0, high=num_roles - 1, shape=(num_roles,), name="role", **kwargs
-        )
-        self.num_roles = num_roles
-
-    def generate(self, env, player_id, **kwargs):
-        agent = env.env_agents[player_id]
-        role_encoding = np.zeros((self.num_roles,), dtype=np.uint8)
-        role_encoding[agent.role_idx] = 1
-        return role_encoding
-
-
-feature_space.register_feature("role", Role)
-
-
-class Inventory(feature.Feature):
-    def __init__(self, inventory_capacity, **kwargs):
-        if inventory_capacity == 1:
-            super().__init__(
-                low=0,
-                high=np.inf,
-                shape=(inventory_capacity,),
-                name="inventory",
-                **kwargs
-            )
-        else:
-            raise NotImplementedError(
-                "RLLib has a deserializing bug with the multi-discrete shape."
-            )
-            # space = MultiDiscrete([len(get_object_names(scope=env.scope)) for _ in range(inventory_capacity)])
-            # super().__init__(low=0, high=len(get_object_names(scope=env.scope)), shape=space.shape, space=space, name="inventory", **kwargs)
-
-    def generate(self, env, player_id, **kwargs):
-        agent = env.env_agents[player_id]
-        idxs = []
-        for obj in agent.inventory:
-            idxs.append(
-                get_object_names(scope=env.scope).index(obj.object_id) + 1
-            )
-        sorted_idxs = sorted(idxs)
-
-        encoding = np.zeros(self.shape, dtype=np.uint8)
-        for i, idx in enumerate(sorted_idxs):
-            encoding[i] = idx
-
-        return encoding
-
-
-feature_space.register_feature("inventory", Inventory)
-
-
-class CanMoveDirection(feature.Feature):
+    Channels: (0) type IDs, (1) extra state (zeros), (2) object state.
+    ``agent_type_ids`` maps direction -> global-scope agent type_id
+    (pre-computed at init time).
     """
-    Returns a multi-hot encoding of the agent's ability to move in each direction.
-    """
+    from cogrid.backend.array_ops import set_at_2d
 
-    def __init__(self, **kwargs):
-        super().__init__(
-            low=0, high=1, shape=(4,), name="can_move_direction", **kwargs
-        )
+    max_H, max_W = max_map_size
+    H, W = object_type_map.shape
 
-    def generate(self, env, player_id, **kwargs):
-        agent = env.env_agents[player_id]
-        can_move = np.zeros(self.shape, dtype=np.int32)
+    # Build channels using xp.pad to avoid backend-specific slice assignment
+    pad_h = max_H - H
+    pad_w = max_W - W
+    ch0 = xp.pad(object_type_map.astype(xp.int8), ((0, pad_h), (0, pad_w)))
+    ch1 = xp.zeros((max_H, max_W), dtype=xp.int8)
+    ch2 = xp.pad(object_state_map.astype(xp.int8), ((0, pad_h), (0, pad_w)))
 
-        # check if the agent can move in each direction by checking if the next tile in each direction
-        # is overlappable (grid_obj.can_overlap())
-        for i, pos in enumerate(grid_utils.adjacent_positions(*agent.pos)):
-            obj = env.grid.get(*pos)
+    # Agent overlay: type_id per agent based on direction
+    agent_type = agent_type_ids[agent_dir]  # (n_agents,)
+    agent_state = xp.where(agent_inv[:, 0] == -1, 0, agent_inv[:, 0])  # (n_agents,)
 
-            if obj is None or obj.can_overlap(agent):
-                can_move[i] = 1
+    rows = agent_pos[:, 0]
+    cols = agent_pos[:, 1]
 
-        return can_move
+    # Scatter agents onto channels using set_at_2d (loop over n_agents which is
+    # static/tiny, typically 2). Uses array-valued indices, no int() casts.
+    for i_agent in range(agent_pos.shape[0]):
+        r, c = rows[i_agent], cols[i_agent]
+        ch0 = set_at_2d(ch0, r, c, agent_type[i_agent].astype(xp.int8))
+        ch1 = set_at_2d(ch1, r, c, xp.int8(0))
+        ch2 = set_at_2d(ch2, r, c, agent_state[i_agent].astype(xp.int8))
 
-
-feature_space.register_feature("can_move_direction", CanMoveDirection)
-
-
-class ActionMask(feature.Feature):
-    def __init__(self, env, **kwargs):
-        super().__init__(
-            low=0,
-            high=1,
-            shape=None,
-            space=spaces.Box(
-                env.action_spaces[0].n,
-            ),
-            name="action_mask",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        action_mask = env.get_action_mask(player_id)
-        return action_mask
+    encoding = xp.stack([ch0, ch1, ch2], axis=-1)
+    return encoding
 
 
-feature_space.register_feature("action_mask", ActionMask)
+def can_move_direction_feature(agent_pos, agent_idx, wall_map, object_type_map, can_overlap_table):
+    """Multi-hot (4,) encoding of movable directions (Right, Left, Down, Up)."""
+    H, W = wall_map.shape
+
+    # 4 directions matching adjacent_positions order: Right, Left, Down, Up
+    deltas = xp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=xp.int32)
+    pos = agent_pos[agent_idx]  # (2,)
+    neighbors = pos[None, :] + deltas  # (4, 2)
+
+    # Check bounds
+    in_bounds = (
+        (neighbors[:, 0] >= 0)
+        & (neighbors[:, 0] < H)
+        & (neighbors[:, 1] >= 0)
+        & (neighbors[:, 1] < W)
+    )
+
+    # Clip to valid indices for safe array access (out-of-bounds masked by in_bounds)
+    clipped = xp.clip(neighbors, xp.array([0, 0]), xp.array([H - 1, W - 1]))
+    type_ids = object_type_map[clipped[:, 0], clipped[:, 1]]  # (4,)
+    can_overlap = can_overlap_table[type_ids]  # (4,)
+
+    return (in_bounds & (can_overlap == 1)).astype(xp.int32)
 
 
-class AgentID(feature.Feature):
-    def __init__(self, env, **kwargs):
-        super().__init__(
-            low=0,
-            high=len(env.agent_ids) - 1,
-            shape=(1,),
-            name="agent_id",
-            **kwargs
-        )
-
-    def generate(self, env, player_id, **kwargs):
-        agent_number = (
-            env.env_agents[player_id].agent_number - 1
-        )  # subtract 1 so we start from 0
-        return np.array([agent_number])
+def inventory_feature(agent_inv, agent_idx):
+    """Inventory as (1,) int32: 0 if empty, type_id+1 otherwise."""
+    inv_val = agent_inv[agent_idx, 0]
+    feature_val = xp.where(inv_val == -1, 0, inv_val + 1)
+    return xp.array([feature_val], dtype=xp.int32)
 
 
-feature_space.register_feature("agent_id", AgentID)
+# ---------------------------------------------------------------------------
+# Feature subclasses
+# ---------------------------------------------------------------------------
+
+
+@register_feature_type("agent_dir", scope="global")
+class AgentDir(Feature):
+    per_agent = True
+    obs_dim = 4
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        def fn(state, agent_idx):
+            return agent_dir_feature(state.agent_dir, agent_idx)
+        return fn
+
+
+@register_feature_type("agent_position", scope="global")
+class AgentPosition(Feature):
+    per_agent = True
+    obs_dim = 2
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        def fn(state, agent_idx):
+            return agent_pos_feature(state.agent_pos, agent_idx)
+        return fn
+
+
+@register_feature_type("can_move_direction", scope="global")
+class CanMoveDirection(Feature):
+    per_agent = True
+    obs_dim = 4
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import build_lookup_tables
+        tables = build_lookup_tables(scope=scope)
+        can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
+
+        def fn(state, agent_idx):
+            return can_move_direction_feature(
+                state.agent_pos,
+                agent_idx,
+                state.wall_map,
+                state.object_type_map,
+                can_overlap_table,
+            )
+        return fn
+
+
+@register_feature_type("inventory", scope="global")
+class Inventory(Feature):
+    per_agent = True
+    obs_dim = 1
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        def fn(state, agent_idx):
+            return inventory_feature(state.agent_inv, agent_idx)
+        return fn
+
+
+# ---------------------------------------------------------------------------
+# Per-agent vectorized observation generation
+# ---------------------------------------------------------------------------
+
+
+def get_all_agent_obs(feature_fn, state, n_agents):
+    """Stack per-agent observations into (n_agents, obs_dim) array."""
+    return xp.stack([feature_fn(state, i) for i in range(n_agents)])

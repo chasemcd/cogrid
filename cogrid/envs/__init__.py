@@ -2,10 +2,10 @@ import functools
 import copy
 import random
 
-from cogrid.core import grid_object
-from cogrid.envs.overcooked import overcooked
+from cogrid.cogrid_env import CoGridEnv
+from cogrid.envs.overcooked.agent import OvercookedAgent
+from cogrid.envs.overcooked.config import overcooked_interaction_fn
 from cogrid.envs import registry
-from cogrid.envs.search_rescue import search_rescue
 from cogrid.core import layouts
 
 
@@ -77,16 +77,34 @@ cramped_room_config = {
     "name": "overcooked",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "features": ["overcooked_features"],
-    "rewards": ["delivery_reward"],
+    "features": [
+        "agent_dir",
+        "overcooked_inventory",
+        "next_to_counter",
+        "next_to_pot",
+        "closest_onion",
+        "closest_plate",
+        "closest_plate_stack",
+        "closest_onion_stack",
+        "closest_onion_soup",
+        "closest_delivery_zone",
+        "closest_counter",
+        "ordered_pot_features",
+        "dist_to_other_players",
+        "agent_position",
+        "can_move_direction",
+        "layout_id",
+        "environment_layout",
+    ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
     "scope": "overcooked",
+    "interaction_fn": overcooked_interaction_fn,
 }
 
 registry.register(
     "Overcooked-CrampedRoom-V0",
-    functools.partial(overcooked.Overcooked, config=cramped_room_config),
+    functools.partial(CoGridEnv, config=cramped_room_config, agent_class=OvercookedAgent),
 )
 
 asymmetric_adv_config = copy.deepcopy(cramped_room_config)
@@ -94,7 +112,7 @@ asymmetric_adv_config["grid"]["layout"] = "overcooked_asymmetric_advantages_v0"
 
 registry.register(
     "Overcooked-AsymmetricAdvantages-V0",
-    functools.partial(overcooked.Overcooked, config=asymmetric_adv_config),
+    functools.partial(CoGridEnv, config=asymmetric_adv_config, agent_class=OvercookedAgent),
 )
 
 coordination_ring_config = copy.deepcopy(cramped_room_config)
@@ -102,7 +120,7 @@ coordination_ring_config["grid"]["layout"] = "overcooked_coordination_ring_v0"
 
 registry.register(
     "Overcooked-CoordinationRing-V0",
-    functools.partial(overcooked.Overcooked, config=coordination_ring_config),
+    functools.partial(CoGridEnv, config=coordination_ring_config, agent_class=OvercookedAgent),
 )
 
 forced_coordination_config = copy.deepcopy(cramped_room_config)
@@ -112,7 +130,7 @@ forced_coordination_config["grid"][
 
 registry.register(
     "Overcooked-ForcedCoordination-V0",
-    functools.partial(overcooked.Overcooked, config=forced_coordination_config),
+    functools.partial(CoGridEnv, config=forced_coordination_config, agent_class=OvercookedAgent),
 )
 
 counter_circuit_config = copy.deepcopy(cramped_room_config)
@@ -120,7 +138,7 @@ counter_circuit_config["grid"]["layout"] = "overcooked_counter_circuit_v0"
 
 registry.register(
     "Overcooked-CounterCircuit-V0",
-    functools.partial(overcooked.Overcooked, config=counter_circuit_config),
+    functools.partial(CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent),
 )
 
 
@@ -143,7 +161,7 @@ overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
 registry.register(
     "Overcooked-RandomizedLayout-V0",
     functools.partial(
-        overcooked.Overcooked, config=overcooked_randomized_config
+        CoGridEnv, config=overcooked_randomized_config, agent_class=OvercookedAgent,
     ),
 )
 
@@ -153,9 +171,9 @@ sa_overcooked_config["num_agents"] = 1
 registry.register(
     "Overcooked-CrampedRoom-SingleAgent-V0",
     functools.partial(
-        overcooked.Overcooked,
+        CoGridEnv,
         config=sa_overcooked_config,
-        environment_scope="overcooked",
+        agent_class=OvercookedAgent,
     ),
 )
 
@@ -164,7 +182,12 @@ sr_config = {
     "name": "search_rescue",
     "num_agents": 2,
     "action_set": "cardinal_actions",
-    "obs": ["agent_positions"],
+    "features": [
+        "agent_dir",
+        "agent_position",
+        "can_move_direction",
+        "inventory",
+    ],
     "grid": {"layout": "search_rescue_test"},
     "max_steps": 1000,
     "common_reward": True,
@@ -190,5 +213,5 @@ layouts.register_layout(
 
 registry.register(
     "SearchRescue-Test-V0",
-    functools.partial(search_rescue.SearchRescueEnv, config=sr_config),
+    functools.partial(CoGridEnv, config=sr_config),
 )

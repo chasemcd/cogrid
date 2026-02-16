@@ -26,5 +26,3 @@ episode is done (either terminated or truncated), alongside any reported informa
     :members:
 
 
-.. automodule:: cogrid.feature_space.feature
-    :members:

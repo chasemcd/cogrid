@@ -1,14 +1,6 @@
-import collections
-from itertools import combinations
 import copy
 
 import numpy as np
-
-
-try:
-    import pygame
-except ImportError:
-    pygame = None
 
 
 from gymnasium import spaces
@@ -20,32 +12,26 @@ from cogrid.core import directions
 from cogrid.core import grid
 from cogrid.core import grid_object
 from cogrid.core import grid_utils
-from cogrid.feature_space import feature_space
-from cogrid.core import reward
 from cogrid.core import typing
 from cogrid.core import agent
-from cogrid.core import directions
-from cogrid.core import reward
 
 from cogrid.core import layouts
+from cogrid.rendering import EnvRenderer
+
+# Vectorized components
+from cogrid.backend import set_backend
+from cogrid.core.grid_object import build_lookup_tables
+from cogrid.core.grid_utils import layout_to_state
+from cogrid.core.agent import create_agent_arrays
 
 
 RNG = RandomNumberGenerator = np.random.Generator
 
 
 class CoGridEnv(pettingzoo.ParallelEnv):
-    """CoGridEnv is the base environment class for a multi-agent grid-world environment.
+    """Thin stateful wrapper around the functional step/reset pipeline.
 
-    This class inherits from the ``pettingzoo.ParallelEnv`` class and implements the necessary methods
-    for a parallel environment.
-
-    :param config: Configuration dictionary for the environment.
-    :type config: dict
-    :param render_mode: Rendering method for local visualization, defaults to None
-    :type render_mode: str | None, optional
-    :param agent_class: Agent class for the environment if using a custom Agent, defaults to None
-    :type agent_class: agent.Agent | None, optional
-    :raises ValueError: ValueError if an invalid or None action set string is provided.
+    Both numpy and JAX backends delegate to ``build_step_fn``/``build_reset_fn``.
     """
 
     metadata = {
@@ -63,25 +49,41 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         config: dict,
         render_mode: str | None = None,
         agent_class: agent.Agent | None = None,
+        backend: str = "numpy",
         **kwargs,
     ):
-        """_summary_
+        """Initialize the CoGrid environment.
 
-        :param config: _description_
-        :type config: dict
-        :param render_mode: _description_, defaults to None
-        :type render_mode: str | None, optional
-        :param agent_class: _description_, defaults to None
-        :type agent_class: agent.Agent | None, optional
-        :raises ValueError: _description_
+        The first environment created sets the global backend; subsequent
+        envs must use the same backend or a RuntimeError is raised.
         """
         super(CoGridEnv, self).__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
-        # TODO(chase): Move PyGame/rendering logic outside of this class.
-        self.clock = None
-        self.render_size = None
+        set_backend(backend)
+        self._backend = backend
         self.config = config
+        self.name = config["name"]
+        self.cumulative_score = 0
+        self.max_steps = config["max_steps"]
+        self.roles = config.get("roles", True)
+        self.agent_class = agent_class or agent.Agent
+        self.t = 0
+
+        if "features" not in config or not isinstance(config["features"], list):
+            raise ValueError(
+                "config['features'] must be a list of feature names."
+            )
+
+        self._init_rendering(render_mode, kwargs)
+        self._init_grid(config)
+        self._init_agents(config)
+        self._init_action_space(config)
+        self._init_vectorized_infrastructure()
+        self._init_jax_arrays()
+
+    def _init_rendering(self, render_mode, kwargs):
+        """Set up rendering attributes and optional EnvRenderer."""
         self.render_mode = render_mode
         self.render_message = (
             kwargs.get("render_message") or self.metadata["render_message"]
@@ -90,17 +92,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.screen_size = (
             kwargs.get("screen_size") or self.metadata["screen_size"]
         )
-        self.window = None
-        self.name = config["name"]
-        self.cumulative_score = 0
-
-        self.max_steps = config["max_steps"]
+        self._renderer = EnvRenderer(
+            name=self.name,
+            screen_size=self.screen_size,
+            render_fps=self.metadata["render_fps"],
+        ) if render_mode else None
         self.visualizer = None
-        self.roles = self.config.get("roles", True)
-        self.agent_class = agent_class or agent.Agent
-        self.t = 0
 
-        # grid data is set by _gen_grid()
+    def _init_grid(self, config):
+        """Initialize grid, spawn points, and shape from config."""
         self.scope: str = config.get("scope", "global")
         self.grid: grid.Grid | None = None
         self.spawn_points: list = []
@@ -108,32 +108,23 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._gen_grid()
         self.shape = (self.grid.height, self.grid.width)
 
-        self.agent_view_size = self.config.get("agent_view_size", 7)
-
+    def _init_agents(self, config):
+        """Initialize agent bookkeeping: IDs, env_agents dict, rewards."""
         self.possible_agents = [i for i in range(config["num_agents"])]
         self.agents = copy.copy(self.possible_agents)
         self._agent_ids: set[typing.AgentID] = set(self.agents)
         self.env_agents: dict[typing.AgentID, agent.Agent] = {
             i: None for i in self.agents
-        }  # will contain: {'agent_id': agent}
-
-        # Establish reward function through reward modules
-        reward_names = config.get("rewards", [])
-        self.rewards = []
-        for reward_name in reward_names:
-            self.rewards.append(
-                reward.make_reward(reward_name, agent_ids=self._agent_ids)
-            )
-
-        # The reward at each timestep is the sum of the rewards from each reward module
-        # but can also be added to via environment hooks.
+        }
         self.per_agent_reward: dict[typing.AgentID, float] = (
             self.get_empty_reward_dict()
         )
         self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
         self.reward_this_step = self.get_empty_reward_dict()
+        self.agent_view_size = self.config.get("agent_view_size", 7)
 
-        # Action space describes the set of actions available to agents.
+    def _init_action_space(self, config):
+        """Parse action set from config and build per-agent action spaces."""
         action_str = config.get("action_set")
         if action_str == "rotation_actions":
             self.action_set = grid_actions.ActionSets.RotationActions
@@ -144,49 +135,81 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 f"Invalid or None action set string: {action_str}."
             )
 
-        # Set the action space for the gym environment
         self.action_spaces = {
             a_id: spaces.Discrete(len(self.action_set))
             for a_id in self.agent_ids
         }
 
-        # Establish the observation space. This provides the general form of what an agent's observation
-        # looks like so that they can be properly initialized.
-        features = config.get("features", [])
-        if isinstance(features, list):
-            features = {agent_id: features for agent_id in self.agent_ids}
-        elif isinstance(features, str):
-            features = {agent_id: [features] for agent_id in self.agent_ids}
-        else:
-            assert isinstance(features, dict) and set(features.keys()) == set(
-                self.agent_ids
-            ), (
-                "Must pass a feature dictionary keyed by agent IDs, "
-                "a list of features (universal for all agents), or the name "
-                "of a single feature."
-            )
-
-        self.feature_spaces = {
-            a_id: feature_space.FeatureSpace(
-                feature_names=features[a_id], env=self, agent_id=a_id
-            )
-            for a_id in self.agent_ids
-        }
-
-        self.observation_spaces = {
-            a_id: self.feature_spaces[a_id].observation_space
-            for a_id in self.agent_ids
-        }
-
+        self._action_pickup_drop_idx = self.action_set.index(
+            grid_actions.Actions.PickupDrop
+        )
+        self._action_toggle_idx = self.action_set.index(
+            grid_actions.Actions.Toggle
+        )
         self.prev_actions = None
 
-    def _gen_grid(self) -> None:
-        """Generates the grid for the environment.
+    def _init_vectorized_infrastructure(self):
+        """Build lookup tables, scope config, reward config, and pipeline placeholders."""
+        self._lookup_tables = build_lookup_tables(scope=self.scope)
 
-        This method generates the grid for the environment by calling the ``_generate_encoded_grid_states`` method,
-        converting the grid to the correct numpy format, finding the spawn points, and encoding the grid and states.
-        The resulting grid is then decoded and stored in the ``self.grid`` attribute.
-        """
+        from cogrid.core.autowire import (
+            build_scope_config_from_components,
+            build_reward_config_from_components,
+        )
+        self._scope_config = build_scope_config_from_components(self.scope)
+        if "interaction_fn" in self.config:
+            self._scope_config["interaction_fn"] = self.config["interaction_fn"]
+        self._type_ids = self._scope_config["type_ids"]
+        self._interaction_tables = self._scope_config.get("interaction_tables")
+
+        self._state = None
+        self._feature_fn = None
+
+        self._reward_config = build_reward_config_from_components(
+            self.scope,
+            n_agents=self.config["num_agents"],
+            type_ids=self._type_ids,
+            action_pickup_drop_idx=self._action_pickup_drop_idx,
+        )
+
+        self._agent_id_order = sorted(self.possible_agents)
+        self._terminated_fn = self.config.get("terminated_fn")
+
+        self._step_fn = None
+        self._reset_fn = None
+        self._env_state = None
+
+    def _init_jax_arrays(self):
+        """Convert lookup and scope config tables to JAX arrays (JAX backend only)."""
+        if self._backend != 'jax':
+            return
+
+        import jax.numpy as jnp
+        from cogrid.backend.env_state import register_envstate_pytree
+
+        register_envstate_pytree()
+
+        for key in self._lookup_tables:
+            self._lookup_tables[key] = jnp.array(
+                self._lookup_tables[key], dtype=jnp.int32
+            )
+
+        if "static_tables" in self._scope_config:
+            import numpy as _np
+            st = self._scope_config["static_tables"]
+            for key in st:
+                if isinstance(st[key], _np.ndarray):
+                    st[key] = jnp.array(st[key], dtype=jnp.int32)
+
+        if self._scope_config.get("interaction_tables") is not None:
+            import numpy as _np
+            it = self._scope_config["interaction_tables"]
+            for key in it:
+                if isinstance(it[key], _np.ndarray):
+                    it[key] = jnp.array(it[key], dtype=jnp.int32)
+
+    def _gen_grid(self) -> None:
+        """Parse the ASCII layout into a Grid, extracting spawn points."""
         self.spawn_points = []
         encoded_grid, states = self._generate_encoded_grid_states()
 
@@ -199,11 +222,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.grid, _ = grid.Grid.decode(grid_encoding, scope=self.scope)
 
     def _generate_encoded_grid_states(self) -> tuple[np.ndarray, np.ndarray]:
-        """Generates a grid encoding from the configuration.
-
-        :return: A tuple containing the encoded grid and state arrays.
-        :rtype: tuple[np.ndarray, np.ndarray]
-        """
+        """Generate grid and state arrays from config layout or layout_fn."""
         grid_config: dict = self.config.get("grid", {})
         layout_name = grid_config.get("layout", None)
         layout_fn = grid_config.get("layout_fn", None)
@@ -225,15 +244,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def _set_np_random(
         seed: int | None = None,
     ) -> tuple[RandomNumberGenerator, int]:
-        """Set the numpy random number generator. This is copied from
-        the
-
-        :param seed: _description_, defaults to None
-        :type seed: int | None, optional
-        :raises ValueError: Invalid seed value.
-        :return: Random number generator and seed.
-        :rtype: tuple[RandomNumberGenerator, int]
-        """
+        """Create a PCG64-backed Generator from an optional integer seed."""
         if seed is not None and not (isinstance(seed, int) and 0 <= seed):
             if isinstance(seed, int) is False:
                 raise ValueError(
@@ -251,35 +262,25 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     @property
     def np_random(self) -> np.random.Generator:
-        """Get the numpy random number generator.
-
-        :return: The numpy random number generator.
-        :rtype: np.random.Generator
-        """
+        """Lazily initialize and return the numpy RNG."""
         if self._np_random is None:
             self._np_random, _ = self._set_np_random()
 
         return self._np_random
 
-    def observation_space(self, agent: typing.AgentID) -> spaces.Space:
-        """Takes in agent and returns the observation space for that agent.
-
-        :param agent: The agent ID.
-        :type agent: typing.AgentID
-        :return: The observation space for the agent.
-        :rtype: spaces.Space
-        """
-        return self.observation_spaces[agent]
-
     def action_space(self, agent: typing.AgentID) -> spaces.Space:
-        """Takes in agent and returns the action space for that agent.
-
-        :param agent: The agent ID.
-        :type agent: typing.AgentID
-        :return: The action space for the agent.
-        :rtype: spaces.Space
-        """
+        """Return the action space for the given agent."""
         return self.action_spaces[agent]
+
+    def set_terminated_fn(self, fn):
+        """Set a per-agent termination function.
+
+        Must be called before the first ``reset()`` so the function
+        is closed over by the JIT-compiled step pipeline.
+
+        ``fn(prev_state, state, reward_config) -> (n_agents,) bool``
+        """
+        self._terminated_fn = fn
 
     def reset(
         self,
@@ -287,59 +288,137 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         seed: int | None = 42,
         options: dict[str, typing.Any] | None = None,
     ) -> tuple[dict[typing.AgentID, typing.ObsType], dict[str, typing.Any]]:
-        """Reset the environement and return the initial observations. Must be implemented for each environment.
+        """Reset the environment and return initial observations.
 
-        :param seed: NumPy random seed, defaults to 42
-        :type seed: int | None, optional
-        :param options: Environment reset options, defaults to None
-        :type options: dict[str, typing.Any] | None, optional
-        :return: Tuple of observations and info.
-        :rtype: tuple[dict[typing.AgentID, typing.ObsType], dict[str, typing.Any]]
+        Builds step/reset pipeline on first call, then delegates to
+        the functional reset.
         """
+        self._reset_agents(seed)
+        self._build_state()
+        layout_arrays, spawn_positions, action_set_name = self._build_layout_arrays()
+        obs = self._build_pipeline(layout_arrays, spawn_positions, action_set_name, seed)
+
+        if self.render_mode is not None:
+            self._sync_objects_from_state()
+            self.render()
+
+        return obs, {agent_id: {} for agent_id in self.agent_ids}
+
+    def _reset_agents(self, seed):
+        """Reset RNG, regenerate grid, and re-initialize agents."""
         if seed is not None:
             self._np_random, _ = self._set_np_random(seed=seed)
 
         self.agents = copy.copy(self.possible_agents)
-
         self._gen_grid()
 
-        # Clear out past agents and re-initialize
         self.env_agents = {}
         self.setup_agents()
 
-        # Initialize previous actions as no-op
         self.prev_actions = {
             a_id: grid_actions.Actions.Noop for a_id in self.agent_ids
         }
 
         self.t = 0
-
         self.on_reset()
-
         self.update_grid_agents()
 
+    def _build_state(self):
+        """Build array state from grid layout, extra state, and agent arrays."""
+        self._state = layout_to_state(
+            self.grid, scope=self.scope, scope_config=self._scope_config
+        )
+
+        extra_state_builder = self._scope_config.get("extra_state_builder")
+        if extra_state_builder is not None:
+            extra = extra_state_builder(self._state, self.scope)
+            scope_prefix = f"{self.scope}."
+            stripped = {
+                (k[len(scope_prefix):] if k.startswith(scope_prefix) else k): v
+                for k, v in extra.items()
+            }
+            self._state.update(stripped)
+
+        agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
+        self._state.update(agent_arrays)
         self.cumulative_score = 0
 
-        self.render()
+    def _build_layout_arrays(self):
+        """Convert array state to typed layout arrays for the active backend."""
+        if self._backend == 'jax':
+            import jax.numpy as jnp
+            xp = jnp
+        else:
+            xp = np
 
-        obs = self.get_obs()
+        skip_keys = {"agent_pos", "agent_dir", "agent_inv", "spawn_points"}
+        layout_arrays = {}
+        for key, val in self._state.items():
+            if key in skip_keys:
+                continue
+            if isinstance(val, list):
+                val = np.array(val, dtype=np.int32) if len(val) > 0 else np.zeros((0, 2), dtype=np.int32)
+            layout_arrays[key] = xp.array(val, dtype=xp.int32)
+
+        spawn_positions = xp.array(
+            self._state["agent_pos"], dtype=xp.int32
+        )
+
+        if self.action_set == grid_actions.ActionSets.CardinalActions:
+            action_set_name = "cardinal"
+        else:
+            action_set_name = "rotation"
+
+        return layout_arrays, spawn_positions, action_set_name
+
+    def _build_pipeline(self, layout_arrays, spawn_positions, action_set_name, seed):
+        """Build feature/step/reset pipeline and run initial reset."""
+        from cogrid.core.autowire import build_feature_config_from_components
+        from cogrid.core.component_registry import get_layout_index
+        from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
+
+        n_agents = self.config["num_agents"]
+        _layout_idx = get_layout_index(self.scope, self.current_layout_id)
+
+        feature_config = build_feature_config_from_components(
+            self.scope, self.config["features"],
+            n_agents=n_agents, layout_idx=_layout_idx,
+        )
+        self._feature_fn = feature_config["feature_fn"]
+
+        self._reset_fn = build_reset_fn(
+            layout_arrays, spawn_positions, n_agents,
+            self._feature_fn, self._scope_config, action_set_name,
+        )
+
+        self._step_fn = build_step_fn(
+            self._scope_config, self._lookup_tables, self._feature_fn,
+            self._reward_config, self._action_pickup_drop_idx,
+            self._action_toggle_idx, self.max_steps,
+            terminated_fn=self._terminated_fn,
+        )
+
+        if self._backend == 'jax':
+            import jax
+            rng = jax.random.key(seed if seed is not None else 42)
+        else:
+            rng = seed if seed is not None else 42
+
+        self._env_state, obs_arr = self._reset_fn(rng)
+
+        obs = {
+            aid: np.array(obs_arr[i])
+            for i, aid in enumerate(self._agent_id_order)
+        }
 
         self.per_agent_reward = self.get_empty_reward_dict()
         self.per_component_reward = {}
-
-        return obs, {agent_id: {} for agent_id in self.agent_ids}
+        return obs
 
     def _action_idx_to_str(
         self, actions: dict[typing.AgentID, int | str]
     ) -> dict[typing.AgentID, str]:
-        """Convert the action from index to string representation
-
-
-        :param actions: Dictionary of agent IDs and actions.
-        :type actions: dict[str, int  |  str]
-        :return: _description_
-        :rtype: dict[str, str]
-        """
+        """Convert action indices to their string names."""
         str_actions = {
             a_id: (
                 self.action_set[action]
@@ -358,69 +437,246 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         dict[typing.AgentID, bool],
         dict[typing.AgentID, dict[typing.Any, typing.Any]],
     ]:
-        """Transitition the environment forward by one step, given the actions of the agents.
+        """Advance one timestep via the unified step pipeline.
 
-        :param actions: Dictionary of agent IDs and actions.
-        :type actions: dict
-        :return: Tuple of observations, rewards, terminateds, truncateds, and infos.
-        :rtype: tuple[ dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, float], dict[typing.AgentID, bool], dict[typing.AgentID, bool], dict[typing.AgentID, dict[typing.Any, typing.Any]], ]
+        Converts dict actions to an ordered array, delegates to
+        ``self._step_fn``, and converts outputs back to PettingZoo dicts.
         """
+        # Select array module
+        if self._backend == 'jax':
+            import jax.numpy as jnp
+            xp = jnp
+        else:
+            xp = np
+
+        # Convert action dict to ordered array
+        actions_arr = xp.array(
+            [actions[aid] for aid in self._agent_id_order],
+            dtype=xp.int32,
+        )
+
+        # Delegate to the unified step pipeline
+        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = self._step_fn(
+            self._env_state, actions_arr
+        )
+
+        # Convert to PettingZoo dict format
+        obs = {
+            aid: np.array(obs_arr[i])
+            for i, aid in enumerate(self._agent_id_order)
+        }
+        rewards = {
+            aid: float(rewards_arr[i])
+            for i, aid in enumerate(self._agent_id_order)
+        }
+
+        terminateds = {aid: bool(terminateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+        truncateds = {aid: bool(truncateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+
+        if any(terminateds.values()) or any(truncateds.values()):
+            self.agents = []
+
+        infos = {aid: {} for aid in self._agent_id_order}
+
+        # Increment PettingZoo timestep counter
         self.t += 1
 
-        # Reset the rewards for this step
-        self.per_agent_reward = self.get_empty_reward_dict()
-        self.per_component_reward = {}
+        self.cumulative_score += sum(rewards.values())
 
-        # Track the previous state so that we have the delta for computing rewards
-        self.prev_grid = copy.deepcopy(self.grid)
-
-        # Update attributes of the grid objects that are timestep dependent
-        self.grid.tick()
-
-        # Convert the integer actions to strings (helpful for debugging!)
-        actions = self._action_idx_to_str(actions)
-
-        # Agents who are moving have their positions updated (and conflicts resolved)
-        self.move_agents(actions)
-
-        # Given any new position(s), agents interact with the environment
-        self.interact(actions)
-
-        # Updates the GridAgent objects to reflect new positions/interactions
-        self.update_grid_agents()
-
-        # Store the actions taken by the agents
-        self.prev_actions = actions.copy()
-
-        # Setup the return values
-        observations = self.get_obs()
-        self.compute_rewards()
-        infos = self.get_infos(**self.per_component_reward)
-        terminateds, truncateds = self.get_terminateds_truncateds()
-
-        self.render()
-
-        self.cumulative_score += sum([*self.per_agent_reward.values()])
+        # Sync rendering objects from state if needed
+        if self.render_mode is not None:
+            self._sync_objects_from_state()
+            self.render()
 
         # Custom hook if a subclass wants to make any updates
         self.on_step()
 
-        return (
-            observations,
-            self.per_agent_reward,
-            terminateds,
-            truncateds,
-            infos,
+        return obs, rewards, terminateds, truncateds, infos
+
+    def get_state(self) -> dict:
+        """Export a JSON-serializable snapshot of the full environment state.
+
+        Returns plain Python lists/scalars suitable for ``json.dumps()``.
+        Restorable via :meth:`set_state`. Must be called after :meth:`reset`.
+        """
+        if self._env_state is None:
+            raise RuntimeError("Must call reset() before get_state()")
+
+        state = self._env_state
+        snapshot = {
+            "agent_pos": np.array(state.agent_pos).tolist(),
+            "agent_dir": np.array(state.agent_dir).tolist(),
+            "agent_inv": np.array(state.agent_inv).tolist(),
+            "wall_map": np.array(state.wall_map).tolist(),
+            "object_type_map": np.array(state.object_type_map).tolist(),
+            "object_state_map": np.array(state.object_state_map).tolist(),
+            "extra_state": {
+                k: np.array(v).tolist() for k, v in state.extra_state.items()
+            },
+            "rng_key": np.array(state.rng_key).tolist() if state.rng_key is not None else None,
+            "time": int(state.time),
+            "done": np.array(state.done).tolist(),
+            "n_agents": state.n_agents,
+            "height": state.height,
+            "width": state.width,
+            "action_set": state.action_set,
+            "t": self.t,
+            "cumulative_score": float(self.cumulative_score),
+        }
+        return snapshot
+
+    def set_state(self, snapshot: dict) -> None:
+        """Restore from a dict produced by :meth:`get_state`.
+
+        Must be called after :meth:`reset` (pipeline must be initialized).
+        Arrays are converted to the active backend's type.
+        """
+        if self._step_fn is None:
+            raise RuntimeError("Must call reset() before set_state()")
+
+        from cogrid.backend.env_state import create_env_state
+
+        if self._backend == "jax":
+            import jax.numpy as jnp
+            xp = jnp
+        else:
+            xp = np
+
+        extra_state = {
+            k: xp.array(v, dtype=xp.int32) for k, v in snapshot["extra_state"].items()
+        }
+
+        rng_key = snapshot["rng_key"]
+        if rng_key is not None:
+            if self._backend == "jax":
+                import jax
+                rng_key = jax.numpy.array(rng_key, dtype=jax.numpy.uint32)
+            else:
+                rng_key = np.array(rng_key)
+
+        self._env_state = create_env_state(
+            agent_pos=xp.array(snapshot["agent_pos"], dtype=xp.int32),
+            agent_dir=xp.array(snapshot["agent_dir"], dtype=xp.int32),
+            agent_inv=xp.array(snapshot["agent_inv"], dtype=xp.int32),
+            wall_map=xp.array(snapshot["wall_map"], dtype=xp.int32),
+            object_type_map=xp.array(snapshot["object_type_map"], dtype=xp.int32),
+            object_state_map=xp.array(snapshot["object_state_map"], dtype=xp.int32),
+            extra_state=extra_state,
+            rng_key=rng_key,
+            time=xp.int32(snapshot["time"]),
+            done=xp.array(snapshot["done"], dtype=xp.bool_),
+            n_agents=snapshot["n_agents"],
+            height=snapshot["height"],
+            width=snapshot["width"],
+            action_set=snapshot["action_set"],
         )
+
+        self.t = snapshot["t"]
+        self.cumulative_score = snapshot["cumulative_score"]
+
+        if self.render_mode is not None:
+            self._sync_objects_from_state()
+
+    def _sync_objects_from_state(self) -> None:
+        """Sync Agent/Grid objects from EnvState arrays for rendering.
+
+        Writes array state back to Agent/Grid objects so the tile renderer
+        reflects current simulation state. Scope-specific rendering is
+        delegated to the ``render_sync`` hook in scope_config.
+
+        Only called when render_mode is not None.
+        """
+        if self._env_state is None:
+            return
+
+        state = self._env_state
+        from cogrid.core.grid_object import idx_to_object, make_object
+
+        # --- Sync agent positions, directions, and inventory ---
+        for i, aid in enumerate(self._agent_id_order):
+            if aid not in self.env_agents or self.env_agents[aid] is None:
+                continue
+            agent_obj = self.env_agents[aid]
+            pos = np.array(state.agent_pos[i])
+            agent_obj.pos = (int(pos[0]), int(pos[1]))
+            agent_obj.dir = int(np.array(state.agent_dir[i]))
+
+            inv_type_id = int(np.array(state.agent_inv[i, 0]))
+            if inv_type_id <= 0:
+                agent_obj.inventory = []
+            else:
+                obj_id = idx_to_object(inv_type_id, scope=self.scope)
+                agent_obj.inventory = (
+                    [make_object(obj_id, scope=self.scope)] if obj_id else []
+                )
+
+        # --- Sync grid cells from object_type_map / object_state_map ---
+        otm = np.array(state.object_type_map)
+        osm = np.array(state.object_state_map)
+
+        for r in range(self.grid.height):
+            for c in range(self.grid.width):
+                type_id = int(otm[r, c])
+                state_val = int(osm[r, c])
+
+                if type_id == 0:
+                    self.grid.set(r, c, None)
+                    continue
+
+                obj_id = idx_to_object(type_id, scope=self.scope)
+                if obj_id is None or obj_id == "free_space":
+                    self.grid.set(r, c, None)
+                    continue
+
+                existing = self.grid.get(r, c)
+                if existing is not None and existing.object_id == obj_id:
+                    existing.state = state_val
+                else:
+                    new_obj = make_object(obj_id, scope=self.scope, state=state_val)
+                    if new_obj is not None:
+                        new_obj.pos = (r, c)
+                    self.grid.set(r, c, new_obj)
+
+        # --- Delegate scope-specific rendering sync ---
+        render_sync = self._scope_config.get("render_sync")
+        if render_sync is not None:
+            render_sync(self.grid, state, self.scope)
+
+        # Rebuild GridAgent wrappers for rendering
+        self.update_grid_agents()
 
     def update_grid_agents(self) -> None:
         """Update the grid agents to reflect the current state of each Agent."""
         self.grid.grid_agents = {
             a_id: grid_object.GridAgent(
-                agent, num_agents=self.config["num_agents"], scope=self.scope
+                agent, n_agents=self.config["num_agents"], scope=self.scope
             )
             for a_id, agent in self.env_agents.items()
         }
+
+    @property
+    def jax_step(self):
+        """Raw JIT-compiled step function for direct JIT/vmap usage.
+
+        ``(EnvState, actions) -> (EnvState, obs, rewards, terminateds, truncateds, infos)``
+        """
+        if self._backend != 'jax':
+            raise RuntimeError("jax_step is only available with backend='jax'")
+        if self._step_fn is None:
+            raise RuntimeError("Must call reset() before accessing jax_step")
+        return self._step_fn
+
+    @property
+    def jax_reset(self):
+        """Raw JIT-compiled reset function for direct JIT/vmap usage.
+
+        ``(rng_key) -> (EnvState, obs)``
+        """
+        if self._backend != 'jax':
+            raise RuntimeError("jax_reset is only available with backend='jax'")
+        if self._reset_fn is None:
+            raise RuntimeError("Must call reset() before accessing jax_reset")
+        return self._reset_fn
 
     def setup_agents(self):
         self._setup_agents()
@@ -434,240 +690,22 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             )
             self.env_agents[agent_id] = agent
 
-    def move_agents(
-        self, actions: dict[typing.AgentID, typing.ActionType]
-    ) -> None:
-        """Move agents to new positions based on the actions they take.
-
-        :param actions: A dictionary of agent IDs and the actions they are taking.
-        :type actions: dict[typing.AgentID, typing.ActionType]
-        """
-        # All terminated agents or those we don't have an action for will stay in the same position
-        new_positions = {
-            a_id: agent.pos
-            for a_id, agent in self.env_agents.items()
-            if agent.terminated or a_id not in actions
-        }
-
-        # All agents that are taking an action will be moved to a new position
-        agents_to_move = [
-            a_id
-            for a_id in actions.keys()
-            if not self.env_agents[a_id].terminated
-        ]
-
-        # If we're using cardinal actions, change the agent direction if they aren't
-        # already facing the desired dir if they are, then they move in that direction.
-        if self.action_set == grid_actions.ActionSets.CardinalActions:
-            move_action_to_dir = {
-                grid_actions.Actions.MoveRight: directions.Directions.Right,
-                grid_actions.Actions.MoveLeft: directions.Directions.Left,
-                grid_actions.Actions.MoveUp: directions.Directions.Up,
-                grid_actions.Actions.MoveDown: directions.Directions.Down,
-            }
-            for a_id, action in actions.items():
-                if action in move_action_to_dir.keys():
-                    agent = self.env_agents[a_id]
-                    desired_direction = move_action_to_dir[action]
-
-                    # rotate to the desired direction and move that way
-                    agent.dir = desired_direction
-                    actions[a_id] = grid_actions.Actions.Forward
-
-        # Determine the position each agent is attempting to move to
-        attempted_positions = {}
-        for a_id, action in actions.items():
-            attempted_positions[a_id] = self.determine_attempted_pos(
-                a_id, action
-            )
-
-        # First, give priority to agents staying in the same position
-        for a_id, attemped_pos in attempted_positions.items():
-            agent = self.env_agents[a_id]
-            if np.array_equal(attemped_pos, agent.pos):
-                new_positions[a_id] = agent.pos
-                if a_id in agents_to_move:
-                    agents_to_move.remove(a_id)
-
-        # Randomize agent priority and move agents to new positions
-        self.np_random.shuffle(agents_to_move)
-        for a_id in agents_to_move:
-            agent = self.env_agents[a_id]
-            attempted_pos = attempted_positions[a_id]
-
-            # Enhanced collision check - check both new_positions and current positions of other agents
-            position_blocked = tuple(attempted_pos) in [
-                tuple(npos) for npos in new_positions.values()
-            ] or tuple(attempted_pos) in [
-                tuple(other.pos)
-                for other_id, other in self.env_agents.items()
-                if other_id != a_id and other_id not in new_positions
-            ]
-
-            if position_blocked:
-                new_positions[a_id] = agent.pos
-            else:
-                new_positions[a_id] = attempted_pos
-
-        # Make sure no two agents moved through each other
-        for a_id1, a_id2 in combinations(self.agent_ids, r=2):
-            agent1, agent2 = self.env_agents[a_id1], self.env_agents[a_id2]
-            if np.array_equal(
-                new_positions[a_id1], agent2.pos
-            ) and np.array_equal(new_positions[a_id2], agent1.pos):
-                new_positions[a_id1] = agent1.pos
-                new_positions[a_id2] = agent2.pos
-
-        # assign the new positions and store the agent position
-        for a_id, agent in self.env_agents.items():
-            agent.pos = new_positions[a_id]
-            self.on_move(a_id)
-
-        assert len(self.agent_pos) == len(
-            set(self.agent_pos)
-        ), "Agents do not have unique positions!"
-
-    def determine_attempted_pos(
-        self, agent_id: typing.AgentID, action: typing.ActionType
-    ) -> tuple[int, int]:
-        """Determine the position an agent is attempting to move to.
-
-        :param agent_id: The ID of the agent attempting to move.
-        :type agent_id: typing.AgentID
-        :param action: The action the agent is attempting to take.
-        :type action: typing.ActionType
-        :return: The position the agent is attempting to move to.
-        :rtype: tuple[int, int]
-        """
-        agent = self.env_agents[agent_id]
-        fwd_pos = agent.front_pos
-        fwd_cell = self.grid.get(*fwd_pos)
-
-        if action == grid_actions.Actions.Forward:
-            if fwd_cell is None or fwd_cell.can_overlap(agent=agent):
-                return fwd_pos
-
-        return agent.pos
-
-    def can_toggle(self, agent_id: typing.AgentID) -> bool:
-        """Check if an agent can toggle the object in front of them.
-
-        :param agent_id: The ID of the agent attempting to toggle the object.
-        :type agent_id: typing.AgentID
-        :return: True if the agent can toggle the object in front of them, False otherwise.
-        :rtype: bool
-        """
-        agent = self.env_agents[agent_id]
-        fwd_cell = copy.deepcopy(self.grid.get(*agent.front_pos))
-        return fwd_cell.toggle(env=self, toggling_agent=agent)
-
-    def interact(
-        self, actions: dict[typing.AgentID, typing.ActionType]
-    ) -> None:
-        """After agents have moved, let them interact with the environment
-        based on their actions (e.g., picking up, dropping, toggling, etc.).
-
-        :param actions: Dictionary of agent IDs and actions.
-        :type actions: dict[typing.AgentID, typing.ActionType]
-        """
-        for a_id, action in actions.items():
-            agent: grid_object.GridAgent = self.env_agents[a_id]
-            agent.cell_toggled = None
-            agent.cell_placed_on = None
-            agent.cell_picked_up_from = None
-            agent.cell_overlapped = self.grid.get(*agent.pos)
-
-            if action == grid_actions.Actions.RotateRight:
-                agent.rotate_right()
-            elif action == grid_actions.Actions.RotateLeft:
-                agent.rotate_left()
-
-            # Attempt to pick up the object in front of the agent
-            elif action == grid_actions.Actions.PickupDrop:
-                fwd_pos = agent.front_pos
-                fwd_cell = self.grid.get(*fwd_pos)
-                agent_ahead = tuple(fwd_pos) in self.agent_pos
-
-                # If there's an agent in front of you, you can't
-                # pick up or drop.
-                if agent_ahead:
-                    continue
-
-                # TODO(chase): we need to fix this logic so that we check if an agent
-                # can pick up the type of object that is returned from pick_up_from
-                if (
-                    fwd_cell
-                    and fwd_cell.can_pickup(agent=agent)
-                    and agent.can_pickup(grid_object=fwd_cell)
-                ):
-                    pos = fwd_cell.pos
-                    agent.inventory.append(fwd_cell)
-                    fwd_cell.pos = None
-                    self.grid.set(*pos, None)
-                elif (
-                    fwd_cell
-                    and fwd_cell.can_pickup_from(agent=agent)
-                    and agent.can_pickup(grid_object=fwd_cell)
-                ):
-                    pickup_cell = fwd_cell.pick_up_from(agent=agent)
-                    pickup_cell.pos = None
-                    agent.inventory.append(pickup_cell)
-                    agent.cell_picked_up_from = fwd_cell
-                elif not agent_ahead and not fwd_cell and agent.inventory:
-                    drop_cell = agent.inventory.pop(0)
-                    drop_cell.pos = fwd_pos
-                    self.grid.set(fwd_pos[0], fwd_pos[1], drop_cell)
-                elif (
-                    fwd_cell
-                    and agent.inventory
-                    and fwd_cell.can_place_on(
-                        cell=agent.inventory[0], agent=agent
-                    )
-                ):
-                    drop_cell = agent.inventory.pop(0)
-                    drop_cell.pos = fwd_pos
-
-                    fwd_cell.place_on(cell=drop_cell, agent=agent)
-                    agent.cell_placed_on = fwd_cell
-
-                self.on_pickup_drop(a_id)
-
-            # Attempt to toggle the object in front of the agent
-            elif action == grid_actions.Actions.Toggle:
-                fwd_cell = self.grid.get(*agent.front_pos)
-                if fwd_cell:
-                    toggle_success = fwd_cell.toggle(env=self, agent=agent)
-                    if toggle_success:
-                        agent.cell_toggled = fwd_cell
-
-                self.on_toggle(a_id)
-
-        self.on_interact(actions)
+    # ------------------------------------------------------------------
+    # Hooks for subclass customization
+    # ------------------------------------------------------------------
 
     def on_interact(
         self, actions: dict[typing.AgentID, typing.ActionType]
     ) -> None:
-        """Hook for subclasses to implement custom logic after agents interact with the environment.
-
-        :param actions: Dictionary of agent IDs and actions.
-        :type actions: dict[typing.AgentID, typing.ActionType]
-        """
+        """Hook for subclass logic after agents interact with the environment."""
         pass
 
     def on_toggle(self, agent_id: typing.AgentID) -> None:
-        """Hook for subclasses to implement custom logic after an agent toggles an object.
-
-        :param agent_id: The ID of the agent toggling the object.
-        :type agent_id: typing.AgentID
-        """
+        """Hook for subclass logic after an agent toggles an object."""
         pass
 
     def on_pickup_drop(self, agent_id: typing.AgentID) -> None:
-        """Hook for subclasses to implement custom logic after an agent picks up or drops an object.
-
-        :param agent_id: The ID of the agent picking up or dropping an object.
-        :type agent_id: typing.AgentID
-        """
+        """Hook for subclass logic after an agent picks up or drops an object."""
         pass
 
     def on_reset(self) -> None:
@@ -679,86 +717,17 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         pass
 
     def on_move(self, agent_id: typing.AgentID) -> None:
-        """Hook for subclasses to implement custom logic after an agent moves.
-
-        :param agent_id: The ID of the agent moving.
-        :type agent_id: typing.AgentID
-        """
+        """Hook for subclass logic after an agent moves."""
         pass
 
-    def get_obs(self) -> dict[typing.AgentID, typing.ObsType]:
-        """Fetch new observations for the agents
-
-        :return: Dictionary of agent IDs and their observations.
-        :rtype: dict[typing.AgentID, typing.ObsType]
-        """
-        obs = {}
-        for a_id in self.agent_ids:
-            obs[a_id] = self.feature_spaces[a_id].generate_features()
-        return obs
-
-    def compute_rewards(
-        self,
-    ) -> None:
-        """Compute the per agent and per component rewards for the current state transition
-        using the reward modules provided in the environment configuration.
-
-        The rewards are added to self.per_agent_rewards and self.per_component_rewards.
-        """
-
-        for reward in self.rewards:
-            calculated_rewards = reward.calculate_reward(
-                state=self.prev_grid,
-                agent_actions=self.prev_actions,
-                new_state=self.grid,
-            )
-
-            # Add component rewards to per agent reward
-            for agent_id, reward_value in calculated_rewards.items():
-                self.per_agent_reward[agent_id] += reward_value
-
-            # Save reward by component
-            self.per_component_reward[reward.name] = calculated_rewards
-
-        for agent_id, val in self.reward_this_step.items():
-            self.per_agent_reward[agent_id] += val
-
-        self.reward_this_step = self.get_empty_reward_dict()
-
-    def get_terminateds_truncateds(
-        self,
-    ) -> tuple[dict[typing.AgentID, bool], dict[typing.AgentID, bool]]:
-        """Determine the done status for each agent."""
-        terminateds = {
-            agent_id: agent.terminated
-            for agent_id, agent in self.env_agents.items()
-        }
-        # terminateds["__all__"] = all([*terminateds.values()])
-
-        if self.t >= self.max_steps:
-            truncateds = {agent_id: True for agent_id in self.agent_ids}
-        else:
-            truncateds = {agent_id: False for agent_id in self.agent_ids}
-
-        # truncateds["__all__"] = all([*truncateds.values()])
-
-        # Update active agents
-        self.agents = [
-            agent_id
-            for agent_id in self.possible_agents
-            if not terminateds[agent_id] and not truncateds[agent_id]
-        ]
-
-        return terminateds, truncateds
+    # ------------------------------------------------------------------
+    # Observation and reward helpers
+    # ------------------------------------------------------------------
 
     def get_infos(
         self, **kwargs
     ) -> dict[typing.AgentID, dict[typing.Any, typing.Any]]:
-        """Get info dictionaries for each agent.
-
-        :return: Dictionary keyed by agent IDs containing info dictionaries.
-        :rtype: dict[typing.Any, typing.Any]
-        """
+        """Build per-agent info dicts from keyword argument dicts."""
         infos = {agent_id: {} for agent_id in self._agent_ids}
         for info_key, info_dict in kwargs.items():
             for agent_id, val in info_dict.items():
@@ -769,20 +738,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return infos
 
     def get_empty_reward_dict(self) -> dict[typing.AgentID, float]:
-        """Get a dictionary of rewards for each agent, initialized to 0.
-
-        :return: Dictionary of rewards for each agent, initialized to 0.
-        :rtype: dict[typing.AgentID, float]
-        """
+        """Return a reward dict with all agents set to 0."""
         return {a_id: 0 for a_id in self.agent_ids}
 
     @property
     def map_with_agents(self) -> np.ndarray:
-        """retrieve a version of the environment where 'P' chars have agent IDs.
-
-        :return: Map of the environment with agent IDs.
-        :rtype: np.ndarray
-        """
+        """Return the encoded grid with agents overlaid as numeric IDs."""
 
         grid_encoding = self.grid.encode(encode_char=True, scope=self.scope)
         grid = grid_encoding[:, :, 0]
@@ -796,11 +757,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return grid
 
     def select_spawn_point(self) -> tuple[int, int]:
-        """Select a spawn point for an agent.
-
-        :return: A spawn point for an agent.
-        :rtype: tuple[int, int]
-        """
+        """Pop a spawn point from the queue, or pick a random free cell."""
         if self.spawn_points:
             return self.spawn_points.pop(0)
 
@@ -809,11 +766,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     @property
     def available_positions(self) -> list[tuple[int, int]]:
-        """Get a list of available positions for agents to spawn.
-
-        :return: List of available positions for agents to spawn.
-        :rtype: list[tuple[int, int]]
-        """
+        """Return grid cells that are empty and not occupied by an agent."""
         spawns = []
         for r in range(self.grid.height):
             for c in range(self.grid.width):
@@ -825,34 +778,17 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return spawns
 
     def put_obj(self, obj: grid_object.GridObj, row: int, col: int):
-        """Place an object at a specific point in the grid.
-
-        :param obj: The object to place.
-        :type obj: grid_object.GridObj
-        :param row: The row to place the object.
-        :type row: int
-        :param col: The column to place the object.
-        :type col: int
-        """
-        self.grid.set(row=row, col=col, v=obj)
+        """Place an object at (row, col) and set its init_pos."""
+        self.grid.set(row=row, col=col, obj=obj)
         obj.pos = (row, col)
         obj.init_pos = (row, col)
 
     def get_view_exts(
         self, agent_id: typing.AgentID, agent_view_size: int = None
     ) -> tuple[int, int, int, int]:
-        """Get the extents of the square set of tiles visible to the agent
-        Note: the bottom extent indices are not included in the set
-        if agent_view_size is None, use self.agent_view_size
+        """Return (topX, topY, botX, botY) of the agent's visible tile square.
 
-
-        :param agent_id: Agent ID of the agent to get the view extents for.
-        :type agent_id: typing.AgentID
-        :param agent_view_size: View distance, defaults to None
-        :type agent_view_size: int, optional
-        :raises ValueError: Invalid agent direction.
-        :return: Tuple of the top-left and bottom-right extents of the agent's view.
-        :rtype: tuple[int, int, int, int]
+        Bottom extent indices are exclusive.
         """
         agent = self.env_agents[agent_id]
         agent_view_size = agent_view_size or self.agent_view_size
@@ -880,15 +816,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def gen_obs_grid(
         self, agent_id: typing.AgentID, agent_view_size: int = None
     ) -> grid.Grid:
-        """Generate the sub-grid observed by a specific agent
-
-        :param agent_id: Agent ID of the agent to generate the observation for.
-        :type agent_id: typing.AgentID
-        :param agent_view_size: Size of the agents view area, defaults to None
-        :type agent_view_size: int, optional
-        :return: A sub-grid observed by the agent.
-        :rtype: grid.Grid
-        """
+        """Return the rotated sub-grid and visibility mask for an agent's POV."""
         topX, topY, *_ = self.get_view_exts(agent_id, agent_view_size)
 
         agent_view_size = agent_view_size or self.agent_view_size
@@ -920,15 +848,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         agent_id: typing.AgentID,
         tile_size: int = CoreConstants.TilePixels,
     ) -> np.ndarray:
-        """Render a specific agent's POV
-
-        :param agent_id: Agent ID of the POV to render.
-        :type agent_id: typing.AgentID
-        :param tile_size: The pixel height/width of each rendered grid cell, defaults to CoreConstants.TilePixels
-        :type tile_size: int, optional
-        :return: Render of an agent's POV.
-        :rtype: np.ndarray
-        """
+        """Render a specific agent's POV as an RGB array."""
         grid, vis_mask = self.gen_obs_grid(agent_id)
         img = grid.render(
             tile_size,
@@ -939,15 +859,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def get_full_render(
         self, highlight: bool = False, tile_size: int = CoreConstants.TilePixels
     ) -> np.ndarray:
-        """Generate a render of the full environment.
-
-        :param highlight: Highlight the visible region for each agent, defaults to False.
-        :type highlight: bool
-        :param tile_size: The pixel height/width of each rendered grid cell, defaults to CoreConstants.TilePixels
-        :type tile_size: int, optional
-        :return: Render of the full environment.
-        :rtype: np.ndarray
-        """
+        """Render the full grid, optionally highlighting each agent's visible region."""
         if highlight:
             highlight_mask = np.zeros(
                 shape=(self.grid.height, self.grid.width), dtype=bool
@@ -996,17 +908,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         tile_size: int = CoreConstants.TilePixels,
         agent_pov: typing.AgentID | None = None,
     ) -> np.ndarray:
-        """Return RGB image corresponding to the whole environment or an agent's POV
-
-        :param highlight: Highlight the visible region for each agent, defaults to True
-        :type highlight: bool, optional
-        :param tile_size: The pixel width height of each grid cell, defaults to CoreConstants.TilePixels
-        :type tile_size: int, optional
-        :param agent_pov: If specified, gets the frame view for the specified agent, defaults to None
-        :type agent_pov: str | None, optional
-        :return: The rendered image of the environment or agent perspective.
-        :rtype: np.ndarray
-        """
+        """Return RGB image of the full environment or a single agent's POV."""
         if agent_pov:
             frame = self.get_pov_render(
                 agent_id=self.agent_pov, tile_size=tile_size
@@ -1019,11 +921,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         return frame
 
     def render(self) -> None | np.ndarray:
-        """Render the environment.
-
-        :return: None if rendering is not enabled, otherwise the rendered image.
-        :rtype: None | np.ndarray
-        """
+        """Render the environment (human window or rgb_array return)."""
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
@@ -1051,70 +949,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         if self.render_mode == "human":
-            if pygame is None:
-                raise ImportError(
-                    "Must install pygame to use interactive mode."
-                )
-            # TODO(chase): move all pygame logic to run_interactive.py so it's not needed here.
-            if self.render_size is None:
-                self.render_size = img.shape[:2]
-            if self.window is None:
-                pygame.init()
-                pygame.display.init()
-                self.window = pygame.display.set_mode(
-                    (self.screen_size, self.screen_size)
-                )
-                pygame.display.set_caption(self.name)
-            if self.clock is None:
-                self.clock = pygame.time.Clock()
-
-            surf = pygame.surfarray.make_surface(img)
-
-            # For some reason, pygame is rotating/flipping the image...
-            surf = pygame.transform.flip(surf, False, True)
-            surf = pygame.transform.rotate(surf, 270)
-
-            # Create background with mission description
-            offset = surf.get_size()[0] * 0.1
-            bg = pygame.Surface(
-                (
-                    int(surf.get_size()[0] + offset),
-                    int(surf.get_size()[1] + offset),
-                )
-            )
-            bg.convert()
-            bg.fill((255, 255, 255))
-            bg.blit(surf, (offset / 2, 0))
-
-            bg = pygame.transform.smoothscale(
-                bg, (self.screen_size, self.screen_size)
-            )
-
-            font_size = 22
-            text = (
-                f"Score: {np.round(self.cumulative_score, 2)}"
-                + self.render_message
-            )
-
-            font = pygame.freetype.SysFont(
-                pygame.font.get_default_font(), font_size
-            )
-            text_rect = font.get_rect(text, size=font_size)
-            text_rect.center = bg.get_rect().center
-            text_rect.y = bg.get_height() - font_size * 1.5
-            font.render_to(bg, text_rect, text, size=font_size)
-
-            self.window.blit(bg, (0, 0))
-            pygame.event.pump()
-            self.clock.tick(self.metadata["render_fps"])
-            pygame.display.update()
-
+            self._renderer.render_human(img, self.cumulative_score, self.render_message)
         elif self.render_mode == "rgb_array":
             return img
 
     def close(self):
-        if self.window:
-            pygame.quit()
+        if self._renderer is not None:
+            self._renderer.close()
 
     def get_action_mask(self, agent_id):
         raise NotImplementedError

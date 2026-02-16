@@ -5,13 +5,12 @@ https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 from copy import deepcopy
 
 import numpy as np
 
 from cogrid.core.grid_object import GridObj, Wall, object_to_idx, GridAgent
-from cogrid.core import grid_object
 from cogrid.core.constants import CoreConstants
 from cogrid.constants import GridConstants
 from cogrid.visualization.rendering import (
@@ -72,7 +71,6 @@ class Grid:
         :return: Whether the item is in the grid.
         :rtype: bool
         """
-        # TODO(chase): Add the ability to pass an encoding.
         if isinstance(item, GridObj):
             for grid_obj in self.grid:
                 if grid_obj is item:
@@ -109,15 +107,15 @@ class Grid:
         """
         return deepcopy(self)
 
-    def set(self, row: int, col: int, v: GridObj | None) -> None:
+    def set(self, row: int, col: int, obj: GridObj | None) -> None:
         """Set a GridObj at a given position in the grid.
 
         :param row: The row index.
         :type row: int
         :param col: The column index.
         :type col: int
-        :param v: The GridObj (or None) to set.
-        :type v: GridObj | None
+        :param obj: The GridObj (or None) to set.
+        :type obj: GridObj | None
         """
         assert (
             0 <= col < self.width
@@ -125,7 +123,7 @@ class Grid:
         assert (
             0 <= row < self.height
         ), f"row index {row} outside of grid of height {self.height}"
-        self.grid[row * self.width + col] = v
+        self.grid[row * self.width + col] = obj
 
     def get(self, row: int, col: int) -> GridObj | None:
         """Get the GridObj at a given position in the grid.
@@ -175,7 +173,7 @@ class Grid:
         if length is None:
             length = self.width - col
         for i in range(length):
-            self.set(row=row, col=col + i, v=obj_type())
+            self.set(row=row, col=col + i, obj=obj_type())
 
     def vert_wall(
         self,
@@ -198,7 +196,7 @@ class Grid:
         if length is None:
             length = self.height - row
         for j in range(length):
-            self.set(row=row + j, col=col, v=obj_type())
+            self.set(row=row + j, col=col, obj=obj_type())
 
     def wall_rect(
         self, col: int, row: int, w: int, h: int, grid_obj: GridObj = Wall
@@ -237,7 +235,7 @@ class Grid:
 
                 new_row = grid.height - 1 - col
                 new_col = row
-                grid.set(row=new_row, col=new_col, v=v)
+                grid.set(row=new_row, col=new_col, obj=v)
 
                 agent = get_grid_agent_at_position(self, (row, col))
                 if agent:
@@ -282,7 +280,7 @@ class Grid:
                 else:
                     v = Wall()
 
-                grid.set(row=row, col=col, v=v)
+                grid.set(row=row, col=col, obj=v)
 
         return grid
 
@@ -366,9 +364,6 @@ class Grid:
         :return: An RGB image of the rendered grid.
         :rtype: np.ndarray
         """
-
-        # TODO(chase): Make efficiency improvements here. One option is to use
-        # "dirty tiles" so we only render the tiles that have changed.
 
         if highlight_mask is None:
             highlight_mask = np.zeros(
@@ -471,7 +466,7 @@ class Grid:
                     grid.grid_agents[agent_count] = v
                     agent_count += 1
                 else:
-                    grid.set(row=row, col=col, v=v)
+                    grid.set(row=row, col=col, obj=v)
 
         return grid, vis_mask
 

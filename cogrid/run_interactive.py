@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 from cogrid.core.actions import Actions
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
@@ -8,21 +5,6 @@ from cogrid.core import typing
 
 
 import numpy as np
-
-# try:
-#     import onnxruntime as ort
-# except ImportError:
-#     raise ImportError(
-#         "Must `pip install onnxruntime` to use the ONNX inference utils!"
-#     )
-
-# try:
-#     from scipy import special
-# except ImportError:
-#     raise ImportError(
-#         "Must `pip install scipy` to use the ONNX inference utils!"
-#     )
-
 
 try:
     import pygame
@@ -141,8 +123,6 @@ class HumanPlay:
                 if a_id == self.human_agent_id:
                     continue
                 actions[a_id] = self.env.action_spaces[a_id].sample()
-                # if self.env.t % 5 == 0:
-                #     actions[a_id] = onnx_model_inference_fn(obs, model)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -170,11 +150,14 @@ class HumanPlay:
             self.step(actions)
 
     def step(self, actions: dict[str, Actions]):
-        self.obs, rewards, terminateds, truncateds, _ = self.env.step(actions)
+        # Convert action enum strings to integer indices
+        action_set = self.env.action_set
+        int_actions = {
+            aid: action_set.index(a) if isinstance(a, str) else int(a)
+            for aid, a in actions.items()
+        }
+        self.obs, rewards, terminateds, truncateds, _ = self.env.step(int_actions)
         self.cumulative_reward += [*rewards.values()][0]
-        # print(
-        #     f"step={self.env.t}, rewards={rewards}, cumulative_reward={self.cumulative_reward}"
-        # )
 
         if not self.env.agents:
             print("All agents done!")
@@ -237,7 +220,7 @@ if __name__ == "__main__":
         render_mode: str | None = None, render_message=""
     ) -> CoGridEnv:
         return registry.make(
-            "Overcooked-ForcedCoordination-V0",
+            "Overcooked-CrampedRoom-V0",
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,

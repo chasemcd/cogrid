@@ -1,5 +1,7 @@
 .vscode/
 .DS_store
+.claude/
+.planning/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,24 +1,17 @@
-from __future__ import annotations
-from copy import deepcopy
-import math
-
 import numpy as np
 
-from cogrid.constants import GridConstants
-from cogrid.core.constants import COLORS
 from cogrid.core import constants
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
-    point_in_rect,
-    point_in_triangle,
-    rotate_fn,
     add_text_to_image,
 )
 
 from cogrid.core import grid_object
+from cogrid.core.grid_object import register_object_type
 
 
+@register_object_type("onion", scope="overcooked", can_pickup=True)
 class Onion(grid_object.GridObj):
     object_id = "onion"
     color = constants.Colors.Yellow
@@ -43,9 +36,7 @@ class Onion(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Onion.object_id, Onion, scope="overcooked")
-
-
+@register_object_type("tomato", scope="overcooked", can_pickup=True)
 class Tomato(grid_object.GridObj):
     object_id = "tomato"
     color = constants.Colors.Red
@@ -70,9 +61,7 @@ class Tomato(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Tomato.object_id, Tomato, scope="overcooked")
-
-
+@register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
 class OnionStack(grid_object.GridObj):
     """An OnionStack is just an (infinite) pile of onions."""
 
@@ -98,11 +87,7 @@ class OnionStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    OnionStack.object_id, OnionStack, scope="overcooked"
-)
-
-
+@register_object_type("tomato_stack", scope="overcooked", can_pickup_from=True)
 class TomatoStack(grid_object.GridObj):
     """A TomatoStack is just an (infinite) pile of tomatoes."""
 
@@ -128,11 +113,7 @@ class TomatoStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    TomatoStack.object_id, TomatoStack, scope="overcooked"
-)
-
-
+@register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
 class Pot(grid_object.GridObj):
     object_id = "pot"
     color = constants.Colors.Grey
@@ -172,7 +153,7 @@ class Pot(grid_object.GridObj):
 
         self.objects_in_pot = []
         self.cooking_timer = self.cooking_time
-        agent.inventory.pop(0)  # TODO(chase): assumes size 1 inventory
+        agent.inventory.pop(0)
         return soup
 
     def can_place_on(
@@ -248,10 +229,73 @@ class Pot(grid_object.GridObj):
         )
         return (char, extra_state_encoding, state)
 
+    @classmethod
+    def build_tick_fn(cls):
+        from cogrid.envs.overcooked.config import overcooked_tick_state
+        return overcooked_tick_state
 
-grid_object.register_object(Pot.object_id, Pot, scope="overcooked")
+    @classmethod
+    def extra_state_schema(cls):
+        return {
+            "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
+            "pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
+            "pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
+        }
+
+    @classmethod
+    def extra_state_builder(cls):
+        from cogrid.envs.overcooked.config import build_overcooked_extra_state
+        return build_overcooked_extra_state
+
+    @classmethod
+    def build_static_tables(cls):
+        from cogrid.envs.overcooked.config import (
+            _build_interaction_tables,
+            _build_type_ids,
+            _build_static_tables,
+        )
+        scope = "overcooked"
+        itables = _build_interaction_tables(scope)
+        type_ids = _build_type_ids(scope)
+        return _build_static_tables(scope, itables, type_ids)
+
+    @classmethod
+    def build_render_sync_fn(cls):
+        def pot_render_sync(grid, env_state, scope):
+            """Sync pot contents and cooking timer from extra_state."""
+            from cogrid.core.grid_object import idx_to_object, make_object
+
+            extra = env_state.extra_state
+            prefix = f"{scope}."
+            pc_key = f"{prefix}pot_contents"
+            pt_key = f"{prefix}pot_timer"
+            pp_key = f"{prefix}pot_positions"
+
+            if not all(k in extra for k in (pc_key, pt_key, pp_key)):
+                return
+
+            pot_contents = np.array(extra[pc_key])
+            pot_timer = np.array(extra[pt_key])
+            pot_positions = np.array(extra[pp_key])
+
+            for p in range(len(pot_positions)):
+                pr, pc = int(pot_positions[p, 0]), int(pot_positions[p, 1])
+                pot_obj = grid.get(pr, pc)
+                if pot_obj is not None and pot_obj.object_id == "pot":
+                    pot_obj.objects_in_pot = []
+                    for slot in range(pot_contents.shape[1]):
+                        item_id = int(pot_contents[p, slot])
+                        if item_id > 0:
+                            item_name = idx_to_object(item_id, scope=scope)
+                            if item_name:
+                                pot_obj.objects_in_pot.append(
+                                    make_object(item_name, scope=scope)
+                                )
+                    pot_obj.cooking_timer = int(pot_timer[p])
+        return pot_render_sync
 
 
+@register_object_type("plate_stack", scope="overcooked", can_pickup_from=True)
 class PlateStack(grid_object.GridObj):
     object_id = "plate_stack"
     color = constants.Colors.White
@@ -287,11 +331,7 @@ class PlateStack(grid_object.GridObj):
         )
 
 
-grid_object.register_object(
-    PlateStack.object_id, PlateStack, scope="overcooked"
-)
-
-
+@register_object_type("plate", scope="overcooked", can_pickup=True)
 class Plate(grid_object.GridObj):
     object_id = "plate"
     color = constants.Colors.White
@@ -318,9 +358,7 @@ class Plate(grid_object.GridObj):
         )
 
 
-grid_object.register_object(Plate.object_id, Plate, scope="overcooked")
-
-
+@register_object_type("delivery_zone", scope="overcooked", can_place_on=True)
 class DeliveryZone(grid_object.GridObj):
     object_id = "delivery_zone"
     color = constants.Colors.Green
@@ -355,11 +393,7 @@ class DeliveryZone(grid_object.GridObj):
         del cell
 
 
-grid_object.register_object(
-    DeliveryZone.object_id, DeliveryZone, scope="overcooked"
-)
-
-
+@register_object_type("onion_soup", scope="overcooked", can_pickup=True)
 class OnionSoup(grid_object.GridObj):
     object_id = "onion_soup"
     color = constants.Colors.LightBrown
@@ -392,9 +426,7 @@ class OnionSoup(grid_object.GridObj):
         )
 
 
-grid_object.register_object(OnionSoup.object_id, OnionSoup, scope="overcooked")
-
-
+@register_object_type("tomato_soup", scope="overcooked", can_pickup=True)
 class TomatoSoup(grid_object.GridObj):
     object_id = "tomato_soup"
     color = constants.Colors.Red
@@ -425,8 +457,3 @@ class TomatoSoup(grid_object.GridObj):
             point_in_circle(cx=0.5, cy=0.5, r=0.3),
             self.color,
         )
-
-
-grid_object.register_object(
-    TomatoSoup.object_id, TomatoSoup, scope="overcooked"
-)
