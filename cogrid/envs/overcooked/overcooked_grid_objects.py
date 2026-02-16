@@ -231,7 +231,7 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def build_tick_fn(cls):
-        from cogrid.envs.overcooked.array_config import overcooked_tick_state
+        from cogrid.envs.overcooked.config import overcooked_tick_state
         return overcooked_tick_state
 
     @classmethod
@@ -244,12 +244,12 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def extra_state_builder(cls):
-        from cogrid.envs.overcooked.array_config import build_overcooked_extra_state
+        from cogrid.envs.overcooked.config import build_overcooked_extra_state
         return build_overcooked_extra_state
 
     @classmethod
     def build_static_tables(cls):
-        from cogrid.envs.overcooked.array_config import (
+        from cogrid.envs.overcooked.config import (
             _build_interaction_tables,
             _build_type_ids,
             _build_static_tables,

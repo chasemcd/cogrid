@@ -8,7 +8,7 @@ Run with:
 """
 
 from cogrid.core.interactions import process_interactions
-from cogrid.envs.overcooked.array_config import overcooked_tick, overcooked_interaction_fn
+from cogrid.envs.overcooked.config import overcooked_tick, overcooked_interaction_fn
 from cogrid.core.autowire import build_scope_config_from_components
 
 

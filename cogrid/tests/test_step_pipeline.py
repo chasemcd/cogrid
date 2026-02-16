@@ -52,7 +52,7 @@ def _setup_overcooked_config():
 
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
-    array_state = env._array_state
+    array_state = env._state
 
     scope_config = build_scope_config_from_components("overcooked")
     lookup_tables = build_lookup_tables(scope="overcooked")

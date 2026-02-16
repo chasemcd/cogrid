@@ -72,7 +72,7 @@ def test_step_preserves_shape():
 
 def test_overcooked_inventory_feature():
     """Inventory one-hot: empty -> all zeros, held item -> correct index."""
-    from cogrid.envs.overcooked.overcooked_array_features import overcooked_inventory_feature
+    from cogrid.envs.overcooked.features import overcooked_inventory_feature
 
     inv_type_ids = np.array([5, 6, 7, 8, 9], dtype=np.int32)  # mock type IDs
     agent_inv = np.array([[-1], [6]], dtype=np.int32)  # agent 0 empty, agent 1 holds type 6
@@ -87,7 +87,7 @@ def test_overcooked_inventory_feature():
 
 def test_next_to_counter_feature():
     """Counter adjacency multi-hot encoding."""
-    from cogrid.envs.overcooked.overcooked_array_features import next_to_counter_feature
+    from cogrid.envs.overcooked.features import next_to_counter_feature
 
     # 3x3 grid: counter at (0,1) and (1,2), agent at (1,1)
     counter_id = 2
@@ -108,7 +108,7 @@ def test_next_to_counter_feature():
 
 def test_layout_id_feature():
     """One-hot layout encoding."""
-    from cogrid.envs.overcooked.overcooked_array_features import layout_id_feature
+    from cogrid.envs.overcooked.features import layout_id_feature
 
     result = layout_id_feature(2, num_layouts=5)
     assert result.shape == (5,)
@@ -117,7 +117,7 @@ def test_layout_id_feature():
 
 def test_dist_to_other_players():
     """Distance to other players."""
-    from cogrid.envs.overcooked.overcooked_array_features import dist_to_other_players_feature
+    from cogrid.envs.overcooked.features import dist_to_other_players_feature
 
     agent_pos = np.array([[3, 4], [1, 2]], dtype=np.int32)
     result = dist_to_other_players_feature(agent_pos, 0, n_agents=2)
@@ -127,7 +127,7 @@ def test_dist_to_other_players():
 
 def test_closest_obj_feature():
     """Closest object deltas."""
-    from cogrid.envs.overcooked.overcooked_array_features import closest_obj_feature
+    from cogrid.envs.overcooked.features import closest_obj_feature
 
     target_id = 5
     otm = np.array([[0, 0, 0],

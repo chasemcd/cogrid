@@ -64,7 +64,7 @@ your environment in your own project:
         my_env/
             __init__.py               # Triggers decorator registration
             grid_objects.py           # Grid objects (@register_object_type)
-            array_config.py           # Interaction fn, tick fn, extra state builders
+            config.py           # Interaction fn, tick fn, extra state builders
             rewards.py                # Reward functions (@register_reward_type)
             features.py               # Feature extractors (@register_feature_type)
             agent.py                  # Custom Agent subclass (optional)
@@ -175,7 +175,7 @@ classmethod does:
         @classmethod
         def build_tick_fn(cls):
             """Return a (state, scope_config) -> state function for per-step updates."""
-            from my_env.array_config import my_tick_fn
+            from my_env.config import my_tick_fn
             return my_tick_fn
 
         @classmethod
@@ -190,13 +190,13 @@ classmethod does:
         @classmethod
         def extra_state_builder(cls):
             """Return a function that initializes extra state from the parsed layout."""
-            from my_env.array_config import build_extra_state
+            from my_env.config import build_extra_state
             return build_extra_state
 
         @classmethod
         def build_static_tables(cls):
             """Return dict of additional lookup arrays for interaction logic."""
-            from my_env.array_config import build_static_tables
+            from my_env.config import build_static_tables
             return build_static_tables()
 
         @classmethod
@@ -248,7 +248,7 @@ Signature: ``(state: EnvState, scope_config: dict) -> EnvState``
 
 .. code-block:: python
 
-    # my_env/array_config.py
+    # my_env/config.py
     import dataclasses
     from cogrid.backend import xp
 
@@ -341,17 +341,17 @@ traced values. This allows JAX to compile the function.
 Step 6: Define Reward Functions
 ---------------------------------
 
-Reward functions are ``ArrayReward`` subclasses registered with
+Reward functions are ``Reward`` subclasses registered with
 ``@register_reward_type``. Each computes a ``(n_agents,)`` float32 array.
 
 .. code-block:: python
 
     # my_env/rewards.py
     from cogrid.backend import xp
-    from cogrid.core.array_rewards import ArrayReward, register_reward_type
+    from cogrid.core.rewards import Reward, register_reward_type
 
     @register_reward_type("delivery", scope="my_env")
-    class DeliveryReward(ArrayReward):
+    class DeliveryReward(Reward):
         def compute(self, prev_state, state, actions, reward_config):
             """
             Parameters
@@ -397,17 +397,17 @@ Reward functions are ``ArrayReward`` subclasses registered with
 Step 7: Define Feature Extractors
 -----------------------------------
 
-Features define the observation space. Each is an ``ArrayFeature`` subclass
+Features define the observation space. Each is an ``Feature`` subclass
 registered with ``@register_feature_type``.
 
 .. code-block:: python
 
     # my_env/features.py
     from cogrid.backend import xp
-    from cogrid.core.array_features import ArrayFeature, register_feature_type
+    from cogrid.core.features import Feature, register_feature_type
 
     @register_feature_type("my_inventory", scope="my_env")
-    class MyInventory(ArrayFeature):
+    class MyInventory(Feature):
         per_agent = True   # True: fn(state, agent_idx), False: fn(state)
         obs_dim = 5        # Output size after ravel()
 
@@ -512,7 +512,7 @@ Register a layout:
 
 .. code-block:: python
 
-    from my_env.array_config import my_interaction_fn
+    from my_env.config import my_interaction_fn
 
     my_config = {
         "name": "my_env",                        # Human-readable name

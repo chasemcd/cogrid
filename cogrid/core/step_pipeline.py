@@ -36,7 +36,7 @@ from cogrid.backend.env_state import create_env_state
 from cogrid.backend.state_view import StateView
 from cogrid.core.interactions import process_interactions
 from cogrid.core.movement import move_agents
-from cogrid.feature_space.array_features import get_all_agent_obs
+from cogrid.feature_space.features import get_all_agent_obs
 
 
 # ---------------------------------------------------------------------------

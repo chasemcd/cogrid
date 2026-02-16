@@ -78,7 +78,7 @@ def _create_env(registry_id, backend, seed=42, max_steps=200):
     return env, obs
 
 
-def _get_numpy_array_state(env):
+def _get_numpy_state(env):
     """Extract the array state dict from a numpy-backend env.
 
     Returns a dict with numpy arrays for the STATE_FIELDS keys.
@@ -177,12 +177,12 @@ def test_scripted_parity(layout):
     agent_ids = sorted(np_env.possible_agents)
     scripted = _scripted_actions(agent_ids, N_SCRIPTED_STEPS)
 
-    np_states = [_get_numpy_array_state(np_env)]
+    np_states = [_get_numpy_state(np_env)]
     np_rewards = []
 
     for action_dict in scripted:
         _, rewards, _, _, _ = np_env.step(action_dict)
-        np_states.append(_get_numpy_array_state(np_env))
+        np_states.append(_get_numpy_state(np_env))
         np_rewards.append(rewards)
 
     # --- Phase 2: Run JAX env, compare at each step ---
@@ -359,14 +359,14 @@ def test_eager_vs_jit():
 
     # Reconstruct layout_arrays and spawn_positions from the env's array state
     layout_arrays = {
-        "wall_map": jnp.array(env._array_state["wall_map"], dtype=jnp.int32),
-        "object_type_map": jnp.array(env._array_state["object_type_map"], dtype=jnp.int32),
-        "object_state_map": jnp.array(env._array_state["object_state_map"], dtype=jnp.int32),
-        "pot_contents": jnp.array(env._array_state["pot_contents"], dtype=jnp.int32),
-        "pot_timer": jnp.array(env._array_state["pot_timer"], dtype=jnp.int32),
-        "pot_positions": jnp.array(env._array_state.get("pot_positions", np.zeros((0, 2), dtype=np.int32)), dtype=jnp.int32),
+        "wall_map": jnp.array(env._state["wall_map"], dtype=jnp.int32),
+        "object_type_map": jnp.array(env._state["object_type_map"], dtype=jnp.int32),
+        "object_state_map": jnp.array(env._state["object_state_map"], dtype=jnp.int32),
+        "pot_contents": jnp.array(env._state["pot_contents"], dtype=jnp.int32),
+        "pot_timer": jnp.array(env._state["pot_timer"], dtype=jnp.int32),
+        "pot_positions": jnp.array(env._state.get("pot_positions", np.zeros((0, 2), dtype=np.int32)), dtype=jnp.int32),
     }
-    spawn_positions = jnp.array(env._array_state["agent_pos"], dtype=jnp.int32)
+    spawn_positions = jnp.array(env._state["agent_pos"], dtype=jnp.int32)
 
     rng_key = jax.random.key(42)
 
@@ -511,7 +511,7 @@ def test_obs_eager_vs_jit():
     """get_all_agent_obs produces identical outputs eagerly and under jax.jit."""
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
-    from cogrid.feature_space.array_features import get_all_agent_obs
+    from cogrid.feature_space.features import get_all_agent_obs
     from cogrid.core.step_pipeline import envstate_to_dict
 
     env = _setup_jax_env()

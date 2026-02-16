@@ -1,7 +1,7 @@
 """Component metadata registry for GridObject, Reward, and Feature type registration.
 
 Stores metadata about GridObject subclasses (discovered classmethods, static
-properties), ArrayReward subclasses, and ArrayFeature subclasses. Populated at
+properties), Reward subclasses, and Feature subclasses. Populated at
 import time by the ``@register_object_type``, ``@register_reward_type``, and
 ``@register_feature_type`` decorators.
 
@@ -51,7 +51,7 @@ class ComponentMetadata:
 
 @dataclass(frozen=True)
 class RewardMetadata:
-    """Metadata for a registered ArrayReward subclass."""
+    """Metadata for a registered Reward subclass."""
 
     scope: str
     reward_id: str
@@ -60,7 +60,7 @@ class RewardMetadata:
 
 @dataclass(frozen=True)
 class FeatureMetadata:
-    """Metadata for a registered ArrayFeature subclass."""
+    """Metadata for a registered Feature subclass."""
 
     scope: str
     feature_id: str
@@ -168,12 +168,12 @@ def register_reward_type(
     reward_id: str,
     scope: str = "global",
 ):
-    """Decorator that registers an ArrayReward subclass.
+    """Decorator that registers a Reward subclass.
 
     Usage::
 
         @register_reward_type("delivery", scope="overcooked")
-        class DeliveryReward(ArrayReward):
+        class DeliveryReward(Reward):
             def compute(self, prev_state, state, actions, reward_config):
                 ...
                 return rewards  # (n_agents,) float32
@@ -216,12 +216,12 @@ def register_reward_type(
 
 
 def register_feature_type(feature_id: str, scope: str = "global"):
-    """Decorator that registers an ArrayFeature subclass.
+    """Decorator that registers a Feature subclass.
 
     Usage::
 
         @register_feature_type("agent_dir", scope="global")
-        class AgentDir(ArrayFeature):
+        class AgentDir(Feature):
             per_agent = True
             obs_dim = 4
 
@@ -249,7 +249,7 @@ def register_feature_type(feature_id: str, scope: str = "global"):
                 f"{cls.__name__} must define a callable 'build_feature_fn' classmethod."
             )
 
-        # ArrayFeature.build_feature_fn takes (cls, scope) -- validate the
+        # Feature.build_feature_fn takes (cls, scope) -- validate the
         # scope parameter directly (not via _EXPECTED_SIGNATURES which holds
         # the old GridObject convention of no params).
         sig = inspect.signature(cls.build_feature_fn)

@@ -1,4 +1,4 @@
-"""Tests for ArrayFeature registration and composition layer.
+"""Tests for Feature registration and composition layer.
 
 Covers:
 - Feature type registration (per_agent, global, duplicates, validation)
@@ -10,7 +10,7 @@ Covers:
 import numpy as np
 import pytest
 
-from cogrid.core.array_features import ArrayFeature
+from cogrid.core.features import Feature
 from cogrid.core.component_registry import (
     get_feature_types,
     register_feature_type,
@@ -46,7 +46,7 @@ def test_register_feature_type_per_agent():
     """Register a per_agent=True feature, verify get_feature_types returns it."""
 
     @register_feature_type("test_per_agent_reg", scope="test_af_reg_pa")
-    class _PerAgentFeat(ArrayFeature):
+    class _PerAgentFeat(Feature):
         per_agent = True
         obs_dim = 3
 
@@ -68,7 +68,7 @@ def test_register_feature_type_global():
     """Register a per_agent=False feature, verify metadata."""
 
     @register_feature_type("test_global_reg", scope="test_af_reg_gl")
-    class _GlobalFeat(ArrayFeature):
+    class _GlobalFeat(Feature):
         per_agent = False
         obs_dim = 5
 
@@ -89,7 +89,7 @@ def test_duplicate_feature_id_raises():
     """Registering two different classes with the same feature_id raises ValueError."""
 
     @register_feature_type("dup_feat", scope="test_af_dup")
-    class _Dup1(ArrayFeature):
+    class _Dup1(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -100,7 +100,7 @@ def test_duplicate_feature_id_raises():
     with pytest.raises(ValueError, match="Duplicate feature type"):
 
         @register_feature_type("dup_feat", scope="test_af_dup")
-        class _Dup2(ArrayFeature):
+        class _Dup2(Feature):
             per_agent = True
             obs_dim = 1
 
@@ -114,7 +114,7 @@ def test_missing_per_agent_raises():
     with pytest.raises(TypeError, match="per_agent"):
 
         @register_feature_type("no_pa", scope="test_af_no_pa")
-        class _NoPa(ArrayFeature):
+        class _NoPa(Feature):
             obs_dim = 1
 
             @classmethod
@@ -127,7 +127,7 @@ def test_missing_obs_dim_raises():
     with pytest.raises(TypeError, match="obs_dim"):
 
         @register_feature_type("no_od", scope="test_af_no_od")
-        class _NoOd(ArrayFeature):
+        class _NoOd(Feature):
             per_agent = True
 
             @classmethod
@@ -139,7 +139,7 @@ def test_features_sorted_alphabetically():
     """get_feature_types returns features sorted by feature_id."""
 
     @register_feature_type("charlie", scope="test_af_sort")
-    class _Charlie(ArrayFeature):
+    class _Charlie(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -148,7 +148,7 @@ def test_features_sorted_alphabetically():
             return lambda sd, ai: np.zeros(1)
 
     @register_feature_type("alpha", scope="test_af_sort")
-    class _Alpha(ArrayFeature):
+    class _Alpha(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -157,7 +157,7 @@ def test_features_sorted_alphabetically():
             return lambda sd, ai: np.zeros(1)
 
     @register_feature_type("bravo", scope="test_af_sort")
-    class _Bravo(ArrayFeature):
+    class _Bravo(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -177,10 +177,10 @@ def test_features_sorted_alphabetically():
 
 def test_compose_single_per_agent_feature():
     """Single per_agent feature with 2 agents produces (6,) output."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("feat_pa", scope="test_af_compose_single_pa")
-    class _Feat(ArrayFeature):
+    class _Feat(Feature):
         per_agent = True
         obs_dim = 3
 
@@ -203,10 +203,10 @@ def test_compose_single_per_agent_feature():
 
 def test_compose_single_global_feature():
     """Single global feature with 2 agents produces (2,) output."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("feat_gl", scope="test_af_compose_single_gl")
-    class _Feat(ArrayFeature):
+    class _Feat(Feature):
         per_agent = False
         obs_dim = 2
 
@@ -225,10 +225,10 @@ def test_compose_single_global_feature():
 
 def test_compose_per_agent_and_global():
     """Per-agent (3,) + global (2,) with 2 agents produces (8,) output."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("pa_feat", scope="test_af_compose_pa_gl")
-    class _PA(ArrayFeature):
+    class _PA(Feature):
         per_agent = True
         obs_dim = 3
 
@@ -242,7 +242,7 @@ def test_compose_per_agent_and_global():
             return fn
 
     @register_feature_type("gl_feat", scope="test_af_compose_pa_gl")
-    class _GL(ArrayFeature):
+    class _GL(Feature):
         per_agent = False
         obs_dim = 2
 
@@ -264,10 +264,10 @@ def test_compose_per_agent_and_global():
 
 def test_ego_centric_ordering():
     """Per-agent feature with 3 agents: focal first, others ascending, skip focal."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("ego_feat", scope="test_af_ego_order")
-    class _EgoFeat(ArrayFeature):
+    class _EgoFeat(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -286,10 +286,10 @@ def test_ego_centric_ordering():
 
 def test_alphabetical_feature_ordering():
     """Per-agent features ordered alphabetically: alpha before beta."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("beta", scope="test_af_alpha_order")
-    class _Beta(ArrayFeature):
+    class _Beta(Feature):
         per_agent = True
         obs_dim = 2
 
@@ -300,7 +300,7 @@ def test_alphabetical_feature_ordering():
             return fn
 
     @register_feature_type("alpha", scope="test_af_alpha_order")
-    class _Alpha(ArrayFeature):
+    class _Alpha(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -321,10 +321,10 @@ def test_alphabetical_feature_ordering():
 
 def test_obs_dim_for_features():
     """obs_dim_for_features computes total dim without calling feature functions."""
-    from cogrid.core.array_features import obs_dim_for_features
+    from cogrid.core.features import obs_dim_for_features
 
     @register_feature_type("dim_pa", scope="test_af_obs_dim")
-    class _PA(ArrayFeature):
+    class _PA(Feature):
         per_agent = True
         obs_dim = 4
 
@@ -333,7 +333,7 @@ def test_obs_dim_for_features():
             return lambda sd, ai: np.zeros(4)
 
     @register_feature_type("dim_gl", scope="test_af_obs_dim")
-    class _GL(ArrayFeature):
+    class _GL(Feature):
         per_agent = False
         obs_dim = 2
 
@@ -348,10 +348,10 @@ def test_obs_dim_for_features():
 
 def test_output_is_float32():
     """Composed output is float32 even when individual features return int32."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("int_feat", scope="test_af_dtype")
-    class _IntFeat(ArrayFeature):
+    class _IntFeat(Feature):
         per_agent = True
         obs_dim = 2
 
@@ -367,13 +367,13 @@ def test_output_is_float32():
 
 
 # ===================================================================
-# Core ArrayFeature subclass parity tests
+# Core Feature subclass parity tests
 # ===================================================================
 
 
 def test_agent_dir_parity():
-    """AgentDir ArrayFeature produces output identical to agent_dir_feature."""
-    from cogrid.feature_space.array_features import AgentDir, agent_dir_feature
+    """AgentDir Feature produces output identical to agent_dir_feature."""
+    from cogrid.feature_space.features import AgentDir, agent_dir_feature
 
     state = _sv(agent_dir=np.array([2, 0], dtype=np.int32))
 
@@ -388,8 +388,8 @@ def test_agent_dir_parity():
 
 
 def test_agent_position_parity():
-    """AgentPosition ArrayFeature produces output identical to agent_pos_feature."""
-    from cogrid.feature_space.array_features import AgentPosition, agent_pos_feature
+    """AgentPosition Feature produces output identical to agent_pos_feature."""
+    from cogrid.feature_space.features import AgentPosition, agent_pos_feature
 
     state = _sv(agent_pos=np.array([[3, 5], [1, 2]], dtype=np.int32))
 
@@ -404,8 +404,8 @@ def test_agent_position_parity():
 
 
 def test_can_move_direction_parity():
-    """CanMoveDirection ArrayFeature produces output identical to can_move_direction_feature."""
-    from cogrid.feature_space.array_features import (
+    """CanMoveDirection Feature produces output identical to can_move_direction_feature."""
+    from cogrid.feature_space.features import (
         CanMoveDirection,
         can_move_direction_feature,
     )
@@ -436,8 +436,8 @@ def test_can_move_direction_parity():
 
 
 def test_inventory_parity():
-    """Inventory ArrayFeature produces output identical to inventory_feature."""
-    from cogrid.feature_space.array_features import Inventory, inventory_feature
+    """Inventory Feature produces output identical to inventory_feature."""
+    from cogrid.feature_space.features import Inventory, inventory_feature
 
     state = _sv(agent_inv=np.array([[-1], [3]], dtype=np.int32))
 
@@ -453,7 +453,7 @@ def test_inventory_parity():
 
 def test_all_four_registered_global():
     """All four core features are registered to global scope with correct metadata."""
-    import cogrid.feature_space.array_features  # noqa: F401 -- triggers registration
+    import cogrid.feature_space.features  # noqa: F401 -- triggers registration
 
     metas = get_feature_types(scope="global")
     meta_by_id = {m.feature_id: m for m in metas}
@@ -472,15 +472,15 @@ def test_all_four_registered_global():
 
 
 # ===================================================================
-# Overcooked ArrayFeature subclass parity tests
+# Overcooked Feature subclass parity tests
 # ===================================================================
 
 
 def test_overcooked_inventory_parity():
-    """OvercookedInventory ArrayFeature produces output identical to overcooked_inventory_feature."""
+    """OvercookedInventory Feature produces output identical to overcooked_inventory_feature."""
     import cogrid.envs  # noqa: F401 -- triggers overcooked scope registration
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         OvercookedInventory,
         overcooked_inventory_feature,
     )
@@ -508,10 +508,10 @@ def test_overcooked_inventory_parity():
 
 
 def test_next_to_counter_parity():
-    """NextToCounter ArrayFeature produces output identical to next_to_counter_feature."""
+    """NextToCounter Feature produces output identical to next_to_counter_feature."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         NextToCounter,
         next_to_counter_feature,
     )
@@ -539,10 +539,10 @@ def test_next_to_counter_parity():
 
 
 def test_next_to_pot_parity():
-    """NextToPot ArrayFeature produces output identical to next_to_pot_feature."""
+    """NextToPot Feature produces output identical to next_to_pot_feature."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         NextToPot,
         next_to_pot_feature,
     )
@@ -580,10 +580,10 @@ def test_next_to_pot_parity():
 
 
 def test_closest_obj_parity():
-    """ClosestObj ArrayFeature produces output identical to closest_obj_feature."""
+    """ClosestObj Feature produces output identical to closest_obj_feature."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import closest_obj_feature
+    from cogrid.envs.overcooked.features import closest_obj_feature
 
     onion_type_id = object_to_idx("onion", scope="overcooked")
 
@@ -628,10 +628,10 @@ def test_closest_obj_parity():
 
 
 def test_ordered_pot_features_parity():
-    """OrderedPotFeatures ArrayFeature produces output identical to ordered_pot_features."""
+    """OrderedPotFeatures Feature produces output identical to ordered_pot_features."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         OrderedPotFeatures,
         ordered_pot_features,
     )
@@ -665,9 +665,9 @@ def test_ordered_pot_features_parity():
 
 
 def test_dist_to_other_players_parity():
-    """DistToOtherPlayers ArrayFeature produces output identical to dist_to_other_players_feature."""
+    """DistToOtherPlayers Feature produces output identical to dist_to_other_players_feature."""
     import cogrid.envs  # noqa: F401
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         DistToOtherPlayers,
         dist_to_other_players_feature,
     )
@@ -688,7 +688,7 @@ def test_dist_to_other_players_parity():
 def test_all_overcooked_per_agent_registered():
     """All per-agent Overcooked features are discoverable via get_feature_types."""
     import cogrid.envs  # noqa: F401
-    import cogrid.envs.overcooked.overcooked_array_features  # noqa: F401
+    import cogrid.envs.overcooked.features  # noqa: F401
 
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
@@ -714,14 +714,14 @@ def test_all_overcooked_per_agent_registered():
 
 
 # ===================================================================
-# Overcooked global ArrayFeature subclass parity tests
+# Overcooked global Feature subclass parity tests
 # ===================================================================
 
 
 def test_layout_id_parity():
-    """LayoutID ArrayFeature produces output identical to layout_id_feature."""
+    """LayoutID Feature produces output identical to layout_id_feature."""
     import cogrid.envs  # noqa: F401
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         LayoutID,
         layout_id_feature,
     )
@@ -748,10 +748,10 @@ def test_layout_id_parity():
 
 
 def test_environment_layout_parity():
-    """EnvironmentLayout ArrayFeature produces output identical to environment_layout_feature."""
+    """EnvironmentLayout Feature produces output identical to environment_layout_feature."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.overcooked_array_features import (
+    from cogrid.envs.overcooked.features import (
         EnvironmentLayout,
         environment_layout_feature,
     )
@@ -781,7 +781,7 @@ def test_environment_layout_parity():
 def test_all_overcooked_features_registered():
     """All 14 Overcooked features (12 per-agent + 2 global) are registered."""
     import cogrid.envs  # noqa: F401
-    import cogrid.envs.overcooked.overcooked_array_features  # noqa: F401
+    import cogrid.envs.overcooked.features  # noqa: F401
 
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
@@ -833,10 +833,10 @@ def test_all_overcooked_features_registered():
 
 def test_compose_preserve_order():
     """preserve_order=True keeps caller-specified order (not alphabetical)."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("po_charlie", scope="test_af_preserve_order")
-    class _Charlie(ArrayFeature):
+    class _Charlie(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -847,7 +847,7 @@ def test_compose_preserve_order():
             return fn
 
     @register_feature_type("po_alpha", scope="test_af_preserve_order")
-    class _Alpha(ArrayFeature):
+    class _Alpha(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -858,7 +858,7 @@ def test_compose_preserve_order():
             return fn
 
     @register_feature_type("po_bravo", scope="test_af_preserve_order")
-    class _Bravo(ArrayFeature):
+    class _Bravo(Feature):
         per_agent = True
         obs_dim = 1
 
@@ -892,10 +892,10 @@ def test_compose_preserve_order():
 
 def test_compose_multi_scope():
     """scopes parameter merges features from multiple scopes."""
-    from cogrid.core.array_features import compose_feature_fns
+    from cogrid.core.features import compose_feature_fns
 
     @register_feature_type("ms_feat_a", scope="test_scope_a")
-    class _FeatA(ArrayFeature):
+    class _FeatA(Feature):
         per_agent = True
         obs_dim = 2
 
@@ -906,7 +906,7 @@ def test_compose_multi_scope():
             return fn
 
     @register_feature_type("ms_feat_b", scope="test_scope_b")
-    class _FeatB(ArrayFeature):
+    class _FeatB(Feature):
         per_agent = True
         obs_dim = 3
 

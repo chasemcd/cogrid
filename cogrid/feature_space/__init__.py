@@ -1,1 +1,1 @@
-from cogrid.feature_space import array_features  # noqa: F401
+from cogrid.feature_space import features  # noqa: F401

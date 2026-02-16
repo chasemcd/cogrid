@@ -7,7 +7,7 @@ The environment is a simple grid where agents navigate to a goal cell.
 It shows the component API -- all you need is:
 
     1. Register object types and a layout
-    2. Register an ArrayReward subclass
+    2. Register a Reward subclass
     3. Use CoGridEnv directly (no env subclass needed)
 
 Then run it:
@@ -58,18 +58,18 @@ layouts.register_layout(
 )
 
 
-# -- 3. Register an ArrayReward subclass --------------------------------------
+# -- 3. Register a Reward subclass ---------------------------------------------
 #
-# ArrayReward.compute() returns final (n_agents,) rewards. The autowire
+# Reward.compute() returns final (n_agents,) rewards. The autowire
 # layer just sums all registered rewards -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
-from cogrid.core.array_rewards import ArrayReward
+from cogrid.core.rewards import Reward
 from cogrid.core.component_registry import register_reward_type
 
 
 @register_reward_type("goal", scope="global")
-class GoalReward(ArrayReward):
+class GoalReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         from cogrid.backend import xp
 
@@ -87,7 +87,7 @@ class GoalReward(ArrayReward):
 # -- 4. Termination function --------------------------------------------------
 #
 # terminated_fn is scope-specific termination logic that is not part of
-# the ArrayReward interface. We patch it onto the env after creation.
+# the Reward interface. We patch it onto the env after creation.
 
 def goal_terminated(prev_state, state, reward_config):
     """Terminate agents that are standing on the goal cell."""
@@ -114,7 +114,7 @@ goal_config = {
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "features": ["agent_dir", "agent_position", "can_move_direction", "inventory"],
-    "rewards": [],  # We use the ArrayReward component pipeline, not the legacy one
+    "rewards": [],  # We use the Reward component pipeline, not the legacy one
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,
     "scope": "global",

@@ -4,7 +4,7 @@ import random
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs.overcooked.agent import OvercookedAgent
-from cogrid.envs.overcooked.array_config import overcooked_interaction_fn
+from cogrid.envs.overcooked.config import overcooked_interaction_fn
 from cogrid.envs import registry
 from cogrid.core import layouts
 

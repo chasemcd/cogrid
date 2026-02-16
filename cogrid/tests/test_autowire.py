@@ -22,7 +22,7 @@ from cogrid.core.autowire import (
     build_reward_config_from_components,
     build_scope_config_from_components,
 )
-from cogrid.core.array_rewards import ArrayReward
+from cogrid.core.rewards import Reward
 from cogrid.core.component_registry import register_reward_type
 from cogrid.core.grid_object import GridObj, register_object_type
 
@@ -318,7 +318,7 @@ def test_reward_config_no_rewards_returns_zeros():
 
 
 @register_reward_type("test_r1", scope="test_rw_04")
-class _TestRewardSingle(ArrayReward):
+class _TestRewardSingle(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
         return np.ones(n, dtype=np.float32) * 2.0
@@ -341,7 +341,7 @@ def test_reward_config_single_reward():
 
 
 @register_reward_type("test_r2", scope="test_rw_05")
-class _TestRewardCommon(ArrayReward):
+class _TestRewardCommon(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         # Agent 0 earns 1.0, agent 1 earns 0.0, but shared reward -> both get sum
         raw = np.array([1.0, 0.0], dtype=np.float32)
@@ -366,14 +366,14 @@ def test_reward_config_broadcasting_inside_compute():
 
 
 @register_reward_type("test_r3a", scope="test_rw_06")
-class _TestRewardMultiA(ArrayReward):
+class _TestRewardMultiA(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
         return np.ones(n, dtype=np.float32)  # [1, 1]
 
 
 @register_reward_type("test_r3b", scope="test_rw_06")
-class _TestRewardMultiB(ArrayReward):
+class _TestRewardMultiB(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
         return np.ones(n, dtype=np.float32) * 6.0  # [6, 6]
@@ -399,7 +399,7 @@ def test_reward_config_multiple_rewards_sum():
 
 
 @register_reward_type("test_r4", scope="test_rw_07")
-class _TestRewardPassthrough(ArrayReward):
+class _TestRewardPassthrough(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
         # Return 1.0 per agent if "marker" key is present, else 0.0
@@ -480,7 +480,7 @@ def test_build_feature_config_sets_layout_idx():
     """build_feature_config_from_components sets LayoutID._layout_idx."""
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_feature_config_from_components
-    from cogrid.envs.overcooked.overcooked_array_features import LayoutID
+    from cogrid.envs.overcooked.features import LayoutID
 
     build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=3)
     assert LayoutID._layout_idx == 3, (
@@ -496,14 +496,14 @@ def test_build_feature_config_returns_callable():
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_feature_config_from_components
     from cogrid.core.step_pipeline import envstate_to_dict
-    from cogrid.envs.overcooked.overcooked_array_features import LayoutID
+    from cogrid.envs.overcooked.features import LayoutID
 
     config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
     feature_fn = config["feature_fn"]
 
     # Build a state from a real Overcooked environment
     from cogrid.cogrid_env import CoGridEnv
-    from cogrid.envs.overcooked.array_config import overcooked_interaction_fn
+    from cogrid.envs.overcooked.config import overcooked_interaction_fn
 
     env = CoGridEnv(
         config={

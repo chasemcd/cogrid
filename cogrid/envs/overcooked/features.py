@@ -1,4 +1,4 @@
-"""Array-based Overcooked feature extractors.
+"""Overcooked feature extractors.
 
 Produces the same 677-dim (for 2 agents) ego-centric observation as
 the legacy OOP feature system, but operates entirely on state arrays
@@ -7,12 +7,12 @@ so it works with both numpy and JAX backends.
 All functions are JIT-compatible: no Python control flow on traced
 values, no int()/np.array() conversions of traced arrays.
 
-Feature composition is handled by autowire via ArrayFeature subclasses
+Feature composition is handled by autowire via Feature subclasses
 registered in this module.
 """
 
 from cogrid.backend import xp
-from cogrid.core.array_features import ArrayFeature, register_feature_type
+from cogrid.core.features import Feature, register_feature_type
 
 
 # ---------------------------------------------------------------------------
@@ -282,12 +282,12 @@ def _set_idx(arr, idx, value):
 
 
 # ---------------------------------------------------------------------------
-# ArrayFeature subclasses (registered to "overcooked" scope)
+# Feature subclasses (registered to "overcooked" scope)
 # ---------------------------------------------------------------------------
 
 
 @register_feature_type("overcooked_inventory", scope="overcooked")
-class OvercookedInventory(ArrayFeature):
+class OvercookedInventory(Feature):
     per_agent = True
     obs_dim = 5
 
@@ -309,7 +309,7 @@ class OvercookedInventory(ArrayFeature):
 
 
 @register_feature_type("next_to_counter", scope="overcooked")
-class NextToCounter(ArrayFeature):
+class NextToCounter(Feature):
     per_agent = True
     obs_dim = 4
 
@@ -328,7 +328,7 @@ class NextToCounter(ArrayFeature):
 
 
 @register_feature_type("next_to_pot", scope="overcooked")
-class NextToPot(ArrayFeature):
+class NextToPot(Feature):
     per_agent = True
     obs_dim = 16
 
@@ -349,13 +349,13 @@ class NextToPot(ArrayFeature):
 
 
 def _make_closest_obj_feature(obj_name, n_closest):
-    """Factory to create and register a ClosestObj ArrayFeature variant."""
+    """Factory to create and register a ClosestObj Feature variant."""
     feature_id = f"closest_{obj_name}"
     _obs_dim = 2 * n_closest
     _n = n_closest  # capture for closure
     _obj = obj_name  # capture for closure
 
-    class _Cls(ArrayFeature):
+    class _Cls(Feature):
         per_agent = True
         obs_dim = _obs_dim
 
@@ -390,7 +390,7 @@ for _name, _n in _CLOSEST_OBJ_SPECS:
 
 
 @register_feature_type("ordered_pot_features", scope="overcooked")
-class OrderedPotFeatures(ArrayFeature):
+class OrderedPotFeatures(Feature):
     per_agent = True
     obs_dim = 24  # 12 features * max_num_pots=2
 
@@ -412,7 +412,7 @@ class OrderedPotFeatures(ArrayFeature):
 
 
 @register_feature_type("dist_to_other_players", scope="overcooked")
-class DistToOtherPlayers(ArrayFeature):
+class DistToOtherPlayers(Feature):
     per_agent = True
     obs_dim = 2  # 2 * (2 agents - 1) = 2
 
@@ -426,7 +426,7 @@ class DistToOtherPlayers(ArrayFeature):
 
 
 @register_feature_type("layout_id", scope="overcooked")
-class LayoutID(ArrayFeature):
+class LayoutID(Feature):
     per_agent = False
     obs_dim = 5
     _layout_idx = 0  # Set before build_feature_fn; Phase 18 wires this
@@ -441,7 +441,7 @@ class LayoutID(ArrayFeature):
 
 
 @register_feature_type("environment_layout", scope="overcooked")
-class EnvironmentLayout(ArrayFeature):
+class EnvironmentLayout(Feature):
     per_agent = False
     obs_dim = 462  # 6 types * 11 * 7 (max layout shape)
     _max_layout_shape = (11, 7)

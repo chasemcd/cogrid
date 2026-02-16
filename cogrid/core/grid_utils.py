@@ -19,7 +19,7 @@ def adjacent_positions(row, col):
         yield row + rdelta, col + cdelta
 
 
-def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dict:
+def layout_to_state(grid, scope: str = "global", scope_config=None) -> dict:
     """Convert a Grid instance into array-based state (type map, state map, wall map).
 
     Scope-specific state is extracted via scope_config's ``state_extractor``
@@ -72,11 +72,11 @@ def layout_to_array_state(grid, scope: str = "global", scope_config=None) -> dic
     return result
 
 
-def grid_to_array_state(grid, env_agents, scope: str = "global", scope_config=None) -> dict:
-    """Convenience wrapper: layout_to_array_state + create_agent_arrays."""
+def grid_to_state(grid, env_agents, scope: str = "global", scope_config=None) -> dict:
+    """Convenience wrapper: layout_to_state + create_agent_arrays."""
     from cogrid.core.agent import create_agent_arrays
 
-    result = layout_to_array_state(grid, scope=scope, scope_config=scope_config)
+    result = layout_to_state(grid, scope=scope, scope_config=scope_config)
     agent_arrays = create_agent_arrays(env_agents, scope=scope)
     result.update(agent_arrays)
     return result

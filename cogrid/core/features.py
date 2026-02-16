@@ -1,4 +1,4 @@
-"""ArrayFeature base class for array-based feature components.
+"""Feature base class for feature components.
 
 Each feature is a subclass with class attributes ``per_agent`` and ``obs_dim``,
 and a ``build_feature_fn`` classmethod that returns a pure function.
@@ -16,8 +16,8 @@ from cogrid.backend import xp
 from cogrid.core.component_registry import register_feature_type  # noqa: F401
 
 
-class ArrayFeature:
-    """Base class for array-based feature extractors.
+class Feature:
+    """Base class for feature extractors.
 
     Subclasses MUST define:
         - ``per_agent``: bool class attribute. True if feature is per-agent,
@@ -35,7 +35,7 @@ class ArrayFeature:
     Usage::
 
         @register_feature_type("agent_dir", scope="global")
-        class AgentDir(ArrayFeature):
+        class AgentDir(Feature):
             per_agent = True
             obs_dim = 4
 

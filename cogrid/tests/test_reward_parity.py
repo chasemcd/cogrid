@@ -21,7 +21,7 @@ from cogrid.backend.state_view import StateView
 
 # Trigger Overcooked object and reward registration before building scope config
 import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-import cogrid.envs.overcooked.array_rewards  # noqa: F401
+import cogrid.envs.overcooked.rewards  # noqa: F401
 
 # Build type_ids once before any backend switching (pure Python dict, no array ops)
 from cogrid.core.autowire import build_scope_config_from_components
@@ -87,7 +87,7 @@ def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=N
     correct xp binding after each backend switch.
 
     Args:
-        reward_fn_name: Name of the function in array_rewards module
+        reward_fn_name: Name of the function in rewards module
             (e.g. "delivery_reward").
         prev_state_np: Dict of numpy arrays for prev_state.
         actions_np: (n_agents,) int32 numpy array.
@@ -103,7 +103,7 @@ def _run_on_both_backends(reward_fn_name, prev_state_np, actions_np, fn_kwargs=N
     if fn_kwargs is None:
         fn_kwargs = {}
 
-    _AR_MOD = "cogrid.envs.overcooked.array_rewards"
+    _AR_MOD = "cogrid.envs.overcooked.rewards"
 
     # --- numpy path ---
     _reset_backend_for_testing()

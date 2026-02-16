@@ -21,7 +21,7 @@ from cogrid.rendering import EnvRenderer
 # Vectorized components
 from cogrid.backend import set_backend
 from cogrid.core.grid_object import build_lookup_tables
-from cogrid.core.grid_utils import layout_to_array_state
+from cogrid.core.grid_utils import layout_to_state
 from cogrid.core.agent import create_agent_arrays
 
 
@@ -162,8 +162,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._type_ids = self._scope_config["type_ids"]
         self._interaction_tables = self._scope_config.get("interaction_tables")
 
-        self._array_state = None
-        self._validate_array_parity = False
+        self._state = None
         self._feature_fn = None
 
         self._reward_config = build_reward_config_from_components(
@@ -295,7 +294,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         the functional reset.
         """
         self._reset_agents(seed)
-        self._build_array_state()
+        self._build_state()
         layout_arrays, spawn_positions, action_set_name = self._build_layout_arrays()
         obs = self._build_pipeline(layout_arrays, spawn_positions, action_set_name, seed)
 
@@ -324,24 +323,24 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.on_reset()
         self.update_grid_agents()
 
-    def _build_array_state(self):
+    def _build_state(self):
         """Build array state from grid layout, extra state, and agent arrays."""
-        self._array_state = layout_to_array_state(
+        self._state = layout_to_state(
             self.grid, scope=self.scope, scope_config=self._scope_config
         )
 
         extra_state_builder = self._scope_config.get("extra_state_builder")
         if extra_state_builder is not None:
-            extra = extra_state_builder(self._array_state, self.scope)
+            extra = extra_state_builder(self._state, self.scope)
             scope_prefix = f"{self.scope}."
             stripped = {
                 (k[len(scope_prefix):] if k.startswith(scope_prefix) else k): v
                 for k, v in extra.items()
             }
-            self._array_state.update(stripped)
+            self._state.update(stripped)
 
         agent_arrays = create_agent_arrays(self.env_agents, scope=self.scope)
-        self._array_state.update(agent_arrays)
+        self._state.update(agent_arrays)
         self.cumulative_score = 0
 
     def _build_layout_arrays(self):
@@ -354,7 +353,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         skip_keys = {"agent_pos", "agent_dir", "agent_inv", "spawn_points"}
         layout_arrays = {}
-        for key, val in self._array_state.items():
+        for key, val in self._state.items():
             if key in skip_keys:
                 continue
             if isinstance(val, list):
@@ -362,7 +361,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             layout_arrays[key] = xp.array(val, dtype=xp.int32)
 
         spawn_positions = xp.array(
-            self._array_state["agent_pos"], dtype=xp.int32
+            self._state["agent_pos"], dtype=xp.int32
         )
 
         if self.action_set == grid_actions.ActionSets.CardinalActions:

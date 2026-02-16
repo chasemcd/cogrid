@@ -19,16 +19,16 @@ def build_feature_config_from_components(
     n_agents: int,
     layout_idx: int = 0,
 ) -> dict:
-    """Build feature_config from registered ArrayFeature subclasses.
+    """Build feature_config from registered Feature subclasses.
 
     Composes features listed in *feature_names* into a single
     ``feature_fn(state, agent_idx) -> (obs_dim,) float32``.
     """
-    from cogrid.core.array_features import compose_feature_fns, obs_dim_for_features
+    from cogrid.core.features import compose_feature_fns, obs_dim_for_features
     from cogrid.core.component_registry import get_pre_compose_hook
 
-    # Ensure global ArrayFeature subclasses are registered
-    import cogrid.feature_space.array_features  # noqa: F401
+    # Ensure global Feature subclasses are registered
+    import cogrid.feature_space.features  # noqa: F401
 
     # Run scope-specific pre-compose hook (e.g. set layout index state
     # before feature closures capture it).
@@ -233,7 +233,7 @@ def build_reward_config_from_components(
     type_ids: dict,
     action_pickup_drop_idx: int = 4,
 ) -> dict:
-    """Build reward_config from registered ArrayReward subclasses.
+    """Build reward_config from registered Reward subclasses.
 
     Composes a single ``compute_fn`` that sums all registered rewards.
     Each reward's ``compute()`` returns final (n_agents,) float32 values --

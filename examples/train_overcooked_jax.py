@@ -399,7 +399,7 @@ if __name__ == "__main__":
     n_actions = len(env.action_set)
 
     # Infer obs dim from a sample observation.
-    # Observation features are auto-discovered from ArrayFeature subclasses
+    # Observation features are auto-discovered from Feature subclasses
     # registered to the scope via autowire.
     _, test_obs = reset_fn(jax.random.key(0))
     obs_dim = test_obs.shape[-1]

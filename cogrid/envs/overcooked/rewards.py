@@ -1,11 +1,8 @@
-"""Overcooked-specific array-based reward functions.
+"""Overcooked-specific reward functions.
 
-These reward functions operate on state dictionaries (array state) instead of
-Grid objects. They are specific to the Overcooked environment because they
-reference Overcooked types: pot, onion_soup, delivery_zone, plate, onion.
-
-Moved from cogrid/core/array_rewards.py (Phase 01.1, Plan 02) to enforce
-separation of concerns: environment-specific logic lives under envs/.
+These reward functions operate on state dictionaries instead of Grid objects.
+They are specific to the Overcooked environment because they reference
+Overcooked types: pot, onion_soup, delivery_zone, plate, onion.
 
 Each reward function has the signature:
     reward_fn(prev_state, state, actions, type_ids, n_agents, ...) -> ndarray of shape (n_agents,)
@@ -26,7 +23,7 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.array_rewards import ArrayReward, register_reward_type
+from cogrid.core.rewards import Reward, register_reward_type
 
 
 def _compute_fwd_positions(prev_state):
@@ -204,14 +201,14 @@ def soup_in_dish_reward(
 
 
 # ---------------------------------------------------------------------------
-# ArrayReward subclasses (registered for autowire composition)
+# Reward subclasses (registered for autowire composition)
 # ---------------------------------------------------------------------------
 # Each compute() returns final (n_agents,) rewards with coefficient and
 # broadcasting already applied. The autowire layer just sums them.
 
 
 @register_reward_type("delivery", scope="overcooked")
-class DeliveryReward(ArrayReward):
+class DeliveryReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         return delivery_reward(
             prev_state,
@@ -226,7 +223,7 @@ class DeliveryReward(ArrayReward):
 
 
 @register_reward_type("onion_in_pot", scope="overcooked")
-class OnionInPotReward(ArrayReward):
+class OnionInPotReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         return onion_in_pot_reward(
             prev_state,
@@ -241,7 +238,7 @@ class OnionInPotReward(ArrayReward):
 
 
 @register_reward_type("soup_in_dish", scope="overcooked")
-class SoupInDishReward(ArrayReward):
+class SoupInDishReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         return soup_in_dish_reward(
             prev_state,

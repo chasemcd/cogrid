@@ -1,12 +1,11 @@
-"""Array-based feature extractors operating on state arrays instead of Grid/Agent objects.
+"""Feature extractors operating on state arrays.
 
-These functions are standalone alternatives to the Feature.generate() class methods.
-They operate directly on state arrays (agent_pos, agent_dir, object_type_map, etc.)
-produced by layout_to_array_state() and create_agent_arrays(), producing numerically
-identical observations to the existing feature system.
+These functions operate directly on state arrays (agent_pos, agent_dir,
+object_type_map, etc.) produced by layout_to_state() and create_agent_arrays(),
+producing numerically identical observations to the existing feature system.
 
 Feature composition is handled by autowire via ``compose_feature_fns()`` in
-``cogrid/core/array_features.py``. Each ArrayFeature subclass provides a
+``cogrid/core/features.py``. Each Feature subclass provides a
 ``build_feature_fn(cls, scope)`` classmethod that returns a closure.
 
 All functions use ``xp`` (the backend-agnostic array namespace) so they work
@@ -15,7 +14,7 @@ implementation serves both paths.
 """
 
 from cogrid.backend import xp
-from cogrid.core.array_features import ArrayFeature, register_feature_type
+from cogrid.core.features import Feature, register_feature_type
 
 
 # ---------------------------------------------------------------------------
@@ -112,12 +111,12 @@ def inventory_feature(agent_inv, agent_idx):
 
 
 # ---------------------------------------------------------------------------
-# ArrayFeature subclasses
+# Feature subclasses
 # ---------------------------------------------------------------------------
 
 
 @register_feature_type("agent_dir", scope="global")
-class AgentDir(ArrayFeature):
+class AgentDir(Feature):
     per_agent = True
     obs_dim = 4
 
@@ -129,7 +128,7 @@ class AgentDir(ArrayFeature):
 
 
 @register_feature_type("agent_position", scope="global")
-class AgentPosition(ArrayFeature):
+class AgentPosition(Feature):
     per_agent = True
     obs_dim = 2
 
@@ -141,7 +140,7 @@ class AgentPosition(ArrayFeature):
 
 
 @register_feature_type("can_move_direction", scope="global")
-class CanMoveDirection(ArrayFeature):
+class CanMoveDirection(Feature):
     per_agent = True
     obs_dim = 4
 
@@ -163,7 +162,7 @@ class CanMoveDirection(ArrayFeature):
 
 
 @register_feature_type("inventory", scope="global")
-class Inventory(ArrayFeature):
+class Inventory(Feature):
     per_agent = True
     obs_dim = 1
 

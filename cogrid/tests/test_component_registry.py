@@ -23,7 +23,7 @@ from cogrid.core.component_registry import (
     register_reward_type,
 )
 from cogrid.core.grid_object import GridObj, register_object_type
-from cogrid.core.array_rewards import ArrayReward
+from cogrid.core.rewards import Reward
 
 
 # ---------------------------------------------------------------------------
@@ -319,15 +319,15 @@ def test_get_components_with_extra_state():
 
 
 # ---------------------------------------------------------------------------
-# 14. ArrayReward base class
+# 14. Reward base class
 # ---------------------------------------------------------------------------
 
 
-def test_array_reward_base_class():
-    """ArrayReward.compute() raises NotImplementedError."""
-    r = ArrayReward()
+def test_reward_base_class():
+    """Reward.compute() raises NotImplementedError."""
+    r = Reward()
 
-    with pytest.raises(NotImplementedError, match="ArrayReward.compute"):
+    with pytest.raises(NotImplementedError, match="Reward.compute"):
         r.compute(None, None, None, None)
 
 
@@ -337,10 +337,10 @@ def test_array_reward_base_class():
 
 
 def test_register_reward_type_basic():
-    """Registering an ArrayReward subclass makes it retrievable via get_reward_types."""
+    """Registering an Reward subclass makes it retrievable via get_reward_types."""
 
     @register_reward_type("test_rew_basic", scope="test_phase10_rew_basic")
-    class _BasicReward(ArrayReward):
+    class _BasicReward(Reward):
         def compute(self, prev_state, state, actions, reward_config):
             return None
 
@@ -374,7 +374,7 @@ def test_register_reward_type_wrong_compute_signature_raises():
     with pytest.raises(TypeError, match="compute"):
 
         @register_reward_type("test_rew_wrongsig", scope="test_phase10_rew_wrongsig")
-        class _WrongSigReward(ArrayReward):
+        class _WrongSigReward(Reward):
             def compute(self, wrong_params):
                 return None
 
@@ -388,14 +388,14 @@ def test_register_reward_type_duplicate_raises():
     """Duplicate (scope, reward_id) raises ValueError."""
 
     @register_reward_type("test_rew_dup", scope="test_phase10_rew_dup")
-    class _Dup1(ArrayReward):
+    class _Dup1(Reward):
         def compute(self, prev_state, state, actions, reward_config):
             return None
 
     with pytest.raises(ValueError, match="Duplicate reward type"):
 
         @register_reward_type("test_rew_dup", scope="test_phase10_rew_dup")
-        class _Dup2(ArrayReward):
+        class _Dup2(Reward):
             def compute(self, prev_state, state, actions, reward_config):
                 return None
 
