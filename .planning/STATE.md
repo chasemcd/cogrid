@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 - 27-02: JAX Backend tutorial references example scripts rather than duplicating training code
 - 27-03: Environment gallery pages with screenshots, mechanics, layouts, and quick-start code
 - 27-03: Contributing guide covers fork-install-test-submit with CI matrix details
+- 28-01: py-cov-action/python-coverage-comment-action@v3 for PR coverage comments
+- 28-01: coverage.run.relative_files=true for CI path mapping compatibility
+- 28-01: mkdocs validation warns on broken links/anchors (errors under --strict)
 - 28-02: OIDC trusted publishers for PyPI (no API token secrets needed)
 - 28-02: Separate build/publish jobs in publish.yml for artifact isolation
 - 28-02: Weekly cache key for mkdocs-material in docs workflow
@@ -78,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 28-02-PLAN.md (Phase 28 complete)
+Stopped at: Completed 28-01-PLAN.md (all Phase 28 plans now done)
 Resume file: None
