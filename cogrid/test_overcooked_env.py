@@ -77,6 +77,8 @@ def pause_until_keypress():
 
 class TestOvercookedEnv(unittest.TestCase):
     def setUp(self):
+        from cogrid.backend._dispatch import _reset_backend_for_testing
+        _reset_backend_for_testing()
         self.env = make_env(num_agents=2, layout="overcooked_cramped_room_v1", render_mode=None)
         self.env.reset()
 
