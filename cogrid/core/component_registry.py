@@ -37,10 +37,6 @@ class ComponentMetadata:
         return "build_tick_fn" in self.methods
 
     @property
-    def has_interaction(self) -> bool:
-        return "build_interaction_fn" in self.methods
-
-    @property
     def has_extra_state(self) -> bool:
         return "extra_state_schema" in self.methods
 
@@ -93,7 +89,6 @@ _LAYOUT_INDEX_REGISTRY: dict[str, dict[str, int]] = {}
 # All four component classmethods take only ``cls`` -- no additional params.
 _EXPECTED_SIGNATURES: dict[str, list[str]] = {
     "build_tick_fn": [],
-    "build_interaction_fn": [],
     "extra_state_schema": [],
     "extra_state_builder": [],
     "build_static_tables": [],

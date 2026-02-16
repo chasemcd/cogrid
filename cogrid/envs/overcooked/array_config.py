@@ -1,21 +1,14 @@
 """Overcooked-specific array configuration.
 
 Provides environment-specific array logic for Overcooked: tick handlers,
-interaction body, extra state building, and static table construction.
-These functions are referenced by component classmethods on GridObject
-subclasses (e.g. Pot.build_tick_fn, Pot.build_interaction_fn) and
-composed automatically by the auto-wiring layer in ``cogrid.core.autowire``.
+interaction function, extra state building, and static table construction.
 
 Functions:
     - ``build_overcooked_extra_state()`` -- extra_state builder for pot arrays
-    - ``_wrap_overcooked_interaction_body()`` -- wrapper for generic protocol
-    - ``_build_interaction_tables()`` -- pickup_from_produces, legal_pot_ingredients
-    - ``_build_type_ids()`` -- name -> type_id mapping
-    - ``_build_static_tables()`` -- static lookup tables for interaction body
-    - ``_extract_overcooked_state()`` -- pot state extraction from Grid
+    - ``overcooked_interaction_fn()`` -- per-agent interaction with (state, ...) -> state signature
+    - ``overcooked_interaction_body()`` -- low-level per-agent dispatch to branch handlers
     - ``overcooked_tick()`` -- unified pot cooking timer state machine
     - ``overcooked_tick_state()`` -- tick handler with generic signature
-    - ``overcooked_interaction_body()`` -- unified per-agent interaction body
 """
 
 from cogrid.backend import xp
@@ -51,26 +44,38 @@ def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
     }
 
 
-def _wrap_overcooked_interaction_body(original_fn):
-    """Adapt the positional-arg interaction body to the generic extra_state dict protocol.
+def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_config):
+    """Per-agent Overcooked interaction: takes state, returns state.
 
-    Unpacks pot arrays from ``extra_state``, calls the original, repacks.
+    Extracts arrays, delegates to ``overcooked_interaction_body``, repacks.
     """
-    def wrapped(agent_idx, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
-                base_ok, extra_state, static_tables):
-        pot_contents = extra_state["pot_contents"]
-        pot_timer = extra_state["pot_timer"]
-        pot_positions = extra_state["pot_positions"]
+    import dataclasses
 
-        agent_inv, otm, osm, pot_contents, pot_timer = original_fn(
-            agent_idx, agent_inv, otm, osm, fwd_r, fwd_c, fwd_type, inv_item,
-            base_ok, pot_contents, pot_timer, pot_positions, static_tables,
-        )
+    static_tables = scope_config.get("static_tables", {})
+    fwd_type = state.object_type_map[fwd_r, fwd_c]
+    inv_item = state.agent_inv[agent_idx, 0]
 
-        new_extra = {**extra_state, "pot_contents": pot_contents, "pot_timer": pot_timer}
-        return agent_inv, otm, osm, new_extra
+    agent_inv, otm, osm, pot_contents, pot_timer = overcooked_interaction_body(
+        agent_idx, state.agent_inv, state.object_type_map, state.object_state_map,
+        fwd_r, fwd_c, fwd_type, inv_item, base_ok,
+        state.extra_state["overcooked.pot_contents"],
+        state.extra_state["overcooked.pot_timer"],
+        state.extra_state["overcooked.pot_positions"],
+        static_tables,
+    )
 
-    return wrapped
+    new_extra = {
+        **state.extra_state,
+        "overcooked.pot_contents": pot_contents,
+        "overcooked.pot_timer": pot_timer,
+    }
+    return dataclasses.replace(
+        state,
+        agent_inv=agent_inv,
+        object_type_map=otm,
+        object_state_map=osm,
+        extra_state=new_extra,
+    )
 
 
 def _build_interaction_tables(scope: str = "overcooked") -> dict:

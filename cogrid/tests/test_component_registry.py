@@ -46,7 +46,6 @@ def test_component_metadata_dataclass():
         meta_empty.scope = "other"
 
     assert meta_empty.has_tick is False
-    assert meta_empty.has_interaction is False
     assert meta_empty.has_extra_state is False
 
     meta_full = ComponentMetadata(
@@ -57,12 +56,10 @@ def test_component_metadata_dataclass():
         properties={},
         methods={
             "build_tick_fn": lambda: None,
-            "build_interaction_fn": lambda: None,
             "extra_state_schema": lambda: None,
         },
     )
     assert meta_full.has_tick is True
-    assert meta_full.has_interaction is True
     assert meta_full.has_extra_state is True
 
 
@@ -115,8 +112,6 @@ def test_register_object_type_discovers_classmethods():
     assert "extra_state_schema" in meta.methods
     assert meta.has_tick is True
     assert meta.has_extra_state is True
-    assert "build_interaction_fn" not in meta.methods
-    assert meta.has_interaction is False
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +130,6 @@ def test_register_object_type_no_classmethods():
     assert meta is not None
     assert meta.methods == {}
     assert meta.has_tick is False
-    assert meta.has_interaction is False
     assert meta.has_extra_state is False
 
 
@@ -145,7 +139,7 @@ def test_register_object_type_no_classmethods():
 
 
 def test_register_object_type_all_classmethods():
-    """All four classmethods discovered when present."""
+    """All classmethods discovered when present."""
 
     @register_object_type("test_obj_all", scope="test_phase10_allmethod")
     class _TestAllObj(GridObj):
@@ -153,10 +147,6 @@ def test_register_object_type_all_classmethods():
 
         @classmethod
         def build_tick_fn(cls):
-            pass
-
-        @classmethod
-        def build_interaction_fn(cls):
             pass
 
         @classmethod
@@ -168,8 +158,8 @@ def test_register_object_type_all_classmethods():
             pass
 
     meta = get_component_metadata("test_obj_all", scope="test_phase10_allmethod")
-    assert len(meta.methods) == 4
-    for name in ("build_tick_fn", "build_interaction_fn", "extra_state_schema", "extra_state_builder"):
+    assert len(meta.methods) == 3
+    for name in ("build_tick_fn", "extra_state_schema", "extra_state_builder"):
         assert name in meta.methods
 
 

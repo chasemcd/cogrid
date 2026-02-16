@@ -157,6 +157,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             build_reward_config_from_components,
         )
         self._scope_config = build_scope_config_from_components(self.scope)
+        if "interaction_fn" in self.config:
+            self._scope_config["interaction_fn"] = self.config["interaction_fn"]
         self._type_ids = self._scope_config["type_ids"]
         self._interaction_tables = self._scope_config.get("interaction_tables")
 

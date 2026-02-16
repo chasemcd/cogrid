@@ -4,6 +4,7 @@ import random
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs.overcooked.agent import OvercookedAgent
+from cogrid.envs.overcooked.array_config import overcooked_interaction_fn
 from cogrid.envs import registry
 from cogrid.core import layouts
 
@@ -98,6 +99,7 @@ cramped_room_config = {
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
     "scope": "overcooked",
+    "interaction_fn": overcooked_interaction_fn,
 }
 
 registry.register(

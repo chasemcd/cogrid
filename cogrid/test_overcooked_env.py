@@ -6,6 +6,7 @@ from cogrid.envs.overcooked import overcooked_grid_objects
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs.overcooked.agent import OvercookedAgent
+from cogrid.envs.overcooked.array_config import overcooked_interaction_fn
 from cogrid.core import layouts
 from cogrid.envs import registry
 
@@ -48,6 +49,7 @@ N_agent_overcooked_config = {
         "environment_layout",
     ],
     "scope": "overcooked",
+    "interaction_fn": overcooked_interaction_fn,
     "grid": {"layout": "overcooked_cramped_room_v1"},
     "max_steps": 1000,
 }

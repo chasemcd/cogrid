@@ -157,47 +157,17 @@ def step(
         state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key
     )
 
-    # d. Interactions -- pass extra_state generically (strip scope prefix)
+    # d. Interactions
     dir_vec_table = xp.array(
         [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
     )
-    extra_state = {}
-    for es_key, val in state.extra_state.items():
-        short_key = es_key.split(".", 1)[-1] if "." in es_key else es_key
-        extra_state[short_key] = val
+    interaction_fn = scope_config.get("interaction_fn") if scope_config else None
 
-    agent_inv, otm, osm, extra_out = process_interactions(
-        state.agent_pos,
-        state.agent_dir,
-        state.agent_inv,
-        actions,
-        state.object_type_map,
-        state.object_state_map,
-        lookup_tables,
-        scope_config,
-        dir_vec_table,
-        action_pickup_drop_idx,
-        action_toggle_idx,
-        extra_state=extra_state,
+    state = process_interactions(
+        state, actions, interaction_fn, lookup_tables, scope_config,
+        dir_vec_table, action_pickup_drop_idx, action_toggle_idx,
     )
-    # Re-prefix returned extra_out keys back into extra_state
-    scope_prefix = next(
-        (k.split(".")[0] for k in state.extra_state if "." in k), None
-    )
-    new_extra = dict(state.extra_state)
-    for k, v in extra_out.items():
-        prefixed = f"{scope_prefix}.{k}" if scope_prefix else k
-        if prefixed in new_extra:
-            new_extra[prefixed] = v
-
-    state = dataclasses.replace(
-        state,
-        agent_inv=agent_inv,
-        object_type_map=otm,
-        object_state_map=osm,
-        extra_state=new_extra,
-        time=state.time + 1,
-    )
+    state = dataclasses.replace(state, time=state.time + 1)
 
     # e. Observations
     sv = envstate_to_dict(state)

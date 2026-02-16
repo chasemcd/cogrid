@@ -235,14 +235,6 @@ class Pot(grid_object.GridObj):
         return overcooked_tick_state
 
     @classmethod
-    def build_interaction_fn(cls):
-        from cogrid.envs.overcooked.array_config import (
-            _wrap_overcooked_interaction_body,
-            overcooked_interaction_body,
-        )
-        return _wrap_overcooked_interaction_body(overcooked_interaction_body)
-
-    @classmethod
     def extra_state_schema(cls):
         return {
             "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},

@@ -58,15 +58,14 @@ def build_scope_config_from_components(
     scope: str,
     *,
     tick_handler=None,
-    interaction_body=None,
     interaction_tables=None,
     state_extractor=None,
 ) -> dict:
     """Build a complete scope_config from registered component metadata.
 
     Assembles type_ids, symbol_table, extra_state_schema, static_tables,
-    tick_handler, interaction_body, and render_sync automatically from
-    GridObject classmethods registered in the given scope (plus global).
+    tick_handler, and render_sync automatically from GridObject classmethods
+    registered in the given scope (plus global).
 
     Pass-through kwargs override auto-composed handlers.
     """
@@ -117,18 +116,6 @@ def build_scope_config_from_components(
 
             tick_handler = _composed_tick
 
-    # -- Compose interaction_body from components (if not overridden) --
-    if interaction_body is None:
-        interacting = [m for m in all_components if m.has_interaction]
-        if len(interacting) == 1:
-            interaction_body = interacting[0].methods["build_interaction_fn"]()
-        elif len(interacting) > 1:
-            raise ValueError(
-                f"Multiple components in scope '{scope}' define build_interaction_fn. "
-                f"Only one interaction_body per scope is supported. "
-                f"Components: {[m.object_id for m in interacting]}"
-            )
-
     # -- Compose extra_state_builder from components --
     extra_state_builder = None
     builders = [
@@ -175,7 +162,6 @@ def build_scope_config_from_components(
         "type_ids": type_ids,
         "state_extractor": state_extractor,
         "tick_handler": tick_handler,
-        "interaction_body": interaction_body,
         "static_tables": static_tables,
         "symbol_table": symbol_table,
         "extra_state_schema": extra_state_schema,

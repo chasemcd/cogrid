@@ -22,7 +22,6 @@ _OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
 # Known classmethod names to scan for during component registration.
 _COMPONENT_METHODS = frozenset({
     "build_tick_fn",
-    "build_interaction_fn",
     "extra_state_schema",
     "extra_state_builder",
     "build_static_tables",

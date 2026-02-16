@@ -8,8 +8,8 @@ Covers:
 - symbol_table includes global objects for non-global scopes
 - extra_state_schema merged from multiple components, sorted, scope-prefixed
 - static_tables built from build_lookup_tables
-- tick_handler, interaction_body, interaction_tables default to None
-- tick_handler, interaction_body accept overrides
+- tick_handler, interaction_tables default to None
+- tick_handler accepts overrides
 - reward_config has required keys and callable compute_fn
 - reward_config compute_fn applies coefficient weighting and common_reward broadcasting
 - reward_config with no rewards returns zeros
@@ -45,7 +45,6 @@ def test_scope_config_has_all_required_keys():
         "type_ids",
         "state_extractor",
         "tick_handler",
-        "interaction_body",
         "static_tables",
         "symbol_table",
         "extra_state_schema",
@@ -250,21 +249,7 @@ def test_tick_handler_accepts_override():
 
 
 # -----------------------------------------------------------------------
-# Test 11: interaction_body accepts override
-# -----------------------------------------------------------------------
-
-
-def test_interaction_body_accepts_override():
-    """Passing interaction_body=fn stores it in the config."""
-    def my_body(*args):
-        pass
-
-    config = build_scope_config_from_components("test_sym_01", interaction_body=my_body)
-    assert config["interaction_body"] is my_body
-
-
-# -----------------------------------------------------------------------
-# Test 12: interaction_tables default None
+# Test 11: interaction_tables default None
 # -----------------------------------------------------------------------
 
 
@@ -516,6 +501,7 @@ def test_build_feature_config_returns_callable():
 
     # Build a state from a real Overcooked environment
     from cogrid.cogrid_env import CoGridEnv
+    from cogrid.envs.overcooked.array_config import overcooked_interaction_fn
 
     env = CoGridEnv(
         config={
@@ -525,6 +511,7 @@ def test_build_feature_config_returns_callable():
             "max_steps": 10,
             "action_set": "cardinal_actions",
             "features": _OVERCOOKED_FEATURES,
+            "interaction_fn": overcooked_interaction_fn,
             "grid": {"layout": "overcooked_cramped_room_v0"},
         }
     )
