@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 25 -- Packaging Consolidation
+**Current focus:** Phase 26 -- CI/CD Foundation
 
 ## Current Position
 
-Phase: 25 of 28 (Packaging Consolidation)
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-02-16 -- Completed 25-02 (lint & format zero violations)
+Phase: 26 of 28 (CI/CD Foundation)
+Plan: 1 of 1 in current phase (COMPLETE)
+Status: Phase 26 complete
+Last activity: 2026-02-16 -- Phase 26-01 executed
 
-Progress: [██████████] 100%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 12min
+- Total plans completed: 3
+- Average duration: 9min
 - Total execution time: 0.4 hours
 
 **By Phase:**
@@ -28,10 +28,11 @@ Progress: [██████████] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 25-packaging-consolidation | 2 | 24min | 12min |
+| 26-ci-cd-foundation | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 25-01 (4min), 25-02 (20min)
-- Trend: --
+- Last 5 plans: 25-01 (4min), 25-02 (20min), 26-01 (2min)
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -48,6 +49,9 @@ Recent decisions affecting current work:
 - 25-01: pyproject.toml is now sole packaging config with dynamic version from cogrid.__version__
 - 25-02: Used TYPE_CHECKING + future annotations for forward references instead of string annotations
 - 25-02: All docstrings follow Google convention (concise, no redundant Args/Returns sections)
+- 26-01: CI uses parallel jobs (no needs dependencies) for fastest feedback
+- 26-01: astral-sh/ruff-action@v3 for lint (pre-built binary, PR annotations)
+- 26-01: JAX tests on Python 3.12 only (JAX >= 0.5.x requires Python >= 3.11)
 
 ### Pending Todos
 
@@ -62,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 25-02-PLAN.md (Phase 25 complete)
+Stopped at: Completed 26-01-PLAN.md (Phase 26 complete)
 Resume file: None

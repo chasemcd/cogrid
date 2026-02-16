@@ -19,8 +19,8 @@ Transform CoGrid from a working but unpublished library into a proper open-sourc
 - Integer phases (25, 26, 27, 28): Planned milestone work
 - Decimal phases (e.g., 26.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 25: Packaging Consolidation** - Single pyproject.toml replaces all legacy packaging files
-- [ ] **Phase 26: CI/CD Foundation** - GitHub Actions validates tests, linting, and multi-backend on every push
+- [x] **Phase 25: Packaging Consolidation** - Single pyproject.toml replaces all legacy packaging files *(completed 2026-02-16)*
+- [x] **Phase 26: CI/CD Foundation** - GitHub Actions validates tests, linting, and multi-backend on every push *(completed 2026-02-16)*
 - [ ] **Phase 27: Documentation Migration** - MkDocs Material site with guides, tutorials, and API reference
 - [ ] **Phase 28: Automated Deployment** - Docs deploy to GitHub Pages, packages publish to PyPI, old infrastructure removed
 
@@ -39,8 +39,8 @@ Transform CoGrid from a working but unpublished library into a proper open-sourc
 **Plans:** 2 plans
 
 Plans:
-- [ ] 25-01-PLAN.md -- pyproject.toml, __version__, README conversion, legacy file removal
-- [ ] 25-02-PLAN.md -- Ruff format + lint fix across all 66 Python files (zero violations)
+- [x] 25-01-PLAN.md -- pyproject.toml, __version__, README conversion, legacy file removal
+- [x] 25-02-PLAN.md -- Ruff format + lint fix across all 66 Python files (zero violations)
 
 ### Phase 26: CI/CD Foundation
 **Goal**: Every push and PR is automatically validated for correctness across Python versions and backends
@@ -52,10 +52,10 @@ Plans:
   3. A separate CI job runs JAX-specific tests on Python 3.12 (Linux/macOS)
   4. Ruff lint and format checks run in CI and fail the build on violations
   5. CI runs complete within a reasonable time using pip dependency caching
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 26-01: TBD
+- [x] 26-01-PLAN.md -- CI workflow with lint, numpy test matrix, and JAX test jobs
 
 ### Phase 27: Documentation Migration
 **Goal**: Users can learn CoGrid's concepts, follow tutorials, and browse API reference on a MkDocs Material site
@@ -67,12 +67,12 @@ Plans:
   3. A Custom Environment tutorial explains how to create a new environment using GridObject subclasses, ArrayReward, and layout files
   4. API reference pages auto-generated via mkdocstrings display public classes and functions for all core modules
   5. Architecture/concepts page explains the xp backend system, EnvState, component API, and step pipeline
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 27-01: TBD
-- [ ] 27-02: TBD
-- [ ] 27-03: TBD
+- [ ] 27-01-PLAN.md -- MkDocs Material infrastructure, mkdocs.yml, gen_ref_pages.py, API reference auto-generation
+- [ ] 27-02-PLAN.md -- Getting Started, Architecture/Concepts, Custom Environment, JAX Backend content pages
+- [ ] 27-03-PLAN.md -- Environment gallery pages (Overcooked, SearchRescue, GoalSeeking), Contributing guide
 
 ### Phase 28: Automated Deployment
 **Goal**: Documentation and packages publish automatically -- no manual steps after merging to main or creating a release
@@ -97,9 +97,9 @@ Phases execute in numeric order: 25 -> 26 -> 27 -> 28
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 25. Packaging Consolidation | 0/2 | Not started | - |
-| 26. CI/CD Foundation | 0/TBD | Not started | - |
-| 27. Documentation Migration | 0/TBD | Not started | - |
+| 25. Packaging Consolidation | 2/2 | ✓ Complete | 2026-02-16 |
+| 26. CI/CD Foundation | 1/1 | ✓ Complete | 2026-02-16 |
+| 27. Documentation Migration | 0/3 | Not started | - |
 | 28. Automated Deployment | 0/TBD | Not started | - |
 
 ---
