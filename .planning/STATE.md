@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core that works identically whether xp is numpy or jax.numpy.
-**Current focus:** Phase 27 -- Documentation Migration
+**Current focus:** Phase 28 -- Automated Deployment
 
 ## Current Position
 
-Phase: 27 of 28 (Documentation Migration)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-16 -- Completed 27-02 (Core content pages)
+Phase: 28 of 28 (Automated Deployment)
+Plan: 2 of 2 in current phase
+Status: Phase 28 complete
+Last activity: 2026-02-16 -- Plan 28-02 complete
 
-Progress: [███████░░░] 71%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 6min
-- Total execution time: 0.5 hours
+- Total plans completed: 8
+- Average duration: 4min
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
@@ -29,11 +29,12 @@ Progress: [███████░░░] 71%
 |-------|-------|-------|----------|
 | 25-packaging-consolidation | 2 | 24min | 12min |
 | 26-ci-cd-foundation | 1 | 2min | 2min |
-| 27-documentation-migration | 2 | 8min | 4min |
+| 27-documentation-migration | 3 | 10min | 3min |
+| 28-automated-deployment | 2 | 2min | 1min |
 
 **Recent Trend:**
-- Last 5 plans: 25-01 (4min), 25-02 (20min), 26-01 (2min), 27-01 (2min), 27-02 (6min)
-- Trend: stable
+- Last 5 plans: 26-01 (2min), 27-01 (2min), 27-02 (6min), 27-03 (2min), 28-02 (1min)
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -58,6 +59,11 @@ Recent decisions affecting current work:
 - 27-02: Getting Started rewritten from scratch (not RST conversion) for current array-based API
 - 27-02: Custom Environment tutorial faithfully converted from RST preserving all 11 steps
 - 27-02: JAX Backend tutorial references example scripts rather than duplicating training code
+- 27-03: Environment gallery pages with screenshots, mechanics, layouts, and quick-start code
+- 27-03: Contributing guide covers fork-install-test-submit with CI matrix details
+- 28-02: OIDC trusted publishers for PyPI (no API token secrets needed)
+- 28-02: Separate build/publish jobs in publish.yml for artifact isolation
+- 28-02: Weekly cache key for mkdocs-material in docs workflow
 
 ### Pending Todos
 
@@ -72,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 27-02-PLAN.md
+Stopped at: Completed 28-02-PLAN.md (Phase 28 complete)
 Resume file: None

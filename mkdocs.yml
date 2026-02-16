@@ -57,6 +57,17 @@ plugins:
             show_symbol_type_toc: true
             members_order: source
 
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
 nav:
   - Home: index.md
   - Getting Started: getting-started.md

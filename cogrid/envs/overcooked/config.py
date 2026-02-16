@@ -3,12 +3,13 @@
 Provides environment-specific array logic for Overcooked: tick handlers,
 interaction function, extra state building, and static table construction.
 
-Functions:
-    - ``build_overcooked_extra_state()`` -- extra_state builder for pot arrays
-    - ``overcooked_interaction_fn()`` -- per-agent interaction with (state, ...) -> state signature
-    - ``overcooked_interaction_body()`` -- low-level per-agent dispatch to branch handlers
-    - ``overcooked_tick()`` -- unified pot cooking timer state machine
-    - ``overcooked_tick_state()`` -- tick handler with generic signature
+Key public functions:
+
+- ``build_overcooked_extra_state`` -- extra_state builder for pot arrays
+- ``overcooked_interaction_fn`` -- per-agent interaction with (state, ...) -> state signature
+- ``overcooked_interaction_body`` -- low-level per-agent dispatch to branch handlers
+- ``overcooked_tick`` -- unified pot cooking timer state machine
+- ``overcooked_tick_state`` -- tick handler with generic signature
 
 
 Overcooked Interaction Overview

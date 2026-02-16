@@ -101,4 +101,4 @@ the engine sums them and converts to per-agent floats.
   your own environment with grid objects, rewards, and features.
 - **[JAX Backend Tutorial](tutorials/jax-backend.md)** -- Use JIT compilation
   and vmap batching for high-performance training.
-- **[API Reference](reference/)** -- Full auto-generated API documentation.
+- **[API Reference](reference/cogrid/index.md)** -- Full auto-generated API documentation.

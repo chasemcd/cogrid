@@ -43,6 +43,7 @@ docs = [
 ]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "ruff>=0.9.0",
     "cogrid[docs]",
 ]
@@ -83,6 +84,23 @@ convention = "google"
 
 [tool.ruff.format]
 docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+source = ["cogrid"]
+relative_files = true
+omit = ["cogrid/tests/*", "cogrid/benchmarks/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
 
 # ---------------------------------------------------------------------------
 # pytest

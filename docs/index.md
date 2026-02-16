@@ -51,5 +51,5 @@ If you use CoGrid in your research, please cite the following paper:
 - [Custom Environment](tutorials/custom-environment.md) -- build your own environment
 - [JAX Backend](tutorials/jax-backend.md) -- JIT, vmap, functional API
 - [Environments](environments/overcooked.md) -- Overcooked, Search & Rescue, Goal Seeking
-- [API Reference](reference/) -- auto-generated from source
+- [API Reference](reference/cogrid/index.md) -- auto-generated from source
 - [Contributing](contributing.md) -- how to contribute
