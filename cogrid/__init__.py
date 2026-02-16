@@ -1,3 +1,8 @@
+"""CoGrid: Multi-agent grid-world environments for reinforcement learning."""
+
+__version__ = "0.0.16"
+
+
 def make(environment_id: str, **kwargs):
     """Create a pre-registered CoGrid environment by name.
 

@@ -1,3 +1,90 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "cogrid"
+dynamic = ["version"]
+description = "A library for creating multi-agent grid-world environments for reinforcement learning."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "Chase McDonald", email = "chasemcd@cmu.edu"},
+]
+keywords = ["reinforcement-learning", "multi-agent", "gridworld", "gymnasium", "pettingzoo"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.26,<3.0",
+    "gymnasium>=0.29",
+    "pettingzoo>=1.24",
+]
+
+[project.optional-dependencies]
+jax = [
+    "jax>=0.4.20,<1.0",
+]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.24",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.9.0",
+    "cogrid[docs]",
+]
+all = [
+    "cogrid[jax]",
+    "cogrid[dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/chasemcd/cogrid"
+Repository = "https://github.com/chasemcd/cogrid"
+
+[tool.setuptools.dynamic]
+version = {attr = "cogrid.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["cogrid*"]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "D"]
+
+[tool.ruff.lint.per-file-ignores]
+"cogrid/tests/*" = ["D100", "D101", "D102", "D103", "D104", "D107"]
+"cogrid/test_*.py" = ["D100", "D101", "D102", "D103", "D104", "D107"]
+"cogrid/benchmarks/*" = ["D100", "D101", "D102", "D103", "D104"]
+"examples/*" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["cogrid/tests"]
