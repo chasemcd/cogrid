@@ -21,7 +21,7 @@ Transform CoGrid from a working but unpublished library into a proper open-sourc
 
 - [x] **Phase 25: Packaging Consolidation** - Single pyproject.toml replaces all legacy packaging files *(completed 2026-02-16)*
 - [x] **Phase 26: CI/CD Foundation** - GitHub Actions validates tests, linting, and multi-backend on every push *(completed 2026-02-16)*
-- [ ] **Phase 27: Documentation Migration** - MkDocs Material site with guides, tutorials, and API reference
+- [x] **Phase 27: Documentation Migration** - MkDocs Material site with guides, tutorials, and API reference *(completed 2026-02-16)*
 - [ ] **Phase 28: Automated Deployment** - Docs deploy to GitHub Pages, packages publish to PyPI, old infrastructure removed
 
 ## Phase Details
@@ -70,9 +70,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 27-01-PLAN.md -- MkDocs Material infrastructure, mkdocs.yml, gen_ref_pages.py, API reference auto-generation
-- [ ] 27-02-PLAN.md -- Getting Started, Architecture/Concepts, Custom Environment, JAX Backend content pages
-- [ ] 27-03-PLAN.md -- Environment gallery pages (Overcooked, SearchRescue, GoalSeeking), Contributing guide
+- [x] 27-01-PLAN.md -- MkDocs Material infrastructure, mkdocs.yml, gen_ref_pages.py, API reference auto-generation
+- [x] 27-02-PLAN.md -- Getting Started, Architecture/Concepts, Custom Environment, JAX Backend content pages
+- [x] 27-03-PLAN.md -- Environment gallery pages (Overcooked, SearchRescue, GoalSeeking), Contributing guide
 
 ### Phase 28: Automated Deployment
 **Goal**: Documentation and packages publish automatically -- no manual steps after merging to main or creating a release
@@ -84,11 +84,11 @@ Plans:
   3. CI includes `mkdocs build --strict` that catches broken links and missing references before merge
   4. Coverage reporting runs in CI and a coverage badge is available for the README
   5. Old Sphinx configuration files and RST source files are removed from the repository
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 28-01: TBD
-- [ ] 28-02: TBD
+- [ ] 28-01-PLAN.md -- CI docs validation (mkdocs build --strict) and coverage reporting (pytest-cov + py-cov-action)
+- [ ] 28-02-PLAN.md -- Docs deploy workflow, PyPI publish workflow, Sphinx cleanup, README update
 
 ## Progress
 
@@ -99,8 +99,8 @@ Phases execute in numeric order: 25 -> 26 -> 27 -> 28
 |-------|----------------|--------|-----------|
 | 25. Packaging Consolidation | 2/2 | ✓ Complete | 2026-02-16 |
 | 26. CI/CD Foundation | 1/1 | ✓ Complete | 2026-02-16 |
-| 27. Documentation Migration | 0/3 | Not started | - |
-| 28. Automated Deployment | 0/TBD | Not started | - |
+| 27. Documentation Migration | 3/3 | ✓ Complete | 2026-02-16 |
+| 28. Automated Deployment | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-16*
