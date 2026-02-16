@@ -56,8 +56,6 @@ class RewardMetadata:
     scope: str
     reward_id: str
     cls: type
-    default_coefficient: float
-    default_common_reward: bool
 
 
 @dataclass(frozen=True)
@@ -169,17 +167,16 @@ def register_component_metadata(
 def register_reward_type(
     reward_id: str,
     scope: str = "global",
-    coefficient: float = 1.0,
-    common_reward: bool = False,
 ):
     """Decorator that registers an ArrayReward subclass.
 
     Usage::
 
-        @register_reward_type("delivery", scope="overcooked", coefficient=20.0)
+        @register_reward_type("delivery", scope="overcooked")
         class DeliveryReward(ArrayReward):
             def compute(self, prev_state, state, actions, reward_config):
                 ...
+                return rewards  # (n_agents,) float32
     """
 
     def decorator(cls):
@@ -212,8 +209,6 @@ def register_reward_type(
             scope=scope,
             reward_id=reward_id,
             cls=cls,
-            default_coefficient=coefficient,
-            default_common_reward=common_reward,
         )
         return cls
 

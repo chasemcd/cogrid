@@ -15,24 +15,18 @@ from cogrid.core.component_registry import register_reward_type  # noqa: F401
 class ArrayReward:
     """Base class for array-based reward functions.
 
-    Subclasses define compute() which receives state dicts and returns
-    (n_agents,) float32 reward arrays. coefficient and common_reward
-    are constructor args so they can be overridden by config at
-    instantiation time.
+    Subclasses define compute() which receives StateView objects and returns
+    (n_agents,) float32 reward arrays. The returned values are the final
+    rewards -- apply any scaling or broadcasting inside compute().
 
     Usage::
 
-        @register_reward_type("delivery", scope="overcooked",
-                              coefficient=1.0, common_reward=True)
+        @register_reward_type("delivery", scope="overcooked")
         class DeliveryReward(ArrayReward):
             def compute(self, prev_state, state, actions, reward_config):
                 ...
                 return rewards  # (n_agents,) float32
     """
-
-    def __init__(self, coefficient: float = 1.0, common_reward: bool = False):
-        self.coefficient = coefficient
-        self.common_reward = common_reward
 
     def compute(self, prev_state, state, actions, reward_config):
         """Compute and return (n_agents,) float32 reward array.

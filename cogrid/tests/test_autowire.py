@@ -11,7 +11,7 @@ Covers:
 - tick_handler, interaction_tables default to None
 - tick_handler accepts overrides
 - reward_config has required keys and callable compute_fn
-- reward_config compute_fn applies coefficient weighting and common_reward broadcasting
+- reward_config compute_fn sums all registered rewards
 - reward_config with no rewards returns zeros
 - reward_config passes reward_config through to each reward's compute()
 """
@@ -313,19 +313,19 @@ def test_reward_config_no_rewards_returns_zeros():
 
 
 # -----------------------------------------------------------------------
-# Test 16: single reward with coefficient
+# Test 16: single reward
 # -----------------------------------------------------------------------
 
 
-@register_reward_type("test_r1", scope="test_rw_04", coefficient=2.0)
+@register_reward_type("test_r1", scope="test_rw_04")
 class _TestRewardSingle(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
-        return np.ones(n, dtype=np.float32)
+        return np.ones(n, dtype=np.float32) * 2.0
 
 
 def test_reward_config_single_reward():
-    """Single registered reward with coefficient=2.0 produces [2.0, 2.0]."""
+    """Single registered reward returning [2.0, 2.0]."""
     config = build_reward_config_from_components(
         "test_rw_04", n_agents=2, type_ids={}, action_pickup_drop_idx=4
     )
@@ -336,18 +336,20 @@ def test_reward_config_single_reward():
 
 
 # -----------------------------------------------------------------------
-# Test 17: common_reward broadcasting
+# Test 17: reward with broadcasting (handled inside compute)
 # -----------------------------------------------------------------------
 
 
-@register_reward_type("test_r2", scope="test_rw_05", coefficient=1.0, common_reward=True)
+@register_reward_type("test_r2", scope="test_rw_05")
 class _TestRewardCommon(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
-        return np.array([1.0, 0.0], dtype=np.float32)
+        # Agent 0 earns 1.0, agent 1 earns 0.0, but shared reward -> both get sum
+        raw = np.array([1.0, 0.0], dtype=np.float32)
+        return np.full(2, np.sum(raw), dtype=np.float32)
 
 
-def test_reward_config_common_reward_broadcasting():
-    """common_reward=True sums per-agent rewards and broadcasts to all agents."""
+def test_reward_config_broadcasting_inside_compute():
+    """Reward broadcasting is handled inside compute(), not by the composition layer."""
     config = build_reward_config_from_components(
         "test_rw_05", n_agents=2, type_ids={}, action_pickup_drop_idx=4
     )
@@ -363,30 +365,30 @@ def test_reward_config_common_reward_broadcasting():
 # -----------------------------------------------------------------------
 
 
-@register_reward_type("test_r3a", scope="test_rw_06", coefficient=1.0)
+@register_reward_type("test_r3a", scope="test_rw_06")
 class _TestRewardMultiA(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
         return np.ones(n, dtype=np.float32)  # [1, 1]
 
 
-@register_reward_type("test_r3b", scope="test_rw_06", coefficient=3.0)
+@register_reward_type("test_r3b", scope="test_rw_06")
 class _TestRewardMultiB(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]
-        return np.ones(n, dtype=np.float32) * 2.0  # [2, 2]
+        return np.ones(n, dtype=np.float32) * 6.0  # [6, 6]
 
 
 def test_reward_config_multiple_rewards_sum():
-    """Multiple rewards in same scope are summed with coefficient weighting."""
+    """Multiple rewards in same scope are summed."""
     config = build_reward_config_from_components(
         "test_rw_06", n_agents=2, type_ids={}, action_pickup_drop_idx=4
     )
     result = config["compute_fn"](
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
     )
-    # r3a: [1, 1] * 1.0 = [1, 1]
-    # r3b: [2, 2] * 3.0 = [6, 6]
+    # r3a: [1, 1]
+    # r3b: [6, 6]
     # total: [7, 7]
     np.testing.assert_array_almost_equal(result, np.array([7.0, 7.0], dtype=np.float32))
 
@@ -396,7 +398,7 @@ def test_reward_config_multiple_rewards_sum():
 # -----------------------------------------------------------------------
 
 
-@register_reward_type("test_r4", scope="test_rw_07", coefficient=1.0)
+@register_reward_type("test_r4", scope="test_rw_07")
 class _TestRewardPassthrough(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         n = reward_config["n_agents"]

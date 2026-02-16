@@ -74,16 +74,13 @@ def test_reward_metadata_dataclass():
         scope="test_rm_1",
         reward_id="rew_a",
         cls=object,
-        default_coefficient=2.5,
-        default_common_reward=True,
     )
     with pytest.raises(AttributeError):
         meta.scope = "other"
 
     assert meta.scope == "test_rm_1"
     assert meta.reward_id == "rew_a"
-    assert meta.default_coefficient == 2.5
-    assert meta.default_common_reward is True
+    assert meta.cls is object
 
 
 # ---------------------------------------------------------------------------
@@ -327,18 +324,11 @@ def test_get_components_with_extra_state():
 
 
 def test_array_reward_base_class():
-    """ArrayReward stores constructor args and compute() raises NotImplementedError."""
-    r = ArrayReward(coefficient=3.0, common_reward=True)
-    assert r.coefficient == 3.0
-    assert r.common_reward is True
+    """ArrayReward.compute() raises NotImplementedError."""
+    r = ArrayReward()
 
     with pytest.raises(NotImplementedError, match="ArrayReward.compute"):
         r.compute(None, None, None, None)
-
-    # Default args
-    r_default = ArrayReward()
-    assert r_default.coefficient == 1.0
-    assert r_default.common_reward is False
 
 
 # ---------------------------------------------------------------------------
@@ -358,36 +348,10 @@ def test_register_reward_type_basic():
     assert len(rewards) == 1
     assert rewards[0].reward_id == "test_rew_basic"
     assert rewards[0].cls is _BasicReward
-    assert rewards[0].default_coefficient == 1.0
-    assert rewards[0].default_common_reward is False
 
 
 # ---------------------------------------------------------------------------
-# 16. register_reward_type with custom defaults
-# ---------------------------------------------------------------------------
-
-
-def test_register_reward_type_custom_defaults():
-    """Custom coefficient and common_reward stored in RewardMetadata."""
-
-    @register_reward_type(
-        "test_rew_custom",
-        scope="test_phase10_rew_custom",
-        coefficient=2.0,
-        common_reward=True,
-    )
-    class _CustomReward(ArrayReward):
-        def compute(self, prev_state, state, actions, reward_config):
-            return None
-
-    rewards = get_reward_types(scope="test_phase10_rew_custom")
-    assert len(rewards) == 1
-    assert rewards[0].default_coefficient == 2.0
-    assert rewards[0].default_common_reward is True
-
-
-# ---------------------------------------------------------------------------
-# 17. register_reward_type missing compute raises
+# 16. register_reward_type missing compute raises
 # ---------------------------------------------------------------------------
 
 

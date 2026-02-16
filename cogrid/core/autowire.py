@@ -235,8 +235,9 @@ def build_reward_config_from_components(
 ) -> dict:
     """Build reward_config from registered ArrayReward subclasses.
 
-    Composes a single ``compute_fn`` that sums all registered rewards
-    with their default coefficient and common_reward settings.
+    Composes a single ``compute_fn`` that sums all registered rewards.
+    Each reward's ``compute()`` returns final (n_agents,) float32 values --
+    the composition layer just sums them.
     """
     from cogrid.core.component_registry import get_reward_types
 
@@ -245,24 +246,13 @@ def build_reward_config_from_components(
     if scope != "global":
         reward_metas = reward_metas + get_reward_types("global")
 
-    # Instantiate each reward with its registered defaults
-    instances = [
-        meta.cls(
-            coefficient=meta.default_coefficient,
-            common_reward=meta.default_common_reward,
-        )
-        for meta in reward_metas
-    ]
+    instances = [meta.cls() for meta in reward_metas]
 
     def compute_fn(prev_state, state, actions, reward_config):
         """Composed reward function that sums all registered rewards."""
         total = xp.zeros(n_agents, dtype=xp.float32)
         for inst in instances:
-            r = inst.compute(prev_state, state, actions, reward_config)
-            r = r * inst.coefficient
-            if inst.common_reward:
-                r = xp.full(n_agents, xp.sum(r), dtype=xp.float32)
-            total = total + r
+            total = total + inst.compute(prev_state, state, actions, reward_config)
         return total
 
     return {

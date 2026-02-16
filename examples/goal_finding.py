@@ -60,25 +60,28 @@ layouts.register_layout(
 
 # -- 3. Register an ArrayReward subclass --------------------------------------
 #
-# ArrayReward.compute() returns raw unweighted per-agent rewards. The
-# autowire's composed compute_fn handles coefficient weighting and
-# common_reward broadcasting automatically.
+# ArrayReward.compute() returns final (n_agents,) rewards. The autowire
+# layer just sums all registered rewards -- coefficient weighting and
+# broadcasting are the reward's responsibility.
 
 from cogrid.core.array_rewards import ArrayReward
 from cogrid.core.component_registry import register_reward_type
 
 
-@register_reward_type("goal", scope="global", coefficient=1.0, common_reward=True)
+@register_reward_type("goal", scope="global")
 class GoalReward(ArrayReward):
     def compute(self, prev_state, state, actions, reward_config):
         from cogrid.backend import xp
 
         goal_id = reward_config["type_ids"].get("goal", -1)
+        n_agents = reward_config["n_agents"]
         otm = state.object_type_map
         rows = state.agent_pos[:, 0]
         cols = state.agent_pos[:, 1]
         on_goal = (otm[rows, cols] == goal_id).astype(xp.float32)
-        return on_goal
+        # Common reward: if any agent reaches the goal, all agents get +1.0
+        n_earners = xp.sum(on_goal)
+        return xp.full(n_agents, n_earners * 1.0, dtype=xp.float32)
 
 
 # -- 4. Termination function --------------------------------------------------
