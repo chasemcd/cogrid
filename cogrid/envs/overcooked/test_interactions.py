@@ -862,3 +862,300 @@ def test_custom_recipe_compilation():
     assert tables["max_ingredients"] == 3
 
     print("  Custom recipe compilation: PASSED")
+
+
+def test_mixed_recipe_end_to_end():
+    """Verify a mixed-ingredient recipe (2 onion + 1 tomato -> onion_soup) works end-to-end.
+
+    Validates RCPE-06: places 2 onions and 1 tomato into a pot via prefix-match,
+    cooks for 20 ticks (custom cook_time, not default 30), picks up onion_soup
+    with a plate, and delivers via IS_DELIVERABLE lookup.
+    """
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.agent import get_dir_vec_table
+    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.envs.overcooked.config import (
+        _build_interaction_tables,
+        _build_static_tables,
+        _build_type_ids,
+        compile_recipes,
+        overcooked_interaction_fn,
+        overcooked_tick,
+    )
+
+    scope = "overcooked"
+    dir_vec = get_dir_vec_table()
+    PICKUP_DROP = 4
+
+    # Custom recipe: 2 onion + 1 tomato -> onion_soup, cook_time=20
+    custom_recipes = [
+        {
+            "ingredients": ["onion", "onion", "tomato"],
+            "result": "onion_soup",
+            "cook_time": 20,
+            "reward": 15.0,
+        },
+    ]
+
+    # Build scope_config with custom recipe tables
+    scope_cfg = build_scope_config_from_components(scope)
+    itables = _build_interaction_tables(scope)
+    type_ids_dict = _build_type_ids(scope)
+    recipe_tables = compile_recipes(custom_recipes, scope=scope)
+    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
+    scope_cfg["static_tables"] = static_tables
+    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    tables = build_lookup_tables(scope=scope)
+
+    type_ids = scope_cfg["type_ids"]
+    onion_id = type_ids["onion"]
+    tomato_id = type_ids["tomato"]
+    plate_id = type_ids["plate"]
+    pot_id = type_ids["pot"]
+    onion_soup_id = type_ids["onion_soup"]
+    delivery_zone_id = type_ids["delivery_zone"]
+
+    print("Mixed-recipe end-to-end test:")
+
+    # --- Setup: 7x7 grid, pot at (2,4), delivery zone at (2,5) ---
+    agent_pos = np.array([[2, 3]], dtype=np.int32)
+    agent_dir = np.array([0], dtype=np.int32)  # Right
+    otm = np.zeros((7, 7), dtype=np.int32)
+    osm = np.zeros((7, 7), dtype=np.int32)
+    otm[2, 4] = pot_id
+    otm[2, 5] = delivery_zone_id
+    pp = np.array([[2, 4]], dtype=np.int32)
+    pc = np.array([[-1, -1, -1]], dtype=np.int32)
+    pt = np.array([30], dtype=np.int32)
+
+    # --- Step A: Place 2 onions into pot ---
+    for i in range(2):
+        agent_inv = np.array([[onion_id]], dtype=np.int32)
+        actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+        state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+        state = process_interactions(
+            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        )
+        otm = state.object_type_map
+        osm = state.object_state_map
+        pc = state.extra_state["overcooked.pot_contents"]
+        pt = state.extra_state["overcooked.pot_timer"]
+        assert state.agent_inv[0, 0] == -1, f"Onion {i}: agent should have placed onion"
+
+    assert int(np.sum(pc[0] != -1)) == 2, f"Pot should have 2 items: {pc[0]}"
+    print("  Placed 2 onions: OK")
+
+    # --- Step B: Place 1 tomato (fills the pot) ---
+    agent_inv = np.array([[tomato_id]], dtype=np.int32)
+    actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+    state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+    state = process_interactions(
+        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+    )
+    otm = state.object_type_map
+    osm = state.object_state_map
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
+    assert state.agent_inv[0, 0] == -1, "Agent should have placed tomato"
+    assert int(np.sum(pc[0] != -1)) == 3, f"Pot should have 3 items: {pc[0]}"
+    assert int(pt[0]) == 20, f"Pot timer should be 20 (custom cook_time), got {int(pt[0])}"
+    print("  Placed 1 tomato, pot full, timer=20: OK")
+
+    # --- Step C: Cook for exactly 20 ticks ---
+    for tick_i in range(20):
+        _, pt, _ = overcooked_tick(pc, pt)
+    assert int(pt[0]) == 0, f"Pot should be done after 20 ticks: {pt[0]}"
+    print("  Cooked for 20 ticks, done: OK")
+
+    # --- Step D: Pickup with plate ---
+    agent_inv = np.array([[plate_id]], dtype=np.int32)
+    actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+    state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+    state = process_interactions(
+        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+    )
+    assert state.agent_inv[0, 0] == onion_soup_id, (
+        f"Expected onion_soup ({onion_soup_id}), got {state.agent_inv[0, 0]}"
+    )
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
+    assert int(pc[0, 0]) == -1, "Pot should be cleared after pickup"
+    print("  Picked up onion_soup with plate: OK")
+
+    # --- Step E: Deliver ---
+    # Agent now faces delivery zone at (2,5). Move agent to (2,4) facing right.
+    agent_pos_dz = np.array([[2, 4]], dtype=np.int32)
+    agent_inv = np.array([[onion_soup_id]], dtype=np.int32)
+    actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+    otm_dz = state.object_type_map
+    osm_dz = state.object_state_map
+    state = _make_state(agent_pos_dz, agent_dir, agent_inv, otm_dz, osm_dz, pc, pt, pp)
+    state = process_interactions(
+        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+    )
+    assert state.agent_inv[0, 0] == -1, "Soup should be delivered via IS_DELIVERABLE"
+    print("  Delivered onion_soup: OK")
+
+    print("  PASSED")
+
+
+def test_per_recipe_cook_time():
+    """Verify per-recipe cook times: onion=10 ticks, tomato=50 ticks.
+
+    Validates RCPE-05: each recipe has its own cook_time set in pot_timer
+    when the pot fills. Uses custom recipes with different cook times to
+    confirm the default 30 is NOT used.
+    """
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.agent import get_dir_vec_table
+    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.envs.overcooked.config import (
+        _build_interaction_tables,
+        _build_static_tables,
+        _build_type_ids,
+        compile_recipes,
+        overcooked_interaction_fn,
+        overcooked_tick,
+    )
+
+    scope = "overcooked"
+    dir_vec = get_dir_vec_table()
+    PICKUP_DROP = 4
+
+    # Custom recipes: onion soup cooks in 10 ticks, tomato soup in 50 ticks
+    custom_recipes = [
+        {
+            "ingredients": ["onion", "onion", "onion"],
+            "result": "onion_soup",
+            "cook_time": 10,
+            "reward": 20.0,
+        },
+        {
+            "ingredients": ["tomato", "tomato", "tomato"],
+            "result": "tomato_soup",
+            "cook_time": 50,
+            "reward": 20.0,
+        },
+    ]
+
+    # Build scope_config with custom recipe tables
+    scope_cfg = build_scope_config_from_components(scope)
+    itables = _build_interaction_tables(scope)
+    type_ids_dict = _build_type_ids(scope)
+    recipe_tables = compile_recipes(custom_recipes, scope=scope)
+    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
+    scope_cfg["static_tables"] = static_tables
+    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    tables = build_lookup_tables(scope=scope)
+
+    type_ids = scope_cfg["type_ids"]
+    onion_id = type_ids["onion"]
+    tomato_id = type_ids["tomato"]
+    plate_id = type_ids["plate"]
+    pot_id = type_ids["pot"]
+    onion_soup_id = type_ids["onion_soup"]
+    tomato_soup_id = type_ids["tomato_soup"]
+
+    print("Per-recipe cook time test:")
+
+    agent_pos = np.array([[2, 3]], dtype=np.int32)
+    agent_dir = np.array([0], dtype=np.int32)  # Right
+    pp = np.array([[2, 4]], dtype=np.int32)
+
+    # ---- Part A: Onion recipe (cook_time=10) ----
+    otm = np.zeros((7, 7), dtype=np.int32)
+    osm = np.zeros((7, 7), dtype=np.int32)
+    otm[2, 4] = pot_id
+    pc = np.array([[-1, -1, -1]], dtype=np.int32)
+    pt = np.array([30], dtype=np.int32)
+
+    # Fill pot with 3 onions
+    for i in range(3):
+        agent_inv = np.array([[onion_id]], dtype=np.int32)
+        actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+        state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+        state = process_interactions(
+            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        )
+        otm = state.object_type_map
+        osm = state.object_state_map
+        pc = state.extra_state["overcooked.pot_contents"]
+        pt = state.extra_state["overcooked.pot_timer"]
+        assert state.agent_inv[0, 0] == -1, f"Onion {i}: agent should have placed onion"
+
+    assert int(pt[0]) == 10, f"Onion recipe timer should be 10, got {int(pt[0])}"
+    print("  Onion pot timer=10: OK")
+
+    # Cook for 10 ticks
+    for _ in range(10):
+        _, pt, _ = overcooked_tick(pc, pt)
+    assert int(pt[0]) == 0, f"Onion pot should be done after 10 ticks: {pt[0]}"
+    print("  Cooked for 10 ticks, done: OK")
+
+    # Pickup with plate
+    agent_inv = np.array([[plate_id]], dtype=np.int32)
+    state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+    state = process_interactions(
+        state, np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+    )
+    assert state.agent_inv[0, 0] == onion_soup_id, (
+        f"Expected onion_soup, got {state.agent_inv[0, 0]}"
+    )
+    print("  Picked up onion_soup: OK")
+
+    # ---- Part B: Tomato recipe (cook_time=50) ----
+    otm = np.zeros((7, 7), dtype=np.int32)
+    osm = np.zeros((7, 7), dtype=np.int32)
+    otm[2, 4] = pot_id
+    pc = np.array([[-1, -1, -1]], dtype=np.int32)
+    pt = np.array([30], dtype=np.int32)
+
+    # Fill pot with 3 tomatoes
+    for i in range(3):
+        agent_inv = np.array([[tomato_id]], dtype=np.int32)
+        actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
+        state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+        state = process_interactions(
+            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        )
+        otm = state.object_type_map
+        osm = state.object_state_map
+        pc = state.extra_state["overcooked.pot_contents"]
+        pt = state.extra_state["overcooked.pot_timer"]
+        assert state.agent_inv[0, 0] == -1, f"Tomato {i}: agent should have placed tomato"
+
+    assert int(pt[0]) == 50, f"Tomato recipe timer should be 50, got {int(pt[0])}"
+    print("  Tomato pot timer=50: OK")
+
+    # Cook for 50 ticks
+    for _ in range(50):
+        _, pt, _ = overcooked_tick(pc, pt)
+    assert int(pt[0]) == 0, f"Tomato pot should be done after 50 ticks: {pt[0]}"
+    print("  Cooked for 50 ticks, done: OK")
+
+    # Pickup with plate
+    agent_inv = np.array([[plate_id]], dtype=np.int32)
+    state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
+    state = process_interactions(
+        state, np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+    )
+    assert state.agent_inv[0, 0] == tomato_soup_id, (
+        f"Expected tomato_soup, got {state.agent_inv[0, 0]}"
+    )
+    print("  Picked up tomato_soup: OK")
+
+    print("  PASSED")
