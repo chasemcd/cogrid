@@ -21,14 +21,17 @@ whether another agent is blocking it. It then calls
 ``overcooked_interaction_fn`` once per agent (lower index = higher priority).
 
 The interaction resolves to exactly one of seven mutually exclusive branches,
-evaluated in strict priority order. The first branch whose condition is True
-wins; all later branches are suppressed via cascading ``~earlier_cond`` guards.
+evaluated in strict priority order via an accumulated ``handled`` mask. Each
+branch checks ``~handled`` as its first condition term; if a prior branch
+already fired, all subsequent branches are suppressed. Adding a new branch
+means writing one ``(handled, ctx) -> (cond, updates, handled)`` function and
+appending it to the ``_BRANCHES`` list.
 
 Decision tree (evaluated per agent per step):
 
     base_ok?  (agent issued PickupDrop AND no other agent in the forward cell)
         |
-        +-- No  --> no-op (all branches short-circuit)
+        +-- No  --> no-op (all branches short-circuit via ~handled or base_ok)
         |
         +-- Yes
              |
@@ -92,22 +95,37 @@ position against all entries in pot_positions and take argmax of the
 boolean match vector.
 
 
-Branchless xp.where pattern
-----------------------------
+Branch list + accumulated-handled pattern
+------------------------------------------
 
-Every branch function computes BOTH the condition (bool scalar) AND the
-would-be result arrays unconditionally. No Python if/else gates the
-computation -- this is required for JAX tracing where all code paths
-must execute. The final ``_apply_interaction_updates`` merges results
-using cascading ``xp.where(cond, branch_result, previous)``:
+Each branch function has the uniform signature:
 
-    result = xp.where(b1_cond, b1_result, original)
-    result = xp.where(b2_cond, b2_result, result)
-    ...
+    (handled, ctx) -> (cond, updates, new_handled)
 
-Because conditions are mutually exclusive (each guards against all
-earlier conditions), exactly zero or one condition is True, so the
-final value is either the matching branch's result or the original.
+Where:
+    - ``handled`` is a bool scalar, True if a prior branch already fired
+    - ``ctx`` is a dict of all shared arrays and static tables (assembled
+      once by the orchestrator, never mutated between branches)
+    - ``cond`` is a bool scalar, True if this branch fires (always
+      includes ``~handled`` as the first term)
+    - ``updates`` is a dict with ONLY the arrays this branch modifies,
+      using these exact keys: ``"agent_inv"``, ``"object_type_map"``,
+      ``"object_state_map"``, ``"pot_contents"``, ``"pot_timer"``
+    - ``new_handled`` is ``handled | cond``
+
+The orchestrator (``overcooked_interaction_body``) iterates the
+``_BRANCHES`` list in priority order, passing the accumulated ``handled``
+through each branch. After all branches run, it merges results using
+sparse ``xp.where`` over the 5 output arrays:
+
+    for cond, updates in branch_results:
+        if "agent_inv" in updates:
+            inv = xp.where(cond, updates["agent_inv"], inv)
+        ...
+
+Because conditions are mutually exclusive (each guards with ``~handled``),
+at most one condition is True, so the final value is either the matching
+branch's result or the original.
 """
 
 from cogrid.backend import xp
@@ -425,13 +443,17 @@ def overcooked_tick_state(state, scope_config):
 # Each function evaluates ONE branch of the interaction decision tree.
 # All functions are pure: they take arrays, return arrays. No mutations.
 #
-# Naming convention:
-#   b<N>_cond  -- bool scalar, True if this branch fires
-#   b<N>_inv   -- would-be agent_inv if this branch fires
-#   b<N>_otm   -- would-be object_type_map if this branch fires
-#   b<N>_osm   -- would-be object_state_map if this branch fires
-#   b<N>_pc    -- would-be pot_contents if this branch fires
-#   b<N>_pt    -- would-be pot_timer if this branch fires
+# Uniform interface:
+#   (handled, ctx) -> (cond, updates, new_handled)
+#
+# Where:
+#   handled    -- bool scalar, True if a prior branch already fired
+#   ctx        -- dict of all shared arrays and static tables
+#   cond       -- bool scalar, True if this branch fires
+#   updates    -- dict with ONLY the arrays this branch modifies, using
+#                 keys: "agent_inv", "object_type_map", "object_state_map",
+#                 "pot_contents", "pot_timer"
+#   new_handled -- handled | cond
 #
 # Every function computes results unconditionally (no Python if/else)
 # so that JAX can trace through all branches. The condition is returned
@@ -439,21 +461,11 @@ def overcooked_tick_state(state, scope_config):
 # ======================================================================
 
 
-def _interact_pickup(
-    base_ok,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-    CAN_PICKUP,
-):
+def _branch_pickup(handled, ctx):
     """Branch 1: Pick up a loose object from the forward cell.
 
     Preconditions (all must be True):
+        - ~handled: no prior branch has fired
         - base_ok: agent is interacting and no agent ahead
         - fwd_type > 0: forward cell is not empty
         - CAN_PICKUP[fwd_type] == 1: the object type is pickupable
@@ -472,35 +484,26 @@ def _interact_pickup(
         | inv=- | onion |   --->     | inv=o | empty |
         +-------+-------+            +-------+-------+
     """
-    b1_cond = base_ok & (fwd_type > 0) & (CAN_PICKUP[fwd_type] == 1) & (inv_item == -1)
-    b1_inv = set_at(agent_inv, (agent_idx, 0), fwd_type)
-    b1_otm = set_at_2d(object_type_map, fwd_r, fwd_c, 0)
-    b1_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
-    return b1_cond, b1_inv, b1_otm, b1_osm
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (ctx["fwd_type"] > 0)
+        & (ctx["CAN_PICKUP"][ctx["fwd_type"]] == 1)
+        & (ctx["inv_item"] == -1)
+    )
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), ctx["fwd_type"])
+    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
-def _interact_pickup_from_pot(
-    base_ok,
-    b1_cond,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_contents,
-    pot_timer,
-    pot_idx,
-    has_pot_match,
-    pot_id,
-    plate_id,
-    tomato_id,
-    onion_soup_id,
-    tomato_soup_id,
-    cooking_time,
-):
+def _branch_pickup_from_pot(handled, ctx):
     """Branch 2A: Pick up cooked soup from a pot that has finished cooking.
 
     Preconditions (all must be True):
-        - base_ok AND Branch 1 did NOT fire (~b1_cond)
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type == pot_id: forward cell is a pot
         - has_pot_match: the pot was found in pot_positions
         - pot has contents (at least one slot != -1)
@@ -525,45 +528,40 @@ def _interact_pickup_from_pot(
         +-------+-------+               +-------+-------+
           P=plate  ooo=3 onions            S=onion_soup  ---=empty, timer reset
     """
-    is_pot = fwd_type == pot_id
+    pot_idx = ctx["pot_idx"]
+    pot_contents = ctx["pot_contents"]
+    tomato_id = ctx["tomato_id"]
+
+    is_pot = ctx["fwd_type"] == ctx["pot_id"]
 
     # Check pot state: does it have contents and is cooking complete?
     has_contents = xp.sum(pot_contents[pot_idx] != -1) > 0
-    is_ready = pot_timer[pot_idx] == 0
+    is_ready = ctx["pot_timer"][pot_idx] == 0
 
     # Determine soup type: check if all non-empty slots are tomato.
     # Slots that are -1 (empty) are masked out with the OR condition.
     all_tomato = xp.all((pot_contents[pot_idx] == -1) | (pot_contents[pot_idx] == tomato_id))
-    soup_type = xp.where(all_tomato, tomato_soup_id, onion_soup_id)
+    soup_type = xp.where(all_tomato, ctx["tomato_soup_id"], ctx["onion_soup_id"])
 
-    b2_pot_cond = (
-        base_ok
-        & ~b1_cond
+    cond = (
+        ~handled
+        & ctx["base_ok"]
         & is_pot
-        & has_pot_match
+        & ctx["has_pot_match"]
         & has_contents
         & is_ready
-        & (inv_item == plate_id)
+        & (ctx["inv_item"] == ctx["plate_id"])
     )
 
     # If condition fires: replace plate in inventory with soup, clear pot.
-    b2_pot_inv = set_at(agent_inv, (agent_idx, 0), soup_type)
-    b2_pot_pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all 3 slots
-    b2_pot_pt = set_at(pot_timer, pot_idx, cooking_time)  # reset to 30
-    return b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), soup_type)
+    pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all 3 slots
+    pt = set_at(ctx["pot_timer"], pot_idx, ctx["cooking_time"])  # reset to 30
+    updates = {"agent_inv": inv, "pot_contents": pc, "pot_timer": pt}
+    return cond, updates, handled | cond
 
 
-def _interact_pickup_from_stack(
-    base_ok,
-    b1_cond,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_id,
-    CAN_PICKUP_FROM,
-    pickup_from_produces,
-):
+def _branch_pickup_from_stack(handled, ctx):
     """Branch 2B: Pick up a produced item from an infinite dispenser stack.
 
     Stacks are objects with CAN_PICKUP_FROM=1 that produce a different
@@ -574,7 +572,8 @@ def _interact_pickup_from_stack(
     Branch 2A, so we explicitly exclude pots here.
 
     Preconditions (all must be True):
-        - base_ok AND Branch 1 did NOT fire (~b1_cond)
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type is NOT a pot
         - CAN_PICKUP_FROM[fwd_type] == 1: forward cell is a pickup-from source
         - inv_item == -1: agent's hand is empty
@@ -597,32 +596,22 @@ def _interact_pickup_from_stack(
         | inv=- |  OOO  |   --->     | inv=o |  OOO  |  (stack unchanged)
         +-------+-------+            +-------+-------+
     """
+    fwd_type = ctx["fwd_type"]
     # Exclude pots (they have CAN_PICKUP_FROM=1 but use Branch 2A)
-    is_stack = ~(fwd_type == pot_id) & (CAN_PICKUP_FROM[fwd_type] == 1)
-    produced = pickup_from_produces[fwd_type]
-    b2_stack_cond = base_ok & ~b1_cond & is_stack & (inv_item == -1) & (produced > 0)
-    b2_stack_inv = set_at(agent_inv, (agent_idx, 0), produced)
-    return b2_stack_cond, b2_stack_inv
+    is_stack = ~(fwd_type == ctx["pot_id"]) & (ctx["CAN_PICKUP_FROM"][fwd_type] == 1)
+    produced = ctx["pickup_from_produces"][fwd_type]
+    cond = ~handled & ctx["base_ok"] & is_stack & (ctx["inv_item"] == -1) & (produced > 0)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), produced)
+    updates = {"agent_inv": inv}
+    return cond, updates, handled | cond
 
 
-def _interact_drop_on_empty(
-    base_ok,
-    b1_cond,
-    b2_pot_cond,
-    b2_stack_cond,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-):
+def _branch_drop_on_empty(handled, ctx):
     """Branch 3: Drop held item onto an empty floor cell.
 
     Preconditions (all must be True):
-        - base_ok AND Branches 1, 2A, 2B did NOT fire
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type == 0: forward cell is empty (no object)
         - inv_item != -1: agent is holding something
 
@@ -639,32 +628,28 @@ def _interact_drop_on_empty(
         | inv=o |       |   --->     | inv=- | onion |
         +-------+-------+            +-------+-------+
     """
-    b3_cond = (
-        base_ok & ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & (fwd_type == 0) & (inv_item != -1)
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (ctx["fwd_type"] == 0)
+        & (ctx["inv_item"] != -1)
     )
-    b3_otm = set_at_2d(object_type_map, fwd_r, fwd_c, inv_item)
-    b3_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
-    b3_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b3_cond, b3_inv, b3_otm, b3_osm
+    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], ctx["inv_item"])
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_pot(
-    b4_base,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_contents,
-    pot_idx,
-    has_pot_match,
-    pot_id,
-    legal_pot_ingredients,
-):
+def _branch_place_on_pot(handled, ctx):
     """Branch 4A: Place an ingredient into a pot.
 
-    Preconditions (all must be True, b4_base encodes the shared ones):
-        - b4_base: base_ok, no earlier branch fired, forward cell is a
-          place-on target, agent holds an item
+    Preconditions (all must be True):
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type == pot_id: forward cell is specifically a pot
         - has_pot_match: pot found in pot_positions array
         - legal_pot_ingredients[inv_item] == 1: held item is onion or tomato
@@ -687,8 +672,13 @@ def _interact_place_on_pot(
         | inv=o | [o, -, -] |     --->         | inv=- | [o, o, -] |
         +-------+-----------+                  +-------+-----------+
     """
-    is_pot = fwd_type == pot_id
-    is_legal = legal_pot_ingredients[inv_item] == 1
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+    pot_idx = ctx["pot_idx"]
+    pot_contents = ctx["pot_contents"]
+
+    is_pot = fwd_type == ctx["pot_id"]
+    is_legal = ctx["legal_pot_ingredients"][inv_item] == 1
     n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
     has_capacity = n_items_in_pot < 3
 
@@ -702,22 +692,25 @@ def _interact_place_on_pot(
     slot_empty = pot_contents[pot_idx] == -1
     first_empty_slot = xp.argmax(slot_empty)
 
-    b4_pot_cond = b4_base & is_pot & has_pot_match & is_legal & has_capacity & same_type
-    b4_pot_pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
-    b4_pot_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_pot_cond, b4_pot_inv, b4_pot_pc
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_pot
+        & ctx["has_pot_match"]
+        & is_legal
+        & has_capacity
+        & same_type
+    )
+    pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "pot_contents": pc}
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_delivery(
-    b4_base,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    delivery_zone_id,
-    onion_soup_id,
-    tomato_soup_id,
-):
+def _branch_place_on_delivery(handled, ctx):
     """Branch 4B: Place a soup on the delivery zone.
 
     Only soups (onion_soup or tomato_soup) can be delivered. Attempting
@@ -727,7 +720,11 @@ def _interact_place_on_delivery(
     agent's inventory. Scoring is handled by the reward function, not here.
 
     Preconditions (all must be True):
-        - b4_base: shared place-on preconditions
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type == delivery_zone_id: forward cell is a delivery zone
         - inv_item is onion_soup or tomato_soup
 
@@ -742,25 +739,26 @@ def _interact_place_on_delivery(
         | inv=S |  D.Z. |   --->     | inv=- |  D.Z. |
         +-------+-------+            +-------+-------+
     """
-    is_dz = fwd_type == delivery_zone_id
-    is_soup = (inv_item == onion_soup_id) | (inv_item == tomato_soup_id)
-    b4_dz_cond = b4_base & is_dz & is_soup
-    b4_dz_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_dz_cond, b4_dz_inv
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+
+    is_dz = fwd_type == ctx["delivery_zone_id"]
+    is_soup = (inv_item == ctx["onion_soup_id"]) | (inv_item == ctx["tomato_soup_id"])
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_dz
+        & is_soup
+    )
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv}
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_counter(
-    b4_base,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_state_map,
-    pot_id,
-    delivery_zone_id,
-):
+def _branch_place_on_counter(handled, ctx):
     """Branch 4C: Place a held item on a counter (generic place-on target).
 
     Counters store placed items in ``object_state_map`` rather than
@@ -773,7 +771,11 @@ def _interact_place_on_counter(
     pots and NOT delivery zones.
 
     Preconditions (all must be True):
-        - b4_base: shared place-on preconditions
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type is NOT pot_id and NOT delivery_zone_id
         - object_state_map[fwd_r, fwd_c] == 0: counter is empty
 
@@ -795,107 +797,40 @@ def _interact_place_on_counter(
         | inv=o | state=0 |   --->       | inv=- | state=o |
         +-------+---------+              +-------+---------+
     """
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+
     # Exclude pots and delivery zones (they have their own branches)
-    is_generic = ~(fwd_type == pot_id) & ~(fwd_type == delivery_zone_id)
-    counter_empty = object_state_map[fwd_r, fwd_c] == 0
-    b4_gen_cond = b4_base & is_generic & counter_empty
-    b4_gen_osm = set_at_2d(object_state_map, fwd_r, fwd_c, inv_item)
-    b4_gen_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_gen_cond, b4_gen_inv, b4_gen_osm
+    is_generic = ~(fwd_type == ctx["pot_id"]) & ~(fwd_type == ctx["delivery_zone_id"])
+    counter_empty = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]] == 0
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_generic
+        & counter_empty
+    )
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], inv_item)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
 # ======================================================================
-# Branch merge
+# Branch list (priority order)
 # ======================================================================
 
-
-def _apply_interaction_updates(
-    b1_cond,
-    b1_inv,
-    b1_otm,
-    b1_osm,
-    b2_pot_cond,
-    b2_pot_inv,
-    b2_pot_pc,
-    b2_pot_pt,
-    b2_stack_cond,
-    b2_stack_inv,
-    b3_cond,
-    b3_inv,
-    b3_otm,
-    b3_osm,
-    b4_pot_cond,
-    b4_pot_inv,
-    b4_pot_pc,
-    b4_dz_cond,
-    b4_dz_inv,
-    b4_gen_cond,
-    b4_gen_inv,
-    b4_gen_osm,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-    pot_contents,
-    pot_timer,
-):
-    """Merge all branch results into final arrays using cascading xp.where.
-
-    Each array is updated by every branch that could modify it. Because
-    branch conditions are mutually exclusive (enforced by the ~earlier_cond
-    guards), at most one condition is True for each array.
-
-    The cascade order matches the priority order:
-
-        Branch 1   (pickup)            -- highest priority
-        Branch 2A  (pickup from pot)
-        Branch 2B  (pickup from stack)
-        Branch 3   (drop on empty)
-        Branch 4A  (place on pot)
-        Branch 4B  (place on delivery)
-        Branch 4C  (place on counter)  -- lowest priority
-
-    Which arrays each branch modifies:
-
-        Branch  | agent_inv | obj_type_map | obj_state_map | pot_contents | pot_timer
-        --------|-----------|--------------|---------------|--------------|----------
-        1       |     X     |      X       |       X       |              |
-        2A      |     X     |              |               |      X       |     X
-        2B      |     X     |              |               |              |
-        3       |     X     |      X       |       X       |              |
-        4A      |     X     |              |               |      X       |
-        4B      |     X     |              |               |              |
-        4C      |     X     |              |       X       |              |
-
-    Returns (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer).
-    """
-    # --- agent_inv: modified by every branch ---
-    new_inv = xp.where(b1_cond, b1_inv, agent_inv)
-    new_inv = xp.where(b2_pot_cond, b2_pot_inv, new_inv)
-    new_inv = xp.where(b2_stack_cond, b2_stack_inv, new_inv)
-    new_inv = xp.where(b3_cond, b3_inv, new_inv)
-    new_inv = xp.where(b4_pot_cond, b4_pot_inv, new_inv)
-    new_inv = xp.where(b4_dz_cond, b4_dz_inv, new_inv)
-    new_inv = xp.where(b4_gen_cond, b4_gen_inv, new_inv)
-
-    # --- object_type_map: only Branch 1 (pickup removes object) and
-    #     Branch 3 (drop places object) ---
-    new_otm = xp.where(b1_cond, b1_otm, object_type_map)
-    new_otm = xp.where(b3_cond, b3_otm, new_otm)
-
-    # --- object_state_map: Branch 1 (clear cell), Branch 3 (clear cell),
-    #     Branch 4C (store item on counter) ---
-    new_osm = xp.where(b1_cond, b1_osm, object_state_map)
-    new_osm = xp.where(b3_cond, b3_osm, new_osm)
-    new_osm = xp.where(b4_gen_cond, b4_gen_osm, new_osm)
-
-    # --- pot_contents: Branch 2A (clear pot) and Branch 4A (add ingredient) ---
-    new_pc = xp.where(b2_pot_cond, b2_pot_pc, pot_contents)
-    new_pc = xp.where(b4_pot_cond, b4_pot_pc, new_pc)
-
-    # --- pot_timer: Branch 2A only (reset timer after soup pickup) ---
-    new_pt = xp.where(b2_pot_cond, b2_pot_pt, pot_timer)
-
-    return new_inv, new_otm, new_osm, new_pc, new_pt
+_BRANCHES = [
+    _branch_pickup,
+    _branch_pickup_from_pot,
+    _branch_pickup_from_stack,
+    _branch_drop_on_empty,
+    _branch_place_on_pot,
+    _branch_place_on_delivery,
+    _branch_place_on_counter,
+]
 
 
 # ======================================================================
@@ -923,19 +858,14 @@ def overcooked_interaction_body(
     This is the core dispatch function. It:
         1. Unpacks static lookup tables (type IDs, property arrays)
         2. Resolves which pot (if any) the agent is facing
-        3. Calls each branch function to compute conditions and would-be results
-        4. Calls _apply_interaction_updates to merge via cascading xp.where
+        3. Assembles a shared context dict (``ctx``) with all arrays and tables
+        4. Iterates ``_BRANCHES`` in priority order, accumulating a ``handled``
+           scalar that suppresses later branches once one fires
+        5. Merges branch results via sparse ``xp.where`` over the 5 output arrays
 
-    The branch evaluation order and mutual exclusion are critical:
-
-        Branch 1  -> b1_cond
-        Branch 2A -> requires ~b1_cond
-        Branch 2B -> requires ~b1_cond
-        Branch 3  -> requires ~b1_cond & ~b2_pot_cond & ~b2_stack_cond
-        Branch 4* -> requires ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & ~b3_cond
-
-    This ensures that if an agent could both pick up and place on (ambiguous),
-    pickup always wins.
+    Each branch receives ``(handled, ctx)`` and returns
+    ``(cond, updates_dict, new_handled)``. The ``~handled`` guard in each
+    branch's condition ensures mutual exclusion: at most one branch fires.
 
     Parameters
     ----------
@@ -985,153 +915,62 @@ def overcooked_interaction_body(
     pot_idx = xp.argmax(pot_match)
     has_pot_match = xp.any(pot_match)
 
-    # --- Branch 1: pickup loose object ---
-    b1_cond, b1_inv, b1_otm, b1_osm = _interact_pickup(
-        base_ok,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-        CAN_PICKUP,
-    )
+    # --- Assemble shared context ---
+    ctx = {
+        "base_ok": base_ok,
+        "fwd_type": fwd_type,
+        "fwd_r": fwd_r,
+        "fwd_c": fwd_c,
+        "inv_item": inv_item,
+        "agent_idx": agent_idx,
+        "agent_inv": agent_inv,
+        "object_type_map": object_type_map,
+        "object_state_map": object_state_map,
+        "pot_contents": pot_contents,
+        "pot_timer": pot_timer,
+        "pot_idx": pot_idx,
+        "has_pot_match": has_pot_match,
+        "CAN_PICKUP": CAN_PICKUP,
+        "CAN_PICKUP_FROM": CAN_PICKUP_FROM,
+        "CAN_PLACE_ON": CAN_PLACE_ON,
+        "pickup_from_produces": pickup_from_produces,
+        "legal_pot_ingredients": legal_pot_ingredients,
+        "pot_id": pot_id,
+        "plate_id": plate_id,
+        "tomato_id": tomato_id,
+        "onion_soup_id": onion_soup_id,
+        "tomato_soup_id": tomato_soup_id,
+        "delivery_zone_id": delivery_zone_id,
+        "cooking_time": cooking_time,
+    }
 
-    # --- Branch 2A: pickup cooked soup from pot ---
-    b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt = _interact_pickup_from_pot(
-        base_ok,
-        b1_cond,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_contents,
-        pot_timer,
-        pot_idx,
-        has_pot_match,
-        pot_id,
-        plate_id,
-        tomato_id,
-        onion_soup_id,
-        tomato_soup_id,
-        cooking_time,
-    )
+    # --- Evaluate all branches with accumulated handled ---
+    handled = xp.bool_(False)
+    branch_results = []
+    for branch_fn in _BRANCHES:
+        cond, updates, handled = branch_fn(handled, ctx)
+        branch_results.append((cond, updates))
 
-    # --- Branch 2B: pickup from stack (onion/tomato/plate dispenser) ---
-    b2_stack_cond, b2_stack_inv = _interact_pickup_from_stack(
-        base_ok,
-        b1_cond,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_id,
-        CAN_PICKUP_FROM,
-        pickup_from_produces,
-    )
+    # --- Merge results using sparse xp.where ---
+    inv = agent_inv
+    otm = object_type_map
+    osm = object_state_map
+    pc = pot_contents
+    pt = pot_timer
 
-    # --- Branch 3: drop on empty cell ---
-    b3_cond, b3_inv, b3_otm, b3_osm = _interact_drop_on_empty(
-        base_ok,
-        b1_cond,
-        b2_pot_cond,
-        b2_stack_cond,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-    )
+    for cond, updates in branch_results:
+        if "agent_inv" in updates:
+            inv = xp.where(cond, updates["agent_inv"], inv)
+        if "object_type_map" in updates:
+            otm = xp.where(cond, updates["object_type_map"], otm)
+        if "object_state_map" in updates:
+            osm = xp.where(cond, updates["object_state_map"], osm)
+        if "pot_contents" in updates:
+            pc = xp.where(cond, updates["pot_contents"], pc)
+        if "pot_timer" in updates:
+            pt = xp.where(cond, updates["pot_timer"], pt)
 
-    # --- Shared base condition for all place-on branches (4A, 4B, 4C) ---
-    # All three require: base_ok, no earlier branch fired, forward cell
-    # has a place-on target, and agent is holding something.
-    b4_base = (
-        base_ok
-        & ~b1_cond
-        & ~b2_pot_cond
-        & ~b2_stack_cond
-        & ~b3_cond
-        & (fwd_type > 0)
-        & (CAN_PLACE_ON[fwd_type] == 1)
-        & (inv_item != -1)
-    )
-
-    # --- Branch 4A: place ingredient on pot ---
-    b4_pot_cond, b4_pot_inv, b4_pot_pc = _interact_place_on_pot(
-        b4_base,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_contents,
-        pot_idx,
-        has_pot_match,
-        pot_id,
-        legal_pot_ingredients,
-    )
-
-    # --- Branch 4B: deliver soup to delivery zone ---
-    b4_dz_cond, b4_dz_inv = _interact_place_on_delivery(
-        b4_base,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        delivery_zone_id,
-        onion_soup_id,
-        tomato_soup_id,
-    )
-
-    # --- Branch 4C: place item on counter ---
-    b4_gen_cond, b4_gen_inv, b4_gen_osm = _interact_place_on_counter(
-        b4_base,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_state_map,
-        pot_id,
-        delivery_zone_id,
-    )
-
-    # --- Merge all branch results using cascading xp.where ---
-    return _apply_interaction_updates(
-        b1_cond,
-        b1_inv,
-        b1_otm,
-        b1_osm,
-        b2_pot_cond,
-        b2_pot_inv,
-        b2_pot_pc,
-        b2_pot_pt,
-        b2_stack_cond,
-        b2_stack_inv,
-        b3_cond,
-        b3_inv,
-        b3_otm,
-        b3_osm,
-        b4_pot_cond,
-        b4_pot_inv,
-        b4_pot_pc,
-        b4_dz_cond,
-        b4_dz_inv,
-        b4_gen_cond,
-        b4_gen_inv,
-        b4_gen_osm,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-        pot_contents,
-        pot_timer,
-    )
+    return inv, otm, osm, pc, pt
 
 
 # ======================================================================
