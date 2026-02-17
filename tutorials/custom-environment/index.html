@@ -1,0 +1,3784 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://chasemcd.github.io/cogrid/tutorials/custom-environment/">
+      
+      
+        <link rel="prev" href="../../concepts/architecture/">
+      
+      
+        <link rel="next" href="../jax-backend/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Custom Environment - CoGrid</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#implementing-a-new-environment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="CoGrid" class="md-header__button md-logo" aria-label="CoGrid" data-md-component="logo">
+      
+  <img src="../../assets/images/cogrid_logo_nobg.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoGrid
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Custom Environment
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/chasemcd/cogrid" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chasemcd/cogrid
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/architecture/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../environments/overcooked/" class="md-tabs__link">
+          
+  
+  
+  Environments
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cogrid/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="CoGrid" class="md-nav__button md-logo" aria-label="CoGrid" data-md-component="logo">
+      
+  <img src="../../assets/images/cogrid_logo_nobg.png" alt="logo">
+
+    </a>
+    CoGrid
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/chasemcd/cogrid" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chasemcd/cogrid
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Environment
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-your-project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Create Your Project Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-grid-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Define Grid Objects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-declare-extra-state-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Declare Extra State (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-write-the-tick-function-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Write the Tick Function (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-write-the-interaction-function-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Write the Interaction Function (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-define-reward-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Define Reward Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-7-define-feature-extractors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 7: Define Feature Extractors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-8-register-layouts-and-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 8: Register Layouts and Environments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-9-custom-agent-class-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 9: Custom Agent Class (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-10-custom-termination-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 10: Custom Termination (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-11-use-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 11: Use the Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-classmethod-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Classmethod Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jax-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JAX Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environments
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Environments
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/overcooked/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overcooked
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/search-rescue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search & Rescue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/goal-seeking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Goal Seeking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cogrid
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    cogrid
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/backend/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    backend
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_1" id="__nav_6_1_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    backend
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/backend/array_ops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    array_ops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/backend/env_state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    env_state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/backend/state_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    state_view
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/cogrid_env/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cogrid_env
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/core/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    core
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_4" id="__nav_6_1_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    core
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/autowire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    autowire
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/component_registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    component_registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/directions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    directions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid_object/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid_object_base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object_base
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid_object_registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object_registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/grid_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/layout_parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    layout_parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    layouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/movement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    movement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/rewards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rewards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/step_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    step_pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/core/typing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    typing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/envs/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    envs
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5" id="__nav_6_1_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    envs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/envs/goal_seeking/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    goal_seeking
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_1" id="__nav_6_1_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    goal_seeking
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/goal_seeking/agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/goal_seeking/goal_seeking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    goal_seeking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/envs/overcooked/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    overcooked
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_2" id="__nav_6_1_5_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    overcooked
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/overcooked/agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/overcooked/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/overcooked/features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/overcooked/overcooked_grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    overcooked_grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/overcooked/rewards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rewards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/envs/search_rescue/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    search_rescue
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_4" id="__nav_6_1_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    search_rescue
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/search_rescue/search_rescue_grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    search_rescue_grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/envs/search_rescue/sr_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sr_utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/feature_space/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feature_space
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_6" id="__nav_6_1_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    feature_space
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/feature_space/features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/rendering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rendering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_7" id="__nav_6_1_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    rendering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/rendering/env_renderer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    env_renderer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/run_interactive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    run_interactive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cogrid/visualization/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    visualization
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_9" id="__nav_6_1_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    visualization
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cogrid/visualization/rendering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rendering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-your-project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Create Your Project Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-grid-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Define Grid Objects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-declare-extra-state-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Declare Extra State (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-write-the-tick-function-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Write the Tick Function (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-write-the-interaction-function-if-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Write the Interaction Function (if needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-define-reward-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Define Reward Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-7-define-feature-extractors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 7: Define Feature Extractors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-8-register-layouts-and-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 8: Register Layouts and Environments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-9-custom-agent-class-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 9: Custom Agent Class (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-10-custom-termination-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 10: Custom Termination (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-11-use-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 11: Use the Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-classmethod-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Classmethod Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="implementing-a-new-environment">Implementing a New Environment<a class="headerlink" href="#implementing-a-new-environment" title="Permanent link">&para;</a></h1>
+<p>This guide walks through every step required to implement a new environment
+with CoGrid, using the built-in Overcooked environment as a concrete reference.
+By the end you will have:</p>
+<ul>
+<li>Grid objects with interaction properties</li>
+<li>A tick function for per-step state updates</li>
+<li>Custom interaction logic</li>
+<li>Reward functions</li>
+<li>Feature extractors for observations</li>
+<li>Layouts and environment registration</li>
+</ul>
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
+<p>Every CoGrid environment is assembled from four kinds of registered components:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>+-----------------------------+
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>|        CoGridEnv            |   Stateful wrapper (PettingZoo API)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>+-----------------------------+
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>| config dict                 |   Declares scope, features, rewards, layout
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>+----+------------------------+
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     |
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>     v
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>+----+------------------------+
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>|      Autowire Layer         |   Composes registered components into
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>|  build_scope_config()       |   a scope_config dict at init time
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>|  build_reward_config()      |
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>|  build_feature_config()     |
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>+----+------------------------+
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>     |
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>     v
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>+----+------------------------+
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>|      Step Pipeline          |   Pure function: (state, actions) -&gt; (state, obs, rewards, ...)
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>|  tick -&gt; move -&gt; interact   |
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>|  -&gt; observe -&gt; reward       |
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>+-----------------------------+
+</code></pre></div>
+<p>Components are registered via decorators and discovered automatically by the
+autowire layer. All custom behavior lives in your own project code and is
+injected into the engine through decorators and config entries. The decorators
+register your components into CoGrid's global registries at import time, so the
+engine can discover them without any changes to CoGrid's source.</p>
+<h2 id="step-1-create-your-project-structure">Step 1: Create Your Project Structure<a class="headerlink" href="#step-1-create-your-project-structure" title="Permanent link">&para;</a></h2>
+<p>After installing CoGrid (<code>pip install cogrid</code>), create a Python package for
+your environment in your own project:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>my_project/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    my_env/
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        __init__.py               # Triggers decorator registration
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        grid_objects.py           # Grid objects (@register_object_type)
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        config.py           # Interaction fn, tick fn, extra state builders
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        rewards.py                # Reward functions (@register_reward_type)
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        features.py               # Feature extractors (@register_feature_type)
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        agent.py                  # Custom Agent subclass (optional)
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    train.py                      # Your training script
+</code></pre></div>
+<p>The <code>__init__.py</code> must import every module that contains <code>@register_*</code>
+decorators so they execute at import time. This is what makes your components
+visible to the CoGrid engine:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># my_env/__init__.py</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">grid_objects</span>  <span class="c1"># noqa: F401 -- triggers @register_object_type</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">rewards</span>       <span class="c1"># noqa: F401 -- triggers @register_reward_type</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">features</span>      <span class="c1"># noqa: F401 -- triggers @register_feature_type</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You must <code>import my_env</code> (or the individual submodules) somewhere in your
+code <strong>before</strong> calling <code>registry.make()</code>. The decorators register
+components into CoGrid's global registries as a side effect of import.</p>
+</div>
+<h2 id="step-2-define-grid-objects">Step 2: Define Grid Objects<a class="headerlink" href="#step-2-define-grid-objects" title="Permanent link">&para;</a></h2>
+<p>Each object on the grid is a <code>GridObj</code> subclass registered with the
+<code>@register_object_type</code> decorator.</p>
+<p><strong>Required attributes:</strong></p>
+<ul>
+<li><code>object_id</code>: Unique string identifier (e.g., <code>"onion"</code>).</li>
+<li><code>color</code>: Rendering color (RGB tuple or <code>constants.Colors</code> enum).</li>
+<li><code>char</code>: Single ASCII character for layout strings. Must be unique within
+  the scope.</li>
+</ul>
+<p><strong>Decorator parameters</strong> declare static interaction properties that the engine
+uses to build lookup tables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nd">@register_object_type</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">object_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span>       <span class="c1"># Namespace for this object</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">can_pickup</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>     <span class="c1"># Agent can pick this up (removes from grid)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">can_overlap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>    <span class="c1"># Agent can walk onto this cell</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">can_place_on</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>   <span class="c1"># Agent can place held item onto this</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">can_pickup_from</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span><span class="c1"># Agent can take an item from this (it stays)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">is_wall</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>        <span class="c1"># Blocks movement</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
+</code></pre></div>
+<p>The <code>scope</code> parameter namespaces your objects so their <code>char</code> and
+<code>object_id</code> values don't collide with objects from other environments.
+Choose a unique scope string for your environment (e.g., <code>"my_env"</code>).</p>
+<p><strong>Overcooked example</strong> -- a simple pickupable object:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># my_env/grid_objects.py</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">grid_object</span><span class="p">,</span> <span class="n">constants</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.grid_object</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_object_type</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.visualization.rendering</span><span class="w"> </span><span class="kn">import</span> <span class="n">fill_coords</span><span class="p">,</span> <span class="n">point_in_circle</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@register_object_type</span><span class="p">(</span><span class="s2">&quot;onion&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;overcooked&quot;</span><span class="p">,</span> <span class="n">can_pickup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Onion</span><span class="p">(</span><span class="n">grid_object</span><span class="o">.</span><span class="n">GridObj</span><span class="p">):</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">object_id</span> <span class="o">=</span> <span class="s2">&quot;onion&quot;</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">color</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">Colors</span><span class="o">.</span><span class="n">Yellow</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">char</span> <span class="o">=</span> <span class="s2">&quot;o&quot;</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tile_img</span><span class="p">):</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="n">fill_coords</span><span class="p">(</span><span class="n">tile_img</span><span class="p">,</span> <span class="n">point_in_circle</span><span class="p">(</span><span class="n">cx</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">cy</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="mf">0.3</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Overcooked example</strong> -- an infinite dispenser (stays on the grid, agent
+receives a new item):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@register_object_type</span><span class="p">(</span><span class="s2">&quot;onion_stack&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;overcooked&quot;</span><span class="p">,</span> <span class="n">can_pickup_from</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">OnionStack</span><span class="p">(</span><span class="n">grid_object</span><span class="o">.</span><span class="n">GridObj</span><span class="p">):</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">object_id</span> <span class="o">=</span> <span class="s2">&quot;onion_stack&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">color</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">Colors</span><span class="o">.</span><span class="n">Yellow</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">char</span> <span class="o">=</span> <span class="s2">&quot;O&quot;</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_pickup_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="p">):</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pick_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="p">):</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="k">return</span> <span class="n">Onion</span><span class="p">()</span>  <span class="c1"># Creates a new Onion each time</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tile_img</span><span class="p">):</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>        <span class="o">...</span>
+</code></pre></div>
+<p><strong>Overcooked example</strong> -- a complex stateful object with component classmethods
+(the Pot). This is the most advanced pattern; see Steps 3-5 for what each
+classmethod does:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nd">@register_object_type</span><span class="p">(</span><span class="s2">&quot;pot&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;overcooked&quot;</span><span class="p">,</span> <span class="n">can_place_on</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">can_pickup_from</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">Pot</span><span class="p">(</span><span class="n">grid_object</span><span class="o">.</span><span class="n">GridObj</span><span class="p">):</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">object_id</span> <span class="o">=</span> <span class="s2">&quot;pot&quot;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">color</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">Colors</span><span class="o">.</span><span class="n">Grey</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">char</span> <span class="o">=</span> <span class="s2">&quot;U&quot;</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="c1"># ... OOP methods for rendering, can_place_on, etc. ...</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_tick_fn</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a (state, scope_config) -&gt; state function for per-step updates.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">my_env.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">my_tick_fn</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>        <span class="k">return</span> <span class="n">my_tick_fn</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extra_state_schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare extra state arrays this object needs.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>            <span class="s2">&quot;pot_contents&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;n_pots&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="s2">&quot;int32&quot;</span><span class="p">},</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>            <span class="s2">&quot;pot_timer&quot;</span><span class="p">:</span>    <span class="p">{</span><span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;n_pots&quot;</span><span class="p">,),</span>    <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="s2">&quot;int32&quot;</span><span class="p">},</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>            <span class="s2">&quot;pot_positions&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;n_pots&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="s2">&quot;int32&quot;</span><span class="p">},</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>        <span class="p">}</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extra_state_builder</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a function that initializes extra state from the parsed layout.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">my_env.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_extra_state</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a>        <span class="k">return</span> <span class="n">build_extra_state</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_static_tables</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return dict of additional lookup arrays for interaction logic.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">my_env.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_static_tables</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a>        <span class="k">return</span> <span class="n">build_static_tables</span><span class="p">()</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_render_sync_fn</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a function that syncs array state back to GridObj for rendering.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a>        <span class="o">...</span>
+</code></pre></div>
+<h2 id="step-3-declare-extra-state-if-needed">Step 3: Declare Extra State (if needed)<a class="headerlink" href="#step-3-declare-extra-state-if-needed" title="Permanent link">&para;</a></h2>
+<p>The core <code>EnvState</code> tracks six standard arrays:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>agent_pos          (n_agents, 2)  int32   -- [row, col] per agent
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>agent_dir          (n_agents,)    int32   -- direction enum per agent
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>agent_inv          (n_agents, 1)  int32   -- held item type_id, -1 = empty
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>wall_map           (H, W)        int32   -- wall positions
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>object_type_map    (H, W)        int32   -- type_id at each cell
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>object_state_map   (H, W)        int32   -- object state at each cell
+</code></pre></div>
+<p>If your environment needs additional state (e.g., cooking timers, health
+points), declare it via two classmethods on the relevant grid object:</p>
+<p><strong>extra_state_schema</strong> returns a dict of <code>{key: {"shape": tuple, "dtype": str}}</code>.
+Shape elements can be strings like <code>"n_pots"</code> -- these are resolved at init
+time by counting objects in the layout.</p>
+<p><strong>extra_state_builder</strong> returns a function that receives the parsed grid arrays
+and initializes the extra state. It runs once at <code>reset()</code> time.</p>
+<p>Extra state arrays are stored in <code>state.extra_state</code> with scope-prefixed
+keys. The prefix is <code>"&lt;scope&gt;."</code> and is added automatically:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># If your scope is &quot;my_env&quot; and you declared &quot;timer&quot; in the schema:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;my_env.timer&quot;</span><span class="p">]</span>   <span class="c1"># (n_objects,) int32</span>
+</code></pre></div>
+<h2 id="step-4-write-the-tick-function-if-needed">Step 4: Write the Tick Function (if needed)<a class="headerlink" href="#step-4-write-the-tick-function-if-needed" title="Permanent link">&para;</a></h2>
+<p>The tick function runs once per step <em>before</em> movement and interactions. Use
+it for time-based state machine logic (e.g., cooking timers, decay).</p>
+<p>Signature: <code>(state: EnvState, scope_config: dict) -&gt; EnvState</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># my_env/config.py</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">xp</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_tick_fn</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">):</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="c1"># Read extra state</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">timer</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;my_env.timer&quot;</span><span class="p">]</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="c1"># Update (branchless for JAX compatibility)</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">new_timer</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">timer</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">timer</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">timer</span><span class="p">)</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="c1"># Return updated state</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">new_extra</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">,</span> <span class="s2">&quot;my_env.timer&quot;</span><span class="p">:</span> <span class="n">new_timer</span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">extra_state</span><span class="o">=</span><span class="n">new_extra</span><span class="p">)</span>
+</code></pre></div>
+<p>Register it by returning it from <code>build_tick_fn</code> on a grid object class
+(Step 2). Only one tick function per scope is supported -- if multiple objects
+define <code>build_tick_fn</code>, the last one discovered wins.</p>
+<h2 id="step-5-write-the-interaction-function-if-needed">Step 5: Write the Interaction Function (if needed)<a class="headerlink" href="#step-5-write-the-interaction-function-if-needed" title="Permanent link">&para;</a></h2>
+<p>The generic engine handles basic interactions automatically:</p>
+<ul>
+<li><strong>pickup</strong>: Agent picks up an object from the cell ahead (if <code>can_pickup</code>).</li>
+<li><strong>pickup_from</strong>: Agent receives an item from a dispenser (if <code>can_pickup_from</code>).</li>
+<li><strong>drop</strong>: Agent drops held item onto an empty cell.</li>
+<li><strong>place_on</strong>: Agent places held item onto a target (if <code>can_place_on</code>).</li>
+</ul>
+<p>If your environment needs custom interaction logic beyond these four (e.g.,
+conditional placement, state machine transitions, item transformation), write
+a custom interaction function.</p>
+<p><strong>Signature:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_interaction_fn</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">agent_idx</span><span class="p">,</span> <span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">,</span> <span class="n">base_ok</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">):</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="sd">    Called once per agent per step (lower index = higher priority).</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="sd">    ----------</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="sd">    state : EnvState</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="sd">        Current environment state.</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="sd">    agent_idx : int</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="sd">        Index of the acting agent.</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="sd">    fwd_r, fwd_c : int</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="sd">        Row and column of the cell the agent is facing.</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="sd">    base_ok : bool</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="sd">        True if no other agent occupies the forward cell.</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="sd">    scope_config : dict</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="sd">        Contains &quot;type_ids&quot;, &quot;static_tables&quot;, etc.</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="sd">    Returns</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="sd">    -------</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="sd">    EnvState</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="sd">        Updated state after the interaction.</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>    <span class="o">...</span>
+</code></pre></div>
+<p><strong>Overcooked example</strong> -- the Overcooked interaction function dispatches to
+7 branches:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Agent presses PickupDrop while facing a cell
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>|
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>+-- Agent has empty inventory?
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>|   +-- Cell has a pickupable object?      -&gt; PICKUP (remove from grid)
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>|   +-- Cell is a stack/dispenser?          -&gt; PICKUP_FROM (get new item)
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>|   +-- Cell is a pot with cooked soup      -&gt; (rejected: needs plate)
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>|       and agent has plate?
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>|
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>+-- Agent is holding an item?
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    +-- Cell is empty?                      -&gt; DROP (place on grid)
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    +-- Cell is a pot with capacity?        -&gt; PLACE_ON_POT (add ingredient)
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    +-- Cell is a delivery zone?            -&gt; PLACE_ON_DELIVERY (deliver soup)
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    +-- Cell is an empty counter?           -&gt; PLACE_ON_COUNTER (store item)
+</code></pre></div>
+<p>The interaction function is passed directly in the config dict (Step 8), <em>not</em>
+discovered from a classmethod. This keeps scope-wide orchestration logic
+explicit and separate from individual object definitions.</p>
+<p><strong>JAX compatibility</strong>: All branches must compute results unconditionally using
+<code>xp.where(condition, branch_result, fallback)</code> -- no Python <code>if/else</code> on
+traced values. This allows JAX to compile the function.</p>
+<h2 id="step-6-define-reward-functions">Step 6: Define Reward Functions<a class="headerlink" href="#step-6-define-reward-functions" title="Permanent link">&para;</a></h2>
+<p>Reward functions are <code>Reward</code> subclasses registered with
+<code>@register_reward_type</code>. Each computes a <code>(n_agents,)</code> float32 array.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># my_env/rewards.py</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">xp</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.rewards</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reward</span><span class="p">,</span> <span class="n">register_reward_type</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nd">@register_reward_type</span><span class="p">(</span><span class="s2">&quot;delivery&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;my_env&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">DeliveryReward</span><span class="p">(</span><span class="n">Reward</span><span class="p">):</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_state</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">reward_config</span><span class="p">):</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="sd">        Parameters</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="sd">        ----------</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="sd">        prev_state : StateView</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="sd">            State before the step. Dot-access for core fields</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="sd">            (agent_pos, agent_inv, object_type_map, ...) and</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="sd">            __getattr__ fallthrough for extra state (e.g., pot_timer).</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="sd">        state : StateView</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="sd">            State after the step.</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="sd">        actions : ndarray</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="sd">            (n_agents,) int32 action indices.</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="sd">        reward_config : dict</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="sd">            Contains &quot;type_ids&quot;, &quot;n_agents&quot;, &quot;action_pickup_drop_idx&quot;.</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="sd">        Returns</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="sd">        -------</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="sd">        ndarray</span>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="sd">            (n_agents,) float32 final rewards.</span>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>        <span class="n">type_ids</span> <span class="o">=</span> <span class="n">reward_config</span><span class="p">[</span><span class="s2">&quot;type_ids&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>        <span class="n">n_agents</span> <span class="o">=</span> <span class="n">reward_config</span><span class="p">[</span><span class="s2">&quot;n_agents&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>
+<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>        <span class="c1"># Check which agents delivered soup</span>
+<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>        <span class="n">holds_soup</span> <span class="o">=</span> <span class="n">prev_state</span><span class="o">.</span><span class="n">agent_inv</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">type_ids</span><span class="p">[</span><span class="s2">&quot;onion_soup&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>        <span class="c1"># ... compute forward positions, check delivery zone ...</span>
+<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>
+<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>        <span class="c1"># Shared reward: broadcast sum to all agents</span>
+<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>        <span class="n">n_earners</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">earns_reward</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>        <span class="k">return</span> <span class="n">xp</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_agents</span><span class="p">,</span> <span class="n">n_earners</span> <span class="o">*</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Key details:</strong></p>
+<ul>
+<li><code>compute()</code> returns <em>final</em> <code>(n_agents,)</code> rewards. Apply any scaling or
+  broadcasting (e.g., shared reward across all agents) inside <code>compute()</code>.</li>
+<li><code>prev_state</code> and <code>state</code> are <code>StateView</code> objects, not <code>EnvState</code>.
+  <code>StateView</code> provides dot-access with scope-stripped extra state keys
+  (e.g., <code>prev_state.pot_timer</code> instead of
+  <code>prev_state.extra_state["my_env.pot_timer"]</code>).</li>
+<li>Multiple rewards can be registered per scope. They are summed at step time.</li>
+</ul>
+<h2 id="step-7-define-feature-extractors">Step 7: Define Feature Extractors<a class="headerlink" href="#step-7-define-feature-extractors" title="Permanent link">&para;</a></h2>
+<p>Features define the observation space. Each is a <code>Feature</code> subclass
+registered with <code>@register_feature_type</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># my_env/features.py</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">xp</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feature</span><span class="p">,</span> <span class="n">register_feature_type</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nd">@register_feature_type</span><span class="p">(</span><span class="s2">&quot;my_inventory&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;my_env&quot;</span><span class="p">)</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyInventory</span><span class="p">(</span><span class="n">Feature</span><span class="p">):</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">per_agent</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># True: fn(state, agent_idx), False: fn(state)</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">obs_dim</span> <span class="o">=</span> <span class="mi">5</span>        <span class="c1"># Output size after ravel()</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_feature_fn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">scope</span><span class="p">):</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and return a pure feature function.</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="sd">        Called once at init time. The returned function is called every</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="sd">        step for every agent.</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="c1"># Pre-compute constants at build time (not per-call)</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.grid_object</span><span class="w"> </span><span class="kn">import</span> <span class="n">object_to_idx</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="n">item_type_ids</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>            <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;item_a&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">),</span>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>            <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;item_b&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">),</span>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>            <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;item_c&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">),</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>            <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;item_d&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">),</span>
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>            <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;item_e&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">),</span>
+<a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>        <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xp</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>
+<a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">fn</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">agent_idx</span><span class="p">):</span>
+<a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>            <span class="n">held</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">agent_inv</span><span class="p">[</span><span class="n">agent_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>            <span class="k">return</span> <span class="p">(</span><span class="n">item_type_ids</span> <span class="o">==</span> <span class="n">held</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>
+<a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a>        <span class="k">return</span> <span class="n">fn</span>
+</code></pre></div>
+<p><strong>Two types of features:</strong></p>
+<ol>
+<li>
+<p><strong>Per-agent</strong> (<code>per_agent = True</code>): Function signature is
+   <code>fn(state, agent_idx) -&gt; (obs_dim,) array</code>. Composed in ego-centric
+   order: focal agent first, then other agents in ascending index.</p>
+</li>
+<li>
+<p><strong>Global</strong> (<code>per_agent = False</code>): Function signature is
+   <code>fn(state) -&gt; (obs_dim,) array</code>. Appended once after all per-agent blocks.</p>
+</li>
+</ol>
+<p><strong>Composition order</strong> (automatic):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>[focal per-agent feats] [agent_1 per-agent feats] ... [global feats]
+</code></pre></div>
+<p><strong>State access</strong>: Like rewards, the <code>state</code> parameter in feature functions is
+a <code>StateView</code>, so extra state is accessible via dot notation
+(<code>state.pot_timer</code>).</p>
+<p><strong>Layout hooks</strong> (optional): If features depend on a layout index (e.g.,
+one-hot layout encoding), register layout indices and a pre-compose hook:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.component_registry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">register_layout_indices</span><span class="p">,</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">register_pre_compose_hook</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="p">)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">register_layout_indices</span><span class="p">(</span><span class="s2">&quot;my_env&quot;</span><span class="p">,</span> <span class="p">{</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="s2">&quot;my_layout_v0&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="s2">&quot;my_layout_v1&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="p">})</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">_pre_compose_hook</span><span class="p">(</span><span class="n">layout_idx</span><span class="p">,</span> <span class="n">scope</span><span class="p">):</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Called before feature composition with the current layout index.&quot;&quot;&quot;</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="o">...</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="n">register_pre_compose_hook</span><span class="p">(</span><span class="s2">&quot;my_env&quot;</span><span class="p">,</span> <span class="n">_pre_compose_hook</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="step-8-register-layouts-and-environments">Step 8: Register Layouts and Environments<a class="headerlink" href="#step-8-register-layouts-and-environments" title="Permanent link">&para;</a></h2>
+<p><strong>Layouts</strong> are ASCII strings where each character maps to a registered
+grid object via its <code>char</code> attribute. Special characters:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>#   Wall (global scope)
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>+   Agent spawn point
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>C   Counter (global scope)
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    (space) Empty / free space
+</code></pre></div>
+<p>All other characters are resolved from the scope you specify in the config.</p>
+<p>Register a layout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">layouts</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">layouts</span><span class="o">.</span><span class="n">register_layout</span><span class="p">(</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="s2">&quot;my_layout_v0&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="p">[</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="s2">&quot;#######&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>        <span class="s2">&quot;#++  G#&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        <span class="s2">&quot;#     #&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        <span class="s2">&quot;#  X  #&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="s2">&quot;#G   G#&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>        <span class="s2">&quot;#######&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="p">],</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Environment config dict</strong> -- declares everything the engine needs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">my_interaction_fn</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="n">my_config</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_env&quot;</span><span class="p">,</span>                        <span class="c1"># Human-readable name</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="s2">&quot;num_agents&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>                          <span class="c1"># Number of agents</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="s2">&quot;action_set&quot;</span><span class="p">:</span> <span class="s2">&quot;cardinal_actions&quot;</span><span class="p">,</span>         <span class="c1"># &quot;cardinal_actions&quot; or &quot;rotation_actions&quot;</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="s2">&quot;features&quot;</span><span class="p">:</span> <span class="p">[</span>                             <span class="c1"># Feature names to compose into obs</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>        <span class="s2">&quot;agent_dir&quot;</span><span class="p">,</span>                          <span class="c1"># Built-in feature (global scope)</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>        <span class="s2">&quot;agent_position&quot;</span><span class="p">,</span>                     <span class="c1"># Built-in feature (global scope)</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>        <span class="s2">&quot;my_inventory&quot;</span><span class="p">,</span>                       <span class="c1"># Your custom feature (Step 7)</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    <span class="p">],</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    <span class="s2">&quot;grid&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;layout&quot;</span><span class="p">:</span> <span class="s2">&quot;my_layout_v0&quot;</span><span class="p">},</span>       <span class="c1"># Layout to use</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>    <span class="s2">&quot;max_steps&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>                        <span class="c1"># Truncation limit</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>    <span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;my_env&quot;</span><span class="p">,</span>                        <span class="c1"># Scope for component lookup</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    <span class="s2">&quot;interaction_fn&quot;</span><span class="p">:</span> <span class="n">my_interaction_fn</span><span class="p">,</span>       <span class="c1"># Custom interaction (optional)</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Config keys reference:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Human-readable environment name.</td>
+</tr>
+<tr>
+<td><code>num_agents</code></td>
+<td>Number of agents to place in the environment.</td>
+</tr>
+<tr>
+<td><code>action_set</code></td>
+<td><code>"cardinal_actions"</code> (up/down/left/right + pickup/toggle/noop) or <code>"rotation_actions"</code> (forward + rotate + pickup/toggle/noop).</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td>List of registered feature names to compose into observations.</td>
+</tr>
+<tr>
+<td><code>grid</code></td>
+<td>Either <code>{"layout": "name"}</code> or <code>{"layout_fn": callable}</code>.</td>
+</tr>
+<tr>
+<td><code>max_steps</code></td>
+<td>Steps before truncation.</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td>Scope string for all component lookups.</td>
+</tr>
+<tr>
+<td><code>interaction_fn</code></td>
+<td>Custom interaction function (optional, see Step 5).</td>
+</tr>
+<tr>
+<td><code>terminated_fn</code></td>
+<td>Custom termination function (optional, see below).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Register the environment:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.cogrid_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoGridEnv</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.envs</span><span class="w"> </span><span class="kn">import</span> <span class="n">registry</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyAgent</span>  <span class="c1"># Your custom agent class (optional)</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="s2">&quot;MyEnv-V0&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>        <span class="n">CoGridEnv</span><span class="p">,</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>        <span class="n">config</span><span class="o">=</span><span class="n">my_config</span><span class="p">,</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>        <span class="n">agent_class</span><span class="o">=</span><span class="n">MyAgent</span><span class="p">,</span>  <span class="c1"># Omit to use the default Agent class</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="p">),</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Multiple layouts</strong> can share the same config via <code>copy.deepcopy</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">alt_config</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">my_config</span><span class="p">)</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">alt_config</span><span class="p">[</span><span class="s2">&quot;grid&quot;</span><span class="p">][</span><span class="s2">&quot;layout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;my_layout_v1&quot;</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="s2">&quot;MyEnv-AltLayout-V0&quot;</span><span class="p">,</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">CoGridEnv</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">alt_config</span><span class="p">,</span> <span class="n">agent_class</span><span class="o">=</span><span class="n">MyAgent</span><span class="p">),</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">)</span>
+</code></pre></div>
+<p>You can put all layout and registration code in your <code>my_env/__init__.py</code> or
+in a dedicated setup module -- just make sure it runs before you call
+<code>registry.make()</code>.</p>
+<h2 id="step-9-custom-agent-class-optional">Step 9: Custom Agent Class (optional)<a class="headerlink" href="#step-9-custom-agent-class-optional" title="Permanent link">&para;</a></h2>
+<p>The base <code>Agent</code> class handles movement, inventory, and direction. Subclass
+it only if you need custom <code>can_pickup</code> logic or additional agent state.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># my_env/agent.py</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.core.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">grid_objects</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyAgent</span><span class="p">(</span><span class="n">Agent</span><span class="p">):</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_pickup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_object</span><span class="p">):</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>        <span class="c1"># Example: can only pick up from a Pot if holding a Plate</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid_object</span><span class="p">,</span> <span class="n">grid_objects</span><span class="o">.</span><span class="n">Pot</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>            <span class="nb">isinstance</span><span class="p">(</span><span class="n">inv_obj</span><span class="p">,</span> <span class="n">grid_objects</span><span class="o">.</span><span class="n">Plate</span><span class="p">)</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>            <span class="k">for</span> <span class="n">inv_obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inventory</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>        <span class="p">):</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>            <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inventory</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">inventory_capacity</span>
+</code></pre></div>
+<p>Pass the custom agent class via the <code>agent_class</code> parameter when registering
+the environment (Step 8).</p>
+<h2 id="step-10-custom-termination-optional">Step 10: Custom Termination (optional)<a class="headerlink" href="#step-10-custom-termination-optional" title="Permanent link">&para;</a></h2>
+<p>By default, episodes end when <code>max_steps</code> is reached (truncation). For
+custom termination conditions (e.g., all targets collected), pass a
+<code>terminated_fn</code> in the config:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">xp</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_terminated_fn</span><span class="p">(</span><span class="n">prev_state</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">reward_config</span><span class="p">):</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="sd">    Returns (n_agents,) bool array. True = agent is terminated.</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="c1"># Example: terminate when no targets remain on the grid</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="n">type_ids</span> <span class="o">=</span> <span class="n">reward_config</span><span class="p">[</span><span class="s2">&quot;type_ids&quot;</span><span class="p">]</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>    <span class="n">targets_remaining</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">object_type_map</span> <span class="o">==</span> <span class="n">type_ids</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">])</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>    <span class="n">all_done</span> <span class="o">=</span> <span class="o">~</span><span class="n">targets_remaining</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>    <span class="k">return</span> <span class="n">xp</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">n_agents</span><span class="p">,</span> <span class="n">all_done</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xp</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="n">my_config</span><span class="p">[</span><span class="s2">&quot;terminated_fn&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">my_terminated_fn</span>
+</code></pre></div>
+<h2 id="step-11-use-the-environment">Step 11: Use the Environment<a class="headerlink" href="#step-11-use-the-environment" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># train.py</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cogrid.envs</span><span class="w"> </span><span class="kn">import</span> <span class="n">registry</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">my_env</span>  <span class="c1"># Triggers all @register_* decorators in your package</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="n">env</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;MyEnv-V0&quot;</span><span class="p">)</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="n">obs</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="k">while</span> <span class="n">env</span><span class="o">.</span><span class="n">agents</span><span class="p">:</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>    <span class="n">actions</span> <span class="o">=</span> <span class="p">{</span><span class="n">agent</span><span class="p">:</span> <span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">env</span><span class="o">.</span><span class="n">agents</span><span class="p">}</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>    <span class="n">obs</span><span class="p">,</span> <span class="n">rewards</span><span class="p">,</span> <span class="n">terminateds</span><span class="p">,</span> <span class="n">truncateds</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
+</code></pre></div>
+<p>The critical line is <code>import my_env</code> -- this executes your <code>__init__.py</code>
+which imports the submodules, which triggers all the <code>@register_*</code> decorators
+that register your grid objects, rewards, and features into CoGrid's engine.</p>
+<h2 id="complete-checklist">Complete Checklist<a class="headerlink" href="#complete-checklist" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>[ ] 1. pip install cogrid
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>[ ] 2. Create my_env/ package in your project
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>[ ] 3. Write __init__.py with imports that trigger all @register_* decorators
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>[ ] 4. Define grid objects with @register_object_type (unique chars per scope)
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>[ ] 5. If needed: declare extra_state_schema + extra_state_builder on a grid object
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>[ ] 6. If needed: write tick function and register via build_tick_fn classmethod
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>[ ] 7. If needed: write interaction function, pass via config[&quot;interaction_fn&quot;]
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>[ ] 8. Define rewards with @register_reward_type
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>[ ] 9. Define features with @register_feature_type
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>[ ] 10. Register layouts with layouts.register_layout()
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>[ ] 11. Build config dict and register environment with registry.register()
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>[ ] 12. If needed: subclass Agent for custom can_pickup logic
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>[ ] 13. If needed: add terminated_fn to config for custom episode termination
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>[ ] 14. import my_env before calling registry.make()
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>[ ] 15. Test: env = registry.make(&quot;MyEnv-V0&quot;); env.reset()
+</code></pre></div>
+<h2 id="component-classmethod-reference">Component Classmethod Reference<a class="headerlink" href="#component-classmethod-reference" title="Permanent link">&para;</a></h2>
+<p>These classmethods can be defined on any <code>@register_object_type</code> class. They
+are discovered automatically by the decorator and wired into the step pipeline.</p>
+<table>
+<thead>
+<tr>
+<th>Classmethod</th>
+<th>Signature of returned value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>build_tick_fn</code></td>
+<td><code>(state, scope_config) -&gt; state</code></td>
+<td>Per-step state updates</td>
+</tr>
+<tr>
+<td><code>extra_state_schema</code></td>
+<td><code>-&gt; dict</code></td>
+<td>Declare extra state arrays</td>
+</tr>
+<tr>
+<td><code>extra_state_builder</code></td>
+<td><code>-&gt; fn(parsed, scope) -&gt; dict</code></td>
+<td>Initialize extra state</td>
+</tr>
+<tr>
+<td><code>build_static_tables</code></td>
+<td><code>-&gt; dict</code></td>
+<td>Additional lookup arrays</td>
+</tr>
+<tr>
+<td><code>build_render_sync_fn</code></td>
+<td><code>-&gt; fn(grid, state, scope) -&gt; None</code></td>
+<td>Sync arrays to GridObj for rendering</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "content.tabs.link", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

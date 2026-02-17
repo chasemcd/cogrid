@@ -1,0 +1,4288 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://chasemcd.github.io/cogrid/reference/cogrid/envs/overcooked/config/">
+      
+      
+        <link rel="prev" href="../agent/">
+      
+      
+        <link rel="next" href="../features/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>config - CoGrid</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cogrid.envs.overcooked.config" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../../.." title="CoGrid" class="md-header__button md-logo" aria-label="CoGrid" data-md-component="logo">
+      
+  <img src="../../../../../assets/images/cogrid_logo_nobg.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CoGrid
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              config
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/chasemcd/cogrid" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chasemcd/cogrid
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../../concepts/architecture/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../../tutorials/custom-environment/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../../environments/overcooked/" class="md-tabs__link">
+          
+  
+  
+  Environments
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../../" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../../.." title="CoGrid" class="md-nav__button md-logo" aria-label="CoGrid" data-md-component="logo">
+      
+  <img src="../../../../../assets/images/cogrid_logo_nobg.png" alt="logo">
+
+    </a>
+    CoGrid
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/chasemcd/cogrid" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chasemcd/cogrid
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../tutorials/custom-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../tutorials/jax-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JAX Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environments
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Environments
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../environments/overcooked/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overcooked
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../environments/search-rescue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search & Rescue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../environments/goal-seeking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Goal Seeking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cogrid
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    cogrid
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../backend/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    backend
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_1" id="__nav_6_1_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    backend
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../backend/array_ops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    array_ops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../backend/env_state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    env_state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../backend/state_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    state_view
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cogrid_env/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cogrid_env
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../core/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    core
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_4" id="__nav_6_1_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    core
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/autowire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    autowire
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/component_registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    component_registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/directions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    directions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid_object/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid_object_base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object_base
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid_object_registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_object_registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/grid_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/layout_parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    layout_parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    layouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/movement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    movement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/rewards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rewards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/step_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    step_pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core/typing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    typing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    envs
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5" id="__nav_6_1_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6_1_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    envs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../goal_seeking/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    goal_seeking
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_1" id="__nav_6_1_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    goal_seeking
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../goal_seeking/agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../goal_seeking/goal_seeking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    goal_seeking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1_5_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    overcooked
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_2" id="__nav_6_1_5_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6_1_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    overcooked
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    config
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--overcooked-interaction-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overcooked Interaction Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overcooked Interaction Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--array-layout-extra_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Array layout (extra_state)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--branchless-xpwhere-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branchless xp.where pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.build_overcooked_extra_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;build_overcooked_extra_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_interaction_fn
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" overcooked_interaction_fn">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_tick" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_tick
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_tick_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_tick_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_interaction_body
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" overcooked_interaction_body">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overcooked_grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    overcooked_grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rewards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rewards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_5_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../search_rescue/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    search_rescue
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_5_4" id="__nav_6_1_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_6_1_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    search_rescue
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search_rescue/search_rescue_grid_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    search_rescue_grid_objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search_rescue/sr_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sr_utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../feature_space/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feature_space
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_6" id="__nav_6_1_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    feature_space
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../feature_space/features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../rendering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rendering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_7" id="__nav_6_1_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    rendering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../rendering/env_renderer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    env_renderer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../run_interactive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    run_interactive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_1_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../visualization/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    visualization
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1_9" id="__nav_6_1_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_1_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    visualization
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../visualization/rendering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rendering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--overcooked-interaction-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overcooked Interaction Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overcooked Interaction Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--array-layout-extra_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Array layout (extra_state)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config--branchless-xpwhere-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branchless xp.where pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.build_overcooked_extra_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;build_overcooked_extra_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_interaction_fn
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" overcooked_interaction_fn">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_tick" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_tick
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_tick_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_tick_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;overcooked_interaction_body
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" overcooked_interaction_body">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cogrid.envs.overcooked.config.overcooked_interaction_body--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>config</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="cogrid.envs.overcooked.config" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>cogrid.envs.overcooked.config</code>
+
+
+<a href="#cogrid.envs.overcooked.config" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Overcooked-specific array configuration.</p>
+<p>Provides environment-specific array logic for Overcooked: tick handlers,
+interaction function, extra state building, and static table construction.</p>
+<p>Key public functions:</p>
+<ul>
+<li><code>build_overcooked_extra_state</code> -- extra_state builder for pot arrays</li>
+<li><code>overcooked_interaction_fn</code> -- per-agent interaction with (state, ...) -&gt; state signature</li>
+<li><code>overcooked_interaction_body</code> -- low-level per-agent dispatch to branch handlers</li>
+<li><code>overcooked_tick</code> -- unified pot cooking timer state machine</li>
+<li><code>overcooked_tick_state</code> -- tick handler with generic signature</li>
+</ul>
+<h3 id="cogrid.envs.overcooked.config--overcooked-interaction-overview">Overcooked Interaction Overview<a class="headerlink" href="#cogrid.envs.overcooked.config--overcooked-interaction-overview" title="Permanent link">&para;</a></h3>
+<p>When an agent issues a PickupDrop action, <code>process_interactions</code> (in
+<code>cogrid.core.interactions</code>) determines the cell the agent is facing and
+whether another agent is blocking it. It then calls
+<code>overcooked_interaction_fn</code> once per agent (lower index = higher priority).</p>
+<p>The interaction resolves to exactly one of seven mutually exclusive branches,
+evaluated in strict priority order. The first branch whose condition is True
+wins; all later branches are suppressed via cascading <code>~earlier_cond</code> guards.</p>
+<p>Decision tree (evaluated per agent per step):</p>
+<div class="highlight"><pre><span></span><code>base_ok?  (agent issued PickupDrop AND no other agent in the forward cell)
+    |
+    +-- No  --&gt; no-op (all branches short-circuit)
+    |
+    +-- Yes
+         |
+         +-- Branch 1: PICKUP loose object
+         |     condition: forward cell has a pickupable object, hand is empty
+         |     effect:    object moves from grid to agent inventory
+         |
+         +-- Branch 2A: PICKUP FROM POT (cooked soup)
+         |     condition: forward cell is a pot, pot is done cooking,
+         |                agent holds a plate
+         |     effect:    plate replaced with soup in inventory,
+         |                pot contents/timer reset
+         |
+         +-- Branch 2B: PICKUP FROM STACK (dispenser)
+         |     condition: forward cell is a stack (onion/tomato/plate),
+         |                hand is empty
+         |     effect:    produced item placed in agent inventory,
+         |                stack remains on grid (infinite supply)
+         |
+         +-- Branch 3: DROP on empty cell
+         |     condition: forward cell is empty (type 0), hand is not empty
+         |     effect:    held item placed on grid, inventory cleared
+         |
+         +-- Branch 4 (place-on): agent holds an item, forward cell is
+         |   a &quot;place-on&quot; target (pot, delivery zone, or counter)
+         |     |
+         |     +-- 4A: PLACE ON POT
+         |     |     condition: forward cell is pot, held item is a legal
+         |     |                ingredient, pot has capacity, same ingredient type
+         |     |     effect:    item added to pot_contents, inventory cleared
+         |     |
+         |     +-- 4B: PLACE ON DELIVERY ZONE
+         |     |     condition: forward cell is delivery zone, held item is soup
+         |     |     effect:    soup removed from inventory (delivery scored
+         |     |                by the reward function, not here)
+         |     |
+         |     +-- 4C: PLACE ON COUNTER
+         |           condition: forward cell is a counter/generic place-on
+         |                      target (not pot, not delivery zone),
+         |                      counter cell is empty (state == 0)
+         |           effect:    item stored in object_state_map, inventory cleared
+</code></pre></div>
+<h4 id="cogrid.envs.overcooked.config--array-layout-extra_state">Array layout (extra_state)<a class="headerlink" href="#cogrid.envs.overcooked.config--array-layout-extra_state" title="Permanent link">&para;</a></h4>
+<p>Each pot on the grid is tracked by index in three parallel arrays stored
+in <code>state.extra_state</code>:</p>
+<div class="highlight"><pre><span></span><code>pot_contents:  (n_pots, 3) int32   -- type IDs of ingredients, -1 = empty slot
+pot_timer:     (n_pots,)   int32   -- cooking countdown, 30 = not started, 0 = done
+pot_positions: (n_pots, 2) int32   -- (row, col) of each pot on the grid
+</code></pre></div>
+<p>Example with 2 pots, pot 0 has two onions cooking, pot 1 is empty:</p>
+<div class="highlight"><pre><span></span><code>pot_contents = [[onion_id, onion_id, -1],    pot_timer = [25, 30]
+                [-1,       -1,       -1]]
+</code></pre></div>
+<p>To find which pot the agent is facing, we compare the agent's forward
+position against all entries in pot_positions and take argmax of the
+boolean match vector.</p>
+<h4 id="cogrid.envs.overcooked.config--branchless-xpwhere-pattern">Branchless xp.where pattern<a class="headerlink" href="#cogrid.envs.overcooked.config--branchless-xpwhere-pattern" title="Permanent link">&para;</a></h4>
+<p>Every branch function computes BOTH the condition (bool scalar) AND the
+would-be result arrays unconditionally. No Python if/else gates the
+computation -- this is required for JAX tracing where all code paths
+must execute. The final <code>_apply_interaction_updates</code> merges results
+using cascading <code>xp.where(cond, branch_result, previous)</code>:</p>
+<div class="highlight"><pre><span></span><code>result = xp.where(b1_cond, b1_result, original)
+result = xp.where(b2_cond, b2_result, result)
+...
+</code></pre></div>
+<p>Because conditions are mutually exclusive (each guards against all
+earlier conditions), exactly zero or one condition is True, so the
+final value is either the matching branch's result or the original.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cogrid.envs.overcooked.config.build_overcooked_extra_state" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">build_overcooked_extra_state</span><span class="p">(</span><span class="n">parsed_arrays</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s1">&#39;overcooked&#39;</span><span class="p">)</span></code>
+
+<a href="#cogrid.envs.overcooked.config.build_overcooked_extra_state" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Build pot state arrays (contents, timer, positions) from the layout.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>cogrid/envs/overcooked/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_overcooked_extra_state</span><span class="p">(</span><span class="n">parsed_arrays</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;overcooked&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build pot state arrays (contents, timer, positions) from the layout.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="n">pot_type_id</span> <span class="o">=</span> <span class="n">object_to_idx</span><span class="p">(</span><span class="s2">&quot;pot&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">)</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="n">otm</span> <span class="o">=</span> <span class="n">parsed_arrays</span><span class="p">[</span><span class="s2">&quot;object_type_map&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="c1"># Find pot positions from object_type_map.</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">pot_mask</span> <span class="o">=</span> <span class="n">otm</span> <span class="o">==</span> <span class="n">pot_type_id</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="n">pot_positions_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pot_mask</span><span class="p">)))</span>  <span class="c1"># list of (row, col)</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">n_pots</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pot_positions_list</span><span class="p">)</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="k">if</span> <span class="n">n_pots</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>        <span class="n">pot_positions</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pot_positions_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>        <span class="n">pot_contents</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_pots</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">pot_timer</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_pots</span><span class="p">,),</span> <span class="mi">30</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="n">pot_positions</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="n">pot_contents</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>        <span class="n">pot_timer</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>        <span class="s2">&quot;overcooked.pot_contents&quot;</span><span class="p">:</span> <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>        <span class="s2">&quot;overcooked.pot_timer&quot;</span><span class="p">:</span> <span class="n">pot_timer</span><span class="p">,</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>        <span class="s2">&quot;overcooked.pot_positions&quot;</span><span class="p">:</span> <span class="n">pot_positions</span><span class="p">,</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>    <span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cogrid.envs.overcooked.config.overcooked_interaction_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">overcooked_interaction_fn</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">agent_idx</span><span class="p">,</span> <span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">,</span> <span class="n">base_ok</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">)</span></code>
+
+<a href="#cogrid.envs.overcooked.config.overcooked_interaction_fn" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Per-agent Overcooked interaction: state in, state out.</p>
+<p>Called once per agent by <code>process_interactions</code> in priority order
+(agent 0 first). Mutations from earlier agents are visible to later
+agents because the updated state is threaded through sequentially.</p>
+<p>This function is a thin adapter between the generic <code>process_interactions</code>
+contract and the Overcooked-specific <code>overcooked_interaction_body</code>:</p>
+<div class="highlight"><pre><span></span><code>1. Extract mutable arrays from the immutable EnvState
+2. Call overcooked_interaction_body (pure array logic)
+3. Pack the (possibly mutated) arrays back into a new EnvState
+</code></pre></div>
+<h5 id="cogrid.envs.overcooked.config.overcooked_interaction_fn--parameters">Parameters<a class="headerlink" href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--parameters" title="Permanent link">&para;</a></h5>
+<p>state : EnvState
+    Current environment state. Immutable -- a new state is returned.
+agent_idx : int or scalar array
+    Index of the agent being processed (0-based).
+fwd_r, fwd_c : scalar int arrays
+    Row and column of the cell directly in front of this agent,
+    already clipped to grid bounds by process_interactions.
+base_ok : bool scalar array
+    True if this agent issued PickupDrop AND no other agent occupies
+    the forward cell. When False, all branches no-op.
+scope_config : dict
+    Scope configuration containing <code>"static_tables"</code> -- a dict of
+    pre-built lookup arrays (CAN_PICKUP, type IDs, etc.) that the
+    branch functions use to resolve interactions without isinstance().</p>
+<h5 id="cogrid.envs.overcooked.config.overcooked_interaction_fn--returns">Returns:<a class="headerlink" href="#cogrid.envs.overcooked.config.overcooked_interaction_fn--returns" title="Permanent link">&para;</a></h5>
+<p>EnvState
+    New state with agent_inv, object_type_map, object_state_map, and
+    extra_state potentially updated.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>cogrid/envs/overcooked/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span>
+<span class="normal"><a href="#__codelineno-0-209">209</a></span>
+<span class="normal"><a href="#__codelineno-0-210">210</a></span>
+<span class="normal"><a href="#__codelineno-0-211">211</a></span>
+<span class="normal"><a href="#__codelineno-0-212">212</a></span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span>
+<span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="k">def</span><span class="w"> </span><span class="nf">overcooked_interaction_fn</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">agent_idx</span><span class="p">,</span> <span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">,</span> <span class="n">base_ok</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">):</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-agent Overcooked interaction: state in, state out.</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    Called once per agent by ``process_interactions`` in priority order</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    (agent 0 first). Mutations from earlier agents are visible to later</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">    agents because the updated state is threaded through sequentially.</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    This function is a thin adapter between the generic ``process_interactions``</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    contract and the Overcooked-specific ``overcooked_interaction_body``:</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">        1. Extract mutable arrays from the immutable EnvState</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">        2. Call overcooked_interaction_body (pure array logic)</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">        3. Pack the (possibly mutated) arrays back into a new EnvState</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    state : EnvState</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">        Current environment state. Immutable -- a new state is returned.</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    agent_idx : int or scalar array</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">        Index of the agent being processed (0-based).</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    fwd_r, fwd_c : scalar int arrays</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">        Row and column of the cell directly in front of this agent,</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">        already clipped to grid bounds by process_interactions.</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    base_ok : bool scalar array</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">        True if this agent issued PickupDrop AND no other agent occupies</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">        the forward cell. When False, all branches no-op.</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    scope_config : dict</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">        Scope configuration containing ``&quot;static_tables&quot;`` -- a dict of</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">        pre-built lookup arrays (CAN_PICKUP, type IDs, etc.) that the</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">        branch functions use to resolve interactions without isinstance().</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    EnvState</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">        New state with agent_inv, object_type_map, object_state_map, and</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">        extra_state potentially updated.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">static_tables</span> <span class="o">=</span> <span class="n">scope_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;static_tables&quot;</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="c1"># Look up what&#39;s in front of the agent and what they&#39;re holding.</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="n">fwd_type</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">object_type_map</span><span class="p">[</span><span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">]</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="n">inv_item</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">agent_inv</span><span class="p">[</span><span class="n">agent_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="c1"># Delegate to the pure-array interaction body which evaluates all</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="c1"># seven branches and returns the (possibly updated) arrays.</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">agent_inv</span><span class="p">,</span> <span class="n">otm</span><span class="p">,</span> <span class="n">osm</span><span class="p">,</span> <span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span> <span class="o">=</span> <span class="n">overcooked_interaction_body</span><span class="p">(</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="n">state</span><span class="o">.</span><span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="n">state</span><span class="o">.</span><span class="n">object_type_map</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="n">state</span><span class="o">.</span><span class="n">object_state_map</span><span class="p">,</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="n">fwd_r</span><span class="p">,</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="n">fwd_c</span><span class="p">,</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="n">base_ok</span><span class="p">,</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_contents&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_timer&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_positions&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="n">static_tables</span><span class="p">,</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>    <span class="p">)</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="c1"># Repack into a new immutable EnvState. pot_positions never changes</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>    <span class="c1"># (pots don&#39;t move), so we only update contents and timer.</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="n">new_extra</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="o">**</span><span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">,</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>        <span class="s2">&quot;overcooked.pot_contents&quot;</span><span class="p">:</span> <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>        <span class="s2">&quot;overcooked.pot_timer&quot;</span><span class="p">:</span> <span class="n">pot_timer</span><span class="p">,</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="p">}</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>        <span class="n">state</span><span class="p">,</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="n">agent_inv</span><span class="o">=</span><span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="n">object_type_map</span><span class="o">=</span><span class="n">otm</span><span class="p">,</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="n">object_state_map</span><span class="o">=</span><span class="n">osm</span><span class="p">,</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">extra_state</span><span class="o">=</span><span class="n">new_extra</span><span class="p">,</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cogrid.envs.overcooked.config.overcooked_tick" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">overcooked_tick</span><span class="p">(</span><span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">,</span> <span class="n">capacity</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">cooking_time</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span></code>
+
+<a href="#cogrid.envs.overcooked.config.overcooked_tick" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Advance the cooking timer for all pots by one step.</p>
+
+
+<details class="pot-state-machine" open>
+  <summary>Pot state machine</summary>
+  <ul>
+<li>Empty or partially filled (n_items &lt; capacity): timer unchanged.</li>
+<li>Full and timer &gt; 0 (cooking): timer decrements by 1.</li>
+<li>Full and timer == 0 (done): timer stays at 0 until soup is picked up.</li>
+</ul>
+</details>        <p>Also computes <code>pot_state</code>, an integer encoding written into
+<code>object_state_map</code> at each pot's position so that features and
+rendering can inspect pot status without accessing extra_state:</p>
+<div class="highlight"><pre><span></span><code>pot_state = n_items + n_items * timer
+</code></pre></div>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <p>Empty pot:                 0 + 0<em>30 = 0
+2 items, not cooking:      2 + 2</em>30 = 62
+3 items, timer=29:         3 + 3<em>29 = 90
+3 items, done (timer=0):   3 + 3</em>0  = 3</p>
+        <p>Returns (pot_contents, new_timer, pot_state).</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>cogrid/envs/overcooked/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="k">def</span><span class="w"> </span><span class="nf">overcooked_tick</span><span class="p">(</span><span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">,</span> <span class="n">capacity</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">cooking_time</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Advance the cooking timer for all pots by one step.</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="sd">    Pot state machine:</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">        - Empty or partially filled (n_items &lt; capacity): timer unchanged.</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">        - Full and timer &gt; 0 (cooking): timer decrements by 1.</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a><span class="sd">        - Full and timer == 0 (done): timer stays at 0 until soup is picked up.</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="sd">    Also computes ``pot_state``, an integer encoding written into</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="sd">    ``object_state_map`` at each pot&#39;s position so that features and</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="sd">    rendering can inspect pot status without accessing extra_state:</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a><span class="sd">        pot_state = n_items + n_items * timer</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="sd">        Empty pot:                 0 + 0*30 = 0</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="sd">        2 items, not cooking:      2 + 2*30 = 62</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="sd">        3 items, timer=29:         3 + 3*29 = 90</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a><span class="sd">        3 items, done (timer=0):   3 + 3*0  = 3</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="sd">    Returns (pot_contents, new_timer, pot_state).</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="n">n_items</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pot_contents</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="n">is_cooking</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_items</span> <span class="o">==</span> <span class="n">capacity</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">pot_timer</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>    <span class="n">new_timer</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_cooking</span><span class="p">,</span> <span class="n">pot_timer</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">)</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="n">pot_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_items</span> <span class="o">+</span> <span class="n">n_items</span> <span class="o">*</span> <span class="n">new_timer</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>    <span class="k">return</span> <span class="n">pot_contents</span><span class="p">,</span> <span class="n">new_timer</span><span class="p">,</span> <span class="n">pot_state</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cogrid.envs.overcooked.config.overcooked_tick_state" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">overcooked_tick_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">)</span></code>
+
+<a href="#cogrid.envs.overcooked.config.overcooked_tick_state" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Tick handler with generic (state, scope_config) -&gt; state signature.</p>
+<p>Extracts pot arrays from extra_state, runs <code>overcooked_tick</code>, writes
+the updated timer back into extra_state and the pot_state encoding
+into <code>object_state_map</code> at each pot's grid position.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>cogrid/envs/overcooked/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="k">def</span><span class="w"> </span><span class="nf">overcooked_tick_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">scope_config</span><span class="p">):</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Tick handler with generic (state, scope_config) -&gt; state signature.</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    Extracts pot arrays from extra_state, runs ``overcooked_tick``, writes</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">    the updated timer back into extra_state and the pot_state encoding</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">    into ``object_state_map`` at each pot&#39;s grid position.</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>    <span class="n">pot_contents</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_contents&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>    <span class="n">pot_timer</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_timer&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>    <span class="n">pot_positions</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">[</span><span class="s2">&quot;overcooked.pot_positions&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>    <span class="n">n_pots</span> <span class="o">=</span> <span class="n">pot_positions</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>    <span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">,</span> <span class="n">pot_state</span> <span class="o">=</span> <span class="n">overcooked_tick</span><span class="p">(</span><span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">)</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>    <span class="c1"># Write pot_state into object_state_map at pot positions</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>    <span class="n">osm</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">object_state_map</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_pots</span><span class="p">):</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>        <span class="n">osm</span> <span class="o">=</span> <span class="n">set_at_2d</span><span class="p">(</span><span class="n">osm</span><span class="p">,</span> <span class="n">pot_positions</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">pot_positions</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">pot_state</span><span class="p">[</span><span class="n">p</span><span class="p">])</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>    <span class="n">new_extra</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>        <span class="o">**</span><span class="n">state</span><span class="o">.</span><span class="n">extra_state</span><span class="p">,</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>        <span class="s2">&quot;overcooked.pot_contents&quot;</span><span class="p">:</span> <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>        <span class="s2">&quot;overcooked.pot_timer&quot;</span><span class="p">:</span> <span class="n">pot_timer</span><span class="p">,</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="p">}</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>    <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">object_state_map</span><span class="o">=</span><span class="n">osm</span><span class="p">,</span> <span class="n">extra_state</span><span class="o">=</span><span class="n">new_extra</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cogrid.envs.overcooked.config.overcooked_interaction_body" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">overcooked_interaction_body</span><span class="p">(</span><span class="n">agent_idx</span><span class="p">,</span> <span class="n">agent_inv</span><span class="p">,</span> <span class="n">object_type_map</span><span class="p">,</span> <span class="n">object_state_map</span><span class="p">,</span> <span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">,</span> <span class="n">fwd_type</span><span class="p">,</span> <span class="n">inv_item</span><span class="p">,</span> <span class="n">base_ok</span><span class="p">,</span> <span class="n">pot_contents</span><span class="p">,</span> <span class="n">pot_timer</span><span class="p">,</span> <span class="n">pot_positions</span><span class="p">,</span> <span class="n">static_tables</span><span class="p">)</span></code>
+
+<a href="#cogrid.envs.overcooked.config.overcooked_interaction_body" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Evaluate all seven interaction branches for one agent and merge results.</p>
+<p>This is the core dispatch function. It:
+    1. Unpacks static lookup tables (type IDs, property arrays)
+    2. Resolves which pot (if any) the agent is facing
+    3. Calls each branch function to compute conditions and would-be results
+    4. Calls _apply_interaction_updates to merge via cascading xp.where</p>
+<p>The branch evaluation order and mutual exclusion are critical:</p>
+<div class="highlight"><pre><span></span><code>Branch 1  -&gt; b1_cond
+Branch 2A -&gt; requires ~b1_cond
+Branch 2B -&gt; requires ~b1_cond
+Branch 3  -&gt; requires ~b1_cond &amp; ~b2_pot_cond &amp; ~b2_stack_cond
+Branch 4* -&gt; requires ~b1_cond &amp; ~b2_pot_cond &amp; ~b2_stack_cond &amp; ~b3_cond
+</code></pre></div>
+<p>This ensures that if an agent could both pick up and place on (ambiguous),
+pickup always wins.</p>
+<h5 id="cogrid.envs.overcooked.config.overcooked_interaction_body--parameters">Parameters<a class="headerlink" href="#cogrid.envs.overcooked.config.overcooked_interaction_body--parameters" title="Permanent link">&para;</a></h5>
+<p>static_tables : dict
+    Pre-built at init time by <code>_build_static_tables</code>. Contains:</p>
+<div class="highlight"><pre><span></span><code>Property arrays (indexed by type ID):
+    CAN_PICKUP[type_id]          -&gt; 1 if pickupable
+    CAN_PICKUP_FROM[type_id]     -&gt; 1 if can pick from (stacks + pot)
+    CAN_PLACE_ON[type_id]        -&gt; 1 if can place items on
+    pickup_from_produces[type_id] -&gt; produced type ID (0 if N/A)
+    legal_pot_ingredients[type_id] -&gt; 1 if can go in pot
+
+Scalar type IDs:
+    pot_id, plate_id, tomato_id, onion_soup_id,
+    tomato_soup_id, delivery_zone_id
+
+Constants:
+    cooking_time = 30  (ticks to cook a full pot)
+</code></pre></div>
+<h5 id="cogrid.envs.overcooked.config.overcooked_interaction_body--returns">Returns:<a class="headerlink" href="#cogrid.envs.overcooked.config.overcooked_interaction_body--returns" title="Permanent link">&para;</a></h5>
+<p>(agent_inv, object_type_map, object_state_map, pot_contents, pot_timer)
+    Updated arrays. Unchanged if base_ok is False or no branch fires.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>cogrid/envs/overcooked/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-906"> 906</a></span>
+<span class="normal"><a href="#__codelineno-0-907"> 907</a></span>
+<span class="normal"><a href="#__codelineno-0-908"> 908</a></span>
+<span class="normal"><a href="#__codelineno-0-909"> 909</a></span>
+<span class="normal"><a href="#__codelineno-0-910"> 910</a></span>
+<span class="normal"><a href="#__codelineno-0-911"> 911</a></span>
+<span class="normal"><a href="#__codelineno-0-912"> 912</a></span>
+<span class="normal"><a href="#__codelineno-0-913"> 913</a></span>
+<span class="normal"><a href="#__codelineno-0-914"> 914</a></span>
+<span class="normal"><a href="#__codelineno-0-915"> 915</a></span>
+<span class="normal"><a href="#__codelineno-0-916"> 916</a></span>
+<span class="normal"><a href="#__codelineno-0-917"> 917</a></span>
+<span class="normal"><a href="#__codelineno-0-918"> 918</a></span>
+<span class="normal"><a href="#__codelineno-0-919"> 919</a></span>
+<span class="normal"><a href="#__codelineno-0-920"> 920</a></span>
+<span class="normal"><a href="#__codelineno-0-921"> 921</a></span>
+<span class="normal"><a href="#__codelineno-0-922"> 922</a></span>
+<span class="normal"><a href="#__codelineno-0-923"> 923</a></span>
+<span class="normal"><a href="#__codelineno-0-924"> 924</a></span>
+<span class="normal"><a href="#__codelineno-0-925"> 925</a></span>
+<span class="normal"><a href="#__codelineno-0-926"> 926</a></span>
+<span class="normal"><a href="#__codelineno-0-927"> 927</a></span>
+<span class="normal"><a href="#__codelineno-0-928"> 928</a></span>
+<span class="normal"><a href="#__codelineno-0-929"> 929</a></span>
+<span class="normal"><a href="#__codelineno-0-930"> 930</a></span>
+<span class="normal"><a href="#__codelineno-0-931"> 931</a></span>
+<span class="normal"><a href="#__codelineno-0-932"> 932</a></span>
+<span class="normal"><a href="#__codelineno-0-933"> 933</a></span>
+<span class="normal"><a href="#__codelineno-0-934"> 934</a></span>
+<span class="normal"><a href="#__codelineno-0-935"> 935</a></span>
+<span class="normal"><a href="#__codelineno-0-936"> 936</a></span>
+<span class="normal"><a href="#__codelineno-0-937"> 937</a></span>
+<span class="normal"><a href="#__codelineno-0-938"> 938</a></span>
+<span class="normal"><a href="#__codelineno-0-939"> 939</a></span>
+<span class="normal"><a href="#__codelineno-0-940"> 940</a></span>
+<span class="normal"><a href="#__codelineno-0-941"> 941</a></span>
+<span class="normal"><a href="#__codelineno-0-942"> 942</a></span>
+<span class="normal"><a href="#__codelineno-0-943"> 943</a></span>
+<span class="normal"><a href="#__codelineno-0-944"> 944</a></span>
+<span class="normal"><a href="#__codelineno-0-945"> 945</a></span>
+<span class="normal"><a href="#__codelineno-0-946"> 946</a></span>
+<span class="normal"><a href="#__codelineno-0-947"> 947</a></span>
+<span class="normal"><a href="#__codelineno-0-948"> 948</a></span>
+<span class="normal"><a href="#__codelineno-0-949"> 949</a></span>
+<span class="normal"><a href="#__codelineno-0-950"> 950</a></span>
+<span class="normal"><a href="#__codelineno-0-951"> 951</a></span>
+<span class="normal"><a href="#__codelineno-0-952"> 952</a></span>
+<span class="normal"><a href="#__codelineno-0-953"> 953</a></span>
+<span class="normal"><a href="#__codelineno-0-954"> 954</a></span>
+<span class="normal"><a href="#__codelineno-0-955"> 955</a></span>
+<span class="normal"><a href="#__codelineno-0-956"> 956</a></span>
+<span class="normal"><a href="#__codelineno-0-957"> 957</a></span>
+<span class="normal"><a href="#__codelineno-0-958"> 958</a></span>
+<span class="normal"><a href="#__codelineno-0-959"> 959</a></span>
+<span class="normal"><a href="#__codelineno-0-960"> 960</a></span>
+<span class="normal"><a href="#__codelineno-0-961"> 961</a></span>
+<span class="normal"><a href="#__codelineno-0-962"> 962</a></span>
+<span class="normal"><a href="#__codelineno-0-963"> 963</a></span>
+<span class="normal"><a href="#__codelineno-0-964"> 964</a></span>
+<span class="normal"><a href="#__codelineno-0-965"> 965</a></span>
+<span class="normal"><a href="#__codelineno-0-966"> 966</a></span>
+<span class="normal"><a href="#__codelineno-0-967"> 967</a></span>
+<span class="normal"><a href="#__codelineno-0-968"> 968</a></span>
+<span class="normal"><a href="#__codelineno-0-969"> 969</a></span>
+<span class="normal"><a href="#__codelineno-0-970"> 970</a></span>
+<span class="normal"><a href="#__codelineno-0-971"> 971</a></span>
+<span class="normal"><a href="#__codelineno-0-972"> 972</a></span>
+<span class="normal"><a href="#__codelineno-0-973"> 973</a></span>
+<span class="normal"><a href="#__codelineno-0-974"> 974</a></span>
+<span class="normal"><a href="#__codelineno-0-975"> 975</a></span>
+<span class="normal"><a href="#__codelineno-0-976"> 976</a></span>
+<span class="normal"><a href="#__codelineno-0-977"> 977</a></span>
+<span class="normal"><a href="#__codelineno-0-978"> 978</a></span>
+<span class="normal"><a href="#__codelineno-0-979"> 979</a></span>
+<span class="normal"><a href="#__codelineno-0-980"> 980</a></span>
+<span class="normal"><a href="#__codelineno-0-981"> 981</a></span>
+<span class="normal"><a href="#__codelineno-0-982"> 982</a></span>
+<span class="normal"><a href="#__codelineno-0-983"> 983</a></span>
+<span class="normal"><a href="#__codelineno-0-984"> 984</a></span>
+<span class="normal"><a href="#__codelineno-0-985"> 985</a></span>
+<span class="normal"><a href="#__codelineno-0-986"> 986</a></span>
+<span class="normal"><a href="#__codelineno-0-987"> 987</a></span>
+<span class="normal"><a href="#__codelineno-0-988"> 988</a></span>
+<span class="normal"><a href="#__codelineno-0-989"> 989</a></span>
+<span class="normal"><a href="#__codelineno-0-990"> 990</a></span>
+<span class="normal"><a href="#__codelineno-0-991"> 991</a></span>
+<span class="normal"><a href="#__codelineno-0-992"> 992</a></span>
+<span class="normal"><a href="#__codelineno-0-993"> 993</a></span>
+<span class="normal"><a href="#__codelineno-0-994"> 994</a></span>
+<span class="normal"><a href="#__codelineno-0-995"> 995</a></span>
+<span class="normal"><a href="#__codelineno-0-996"> 996</a></span>
+<span class="normal"><a href="#__codelineno-0-997"> 997</a></span>
+<span class="normal"><a href="#__codelineno-0-998"> 998</a></span>
+<span class="normal"><a href="#__codelineno-0-999"> 999</a></span>
+<span class="normal"><a href="#__codelineno-0-1000">1000</a></span>
+<span class="normal"><a href="#__codelineno-0-1001">1001</a></span>
+<span class="normal"><a href="#__codelineno-0-1002">1002</a></span>
+<span class="normal"><a href="#__codelineno-0-1003">1003</a></span>
+<span class="normal"><a href="#__codelineno-0-1004">1004</a></span>
+<span class="normal"><a href="#__codelineno-0-1005">1005</a></span>
+<span class="normal"><a href="#__codelineno-0-1006">1006</a></span>
+<span class="normal"><a href="#__codelineno-0-1007">1007</a></span>
+<span class="normal"><a href="#__codelineno-0-1008">1008</a></span>
+<span class="normal"><a href="#__codelineno-0-1009">1009</a></span>
+<span class="normal"><a href="#__codelineno-0-1010">1010</a></span>
+<span class="normal"><a href="#__codelineno-0-1011">1011</a></span>
+<span class="normal"><a href="#__codelineno-0-1012">1012</a></span>
+<span class="normal"><a href="#__codelineno-0-1013">1013</a></span>
+<span class="normal"><a href="#__codelineno-0-1014">1014</a></span>
+<span class="normal"><a href="#__codelineno-0-1015">1015</a></span>
+<span class="normal"><a href="#__codelineno-0-1016">1016</a></span>
+<span class="normal"><a href="#__codelineno-0-1017">1017</a></span>
+<span class="normal"><a href="#__codelineno-0-1018">1018</a></span>
+<span class="normal"><a href="#__codelineno-0-1019">1019</a></span>
+<span class="normal"><a href="#__codelineno-0-1020">1020</a></span>
+<span class="normal"><a href="#__codelineno-0-1021">1021</a></span>
+<span class="normal"><a href="#__codelineno-0-1022">1022</a></span>
+<span class="normal"><a href="#__codelineno-0-1023">1023</a></span>
+<span class="normal"><a href="#__codelineno-0-1024">1024</a></span>
+<span class="normal"><a href="#__codelineno-0-1025">1025</a></span>
+<span class="normal"><a href="#__codelineno-0-1026">1026</a></span>
+<span class="normal"><a href="#__codelineno-0-1027">1027</a></span>
+<span class="normal"><a href="#__codelineno-0-1028">1028</a></span>
+<span class="normal"><a href="#__codelineno-0-1029">1029</a></span>
+<span class="normal"><a href="#__codelineno-0-1030">1030</a></span>
+<span class="normal"><a href="#__codelineno-0-1031">1031</a></span>
+<span class="normal"><a href="#__codelineno-0-1032">1032</a></span>
+<span class="normal"><a href="#__codelineno-0-1033">1033</a></span>
+<span class="normal"><a href="#__codelineno-0-1034">1034</a></span>
+<span class="normal"><a href="#__codelineno-0-1035">1035</a></span>
+<span class="normal"><a href="#__codelineno-0-1036">1036</a></span>
+<span class="normal"><a href="#__codelineno-0-1037">1037</a></span>
+<span class="normal"><a href="#__codelineno-0-1038">1038</a></span>
+<span class="normal"><a href="#__codelineno-0-1039">1039</a></span>
+<span class="normal"><a href="#__codelineno-0-1040">1040</a></span>
+<span class="normal"><a href="#__codelineno-0-1041">1041</a></span>
+<span class="normal"><a href="#__codelineno-0-1042">1042</a></span>
+<span class="normal"><a href="#__codelineno-0-1043">1043</a></span>
+<span class="normal"><a href="#__codelineno-0-1044">1044</a></span>
+<span class="normal"><a href="#__codelineno-0-1045">1045</a></span>
+<span class="normal"><a href="#__codelineno-0-1046">1046</a></span>
+<span class="normal"><a href="#__codelineno-0-1047">1047</a></span>
+<span class="normal"><a href="#__codelineno-0-1048">1048</a></span>
+<span class="normal"><a href="#__codelineno-0-1049">1049</a></span>
+<span class="normal"><a href="#__codelineno-0-1050">1050</a></span>
+<span class="normal"><a href="#__codelineno-0-1051">1051</a></span>
+<span class="normal"><a href="#__codelineno-0-1052">1052</a></span>
+<span class="normal"><a href="#__codelineno-0-1053">1053</a></span>
+<span class="normal"><a href="#__codelineno-0-1054">1054</a></span>
+<span class="normal"><a href="#__codelineno-0-1055">1055</a></span>
+<span class="normal"><a href="#__codelineno-0-1056">1056</a></span>
+<span class="normal"><a href="#__codelineno-0-1057">1057</a></span>
+<span class="normal"><a href="#__codelineno-0-1058">1058</a></span>
+<span class="normal"><a href="#__codelineno-0-1059">1059</a></span>
+<span class="normal"><a href="#__codelineno-0-1060">1060</a></span>
+<span class="normal"><a href="#__codelineno-0-1061">1061</a></span>
+<span class="normal"><a href="#__codelineno-0-1062">1062</a></span>
+<span class="normal"><a href="#__codelineno-0-1063">1063</a></span>
+<span class="normal"><a href="#__codelineno-0-1064">1064</a></span>
+<span class="normal"><a href="#__codelineno-0-1065">1065</a></span>
+<span class="normal"><a href="#__codelineno-0-1066">1066</a></span>
+<span class="normal"><a href="#__codelineno-0-1067">1067</a></span>
+<span class="normal"><a href="#__codelineno-0-1068">1068</a></span>
+<span class="normal"><a href="#__codelineno-0-1069">1069</a></span>
+<span class="normal"><a href="#__codelineno-0-1070">1070</a></span>
+<span class="normal"><a href="#__codelineno-0-1071">1071</a></span>
+<span class="normal"><a href="#__codelineno-0-1072">1072</a></span>
+<span class="normal"><a href="#__codelineno-0-1073">1073</a></span>
+<span class="normal"><a href="#__codelineno-0-1074">1074</a></span>
+<span class="normal"><a href="#__codelineno-0-1075">1075</a></span>
+<span class="normal"><a href="#__codelineno-0-1076">1076</a></span>
+<span class="normal"><a href="#__codelineno-0-1077">1077</a></span>
+<span class="normal"><a href="#__codelineno-0-1078">1078</a></span>
+<span class="normal"><a href="#__codelineno-0-1079">1079</a></span>
+<span class="normal"><a href="#__codelineno-0-1080">1080</a></span>
+<span class="normal"><a href="#__codelineno-0-1081">1081</a></span>
+<span class="normal"><a href="#__codelineno-0-1082">1082</a></span>
+<span class="normal"><a href="#__codelineno-0-1083">1083</a></span>
+<span class="normal"><a href="#__codelineno-0-1084">1084</a></span>
+<span class="normal"><a href="#__codelineno-0-1085">1085</a></span>
+<span class="normal"><a href="#__codelineno-0-1086">1086</a></span>
+<span class="normal"><a href="#__codelineno-0-1087">1087</a></span>
+<span class="normal"><a href="#__codelineno-0-1088">1088</a></span>
+<span class="normal"><a href="#__codelineno-0-1089">1089</a></span>
+<span class="normal"><a href="#__codelineno-0-1090">1090</a></span>
+<span class="normal"><a href="#__codelineno-0-1091">1091</a></span>
+<span class="normal"><a href="#__codelineno-0-1092">1092</a></span>
+<span class="normal"><a href="#__codelineno-0-1093">1093</a></span>
+<span class="normal"><a href="#__codelineno-0-1094">1094</a></span>
+<span class="normal"><a href="#__codelineno-0-1095">1095</a></span>
+<span class="normal"><a href="#__codelineno-0-1096">1096</a></span>
+<span class="normal"><a href="#__codelineno-0-1097">1097</a></span>
+<span class="normal"><a href="#__codelineno-0-1098">1098</a></span>
+<span class="normal"><a href="#__codelineno-0-1099">1099</a></span>
+<span class="normal"><a href="#__codelineno-0-1100">1100</a></span>
+<span class="normal"><a href="#__codelineno-0-1101">1101</a></span>
+<span class="normal"><a href="#__codelineno-0-1102">1102</a></span>
+<span class="normal"><a href="#__codelineno-0-1103">1103</a></span>
+<span class="normal"><a href="#__codelineno-0-1104">1104</a></span>
+<span class="normal"><a href="#__codelineno-0-1105">1105</a></span>
+<span class="normal"><a href="#__codelineno-0-1106">1106</a></span>
+<span class="normal"><a href="#__codelineno-0-1107">1107</a></span>
+<span class="normal"><a href="#__codelineno-0-1108">1108</a></span>
+<span class="normal"><a href="#__codelineno-0-1109">1109</a></span>
+<span class="normal"><a href="#__codelineno-0-1110">1110</a></span>
+<span class="normal"><a href="#__codelineno-0-1111">1111</a></span>
+<span class="normal"><a href="#__codelineno-0-1112">1112</a></span>
+<span class="normal"><a href="#__codelineno-0-1113">1113</a></span>
+<span class="normal"><a href="#__codelineno-0-1114">1114</a></span>
+<span class="normal"><a href="#__codelineno-0-1115">1115</a></span>
+<span class="normal"><a href="#__codelineno-0-1116">1116</a></span>
+<span class="normal"><a href="#__codelineno-0-1117">1117</a></span>
+<span class="normal"><a href="#__codelineno-0-1118">1118</a></span>
+<span class="normal"><a href="#__codelineno-0-1119">1119</a></span>
+<span class="normal"><a href="#__codelineno-0-1120">1120</a></span>
+<span class="normal"><a href="#__codelineno-0-1121">1121</a></span>
+<span class="normal"><a href="#__codelineno-0-1122">1122</a></span>
+<span class="normal"><a href="#__codelineno-0-1123">1123</a></span>
+<span class="normal"><a href="#__codelineno-0-1124">1124</a></span>
+<span class="normal"><a href="#__codelineno-0-1125">1125</a></span>
+<span class="normal"><a href="#__codelineno-0-1126">1126</a></span>
+<span class="normal"><a href="#__codelineno-0-1127">1127</a></span>
+<span class="normal"><a href="#__codelineno-0-1128">1128</a></span>
+<span class="normal"><a href="#__codelineno-0-1129">1129</a></span>
+<span class="normal"><a href="#__codelineno-0-1130">1130</a></span>
+<span class="normal"><a href="#__codelineno-0-1131">1131</a></span>
+<span class="normal"><a href="#__codelineno-0-1132">1132</a></span>
+<span class="normal"><a href="#__codelineno-0-1133">1133</a></span>
+<span class="normal"><a href="#__codelineno-0-1134">1134</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-906" name="__codelineno-0-906"></a><span class="k">def</span><span class="w"> </span><span class="nf">overcooked_interaction_body</span><span class="p">(</span>
+<a id="__codelineno-0-907" name="__codelineno-0-907"></a>    <span class="n">agent_idx</span><span class="p">,</span>  <span class="c1"># int: which agent is interacting (0-based)</span>
+<a id="__codelineno-0-908" name="__codelineno-0-908"></a>    <span class="n">agent_inv</span><span class="p">,</span>  <span class="c1"># (n_agents, 1) int32: all agent inventories</span>
+<a id="__codelineno-0-909" name="__codelineno-0-909"></a>    <span class="n">object_type_map</span><span class="p">,</span>  <span class="c1"># (H, W) int32: object type IDs on the grid</span>
+<a id="__codelineno-0-910" name="__codelineno-0-910"></a>    <span class="n">object_state_map</span><span class="p">,</span>  <span class="c1"># (H, W) int32: object state values on the grid</span>
+<a id="__codelineno-0-911" name="__codelineno-0-911"></a>    <span class="n">fwd_r</span><span class="p">,</span>
+<a id="__codelineno-0-912" name="__codelineno-0-912"></a>    <span class="n">fwd_c</span><span class="p">,</span>  <span class="c1"># scalar int arrays: forward cell coordinates</span>
+<a id="__codelineno-0-913" name="__codelineno-0-913"></a>    <span class="n">fwd_type</span><span class="p">,</span>  <span class="c1"># scalar int array: object type at forward cell</span>
+<a id="__codelineno-0-914" name="__codelineno-0-914"></a>    <span class="n">inv_item</span><span class="p">,</span>  <span class="c1"># scalar int array: what this agent is holding (-1 = empty)</span>
+<a id="__codelineno-0-915" name="__codelineno-0-915"></a>    <span class="n">base_ok</span><span class="p">,</span>  <span class="c1"># bool scalar: True if agent can interact (PickupDrop + no agent ahead)</span>
+<a id="__codelineno-0-916" name="__codelineno-0-916"></a>    <span class="n">pot_contents</span><span class="p">,</span>  <span class="c1"># (n_pots, 3) int32: ingredient type IDs per pot slot</span>
+<a id="__codelineno-0-917" name="__codelineno-0-917"></a>    <span class="n">pot_timer</span><span class="p">,</span>  <span class="c1"># (n_pots,) int32: cooking countdown per pot</span>
+<a id="__codelineno-0-918" name="__codelineno-0-918"></a>    <span class="n">pot_positions</span><span class="p">,</span>  <span class="c1"># (n_pots, 2) int32: (row, col) of each pot</span>
+<a id="__codelineno-0-919" name="__codelineno-0-919"></a>    <span class="n">static_tables</span><span class="p">,</span>  <span class="c1"># dict: pre-built lookup arrays (see _build_static_tables)</span>
+<a id="__codelineno-0-920" name="__codelineno-0-920"></a><span class="p">):</span>
+<a id="__codelineno-0-921" name="__codelineno-0-921"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate all seven interaction branches for one agent and merge results.</span>
+<a id="__codelineno-0-922" name="__codelineno-0-922"></a>
+<a id="__codelineno-0-923" name="__codelineno-0-923"></a><span class="sd">    This is the core dispatch function. It:</span>
+<a id="__codelineno-0-924" name="__codelineno-0-924"></a><span class="sd">        1. Unpacks static lookup tables (type IDs, property arrays)</span>
+<a id="__codelineno-0-925" name="__codelineno-0-925"></a><span class="sd">        2. Resolves which pot (if any) the agent is facing</span>
+<a id="__codelineno-0-926" name="__codelineno-0-926"></a><span class="sd">        3. Calls each branch function to compute conditions and would-be results</span>
+<a id="__codelineno-0-927" name="__codelineno-0-927"></a><span class="sd">        4. Calls _apply_interaction_updates to merge via cascading xp.where</span>
+<a id="__codelineno-0-928" name="__codelineno-0-928"></a>
+<a id="__codelineno-0-929" name="__codelineno-0-929"></a><span class="sd">    The branch evaluation order and mutual exclusion are critical:</span>
+<a id="__codelineno-0-930" name="__codelineno-0-930"></a>
+<a id="__codelineno-0-931" name="__codelineno-0-931"></a><span class="sd">        Branch 1  -&gt; b1_cond</span>
+<a id="__codelineno-0-932" name="__codelineno-0-932"></a><span class="sd">        Branch 2A -&gt; requires ~b1_cond</span>
+<a id="__codelineno-0-933" name="__codelineno-0-933"></a><span class="sd">        Branch 2B -&gt; requires ~b1_cond</span>
+<a id="__codelineno-0-934" name="__codelineno-0-934"></a><span class="sd">        Branch 3  -&gt; requires ~b1_cond &amp; ~b2_pot_cond &amp; ~b2_stack_cond</span>
+<a id="__codelineno-0-935" name="__codelineno-0-935"></a><span class="sd">        Branch 4* -&gt; requires ~b1_cond &amp; ~b2_pot_cond &amp; ~b2_stack_cond &amp; ~b3_cond</span>
+<a id="__codelineno-0-936" name="__codelineno-0-936"></a>
+<a id="__codelineno-0-937" name="__codelineno-0-937"></a><span class="sd">    This ensures that if an agent could both pick up and place on (ambiguous),</span>
+<a id="__codelineno-0-938" name="__codelineno-0-938"></a><span class="sd">    pickup always wins.</span>
+<a id="__codelineno-0-939" name="__codelineno-0-939"></a>
+<a id="__codelineno-0-940" name="__codelineno-0-940"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-941" name="__codelineno-0-941"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-942" name="__codelineno-0-942"></a><span class="sd">    static_tables : dict</span>
+<a id="__codelineno-0-943" name="__codelineno-0-943"></a><span class="sd">        Pre-built at init time by ``_build_static_tables``. Contains:</span>
+<a id="__codelineno-0-944" name="__codelineno-0-944"></a>
+<a id="__codelineno-0-945" name="__codelineno-0-945"></a><span class="sd">        Property arrays (indexed by type ID):</span>
+<a id="__codelineno-0-946" name="__codelineno-0-946"></a><span class="sd">            CAN_PICKUP[type_id]          -&gt; 1 if pickupable</span>
+<a id="__codelineno-0-947" name="__codelineno-0-947"></a><span class="sd">            CAN_PICKUP_FROM[type_id]     -&gt; 1 if can pick from (stacks + pot)</span>
+<a id="__codelineno-0-948" name="__codelineno-0-948"></a><span class="sd">            CAN_PLACE_ON[type_id]        -&gt; 1 if can place items on</span>
+<a id="__codelineno-0-949" name="__codelineno-0-949"></a><span class="sd">            pickup_from_produces[type_id] -&gt; produced type ID (0 if N/A)</span>
+<a id="__codelineno-0-950" name="__codelineno-0-950"></a><span class="sd">            legal_pot_ingredients[type_id] -&gt; 1 if can go in pot</span>
+<a id="__codelineno-0-951" name="__codelineno-0-951"></a>
+<a id="__codelineno-0-952" name="__codelineno-0-952"></a><span class="sd">        Scalar type IDs:</span>
+<a id="__codelineno-0-953" name="__codelineno-0-953"></a><span class="sd">            pot_id, plate_id, tomato_id, onion_soup_id,</span>
+<a id="__codelineno-0-954" name="__codelineno-0-954"></a><span class="sd">            tomato_soup_id, delivery_zone_id</span>
+<a id="__codelineno-0-955" name="__codelineno-0-955"></a>
+<a id="__codelineno-0-956" name="__codelineno-0-956"></a><span class="sd">        Constants:</span>
+<a id="__codelineno-0-957" name="__codelineno-0-957"></a><span class="sd">            cooking_time = 30  (ticks to cook a full pot)</span>
+<a id="__codelineno-0-958" name="__codelineno-0-958"></a>
+<a id="__codelineno-0-959" name="__codelineno-0-959"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-960" name="__codelineno-0-960"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-961" name="__codelineno-0-961"></a><span class="sd">    (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer)</span>
+<a id="__codelineno-0-962" name="__codelineno-0-962"></a><span class="sd">        Updated arrays. Unchanged if base_ok is False or no branch fires.</span>
+<a id="__codelineno-0-963" name="__codelineno-0-963"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-964" name="__codelineno-0-964"></a>    <span class="c1"># --- Unpack static tables ---</span>
+<a id="__codelineno-0-965" name="__codelineno-0-965"></a>    <span class="n">CAN_PICKUP</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;CAN_PICKUP&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-966" name="__codelineno-0-966"></a>    <span class="n">CAN_PICKUP_FROM</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;CAN_PICKUP_FROM&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-967" name="__codelineno-0-967"></a>    <span class="n">CAN_PLACE_ON</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;CAN_PLACE_ON&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-968" name="__codelineno-0-968"></a>    <span class="n">pickup_from_produces</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;pickup_from_produces&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-969" name="__codelineno-0-969"></a>    <span class="n">legal_pot_ingredients</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;legal_pot_ingredients&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-970" name="__codelineno-0-970"></a>    <span class="n">pot_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;pot_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-971" name="__codelineno-0-971"></a>    <span class="n">plate_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;plate_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-972" name="__codelineno-0-972"></a>    <span class="n">tomato_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;tomato_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-973" name="__codelineno-0-973"></a>    <span class="n">onion_soup_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;onion_soup_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-974" name="__codelineno-0-974"></a>    <span class="n">tomato_soup_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;tomato_soup_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-975" name="__codelineno-0-975"></a>    <span class="n">delivery_zone_id</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;delivery_zone_id&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-976" name="__codelineno-0-976"></a>    <span class="n">cooking_time</span> <span class="o">=</span> <span class="n">static_tables</span><span class="p">[</span><span class="s2">&quot;cooking_time&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-977" name="__codelineno-0-977"></a>
+<a id="__codelineno-0-978" name="__codelineno-0-978"></a>    <span class="c1"># --- Pot matching ---</span>
+<a id="__codelineno-0-979" name="__codelineno-0-979"></a>    <span class="c1"># If the forward cell is a pot, find which pot index it corresponds to</span>
+<a id="__codelineno-0-980" name="__codelineno-0-980"></a>    <span class="c1"># in the pot_positions array. pot_idx is the argmax of the boolean</span>
+<a id="__codelineno-0-981" name="__codelineno-0-981"></a>    <span class="c1"># match vector; has_pot_match is False if no pot is at this position</span>
+<a id="__codelineno-0-982" name="__codelineno-0-982"></a>    <span class="c1"># (in which case pot_idx is 0 but guarded by has_pot_match in conditions).</span>
+<a id="__codelineno-0-983" name="__codelineno-0-983"></a>    <span class="n">fwd_pos_2d</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">fwd_r</span><span class="p">,</span> <span class="n">fwd_c</span><span class="p">])</span>
+<a id="__codelineno-0-984" name="__codelineno-0-984"></a>    <span class="n">pot_match</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">pot_positions</span> <span class="o">==</span> <span class="n">fwd_pos_2d</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-985" name="__codelineno-0-985"></a>    <span class="n">pot_idx</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">pot_match</span><span class="p">)</span>
+<a id="__codelineno-0-986" name="__codelineno-0-986"></a>    <span class="n">has_pot_match</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">pot_match</span><span class="p">)</span>
+<a id="__codelineno-0-987" name="__codelineno-0-987"></a>
+<a id="__codelineno-0-988" name="__codelineno-0-988"></a>    <span class="c1"># --- Branch 1: pickup loose object ---</span>
+<a id="__codelineno-0-989" name="__codelineno-0-989"></a>    <span class="n">b1_cond</span><span class="p">,</span> <span class="n">b1_inv</span><span class="p">,</span> <span class="n">b1_otm</span><span class="p">,</span> <span class="n">b1_osm</span> <span class="o">=</span> <span class="n">_interact_pickup</span><span class="p">(</span>
+<a id="__codelineno-0-990" name="__codelineno-0-990"></a>        <span class="n">base_ok</span><span class="p">,</span>
+<a id="__codelineno-0-991" name="__codelineno-0-991"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-992" name="__codelineno-0-992"></a>        <span class="n">fwd_r</span><span class="p">,</span>
+<a id="__codelineno-0-993" name="__codelineno-0-993"></a>        <span class="n">fwd_c</span><span class="p">,</span>
+<a id="__codelineno-0-994" name="__codelineno-0-994"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-995" name="__codelineno-0-995"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-996" name="__codelineno-0-996"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-997" name="__codelineno-0-997"></a>        <span class="n">object_type_map</span><span class="p">,</span>
+<a id="__codelineno-0-998" name="__codelineno-0-998"></a>        <span class="n">object_state_map</span><span class="p">,</span>
+<a id="__codelineno-0-999" name="__codelineno-0-999"></a>        <span class="n">CAN_PICKUP</span><span class="p">,</span>
+<a id="__codelineno-0-1000" name="__codelineno-0-1000"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1001" name="__codelineno-0-1001"></a>
+<a id="__codelineno-0-1002" name="__codelineno-0-1002"></a>    <span class="c1"># --- Branch 2A: pickup cooked soup from pot ---</span>
+<a id="__codelineno-0-1003" name="__codelineno-0-1003"></a>    <span class="n">b2_pot_cond</span><span class="p">,</span> <span class="n">b2_pot_inv</span><span class="p">,</span> <span class="n">b2_pot_pc</span><span class="p">,</span> <span class="n">b2_pot_pt</span> <span class="o">=</span> <span class="n">_interact_pickup_from_pot</span><span class="p">(</span>
+<a id="__codelineno-0-1004" name="__codelineno-0-1004"></a>        <span class="n">base_ok</span><span class="p">,</span>
+<a id="__codelineno-0-1005" name="__codelineno-0-1005"></a>        <span class="n">b1_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1006" name="__codelineno-0-1006"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1007" name="__codelineno-0-1007"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1008" name="__codelineno-0-1008"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1009" name="__codelineno-0-1009"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1010" name="__codelineno-0-1010"></a>        <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-1011" name="__codelineno-0-1011"></a>        <span class="n">pot_timer</span><span class="p">,</span>
+<a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>        <span class="n">pot_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>        <span class="n">has_pot_match</span><span class="p">,</span>
+<a id="__codelineno-0-1014" name="__codelineno-0-1014"></a>        <span class="n">pot_id</span><span class="p">,</span>
+<a id="__codelineno-0-1015" name="__codelineno-0-1015"></a>        <span class="n">plate_id</span><span class="p">,</span>
+<a id="__codelineno-0-1016" name="__codelineno-0-1016"></a>        <span class="n">tomato_id</span><span class="p">,</span>
+<a id="__codelineno-0-1017" name="__codelineno-0-1017"></a>        <span class="n">onion_soup_id</span><span class="p">,</span>
+<a id="__codelineno-0-1018" name="__codelineno-0-1018"></a>        <span class="n">tomato_soup_id</span><span class="p">,</span>
+<a id="__codelineno-0-1019" name="__codelineno-0-1019"></a>        <span class="n">cooking_time</span><span class="p">,</span>
+<a id="__codelineno-0-1020" name="__codelineno-0-1020"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1021" name="__codelineno-0-1021"></a>
+<a id="__codelineno-0-1022" name="__codelineno-0-1022"></a>    <span class="c1"># --- Branch 2B: pickup from stack (onion/tomato/plate dispenser) ---</span>
+<a id="__codelineno-0-1023" name="__codelineno-0-1023"></a>    <span class="n">b2_stack_cond</span><span class="p">,</span> <span class="n">b2_stack_inv</span> <span class="o">=</span> <span class="n">_interact_pickup_from_stack</span><span class="p">(</span>
+<a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>        <span class="n">base_ok</span><span class="p">,</span>
+<a id="__codelineno-0-1025" name="__codelineno-0-1025"></a>        <span class="n">b1_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1026" name="__codelineno-0-1026"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1027" name="__codelineno-0-1027"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1028" name="__codelineno-0-1028"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1029" name="__codelineno-0-1029"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1030" name="__codelineno-0-1030"></a>        <span class="n">pot_id</span><span class="p">,</span>
+<a id="__codelineno-0-1031" name="__codelineno-0-1031"></a>        <span class="n">CAN_PICKUP_FROM</span><span class="p">,</span>
+<a id="__codelineno-0-1032" name="__codelineno-0-1032"></a>        <span class="n">pickup_from_produces</span><span class="p">,</span>
+<a id="__codelineno-0-1033" name="__codelineno-0-1033"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1034" name="__codelineno-0-1034"></a>
+<a id="__codelineno-0-1035" name="__codelineno-0-1035"></a>    <span class="c1"># --- Branch 3: drop on empty cell ---</span>
+<a id="__codelineno-0-1036" name="__codelineno-0-1036"></a>    <span class="n">b3_cond</span><span class="p">,</span> <span class="n">b3_inv</span><span class="p">,</span> <span class="n">b3_otm</span><span class="p">,</span> <span class="n">b3_osm</span> <span class="o">=</span> <span class="n">_interact_drop_on_empty</span><span class="p">(</span>
+<a id="__codelineno-0-1037" name="__codelineno-0-1037"></a>        <span class="n">base_ok</span><span class="p">,</span>
+<a id="__codelineno-0-1038" name="__codelineno-0-1038"></a>        <span class="n">b1_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1039" name="__codelineno-0-1039"></a>        <span class="n">b2_pot_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1040" name="__codelineno-0-1040"></a>        <span class="n">b2_stack_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1041" name="__codelineno-0-1041"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1042" name="__codelineno-0-1042"></a>        <span class="n">fwd_r</span><span class="p">,</span>
+<a id="__codelineno-0-1043" name="__codelineno-0-1043"></a>        <span class="n">fwd_c</span><span class="p">,</span>
+<a id="__codelineno-0-1044" name="__codelineno-0-1044"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1045" name="__codelineno-0-1045"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1046" name="__codelineno-0-1046"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1047" name="__codelineno-0-1047"></a>        <span class="n">object_type_map</span><span class="p">,</span>
+<a id="__codelineno-0-1048" name="__codelineno-0-1048"></a>        <span class="n">object_state_map</span><span class="p">,</span>
+<a id="__codelineno-0-1049" name="__codelineno-0-1049"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1050" name="__codelineno-0-1050"></a>
+<a id="__codelineno-0-1051" name="__codelineno-0-1051"></a>    <span class="c1"># --- Shared base condition for all place-on branches (4A, 4B, 4C) ---</span>
+<a id="__codelineno-0-1052" name="__codelineno-0-1052"></a>    <span class="c1"># All three require: base_ok, no earlier branch fired, forward cell</span>
+<a id="__codelineno-0-1053" name="__codelineno-0-1053"></a>    <span class="c1"># has a place-on target, and agent is holding something.</span>
+<a id="__codelineno-0-1054" name="__codelineno-0-1054"></a>    <span class="n">b4_base</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-1055" name="__codelineno-0-1055"></a>        <span class="n">base_ok</span>
+<a id="__codelineno-0-1056" name="__codelineno-0-1056"></a>        <span class="o">&amp;</span> <span class="o">~</span><span class="n">b1_cond</span>
+<a id="__codelineno-0-1057" name="__codelineno-0-1057"></a>        <span class="o">&amp;</span> <span class="o">~</span><span class="n">b2_pot_cond</span>
+<a id="__codelineno-0-1058" name="__codelineno-0-1058"></a>        <span class="o">&amp;</span> <span class="o">~</span><span class="n">b2_stack_cond</span>
+<a id="__codelineno-0-1059" name="__codelineno-0-1059"></a>        <span class="o">&amp;</span> <span class="o">~</span><span class="n">b3_cond</span>
+<a id="__codelineno-0-1060" name="__codelineno-0-1060"></a>        <span class="o">&amp;</span> <span class="p">(</span><span class="n">fwd_type</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-1061" name="__codelineno-0-1061"></a>        <span class="o">&amp;</span> <span class="p">(</span><span class="n">CAN_PLACE_ON</span><span class="p">[</span><span class="n">fwd_type</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-1062" name="__codelineno-0-1062"></a>        <span class="o">&amp;</span> <span class="p">(</span><span class="n">inv_item</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-1063" name="__codelineno-0-1063"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1064" name="__codelineno-0-1064"></a>
+<a id="__codelineno-0-1065" name="__codelineno-0-1065"></a>    <span class="c1"># --- Branch 4A: place ingredient on pot ---</span>
+<a id="__codelineno-0-1066" name="__codelineno-0-1066"></a>    <span class="n">b4_pot_cond</span><span class="p">,</span> <span class="n">b4_pot_inv</span><span class="p">,</span> <span class="n">b4_pot_pc</span> <span class="o">=</span> <span class="n">_interact_place_on_pot</span><span class="p">(</span>
+<a id="__codelineno-0-1067" name="__codelineno-0-1067"></a>        <span class="n">b4_base</span><span class="p">,</span>
+<a id="__codelineno-0-1068" name="__codelineno-0-1068"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1069" name="__codelineno-0-1069"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1070" name="__codelineno-0-1070"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1071" name="__codelineno-0-1071"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1072" name="__codelineno-0-1072"></a>        <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-1073" name="__codelineno-0-1073"></a>        <span class="n">pot_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1074" name="__codelineno-0-1074"></a>        <span class="n">has_pot_match</span><span class="p">,</span>
+<a id="__codelineno-0-1075" name="__codelineno-0-1075"></a>        <span class="n">pot_id</span><span class="p">,</span>
+<a id="__codelineno-0-1076" name="__codelineno-0-1076"></a>        <span class="n">legal_pot_ingredients</span><span class="p">,</span>
+<a id="__codelineno-0-1077" name="__codelineno-0-1077"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1078" name="__codelineno-0-1078"></a>
+<a id="__codelineno-0-1079" name="__codelineno-0-1079"></a>    <span class="c1"># --- Branch 4B: deliver soup to delivery zone ---</span>
+<a id="__codelineno-0-1080" name="__codelineno-0-1080"></a>    <span class="n">b4_dz_cond</span><span class="p">,</span> <span class="n">b4_dz_inv</span> <span class="o">=</span> <span class="n">_interact_place_on_delivery</span><span class="p">(</span>
+<a id="__codelineno-0-1081" name="__codelineno-0-1081"></a>        <span class="n">b4_base</span><span class="p">,</span>
+<a id="__codelineno-0-1082" name="__codelineno-0-1082"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1083" name="__codelineno-0-1083"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1084" name="__codelineno-0-1084"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1085" name="__codelineno-0-1085"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1086" name="__codelineno-0-1086"></a>        <span class="n">delivery_zone_id</span><span class="p">,</span>
+<a id="__codelineno-0-1087" name="__codelineno-0-1087"></a>        <span class="n">onion_soup_id</span><span class="p">,</span>
+<a id="__codelineno-0-1088" name="__codelineno-0-1088"></a>        <span class="n">tomato_soup_id</span><span class="p">,</span>
+<a id="__codelineno-0-1089" name="__codelineno-0-1089"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1090" name="__codelineno-0-1090"></a>
+<a id="__codelineno-0-1091" name="__codelineno-0-1091"></a>    <span class="c1"># --- Branch 4C: place item on counter ---</span>
+<a id="__codelineno-0-1092" name="__codelineno-0-1092"></a>    <span class="n">b4_gen_cond</span><span class="p">,</span> <span class="n">b4_gen_inv</span><span class="p">,</span> <span class="n">b4_gen_osm</span> <span class="o">=</span> <span class="n">_interact_place_on_counter</span><span class="p">(</span>
+<a id="__codelineno-0-1093" name="__codelineno-0-1093"></a>        <span class="n">b4_base</span><span class="p">,</span>
+<a id="__codelineno-0-1094" name="__codelineno-0-1094"></a>        <span class="n">fwd_type</span><span class="p">,</span>
+<a id="__codelineno-0-1095" name="__codelineno-0-1095"></a>        <span class="n">fwd_r</span><span class="p">,</span>
+<a id="__codelineno-0-1096" name="__codelineno-0-1096"></a>        <span class="n">fwd_c</span><span class="p">,</span>
+<a id="__codelineno-0-1097" name="__codelineno-0-1097"></a>        <span class="n">inv_item</span><span class="p">,</span>
+<a id="__codelineno-0-1098" name="__codelineno-0-1098"></a>        <span class="n">agent_idx</span><span class="p">,</span>
+<a id="__codelineno-0-1099" name="__codelineno-0-1099"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1100" name="__codelineno-0-1100"></a>        <span class="n">object_state_map</span><span class="p">,</span>
+<a id="__codelineno-0-1101" name="__codelineno-0-1101"></a>        <span class="n">pot_id</span><span class="p">,</span>
+<a id="__codelineno-0-1102" name="__codelineno-0-1102"></a>        <span class="n">delivery_zone_id</span><span class="p">,</span>
+<a id="__codelineno-0-1103" name="__codelineno-0-1103"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1104" name="__codelineno-0-1104"></a>
+<a id="__codelineno-0-1105" name="__codelineno-0-1105"></a>    <span class="c1"># --- Merge all branch results using cascading xp.where ---</span>
+<a id="__codelineno-0-1106" name="__codelineno-0-1106"></a>    <span class="k">return</span> <span class="n">_apply_interaction_updates</span><span class="p">(</span>
+<a id="__codelineno-0-1107" name="__codelineno-0-1107"></a>        <span class="n">b1_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1108" name="__codelineno-0-1108"></a>        <span class="n">b1_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1109" name="__codelineno-0-1109"></a>        <span class="n">b1_otm</span><span class="p">,</span>
+<a id="__codelineno-0-1110" name="__codelineno-0-1110"></a>        <span class="n">b1_osm</span><span class="p">,</span>
+<a id="__codelineno-0-1111" name="__codelineno-0-1111"></a>        <span class="n">b2_pot_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1112" name="__codelineno-0-1112"></a>        <span class="n">b2_pot_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1113" name="__codelineno-0-1113"></a>        <span class="n">b2_pot_pc</span><span class="p">,</span>
+<a id="__codelineno-0-1114" name="__codelineno-0-1114"></a>        <span class="n">b2_pot_pt</span><span class="p">,</span>
+<a id="__codelineno-0-1115" name="__codelineno-0-1115"></a>        <span class="n">b2_stack_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1116" name="__codelineno-0-1116"></a>        <span class="n">b2_stack_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1117" name="__codelineno-0-1117"></a>        <span class="n">b3_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1118" name="__codelineno-0-1118"></a>        <span class="n">b3_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1119" name="__codelineno-0-1119"></a>        <span class="n">b3_otm</span><span class="p">,</span>
+<a id="__codelineno-0-1120" name="__codelineno-0-1120"></a>        <span class="n">b3_osm</span><span class="p">,</span>
+<a id="__codelineno-0-1121" name="__codelineno-0-1121"></a>        <span class="n">b4_pot_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1122" name="__codelineno-0-1122"></a>        <span class="n">b4_pot_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1123" name="__codelineno-0-1123"></a>        <span class="n">b4_pot_pc</span><span class="p">,</span>
+<a id="__codelineno-0-1124" name="__codelineno-0-1124"></a>        <span class="n">b4_dz_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1125" name="__codelineno-0-1125"></a>        <span class="n">b4_dz_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1126" name="__codelineno-0-1126"></a>        <span class="n">b4_gen_cond</span><span class="p">,</span>
+<a id="__codelineno-0-1127" name="__codelineno-0-1127"></a>        <span class="n">b4_gen_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1128" name="__codelineno-0-1128"></a>        <span class="n">b4_gen_osm</span><span class="p">,</span>
+<a id="__codelineno-0-1129" name="__codelineno-0-1129"></a>        <span class="n">agent_inv</span><span class="p">,</span>
+<a id="__codelineno-0-1130" name="__codelineno-0-1130"></a>        <span class="n">object_type_map</span><span class="p">,</span>
+<a id="__codelineno-0-1131" name="__codelineno-0-1131"></a>        <span class="n">object_state_map</span><span class="p">,</span>
+<a id="__codelineno-0-1132" name="__codelineno-0-1132"></a>        <span class="n">pot_contents</span><span class="p">,</span>
+<a id="__codelineno-0-1133" name="__codelineno-0-1133"></a>        <span class="n">pot_timer</span><span class="p">,</span>
+<a id="__codelineno-0-1134" name="__codelineno-0-1134"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "content.tabs.link", "content.code.copy"], "search": "../../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
