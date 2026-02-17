@@ -12,6 +12,7 @@ registered in this module.
 """
 
 from cogrid.backend import xp
+from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
 
 # ---------------------------------------------------------------------------
@@ -161,20 +162,68 @@ def closest_obj_feature(
     top_dxs = xp.where(top_valid, top_dxs, 0)
 
     # Interleave (dy0, dx0, dy1, dx1, ...)
-    result = xp.zeros(2 * n, dtype=xp.int32)
-    for i in range(n):
-        result = (
-            result.at[2 * i].set(top_dys[i])
-            if hasattr(result, "at")
-            else _set_idx(result, 2 * i, top_dys[i])
-        )
-        result = (
-            result.at[2 * i + 1].set(top_dxs[i])
-            if hasattr(result, "at")
-            else _set_idx(result, 2 * i + 1, top_dxs[i])
-        )
+    return xp.stack([top_dys, top_dxs], axis=1).ravel().astype(xp.int32)
 
-    return result
+
+# Specs for merged closest_objects feature, sorted alphabetically to match
+# the compose order of the individual closest_* features.
+_CLOSEST_SPECS_SORTED = [
+    ("counter", 4),
+    ("delivery_zone", 2),
+    ("onion", 4),
+    ("onion_soup", 4),
+    ("onion_stack", 2),
+    ("plate", 4),
+    ("plate_stack", 2),
+]
+
+
+def closest_objects_feature(
+    agent_pos, agent_idx, object_type_map, object_state_map, type_ids_and_ns, large_dist=9999
+):
+    """(44,) deltas to closest instances of 7 object types in one pass.
+
+    Shares coordinate/distance computation across all types and uses
+    top-k selection (single HLO op on JAX) instead of sequential argmin.
+
+    type_ids_and_ns: list of (type_id, n_closest) tuples, in alphabetical order.
+    """
+    H, W = object_type_map.shape
+    pos = agent_pos[agent_idx]  # (2,)
+
+    type_flat = object_type_map.ravel()  # (H*W,)
+    state_flat = object_state_map.ravel()  # (H*W,)
+
+    # Shared coordinate arrays (computed once)
+    rows = xp.arange(H, dtype=xp.int32).repeat(W)
+    cols = xp.tile(xp.arange(W, dtype=xp.int32), H)
+
+    # Exclude agent's own position
+    agent_mask = ~((rows == pos[0]) & (cols == pos[1]))
+
+    # Shared deltas and distances
+    dys = pos[0] - rows  # (H*W,)
+    dxs = pos[1] - cols  # (H*W,)
+    dists = xp.abs(dys) + xp.abs(dxs)  # (H*W,)
+
+    parts = []
+    for type_id, n in type_ids_and_ns:
+        match = ((type_flat == type_id) | (state_flat == type_id)) & agent_mask
+
+        # Mask non-matches with large distance, then find k smallest in one op
+        masked_dists = xp.where(match, dists, large_dist)
+        top_indices = topk_smallest_indices(masked_dists, n)
+
+        top_dys = dys[top_indices]
+        top_dxs = dxs[top_indices]
+        top_valid = masked_dists[top_indices] < large_dist
+
+        top_dys = xp.where(top_valid, top_dys, 0)
+        top_dxs = xp.where(top_valid, top_dxs, 0)
+
+        parts.append(xp.stack([top_dys, top_dxs], axis=1).ravel())
+
+    return xp.concatenate(parts).astype(xp.int32)
 
 
 def ordered_pot_features(
@@ -254,23 +303,12 @@ def ordered_pot_features(
 def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
     """(2 * (n_agents - 1),) distance to other agents."""
     pos = agent_pos[agent_idx]
-    result = xp.zeros(2 * (n_agents - 1), dtype=xp.int32)
-    out_idx = 0
-    for i in range(n_agents):
-        if i == agent_idx:  # agent_idx is a Python int, this is fine under JIT
-            continue
-        dy = pos[0] - agent_pos[i, 0]
-        dx = pos[1] - agent_pos[i, 1]
-        result = (
-            result.at[out_idx].set(dy) if hasattr(result, "at") else _set_idx(result, out_idx, dy)
-        )
-        result = (
-            result.at[out_idx + 1].set(dx)
-            if hasattr(result, "at")
-            else _set_idx(result, out_idx + 1, dx)
-        )
-        out_idx += 2
-    return result
+    # Build mask of other agents (agent_idx is a Python int, safe under JIT)
+    others = [i for i in range(n_agents) if i != agent_idx]
+    other_pos = xp.stack([agent_pos[i] for i in others])  # (n_agents-1, 2)
+    dys = pos[0] - other_pos[:, 0]
+    dxs = pos[1] - other_pos[:, 1]
+    return xp.stack([dys, dxs], axis=1).ravel().astype(xp.int32)
 
 
 def layout_id_feature(layout_idx, num_layouts=5):
@@ -309,23 +347,9 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
         if hasattr(result, "at"):  # JAX
             result = result.at[target_indices].add(is_match)
         else:
-            for j in range(len(target_indices)):
-                if is_match[j]:
-                    result[target_indices[j]] = 1
+            result[target_indices[is_match.astype(bool)]] = 1
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# Helper: backend-agnostic element assignment
-# ---------------------------------------------------------------------------
-
-
-def _set_idx(arr, idx, value):
-    """Set a single element, returning a new array."""
-    out = arr.copy()
-    out[idx] = value
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +486,97 @@ _CLOSEST_OBJ_SPECS = [
 ]
 for _name, _n in _CLOSEST_OBJ_SPECS:
     _make_closest_obj_feature(_name, _n)
+
+
+@register_feature_type("closest_objects", scope="overcooked")
+class ClosestObjects(Feature):
+    """Merged closest-object feature for all 7 types in one pass."""
+
+    per_agent = True
+    obs_dim = 44  # 2*(4+2+4+4+2+4+2)
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        type_ids_and_ns = [
+            (object_to_idx(name, scope=scope), n) for name, n in _CLOSEST_SPECS_SORTED
+        ]
+
+        def fn(state, agent_idx):
+            return closest_objects_feature(
+                state.agent_pos,
+                agent_idx,
+                state.object_type_map,
+                state.object_state_map,
+                type_ids_and_ns,
+            )
+
+        return fn
+
+
+# ---------------------------------------------------------------------------
+# Object type masks — binary spatial encoding (replaces closest_* for perf)
+# ---------------------------------------------------------------------------
+
+# Types to encode, alphabetical order.
+_TYPE_MASK_NAMES = [
+    "counter",
+    "delivery_zone",
+    "onion",
+    "onion_soup",
+    "onion_stack",
+    "plate",
+    "plate_stack",
+]
+_TYPE_MASK_MAX_H = 7  # max rows across all Overcooked layouts
+_TYPE_MASK_MAX_W = 11  # max cols across all Overcooked layouts
+_TYPE_MASK_CELLS = _TYPE_MASK_MAX_H * _TYPE_MASK_MAX_W  # 77
+
+
+def object_type_masks_feature(object_type_map, object_state_map, type_ids):
+    """(7 * 77,) binary masks for 7 object types, zero-padded to max layout size.
+
+    Each channel is a max_H × max_W binary grid indicating where a type is
+    present (in object_type_map or object_state_map).  Pure elementwise ops —
+    no distances, no sorting, no selection.
+    """
+    H, W = object_type_map.shape
+    pad_h = _TYPE_MASK_MAX_H - H
+    pad_w = _TYPE_MASK_MAX_W - W
+
+    parts = []
+    for type_id in type_ids:
+        mask = (
+            (object_type_map == type_id) | (object_state_map == type_id)
+        ).astype(xp.int32)
+        if pad_h > 0 or pad_w > 0:
+            mask = xp.pad(mask, ((0, pad_h), (0, pad_w)))
+        parts.append(mask.ravel())
+    return xp.concatenate(parts)
+
+
+@register_feature_type("object_type_masks", scope="overcooked")
+class ObjectTypeMasks(Feature):
+    """Binary spatial masks for 7 object types."""
+
+    per_agent = False
+    obs_dim = len(_TYPE_MASK_NAMES) * _TYPE_MASK_CELLS  # 7 * 77 = 539
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        from cogrid.core.grid_object import object_to_idx
+
+        type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
+
+        def fn(state):
+            return object_type_masks_feature(
+                state.object_type_map,
+                state.object_state_map,
+                type_ids,
+            )
+
+        return fn
 
 
 @register_feature_type("ordered_pot_features", scope="overcooked")
