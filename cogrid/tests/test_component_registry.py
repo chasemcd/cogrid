@@ -25,7 +25,6 @@ from cogrid.core.component_registry import (
 from cogrid.core.grid_object import GridObj, register_object_type
 from cogrid.core.rewards import Reward
 
-
 # ---------------------------------------------------------------------------
 # 1. ComponentMetadata dataclass
 # ---------------------------------------------------------------------------
@@ -407,7 +406,8 @@ def test_register_reward_type_duplicate_raises():
 
 def test_existing_objects_backward_compat():
     """Wall, Counter (global) and Pot (overcooked) have ComponentMetadata."""
-    from cogrid.core.grid_object import Wall, Counter
+    from cogrid.core.grid_object import Counter, Wall
+
     # Ensure overcooked objects are imported / registered
     from cogrid.envs.overcooked import overcooked_grid_objects  # noqa: F401
 

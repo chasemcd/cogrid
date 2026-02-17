@@ -17,14 +17,14 @@ from cogrid.backend.array_ops import set_at, set_at_2d
 
 
 def process_interactions(
-    state,                    # EnvState
-    actions,                  # (n_agents,) int32
-    interaction_fn,           # callable or None
-    lookup_tables,            # dict with CAN_PICKUP, CAN_OVERLAP, CAN_PLACE_ON, CAN_PICKUP_FROM
-    scope_config,             # scope config dict (passed through to interaction_fn)
-    dir_vec_table,            # (4, 2) int32
-    action_pickup_drop_idx,   # int -- index of PickupDrop action
-    action_toggle_idx,        # int -- index of Toggle action
+    state,  # EnvState
+    actions,  # (n_agents,) int32
+    interaction_fn,  # callable or None
+    lookup_tables,  # dict with CAN_PICKUP, CAN_OVERLAP, CAN_PLACE_ON, CAN_PICKUP_FROM
+    scope_config,  # scope config dict (passed through to interaction_fn)
+    dir_vec_table,  # (4, 2) int32
+    action_pickup_drop_idx,  # int -- index of PickupDrop action
+    action_toggle_idx,  # int -- index of Toggle action
 ):
     """Process pickup/drop/place_on interactions for all agents.
 
@@ -46,7 +46,7 @@ def process_interactions(
     fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
 
     # Which agents are interacting
-    is_interact = (actions == action_pickup_drop_idx)
+    is_interact = actions == action_pickup_drop_idx
 
     # Agent-ahead check for each agent (vectorized pairwise)
     # fwd_matches_pos[i,j] = True iff agent i's forward pos == agent j's position
@@ -90,9 +90,15 @@ def process_interactions(
             b3_inv = set_at(agent_inv, (agent_idx, 0), -1)
 
             # Branch 4: generic place_on
-            b4_cond = (ok & ~b1_cond & ~b3_cond
-                       & (fwd_type > 0) & (CAN_PLACE_ON[fwd_type] == 1)
-                       & (inv_item != -1) & (object_state_map[fwd_r[agent_idx], fwd_c[agent_idx]] == 0))
+            b4_cond = (
+                ok
+                & ~b1_cond
+                & ~b3_cond
+                & (fwd_type > 0)
+                & (CAN_PLACE_ON[fwd_type] == 1)
+                & (inv_item != -1)
+                & (object_state_map[fwd_r[agent_idx], fwd_c[agent_idx]] == 0)
+            )
 
             b4_osm = set_at_2d(object_state_map, fwd_r[agent_idx], fwd_c[agent_idx], inv_item)
             b4_inv = set_at(agent_inv, (agent_idx, 0), -1)

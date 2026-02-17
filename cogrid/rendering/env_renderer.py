@@ -28,6 +28,7 @@ class EnvRenderer:
     """
 
     def __init__(self, name: str, screen_size: int, render_fps: int) -> None:
+        """Initialize the renderer with name, screen size, and FPS."""
         self.name = name
         self.screen_size = screen_size
         self.render_fps = render_fps
@@ -58,18 +59,14 @@ class EnvRenderer:
             Additional message appended after the score text.
         """
         if pygame is None:
-            raise ImportError(
-                "Must install pygame to use interactive mode."
-            )
+            raise ImportError("Must install pygame to use interactive mode.")
 
         if self.render_size is None:
             self.render_size = img.shape[:2]
         if self.window is None:
             pygame.init()
             pygame.display.init()
-            self.window = pygame.display.set_mode(
-                (self.screen_size, self.screen_size)
-            )
+            self.window = pygame.display.set_mode((self.screen_size, self.screen_size))
             pygame.display.set_caption(self.name)
         if self.clock is None:
             self.clock = pygame.time.Clock()
@@ -92,19 +89,12 @@ class EnvRenderer:
         bg.fill((255, 255, 255))
         bg.blit(surf, (offset / 2, 0))
 
-        bg = pygame.transform.smoothscale(
-            bg, (self.screen_size, self.screen_size)
-        )
+        bg = pygame.transform.smoothscale(bg, (self.screen_size, self.screen_size))
 
         font_size = 22
-        text = (
-            f"Score: {np.round(cumulative_score, 2)}"
-            + render_message
-        )
+        text = f"Score: {np.round(cumulative_score, 2)}" + render_message
 
-        font = pygame.freetype.SysFont(
-            pygame.font.get_default_font(), font_size
-        )
+        font = pygame.freetype.SysFont(pygame.font.get_default_font(), font_size)
         text_rect = font.get_rect(text, size=font_size)
         text_rect.center = bg.get_rect().center
         text_rect.y = bg.get_height() - font_size * 1.5

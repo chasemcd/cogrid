@@ -1,10 +1,11 @@
+"""Search-and-rescue layout utilities."""
+
 import dataclasses
 
 import numpy as np
 
 from cogrid import constants
-from cogrid.core import grid_utils
-from cogrid.core import grid_object
+from cogrid.core import grid_object, grid_utils
 
 
 def generate_sr_grid(
@@ -17,6 +18,7 @@ def generate_sr_grid(
     populate_rubble=True,
     np_random=None,
 ):
+    """Generate or load a search-and-rescue grid layout."""
     if np_random is None:
         np_random = np.random.RandomState(seed=42)
 
@@ -37,9 +39,9 @@ def generate_sr_grid(
     free_spaces = list(np.argwhere(grid[:, :, 0] == constants.GridConstants.FreeSpace))
 
     objs_to_place = num_green + num_yellow + num_red + num_agents
-    assert (
-        len(free_spaces) >= objs_to_place
-    ), "Not enough free spaces for specified number of objects!"
+    assert len(free_spaces) >= objs_to_place, (
+        "Not enough free spaces for specified number of objects!"
+    )
 
     np_random.shuffle(free_spaces)
 
@@ -71,6 +73,7 @@ def generate_sr_grid(
 
 
 def surround_by_rubble(grid, row, col):
+    """Place rubble in all free cardinal neighbors of a cell."""
     for r, c in grid_utils.adjacent_positions(row, col):
         if grid[r, c] == constants.GridConstants.FreeSpace:
             grid[r, c] = constants.GridConstants.Rubble
@@ -79,6 +82,8 @@ def surround_by_rubble(grid, row, col):
 
 @dataclasses.dataclass
 class FixedGrids:
+    """Pre-defined search-and-rescue grid layouts."""
+
     m3minimap = [
         "#############",
         "#S  S#      #",

@@ -1,9 +1,12 @@
+"""Grid utility functions for layout conversion and adjacency."""
+
 import numpy as np
 
 from cogrid.constants import GridConstants
 
 
 def ascii_to_numpy(ascii_list):
+    """Convert an ASCII grid representation to a numpy array."""
     rows, cols = len(ascii_list), len(ascii_list[0])
     for row in range(0, rows):
         assert len(ascii_list[row]) == cols, print("The ascii map is not rectangular!")
@@ -15,6 +18,7 @@ def ascii_to_numpy(ascii_list):
 
 
 def adjacent_positions(row, col):
+    """Yield the four cardinal neighbor positions."""
     for rdelta, cdelta in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
         yield row + rdelta, col + cdelta
 
@@ -25,7 +29,7 @@ def layout_to_state(grid, scope: str = "global", scope_config=None) -> dict:
     Scope-specific state is extracted via scope_config's ``state_extractor``
     if provided.
     """
-    from cogrid.core.grid_object import object_to_idx, Wall
+    from cogrid.core.grid_object import Wall, object_to_idx
 
     height, width = grid.height, grid.width
 

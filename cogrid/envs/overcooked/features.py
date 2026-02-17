@@ -14,7 +14,6 @@ registered in this module.
 from cogrid.backend import xp
 from cogrid.core.features import Feature, register_feature_type
 
-
 # ---------------------------------------------------------------------------
 # Individual feature functions
 # ---------------------------------------------------------------------------
@@ -37,8 +36,10 @@ def next_to_counter_feature(agent_pos, agent_idx, object_type_map, counter_type_
     neighbors = pos[None, :] + deltas
 
     in_bounds = (
-        (neighbors[:, 0] >= 0) & (neighbors[:, 0] < H)
-        & (neighbors[:, 1] >= 0) & (neighbors[:, 1] < W)
+        (neighbors[:, 0] >= 0)
+        & (neighbors[:, 0] < H)
+        & (neighbors[:, 1] >= 0)
+        & (neighbors[:, 1] < W)
     )
 
     clipped = xp.clip(neighbors, xp.array([0, 0]), xp.array([H - 1, W - 1]))
@@ -48,8 +49,14 @@ def next_to_counter_feature(agent_pos, agent_idx, object_type_map, counter_type_
 
 
 def next_to_pot_feature(
-    agent_pos, agent_idx, object_type_map, pot_type_id,
-    pot_positions, pot_contents, pot_timer, capacity=3,
+    agent_pos,
+    agent_idx,
+    object_type_map,
+    pot_type_id,
+    pot_positions,
+    pot_contents,
+    pot_timer,
+    capacity=3,
 ):
     """(16,) adjacency to pots, with status encoding.
 
@@ -57,14 +64,15 @@ def next_to_pot_feature(
     Fully vectorized over directions and pots — no Python control flow on traced values.
     """
     H, W = object_type_map.shape
-    n_pots = pot_positions.shape[0]
     deltas = xp.array([[0, 1], [0, -1], [1, 0], [-1, 0]], dtype=xp.int32)
     pos = agent_pos[agent_idx]
     neighbors = pos[None, :] + deltas  # (4, 2)
 
     in_bounds = (
-        (neighbors[:, 0] >= 0) & (neighbors[:, 0] < H)
-        & (neighbors[:, 1] >= 0) & (neighbors[:, 1] < W)
+        (neighbors[:, 0] >= 0)
+        & (neighbors[:, 0] < H)
+        & (neighbors[:, 1] >= 0)
+        & (neighbors[:, 1] < W)
     )
 
     clipped = xp.clip(neighbors, xp.array([0, 0]), xp.array([H - 1, W - 1]))
@@ -75,37 +83,42 @@ def next_to_pot_feature(
     # neighbor_rc: (4, 1, 2) vs pot_positions: (1, n_pots, 2)
     neighbor_rc = clipped[:, None, :]  # (4, 1, 2)
     pot_rc = pot_positions[None, :, :]  # (1, n_pots, 2)
-    match = (neighbor_rc[:, :, 0] == pot_rc[:, :, 0]) & (neighbor_rc[:, :, 1] == pot_rc[:, :, 1])  # (4, n_pots)
+    match = (neighbor_rc[:, :, 0] == pot_rc[:, :, 0]) & (
+        neighbor_rc[:, :, 1] == pot_rc[:, :, 1]
+    )  # (4, n_pots)
 
     # Count items per pot and get timer: (n_pots,)
     items_per_pot = xp.sum(pot_contents > 0, axis=1)  # (n_pots,)
 
     # Pot status per pot: [empty, partial, cooking, ready]
-    is_empty = (items_per_pot == 0)          # (n_pots,)
+    is_empty = items_per_pot == 0  # (n_pots,)
     is_partial = (items_per_pot > 0) & (items_per_pot < capacity)  # (n_pots,)
-    is_cooking = (items_per_pot == capacity) & (pot_timer > 0)     # (n_pots,)
-    is_ready = (items_per_pot == capacity) & (pot_timer == 0)      # (n_pots,)
+    is_cooking = (items_per_pot == capacity) & (pot_timer > 0)  # (n_pots,)
+    is_ready = (items_per_pot == capacity) & (pot_timer == 0)  # (n_pots,)
 
     # For each direction, check if any matched pot has each status
     # match: (4, n_pots), is_empty: (n_pots,) -> broadcast to (4, n_pots)
-    dir_empty = xp.any(match & is_empty[None, :], axis=1)    # (4,)
+    dir_empty = xp.any(match & is_empty[None, :], axis=1)  # (4,)
     dir_partial = xp.any(match & is_partial[None, :], axis=1)  # (4,)
     dir_cooking = xp.any(match & is_cooking[None, :], axis=1)  # (4,)
-    dir_ready = xp.any(match & is_ready[None, :], axis=1)     # (4,)
+    dir_ready = xp.any(match & is_ready[None, :], axis=1)  # (4,)
 
     # Mask by is_pot
-    result = xp.concatenate([
-        (is_pot & dir_empty).astype(xp.int32),
-        (is_pot & dir_partial).astype(xp.int32),
-        (is_pot & dir_cooking).astype(xp.int32),
-        (is_pot & dir_ready).astype(xp.int32),
-    ])
+    result = xp.concatenate(
+        [
+            (is_pot & dir_empty).astype(xp.int32),
+            (is_pot & dir_partial).astype(xp.int32),
+            (is_pot & dir_cooking).astype(xp.int32),
+            (is_pot & dir_ready).astype(xp.int32),
+        ]
+    )
 
     return result
 
 
-def closest_obj_feature(agent_pos, agent_idx, object_type_map, object_state_map,
-                         target_type_id, n, large_dist=9999):
+def closest_obj_feature(
+    agent_pos, agent_idx, object_type_map, object_state_map, target_type_id, n, large_dist=9999
+):
     """(2*n,) deltas (dy, dx) to the n closest instances of target_type_id.
 
     Searches both object_type_map (for placed objects like pots/stacks) and
@@ -115,7 +128,7 @@ def closest_obj_feature(agent_pos, agent_idx, object_type_map, object_state_map,
     H, W = object_type_map.shape
     pos = agent_pos[agent_idx]  # (2,)
 
-    type_flat = object_type_map.ravel()   # (H*W,)
+    type_flat = object_type_map.ravel()  # (H*W,)
     state_flat = object_state_map.ravel()  # (H*W,)
     match = (type_flat == target_type_id) | (state_flat == target_type_id)
 
@@ -128,8 +141,8 @@ def closest_obj_feature(agent_pos, agent_idx, object_type_map, object_state_map,
     match = match & agent_mask
 
     # Deltas and manhattan distances
-    dys = pos[0] - rows   # (H*W,)
-    dxs = pos[1] - cols   # (H*W,)
+    dys = pos[0] - rows  # (H*W,)
+    dxs = pos[1] - cols  # (H*W,)
     dists = xp.abs(dys) + xp.abs(dxs)  # (H*W,)
 
     # Mask non-matches with large distance so they sort last
@@ -150,15 +163,30 @@ def closest_obj_feature(agent_pos, agent_idx, object_type_map, object_state_map,
     # Interleave (dy0, dx0, dy1, dx1, ...)
     result = xp.zeros(2 * n, dtype=xp.int32)
     for i in range(n):
-        result = result.at[2 * i].set(top_dys[i]) if hasattr(result, 'at') else _set_idx(result, 2 * i, top_dys[i])
-        result = result.at[2 * i + 1].set(top_dxs[i]) if hasattr(result, 'at') else _set_idx(result, 2 * i + 1, top_dxs[i])
+        result = (
+            result.at[2 * i].set(top_dys[i])
+            if hasattr(result, "at")
+            else _set_idx(result, 2 * i, top_dys[i])
+        )
+        result = (
+            result.at[2 * i + 1].set(top_dxs[i])
+            if hasattr(result, "at")
+            else _set_idx(result, 2 * i + 1, top_dxs[i])
+        )
 
     return result
 
 
 def ordered_pot_features(
-    agent_pos, agent_idx, pot_positions, pot_contents, pot_timer,
-    max_num_pots, onion_id, tomato_id, capacity=3,
+    agent_pos,
+    agent_idx,
+    pot_positions,
+    pot_contents,
+    pot_timer,
+    max_num_pots,
+    onion_id,
+    tomato_id,
+    capacity=3,
 ):
     """(12 * max_num_pots,) per-pot features in grid-scan order.
 
@@ -178,7 +206,7 @@ def ordered_pot_features(
     is_partial = ((n_items > 0) & (n_items < capacity)).astype(xp.float32)
 
     # Contents per pot: count of onion and tomato
-    n_onion = xp.sum(pot_contents == onion_id, axis=1).astype(xp.float32)   # (n_pots,)
+    n_onion = xp.sum(pot_contents == onion_id, axis=1).astype(xp.float32)  # (n_pots,)
     n_tomato = xp.sum(pot_contents == tomato_id, axis=1).astype(xp.float32)  # (n_pots,)
 
     # Timer: value if cooking, -1 if not
@@ -195,10 +223,23 @@ def ordered_pot_features(
     reachable = xp.ones(pot_positions.shape[0], dtype=xp.float32)
 
     # Per-pot feature vector: (n_pots, 12)
-    per_pot = xp.stack([
-        reachable, is_ready, is_empty, is_cooking, is_partial,
-        n_onion, n_tomato, timer_val, dy, dx, pr, pc,
-    ], axis=1)  # (n_pots, 12)
+    per_pot = xp.stack(
+        [
+            reachable,
+            is_ready,
+            is_empty,
+            is_cooking,
+            is_partial,
+            n_onion,
+            n_tomato,
+            timer_val,
+            dy,
+            dx,
+            pr,
+            pc,
+        ],
+        axis=1,
+    )  # (n_pots, 12)
 
     # Pad to max_num_pots (if fewer pots than max)
     n_pots = pot_positions.shape[0]
@@ -220,8 +261,14 @@ def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
             continue
         dy = pos[0] - agent_pos[i, 0]
         dx = pos[1] - agent_pos[i, 1]
-        result = result.at[out_idx].set(dy) if hasattr(result, 'at') else _set_idx(result, out_idx, dy)
-        result = result.at[out_idx + 1].set(dx) if hasattr(result, 'at') else _set_idx(result, out_idx + 1, dx)
+        result = (
+            result.at[out_idx].set(dy) if hasattr(result, "at") else _set_idx(result, out_idx, dy)
+        )
+        result = (
+            result.at[out_idx + 1].set(dx)
+            if hasattr(result, "at")
+            else _set_idx(result, out_idx + 1, dx)
+        )
         out_idx += 2
     return result
 
@@ -246,7 +293,7 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
 
     # Build flat coordinate indices: flat_index[r, c] = r * dim1 + c
     row_idx = xp.arange(H, dtype=xp.int32)[:, None] * dim1  # (H, 1)
-    col_idx = xp.arange(W, dtype=xp.int32)[None, :]         # (1, W)
+    col_idx = xp.arange(W, dtype=xp.int32)[None, :]  # (1, W)
     flat_idx = (row_idx + col_idx).ravel()  # (H*W,)
 
     otm_flat = object_type_map.ravel()  # (H*W,)
@@ -259,7 +306,7 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
         is_match = (otm_flat == type_id).astype(xp.int32)  # (H*W,)
         # Scatter matched positions into the result
         target_indices = flat_idx + offset  # (H*W,)
-        if hasattr(result, 'at'):  # JAX
+        if hasattr(result, "at"):  # JAX
             result = result.at[target_indices].add(is_match)
         else:
             for j in range(len(target_indices)):
@@ -288,11 +335,14 @@ def _set_idx(arr, idx, value):
 
 @register_feature_type("overcooked_inventory", scope="overcooked")
 class OvercookedInventory(Feature):
+    """One-hot inventory encoding feature."""
+
     per_agent = True
     obs_dim = 5
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the inventory feature function for the given scope."""
         from cogrid.core.grid_object import object_to_idx
 
         inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
@@ -303,48 +353,64 @@ class OvercookedInventory(Feature):
 
         def fn(state, agent_idx):
             return overcooked_inventory_feature(
-                state.agent_inv, agent_idx, inv_type_ids,
+                state.agent_inv,
+                agent_idx,
+                inv_type_ids,
             )
+
         return fn
 
 
 @register_feature_type("next_to_counter", scope="overcooked")
 class NextToCounter(Feature):
+    """Cardinal adjacency to counters feature."""
+
     per_agent = True
     obs_dim = 4
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the counter adjacency feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         counter_type_id = object_to_idx("counter", scope=scope)
 
         def fn(state, agent_idx):
             return next_to_counter_feature(
-                state.agent_pos, agent_idx,
-                state.object_type_map, counter_type_id,
+                state.agent_pos,
+                agent_idx,
+                state.object_type_map,
+                counter_type_id,
             )
+
         return fn
 
 
 @register_feature_type("next_to_pot", scope="overcooked")
 class NextToPot(Feature):
+    """Cardinal adjacency to pots with status encoding."""
+
     per_agent = True
     obs_dim = 16
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the pot adjacency feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         pot_type_id = object_to_idx("pot", scope=scope)
 
         def fn(state, agent_idx):
             return next_to_pot_feature(
-                state.agent_pos, agent_idx,
-                state.object_type_map, pot_type_id,
-                state.pot_positions, state.pot_contents,
+                state.agent_pos,
+                agent_idx,
+                state.object_type_map,
+                pot_type_id,
+                state.pot_positions,
+                state.pot_contents,
                 state.pot_timer,
             )
+
         return fn
 
 
@@ -367,10 +433,14 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
             def fn(state, agent_idx):
                 return closest_obj_feature(
-                    state.agent_pos, agent_idx,
-                    state.object_type_map, state.object_state_map,
-                    target_type_id, _n,
+                    state.agent_pos,
+                    agent_idx,
+                    state.object_type_map,
+                    state.object_state_map,
+                    target_type_id,
+                    _n,
                 )
+
             return fn
 
     _Cls.__name__ = f"Closest{obj_name.replace('_', ' ').title().replace(' ', '')}"
@@ -382,8 +452,13 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
 # Register all 7 ClosestObj variants (matching build_overcooked_feature_fn order)
 _CLOSEST_OBJ_SPECS = [
-    ("onion", 4), ("plate", 4), ("plate_stack", 2), ("onion_stack", 2),
-    ("onion_soup", 4), ("delivery_zone", 2), ("counter", 4),
+    ("onion", 4),
+    ("plate", 4),
+    ("plate_stack", 2),
+    ("onion_stack", 2),
+    ("onion_soup", 4),
+    ("delivery_zone", 2),
+    ("counter", 4),
 ]
 for _name, _n in _CLOSEST_OBJ_SPECS:
     _make_closest_obj_feature(_name, _n)
@@ -391,11 +466,14 @@ for _name, _n in _CLOSEST_OBJ_SPECS:
 
 @register_feature_type("ordered_pot_features", scope="overcooked")
 class OrderedPotFeatures(Feature):
+    """Per-pot features in grid-scan order."""
+
     per_agent = True
     obs_dim = 24  # 12 features * max_num_pots=2
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the ordered pot feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
@@ -403,51 +481,70 @@ class OrderedPotFeatures(Feature):
 
         def fn(state, agent_idx):
             return ordered_pot_features(
-                state.agent_pos, agent_idx,
-                state.pot_positions, state.pot_contents,
+                state.agent_pos,
+                agent_idx,
+                state.pot_positions,
+                state.pot_contents,
                 state.pot_timer,
-                max_num_pots=2, onion_id=onion_id, tomato_id=tomato_id,
+                max_num_pots=2,
+                onion_id=onion_id,
+                tomato_id=tomato_id,
             )
+
         return fn
 
 
 @register_feature_type("dist_to_other_players", scope="overcooked")
 class DistToOtherPlayers(Feature):
+    """Distance to other agents feature."""
+
     per_agent = True
     obs_dim = 2  # 2 * (2 agents - 1) = 2
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the distance-to-others feature function."""
+
         def fn(state, agent_idx):
             return dist_to_other_players_feature(
-                state.agent_pos, agent_idx, n_agents=2,
+                state.agent_pos,
+                agent_idx,
+                n_agents=2,
             )
+
         return fn
 
 
 @register_feature_type("layout_id", scope="overcooked")
 class LayoutID(Feature):
+    """One-hot layout identifier feature."""
+
     per_agent = False
     obs_dim = 5
     _layout_idx = 0  # Set before build_feature_fn; Phase 18 wires this
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the layout ID feature function."""
         idx = cls._layout_idx
 
         def fn(state):
             return layout_id_feature(idx)
+
         return fn
 
 
 @register_feature_type("environment_layout", scope="overcooked")
 class EnvironmentLayout(Feature):
+    """Binary masks for object types across the layout."""
+
     per_agent = False
     obs_dim = 462  # 6 types * 11 * 7 (max layout shape)
     _max_layout_shape = (11, 7)
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the environment layout feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
@@ -456,8 +553,11 @@ class EnvironmentLayout(Feature):
 
         def fn(state):
             return environment_layout_feature(
-                state.object_type_map, layout_type_ids, max_shape,
+                state.object_type_map,
+                layout_type_ids,
+                max_shape,
             )
+
         return fn
 
 
@@ -466,9 +566,9 @@ class EnvironmentLayout(Feature):
 # (moved from cogrid/core/autowire.py -- domain-specific, not core logic)
 # ---------------------------------------------------------------------------
 
-from cogrid.core.component_registry import (
-    register_pre_compose_hook,
+from cogrid.core.component_registry import (  # noqa: E402
     register_layout_indices,
+    register_pre_compose_hook,
 )
 
 
@@ -479,10 +579,13 @@ def _overcooked_pre_compose_hook(layout_idx: int, scope: str) -> None:
 
 register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)
 
-register_layout_indices("overcooked", {
-    "overcooked_cramped_room_v0": 0,
-    "overcooked_asymmetric_advantages_v0": 1,
-    "overcooked_coordination_ring_v0": 2,
-    "overcooked_forced_coordination_v0": 3,
-    "overcooked_counter_circuit_v0": 4,
-})
+register_layout_indices(
+    "overcooked",
+    {
+        "overcooked_cramped_room_v0": 0,
+        "overcooked_asymmetric_advantages_v0": 1,
+        "overcooked_coordination_ring_v0": 2,
+        "overcooked_forced_coordination_v0": 3,
+        "overcooked_counter_circuit_v0": 4,
+    },
+)

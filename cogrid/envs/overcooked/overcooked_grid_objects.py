@@ -1,18 +1,20 @@
+"""Overcooked grid object types (food, pots, plates, delivery zones)."""
+
 import numpy as np
 
-from cogrid.core import constants
+from cogrid.core import constants, grid_object
+from cogrid.core.grid_object import register_object_type
 from cogrid.visualization.rendering import (
+    add_text_to_image,
     fill_coords,
     point_in_circle,
-    add_text_to_image,
 )
-
-from cogrid.core import grid_object
-from cogrid.core.grid_object import register_object_type
 
 
 @register_object_type("onion", scope="overcooked", can_pickup=True)
 class Onion(grid_object.GridObj):
+    """A single onion ingredient."""
+
     object_id = "onion"
     color = constants.Colors.Yellow
     char = "o"
@@ -22,22 +24,25 @@ class Onion(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             inventory_value=0.0,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; onions are always pickable."""
         return True
 
     def render(self, tile_img):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color
-        )
+        """Draw a yellow circle."""
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
 
 
 @register_object_type("tomato", scope="overcooked", can_pickup=True)
 class Tomato(grid_object.GridObj):
+    """A single tomato ingredient."""
+
     object_id = "tomato"
     color = constants.Colors.Red
     char = "t"
@@ -47,18 +52,19 @@ class Tomato(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             inventory_value=0.0,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; tomatoes are always pickable."""
         return True
 
     def render(self, tile_img):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color
-        )
+        """Draw a red circle."""
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
 
 
 @register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
@@ -70,21 +76,18 @@ class OnionStack(grid_object.GridObj):
     char = "O"
 
     def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; agents can always take an onion from the stack."""
         return True
 
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        """Dispense a fresh Onion."""
         return Onion()
 
     def render(self, tile_img: np.ndarray):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
-        )
+        """Draw three stacked yellow circles."""
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
 
 
 @register_object_type("tomato_stack", scope="overcooked", can_pickup_from=True)
@@ -96,25 +99,24 @@ class TomatoStack(grid_object.GridObj):
     char = "T"
 
     def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; agents can always take a tomato from the stack."""
         return True
 
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        """Dispense a fresh Tomato."""
         return Tomato()
 
     def render(self, tile_img: np.ndarray):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
-        )
+        """Draw three stacked red circles."""
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
 
 
 @register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
 class Pot(grid_object.GridObj):
+    """A cooking pot that accepts ingredients and produces soup."""
+
     object_id = "pot"
     color = constants.Colors.Grey
     char = "U"
@@ -128,10 +130,8 @@ class Pot(grid_object.GridObj):
         *args,
         **kwargs,
     ):
-
-        super().__init__(
-            state=state, picked_up_from_value=0.0, placed_on_value=0.0
-        )
+        """Initialize pot with capacity and legal ingredient types."""
+        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
 
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.capacity: int = capacity
@@ -139,16 +139,16 @@ class Pot(grid_object.GridObj):
         self.legal_contents: list[grid_object.GridObj] = legal_contents
 
     def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
+        """True when dish is ready and agent holds a Plate."""
         return self.dish_ready and any(
             [isinstance(grid_obj, Plate) for grid_obj in agent.inventory]
         )
 
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        """Remove soup from pot, consume agent's plate, return soup object."""
         # if all ingredients are tomatoes, return TomatoSoup
         soup = OnionSoup()
-        if all(
-            [isinstance(grid_obj, Tomato) for grid_obj in self.objects_in_pot]
-        ):
+        if all([isinstance(grid_obj, Tomato) for grid_obj in self.objects_in_pot]):
             soup = TomatoSoup()
 
         self.objects_in_pot = []
@@ -156,58 +156,42 @@ class Pot(grid_object.GridObj):
         agent.inventory.pop(0)
         return soup
 
-    def can_place_on(
-        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
-    ) -> bool:
-
-        is_legal_ingredient = any(
-            [isinstance(cell, grid_obj) for grid_obj in self.legal_contents]
-        )
+    def can_place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> bool:
+        """True when pot has room and cell is a legal same-type ingredient."""
+        is_legal_ingredient = any([isinstance(cell, grid_obj) for grid_obj in self.legal_contents])
 
         # return true if cell is the same ingredient type as other ingredients in the pot
         is_same_type = all(
-            [
-                isinstance(cell, type(grid_obj))
-                for grid_obj in self.objects_in_pot
-            ]
+            [isinstance(cell, type(grid_obj)) for grid_obj in self.objects_in_pot]
         )  # return true even if pot is empty
 
-        return (
-            len(self.objects_in_pot) < self.capacity
-            and is_legal_ingredient
-            and is_same_type
-        )
+        return len(self.objects_in_pot) < self.capacity and is_legal_ingredient and is_same_type
 
-    def place_on(
-        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
-    ) -> None:
+    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+        """Add an ingredient to the pot."""
         self.objects_in_pot.append(cell)
 
     @property
     def is_cooking(self) -> None:
-        return (
-            len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0
-        )
+        """True when pot is full and timer has not reached zero."""
+        return len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0
 
     def tick(self) -> None:
-        """Update cooking time if the pot is full"""
+        """Update cooking time if the pot is full."""
         if len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0:
             self.cooking_timer -= 1
             self.state += 100
 
-        self.state = (
-            len(self.objects_in_pot)
-            + len(self.objects_in_pot) * self.cooking_timer
-        )
+        self.state = len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
 
     @property
     def dish_ready(self) -> bool:
+        """True when cooking timer has reached zero."""
         return self.cooking_timer == 0
 
     def render(self, tile_img):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color
-        )
+        """Draw pot circle with ingredient dots and timer text."""
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
 
         for i, grid_obj in enumerate(self.objects_in_pot):
             fill_coords(
@@ -217,25 +201,24 @@ class Pot(grid_object.GridObj):
             )
 
         if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(
-                tile_img, text=str(self.cooking_timer), position=(50, 75)
-            )
+            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
 
     def encode(self, encode_char: bool = True, scope: str = "global"):
-        """Allow encoding to account for the type of soup in the pot"""
+        """Allow encoding to account for the type of soup in the pot."""
         char, _, state = super().encode(encode_char=encode_char, scope=scope)
-        extra_state_encoding = int(
-            any(isinstance(obj, Tomato) for obj in self.objects_in_pot)
-        )
+        extra_state_encoding = int(any(isinstance(obj, Tomato) for obj in self.objects_in_pot))
         return (char, extra_state_encoding, state)
 
     @classmethod
     def build_tick_fn(cls):
+        """Return the overcooked tick-state function."""
         from cogrid.envs.overcooked.config import overcooked_tick_state
+
         return overcooked_tick_state
 
     @classmethod
     def extra_state_schema(cls):
+        """Return schema for pot-related extra state arrays."""
         return {
             "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
             "pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
@@ -244,16 +227,20 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def extra_state_builder(cls):
+        """Return the function that builds overcooked extra state."""
         from cogrid.envs.overcooked.config import build_overcooked_extra_state
+
         return build_overcooked_extra_state
 
     @classmethod
     def build_static_tables(cls):
+        """Return pre-computed static tables for the overcooked scope."""
         from cogrid.envs.overcooked.config import (
             _build_interaction_tables,
-            _build_type_ids,
             _build_static_tables,
+            _build_type_ids,
         )
+
         scope = "overcooked"
         itables = _build_interaction_tables(scope)
         type_ids = _build_type_ids(scope)
@@ -261,6 +248,8 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def build_render_sync_fn(cls):
+        """Return a render-sync callback that updates pot visuals from state."""
+
         def pot_render_sync(grid, env_state, scope):
             """Sync pot contents and cooking timer from extra_state."""
             from cogrid.core.grid_object import idx_to_object, make_object
@@ -288,15 +277,16 @@ class Pot(grid_object.GridObj):
                         if item_id > 0:
                             item_name = idx_to_object(item_id, scope=scope)
                             if item_name:
-                                pot_obj.objects_in_pot.append(
-                                    make_object(item_name, scope=scope)
-                                )
+                                pot_obj.objects_in_pot.append(make_object(item_name, scope=scope))
                     pot_obj.cooking_timer = int(pot_timer[p])
+
         return pot_render_sync
 
 
 @register_object_type("plate_stack", scope="overcooked", can_pickup_from=True)
 class PlateStack(grid_object.GridObj):
+    """An infinite stack of plates for picking up soup."""
+
     object_id = "plate_stack"
     color = constants.Colors.White
     char = "="
@@ -306,6 +296,7 @@ class PlateStack(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             toggle_value=0,
@@ -314,25 +305,24 @@ class PlateStack(grid_object.GridObj):
         )
 
     def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; agents can always take a plate from the stack."""
         return True
 
     def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
+        """Dispense a fresh Plate."""
         return Plate()
 
     def render(self, tile_img):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color
-        )
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color
-        )
+        """Draw three stacked white circles."""
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
 
 
 @register_object_type("plate", scope="overcooked", can_pickup=True)
 class Plate(grid_object.GridObj):
+    """A plate used to serve completed soups."""
+
     object_id = "plate"
     color = constants.Colors.White
     char = "P"
@@ -342,6 +332,7 @@ class Plate(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             toggle_value=0,
@@ -350,16 +341,18 @@ class Plate(grid_object.GridObj):
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; plates are always pickable."""
         return True
 
     def render(self, tile_img):
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color
-        )
+        """Draw a white circle."""
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
 
 
 @register_object_type("delivery_zone", scope="overcooked", can_place_on=True)
 class DeliveryZone(grid_object.GridObj):
+    """A zone where agents deliver completed soups for reward."""
+
     object_id = "delivery_zone"
     color = constants.Colors.Green
     char = "@"
@@ -369,17 +362,13 @@ class DeliveryZone(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(state=0, toggle_value=0.0, placed_on_value=0.0)
 
-    def can_place_on(
-        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
-    ) -> bool:
-        """Delivery can be toggled by an agent with Soup"""
+    def can_place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> bool:
+        """True when the agent is holding a soup."""
         toggling_agent_has_soup = any(
-            [
-                isinstance(grid_obj, (OnionSoup, TomatoSoup))
-                for grid_obj in agent.inventory
-            ]
+            [isinstance(grid_obj, (OnionSoup, TomatoSoup)) for grid_obj in agent.inventory]
         )
 
         if toggling_agent_has_soup:
@@ -387,14 +376,15 @@ class DeliveryZone(grid_object.GridObj):
 
         return False
 
-    def place_on(
-        self, agent: grid_object.GridAgent, cell: grid_object.GridObj
-    ) -> None:
+    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
+        """Accept delivery (no-op; reward handled by reward system)."""
         del cell
 
 
 @register_object_type("onion_soup", scope="overcooked", can_pickup=True)
 class OnionSoup(grid_object.GridObj):
+    """A completed onion soup, ready for delivery."""
+
     object_id = "onion_soup"
     color = constants.Colors.LightBrown
     char = "S"
@@ -404,19 +394,20 @@ class OnionSoup(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             inventory_value=0.0,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; soups are always pickable."""
         return True
 
     def render(self, tile_img):
+        """Draw a plate with soup inside."""
         # Draw plate
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color
-        )
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
 
         # draw soup inside plate
         fill_coords(
@@ -428,6 +419,8 @@ class OnionSoup(grid_object.GridObj):
 
 @register_object_type("tomato_soup", scope="overcooked", can_pickup=True)
 class TomatoSoup(grid_object.GridObj):
+    """A completed tomato soup, ready for delivery."""
+
     object_id = "tomato_soup"
     color = constants.Colors.Red
     char = "!"
@@ -437,19 +430,20 @@ class TomatoSoup(grid_object.GridObj):
         *args,
         **kwargs,
     ):
+        """Initialize with default state."""
         super().__init__(
             state=0,
             inventory_value=0.0,
         )
 
     def can_pickup(self, agent: grid_object.GridAgent) -> bool:
+        """Return True; soups are always pickable."""
         return True
 
     def render(self, tile_img):
+        """Draw a plate with soup inside."""
         # Draw plate
-        fill_coords(
-            tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color
-        )
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
 
         # draw soup inside plate
         fill_coords(

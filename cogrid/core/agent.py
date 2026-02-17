@@ -1,3 +1,5 @@
+"""Agent class and array-based agent utilities."""
+
 import numpy as np
 
 from cogrid.backend import xp
@@ -6,7 +8,10 @@ from cogrid.core.grid_object import GridObj
 
 
 class Agent:
+    """A single agent in the environment with position, direction, and inventory."""
+
     def __init__(self, agent_id, start_position, start_direction, **kwargs):
+        """Initialize agent with ID, spawn position, and direction."""
         self.id: str = agent_id
         self.pos: tuple[int, int] = start_position
         self.dir: Directions = start_direction
@@ -17,7 +22,7 @@ class Agent:
         self.terminated: bool = False
 
         self.collision: bool = (
-            False  # Some envs keep track of if an agent crashed into another agent/object/etc.
+            False  # Some envs track if an agent crashed into another agent/object
         )
 
         self.orientation: str = "down"
@@ -28,39 +33,39 @@ class Agent:
         self.cell_overlapped: GridObj | None = None
 
     def rotate_left(self):
+        """Rotate the agent's direction counter-clockwise."""
         self.dir -= 1
         if self.dir < 0:
             self.dir += 4
 
     def rotate_right(self):
+        """Rotate the agent's direction clockwise."""
         self.dir = (self.dir + 1) % 4
 
     @property
     def front_pos(self):
+        """Return the position directly in front of the agent."""
         return self.pos + self.dir_vec
 
     @property
     def dir_vec(self):
+        """Return the (delta_row, delta_col) vector for the current direction."""
         dir_to_vec = {
-            Directions.Right: np.array((0, 1)),  # Increase col away from 0
-            Directions.Down: np.array(
-                (1, 0)
-            ),  # Down increases the row number (0 is top)
-            Directions.Left: np.array(
-                (0, -1)
-            ),  # Left decreases the col towards 0
-            Directions.Up: np.array(
-                (-1, 0)
-            ),  # Up decreases the row to 0 (move towards the top)
+            Directions.Right: np.array((0, 1)),
+            Directions.Down: np.array((1, 0)),
+            Directions.Left: np.array((0, -1)),
+            Directions.Up: np.array((-1, 0)),
         }
         return dir_to_vec[self.dir]
 
     @property
     def right_vec(self):
+        """Return the vector perpendicular to the right of the agent."""
         dy, dx = self.dir_vec
         return np.array((dx, -dy))
 
     def set_orientation(self):
+        """Set the orientation string from the current direction."""
         self.orientation = {
             Directions.Up: "up",
             Directions.Down: "down",
@@ -69,15 +74,18 @@ class Agent:
         }[self.dir]
 
     def can_pickup(self, grid_object: GridObj) -> bool:
+        """Return True if the agent has room in inventory."""
         return len(self.inventory) < self.inventory_capacity
 
     def pick_up_object(self, grid_object: GridObj):
+        """Add an object to the agent's inventory."""
         self.inventory.append(grid_object)
 
     @property
     def agent_number(self) -> int:
-        """Converts agent id to integer, beginning with 1,
-        e.g., agent-0 -> 1, agent-1 -> 2, etc.
+        """Convert agent id to integer, beginning with 1.
+
+        For example, agent-0 -> 1, agent-1 -> 2, etc.
         """
         return int(self.id[-1]) + 1 if isinstance(self.id, str) else self.id + 1
 
@@ -117,6 +125,7 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
     and ``n_agents``. Agents are sorted by ID for deterministic ordering.
     """
     import numpy as _np
+
     from cogrid.core.grid_object import object_to_idx
 
     # Sort by agent_id for deterministic array ordering
@@ -137,9 +146,7 @@ def create_agent_arrays(env_agents: dict, scope: str = "global") -> dict:
         agent_dir[i] = int(agent.dir)
 
         if len(agent.inventory) > 0:
-            agent_inv[i, 0] = object_to_idx(
-                agent.inventory[0].object_id, scope=scope
-            )
+            agent_inv[i, 0] = object_to_idx(agent.inventory[0].object_id, scope=scope)
 
     return {
         "agent_pos": agent_pos,

@@ -1,0 +1,84 @@
+site_name: CoGrid
+site_url: https://chasemcd.github.io/cogrid
+repo_url: https://github.com/chasemcd/cogrid
+repo_name: chasemcd/cogrid
+
+theme:
+  name: material
+  logo: assets/images/cogrid_logo_nobg.png
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.tabs.link
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - scripts/gen_ref_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Concepts:
+    - Architecture: concepts/architecture.md
+  - Tutorials:
+    - Custom Environment: tutorials/custom-environment.md
+    - JAX Backend: tutorials/jax-backend.md
+  - Environments:
+    - Overcooked: environments/overcooked.md
+    - Search & Rescue: environments/search-rescue.md
+    - Goal Seeking: environments/goal-seeking.md
+  - API Reference: reference/
+  - Contributing: contributing.md

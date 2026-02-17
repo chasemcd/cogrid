@@ -1,12 +1,12 @@
-import dataclasses
+"""Grid-level constants (free space, padding, obscured, spawn chars)."""
 
-"""
-Define all constants for CoGridEnv environments.
-"""
+import dataclasses
 
 
 @dataclasses.dataclass
 class GridConstants:
+    """Character constants for grid cell types."""
+
     FreeSpace = " "
     Padding = "0"
     Obscured = "."

@@ -13,8 +13,7 @@ from cogrid.backend import set_backend
 
 set_backend("numpy")
 
-from cogrid.core.movement import move_agents
-
+from cogrid.core.movement import move_agents  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -63,8 +62,14 @@ def test_head_on_collision():
     # Priority [0, 1]: Agent 0 wins
     priority = np.array([0, 1], dtype=np.int32)
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
     assert np.array_equal(new_pos[0], [2, 2])
     assert np.array_equal(new_pos[1], [2, 3])
@@ -73,8 +78,14 @@ def test_head_on_collision():
     # Priority [1, 0]: Agent 1 wins
     priority = np.array([1, 0], dtype=np.int32)
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
     assert np.array_equal(new_pos[1], [2, 2])
     assert np.array_equal(new_pos[0], [2, 1])
@@ -98,8 +109,14 @@ def test_swap_detection():
     priority = np.array([0, 1], dtype=np.int32)
 
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
 
     assert np.array_equal(new_pos[0], [2, 2])
@@ -124,8 +141,14 @@ def test_into_staying_agent():
     priority = np.array([0, 1], dtype=np.int32)
 
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
 
     assert np.array_equal(new_pos[0], [2, 2])
@@ -150,8 +173,14 @@ def test_no_conflict_independent_movement():
     priority = np.array([0, 1], dtype=np.int32)
 
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
 
     assert np.array_equal(new_pos[0], [1, 2])
@@ -176,8 +205,14 @@ def test_wall_blocked():
     priority = np.array([0, 1], dtype=np.int32)
 
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
 
     assert np.array_equal(new_pos[0], [1, 1])
@@ -204,8 +239,14 @@ def test_no_overlap_invariant():
         priority = rng.permutation(2).astype(np.int32)
 
         new_pos, new_dir = move_agents(
-            agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-            priority, "cardinal",
+            agent_pos,
+            agent_dir,
+            actions,
+            wall_map,
+            otm,
+            can_overlap,
+            priority,
+            "cardinal",
         )
 
         if np.array_equal(new_pos[0], new_pos[1]):
@@ -237,8 +278,14 @@ def test_priority_determines_winner():
     # Agent 0 higher priority
     priority = np.array([0, 1], dtype=np.int32)
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
     assert np.array_equal(new_pos[0], [2, 2])
     assert np.array_equal(new_pos[1], [2, 3])
@@ -246,8 +293,14 @@ def test_priority_determines_winner():
     # Agent 1 higher priority
     priority = np.array([1, 0], dtype=np.int32)
     new_pos, _ = move_agents(
-        agent_pos, agent_dir, actions, wall_map, otm, can_overlap,
-        priority, "cardinal",
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        otm,
+        can_overlap,
+        priority,
+        "cardinal",
     )
     assert np.array_equal(new_pos[1], [2, 2])
     assert np.array_equal(new_pos[0], [2, 1])

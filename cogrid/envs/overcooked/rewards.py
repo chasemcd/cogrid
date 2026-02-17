@@ -31,17 +31,12 @@ def _compute_fwd_positions(prev_state):
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
-    fwd_pos = (
-        prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]
-    )  # (n_agents, 2)
+    fwd_pos = prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]  # (n_agents, 2)
     H, W = prev_state.object_type_map.shape
     fwd_r = xp.clip(fwd_pos[:, 0], 0, H - 1)
     fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
     in_bounds = (
-        (fwd_pos[:, 0] >= 0)
-        & (fwd_pos[:, 0] < H)
-        & (fwd_pos[:, 1] >= 0)
-        & (fwd_pos[:, 1] < W)
+        (fwd_pos[:, 0] >= 0) & (fwd_pos[:, 0] < H) & (fwd_pos[:, 1] >= 0) & (fwd_pos[:, 1] < W)
     )
     fwd_types = prev_state.object_type_map[fwd_r, fwd_c]  # (n_agents,)
 
@@ -59,19 +54,13 @@ def delivery_reward(
     action_pickup_drop_idx=4,
 ):
     """Reward for delivering soup to a DeliveryZone. Fully vectorized."""
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
-        prev_state
-    )
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = actions == action_pickup_drop_idx  # (n_agents,)
-    holds_soup = (
-        prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
-    )  # (n_agents,)
+    holds_soup = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]  # (n_agents,)
     faces_delivery = fwd_types == type_ids["delivery_zone"]  # (n_agents,)
 
-    earns_reward = (
-        is_interact & holds_soup & faces_delivery & in_bounds
-    )  # (n_agents,)
+    earns_reward = is_interact & holds_soup & faces_delivery & in_bounds  # (n_agents,)
 
     # Apply reward: in common_reward mode, every earning agent adds coefficient
     # to ALL agents. This matches: `rewards = rewards + coefficient` per earner.
@@ -95,9 +84,7 @@ def onion_in_pot_reward(
     action_pickup_drop_idx=4,
 ):
     """Reward for placing an onion into a pot with capacity. Fully vectorized."""
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
-        prev_state
-    )
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = actions == action_pickup_drop_idx
     holds_onion = prev_state.agent_inv[:, 0] == type_ids["onion"]
@@ -115,9 +102,7 @@ def onion_in_pot_reward(
         axis=2,
     )  # (n_agents, n_pots)
     facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = xp.argmax(
-        pos_match, axis=1
-    )  # (n_agents,) -- index of matched pot
+    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,) -- index of matched pot
 
     # Check pot capacity and type compatibility for each agent's matched pot.
     # pot_contents[pot_idx] gives (n_agents, 3) -- the contents of each agent's pot.
@@ -159,9 +144,7 @@ def soup_in_dish_reward(
     action_pickup_drop_idx=4,
 ):
     """Reward for picking up a ready soup from a pot with a plate. Fully vectorized."""
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(
-        prev_state
-    )
+    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
     is_interact = actions == action_pickup_drop_idx
     holds_plate = prev_state.agent_inv[:, 0] == type_ids["plate"]
@@ -182,14 +165,7 @@ def soup_in_dish_reward(
     pot_timer_vals = prev_state.pot_timer[pot_idx]  # (n_agents,)
     pot_ready = pot_timer_vals == 0
 
-    earns_reward = (
-        is_interact
-        & holds_plate
-        & faces_pot
-        & in_bounds
-        & facing_any_pot
-        & pot_ready
-    )
+    earns_reward = is_interact & holds_plate & faces_pot & in_bounds & facing_any_pot & pot_ready
 
     if common_reward:
         n_earners = xp.sum(earns_reward.astype(xp.float32))
@@ -209,7 +185,10 @@ def soup_in_dish_reward(
 
 @register_reward_type("delivery", scope="overcooked")
 class DeliveryReward(Reward):
+    """Reward for delivering soup to a delivery zone."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery reward for the current step."""
         return delivery_reward(
             prev_state,
             state,
@@ -224,7 +203,10 @@ class DeliveryReward(Reward):
 
 @register_reward_type("onion_in_pot", scope="overcooked")
 class OnionInPotReward(Reward):
+    """Reward for placing an onion into a pot."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute onion-in-pot reward for the current step."""
         return onion_in_pot_reward(
             prev_state,
             state,
@@ -239,7 +221,10 @@ class OnionInPotReward(Reward):
 
 @register_reward_type("soup_in_dish", scope="overcooked")
 class SoupInDishReward(Reward):
+    """Reward for picking up completed soup from a pot."""
+
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute soup-in-dish reward for the current step."""
         return soup_in_dish_reward(
             prev_state,
             state,

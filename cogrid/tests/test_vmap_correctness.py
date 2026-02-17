@@ -16,9 +16,8 @@ These tests satisfy Phase 4 Success Criteria 1 (vmap executes correctly at
 identical results to running it individually).
 """
 
-import pytest
 import numpy as np
-
+import pytest
 
 # Registry IDs for the 3 test layouts
 LAYOUTS = [
@@ -40,9 +39,14 @@ N_SAMPLE_INDICES = 8
 # Core fields are direct EnvState attributes; extra fields live in extra_state
 # dict with scope prefix (e.g. "overcooked.pot_contents").
 CORE_STATE_FIELDS = [
-    "agent_pos", "agent_dir", "agent_inv",
-    "wall_map", "object_type_map", "object_state_map",
-    "rng_key", "time",
+    "agent_pos",
+    "agent_dir",
+    "agent_inv",
+    "wall_map",
+    "object_type_map",
+    "object_state_map",
+    "rng_key",
+    "time",
 ]
 EXTRA_STATE_FIELDS = ["pot_contents", "pot_timer", "pot_positions"]
 DYNAMIC_STATE_FIELDS = CORE_STATE_FIELDS + EXTRA_STATE_FIELDS
@@ -73,6 +77,7 @@ def _create_jax_env(registry_id, seed=42):
         The environment after reset.
     """
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401 -- trigger registration
@@ -103,27 +108,25 @@ def _compare_state_fields(single_state, batched_state, idx, label):
             single_data = np.array(jax.random.key_data(single_val))
             batched_data = np.array(jax.random.key_data(batched_val[idx]))
             np.testing.assert_array_equal(
-                single_data, batched_data,
-                err_msg=(
-                    f"{label}, field {field_name}: "
-                    f"rng_key mismatch at batch index {idx}"
-                ),
+                single_data,
+                batched_data,
+                err_msg=(f"{label}, field {field_name}: rng_key mismatch at batch index {idx}"),
             )
         else:
             np.testing.assert_array_equal(
                 np.array(single_val),
                 np.array(batched_val[idx]),
-                err_msg=(
-                    f"{label}, field {field_name}: "
-                    f"mismatch at batch index {idx}"
-                ),
+                err_msg=(f"{label}, field {field_name}: mismatch at batch index {idx}"),
             )
 
 
 def _get_sample_indices():
     """Return the N_SAMPLE_INDICES indices to spot-check for parity."""
     return [
-        0, 1, 2, 3,
+        0,
+        1,
+        2,
+        3,
         BATCH_SIZE // 2,
         BATCH_SIZE - 3,
         BATCH_SIZE - 2,
@@ -144,7 +147,6 @@ def test_vmap_reset_shapes(layout):
     that static meta fields (n_agents) are NOT batched.
     """
     jax = pytest.importorskip("jax")
-    import jax.numpy as jnp
 
     env = _create_jax_env(layout)
     reset_fn = env.jax_reset
@@ -186,8 +188,7 @@ def test_vmap_reset_shapes(layout):
 
     # Static meta field n_agents is NOT batched (scalar)
     assert batched_state.n_agents == n_agents, (
-        f"Layout {layout}: expected n_agents={n_agents} (scalar), "
-        f"got {batched_state.n_agents}"
+        f"Layout {layout}: expected n_agents={n_agents} (scalar), got {batched_state.n_agents}"
     )
 
 
@@ -234,8 +235,7 @@ def test_vmap_step_shapes(layout):
 
     # rew shape: (BATCH_SIZE, n_agents)
     assert rew.shape == (BATCH_SIZE, n_agents), (
-        f"Layout {layout}: expected rew shape "
-        f"({BATCH_SIZE}, {n_agents}), got {rew.shape}"
+        f"Layout {layout}: expected rew shape ({BATCH_SIZE}, {n_agents}), got {rew.shape}"
     )
 
     # terminateds shape: (BATCH_SIZE, n_agents)
@@ -251,9 +251,7 @@ def test_vmap_step_shapes(layout):
     )
 
     # infos is empty dict
-    assert infos == {}, (
-        f"Layout {layout}: expected infos={{}}, got {infos}"
-    )
+    assert infos == {}, f"Layout {layout}: expected infos={{}}, got {infos}"
 
     # new_state.agent_pos shape: (BATCH_SIZE, n_agents, 2)
     assert new_state.agent_pos.shape == (BATCH_SIZE, n_agents, 2), (
@@ -298,15 +296,14 @@ def test_vmap_reset_parity(layout):
         np.testing.assert_array_equal(
             np.array(single_obs),
             np.array(batched_obs[i]),
-            err_msg=(
-                f"Layout {layout}, reset parity, index {i}: "
-                f"obs mismatch"
-            ),
+            err_msg=(f"Layout {layout}, reset parity, index {i}: obs mismatch"),
         )
 
         # Compare all dynamic state fields
         _compare_state_fields(
-            single_state, batched_state, i,
+            single_state,
+            batched_state,
+            i,
             label=f"Layout {layout}, reset parity",
         )
 
@@ -349,8 +346,8 @@ def test_vmap_step_parity(layout):
     # Step through all steps with vmapped step
     vmapped_step = jax.vmap(step_fn)
     for step_i in range(N_PARITY_STEPS):
-        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = (
-            vmapped_step(batched_state, actions_list[step_i])
+        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
+            batched_state, actions_list[step_i]
         )
 
     # Sample indices to spot-check
@@ -362,8 +359,8 @@ def test_vmap_step_parity(layout):
 
         for step_i in range(N_PARITY_STEPS):
             single_actions = actions_list[step_i][i]
-            single_state, single_obs, single_rew, single_term, single_trunc, _ = (
-                step_fn(single_state, single_actions)
+            single_state, single_obs, single_rew, single_term, single_trunc, _ = step_fn(
+                single_state, single_actions
             )
 
         # Compare final observations
@@ -409,11 +406,10 @@ def test_vmap_step_parity(layout):
 
         # Compare all dynamic state fields
         _compare_state_fields(
-            single_state, batched_state, i,
-            label=(
-                f"Layout {layout}, step parity after "
-                f"{N_PARITY_STEPS} steps"
-            ),
+            single_state,
+            batched_state,
+            i,
+            label=(f"Layout {layout}, step parity after {N_PARITY_STEPS} steps"),
         )
 
 
@@ -444,25 +440,22 @@ def test_vmap_jit_composition():
 
     # Verify shapes after reset
     assert batched_obs.shape[0] == BATCH_SIZE, (
-        f"jit(vmap(reset)): expected batch dim {BATCH_SIZE}, "
-        f"got {batched_obs.shape[0]}"
+        f"jit(vmap(reset)): expected batch dim {BATCH_SIZE}, got {batched_obs.shape[0]}"
     )
 
     # Run 3 steps
     for step_i in range(3):
         actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
-        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = (
-            vmapped_step(batched_state, actions)
+        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
+            batched_state, actions
         )
 
     # Verify shapes after steps
     assert batched_obs.shape[0] == BATCH_SIZE, (
-        f"jit(vmap(step)): expected obs batch dim {BATCH_SIZE}, "
-        f"got {batched_obs.shape[0]}"
+        f"jit(vmap(step)): expected obs batch dim {BATCH_SIZE}, got {batched_obs.shape[0]}"
     )
     assert batched_rew.shape == (BATCH_SIZE, n_agents), (
-        f"jit(vmap(step)): expected rew shape "
-        f"({BATCH_SIZE}, {n_agents}), got {batched_rew.shape}"
+        f"jit(vmap(step)): expected rew shape ({BATCH_SIZE}, {n_agents}), got {batched_rew.shape}"
     )
     assert batched_term.shape == (BATCH_SIZE, n_agents), (
         f"jit(vmap(step)): expected terminateds shape "

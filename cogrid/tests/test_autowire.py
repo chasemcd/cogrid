@@ -22,10 +22,9 @@ from cogrid.core.autowire import (
     build_reward_config_from_components,
     build_scope_config_from_components,
 )
-from cogrid.core.rewards import Reward
 from cogrid.core.component_registry import register_reward_type
 from cogrid.core.grid_object import GridObj, register_object_type
-
+from cogrid.core.rewards import Reward
 
 # -----------------------------------------------------------------------
 # Test 1: scope_config has all required keys
@@ -177,9 +176,7 @@ def test_extra_state_schema_merged_and_sorted():
     assert len(schema_keys) >= 2, f"Expected at least 2 schema keys, got {schema_keys}"
 
     # Keys must be sorted
-    assert schema_keys == sorted(schema_keys), (
-        f"Schema keys not sorted: {schema_keys}"
-    )
+    assert schema_keys == sorted(schema_keys), f"Schema keys not sorted: {schema_keys}"
 
     # Each value must have "shape" and "dtype"
     for key, val in schema.items():
@@ -241,6 +238,7 @@ def test_tick_handler_default_none():
 
 def test_tick_handler_accepts_override():
     """Passing tick_handler=fn stores it in the config."""
+
     def my_tick(state, scope_config):
         pass
 
@@ -460,7 +458,9 @@ def test_build_feature_config_overcooked():
     import cogrid.envs  # noqa: F401 -- triggers registration
     from cogrid.core.autowire import build_feature_config_from_components
 
-    config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
+    config = build_feature_config_from_components(
+        "overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0
+    )
 
     # Required keys
     assert "feature_fn" in config
@@ -482,10 +482,10 @@ def test_build_feature_config_sets_layout_idx():
     from cogrid.core.autowire import build_feature_config_from_components
     from cogrid.envs.overcooked.features import LayoutID
 
-    build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=3)
-    assert LayoutID._layout_idx == 3, (
-        f"Expected _layout_idx=3, got {LayoutID._layout_idx}"
+    build_feature_config_from_components(
+        "overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=3
     )
+    assert LayoutID._layout_idx == 3, f"Expected _layout_idx=3, got {LayoutID._layout_idx}"
 
     # Reset to default
     LayoutID._layout_idx = 0
@@ -498,7 +498,9 @@ def test_build_feature_config_returns_callable():
     from cogrid.core.step_pipeline import envstate_to_dict
     from cogrid.envs.overcooked.features import LayoutID
 
-    config = build_feature_config_from_components("overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0)
+    config = build_feature_config_from_components(
+        "overcooked", _OVERCOOKED_FEATURES, n_agents=2, layout_idx=0
+    )
     feature_fn = config["feature_fn"]
 
     # Build a state from a real Overcooked environment

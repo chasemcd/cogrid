@@ -1,24 +1,21 @@
+"""Low-level image drawing primitives for tile rendering."""
+
 import math
 
 import numpy as np
 
 try:
     import cv2
-except:
+except Exception:
     cv2 = None
 
 
 def downsample(img, factor):
-    """
-    Downsample an image along both dimensions by some factor
-    """
-
+    """Downsample an image along both dimensions by some factor."""
     assert img.shape[0] % factor == 0
     assert img.shape[1] % factor == 0
 
-    img = img.reshape(
-        [img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3]
-    )
+    img = img.reshape([img.shape[0] // factor, factor, img.shape[1] // factor, factor, 3])
     img = img.mean(axis=3)
     img = img.mean(axis=1)
 
@@ -26,10 +23,7 @@ def downsample(img, factor):
 
 
 def fill_coords(img, fn, color):
-    """
-    Fill pixels of an image with coordinates matching a filter function
-    """
-
+    """Fill pixels of an image with coordinates matching a filter function."""
     for y in range(img.shape[0]):
         for x in range(img.shape[1]):
             yf = (y + 0.5) / img.shape[0]
@@ -41,6 +35,8 @@ def fill_coords(img, fn, color):
 
 
 def rotate_fn(fin, cx, cy, theta):
+    """Return a rotation-transformed coordinate filter function."""
+
     def fout(x, y):
         x = x - cx
         y = y - cy
@@ -54,6 +50,7 @@ def rotate_fn(fin, cx, cy, theta):
 
 
 def point_in_line(x0, y0, x1, y1, r):
+    """Return a filter for points within distance r of a line segment."""
     p0 = np.array([x0, y0], dtype=np.float32)
     p1 = np.array([x1, y1], dtype=np.float32)
     dir = p1 - p0
@@ -85,6 +82,8 @@ def point_in_line(x0, y0, x1, y1, r):
 
 
 def point_in_circle(cx, cy, r):
+    """Return a filter for points inside a circle."""
+
     def fn(x, y):
         return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r
 
@@ -92,6 +91,8 @@ def point_in_circle(cx, cy, r):
 
 
 def point_in_rect(xmin, xmax, ymin, ymax):
+    """Return a filter for points inside a rectangle."""
+
     def fn(x, y):
         return x >= xmin and x <= xmax and y >= ymin and y <= ymax
 
@@ -99,6 +100,7 @@ def point_in_rect(xmin, xmax, ymin, ymax):
 
 
 def point_in_triangle(a, b, c):
+    """Return a filter for points inside a triangle."""
     a = np.array(a, dtype=np.float32)
     b = np.array(b, dtype=np.float32)
     c = np.array(c, dtype=np.float32)
@@ -127,10 +129,7 @@ def point_in_triangle(a, b, c):
 
 
 def highlight_img(img, color=(255, 255, 255), alpha=0.30):
-    """
-    Add highlighting to an image
-    """
-
+    """Add highlighting to an image."""
     blend_img = img + alpha * (np.array(color, dtype=np.uint8) - img)
     blend_img = blend_img.clip(0, 255).astype(np.uint8)
     img[:, :, :] = blend_img
@@ -146,9 +145,7 @@ def add_text_to_image(
     thickness=2,
 ):
     """Add text to an RGB image using OpenCV."""
-    assert (
-        cv2 is not None
-    ), "Must have cv2 installed to add text. Try `pip install opencv-python`."
+    assert cv2 is not None, "Must have cv2 installed to add text. Try `pip install opencv-python`."
 
     # Add the text to the image
     cv2.putText(image, text, position, font, font_scale, color, thickness)

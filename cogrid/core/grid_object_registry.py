@@ -9,10 +9,9 @@ import numpy as np
 from cogrid.backend import xp
 from cogrid.core.grid_object_base import GridObj
 
-
-# The OBJECT_REGISTRY holds all registered objects under a "scope" (e.g., "global", "search_rescue", "overcooked")
-# which allows us to re-use IDs and character representations across environments (e.g., P is a purple target in
-# search_rescue and a plate in overcooked).
+# The OBJECT_REGISTRY holds all registered objects under a "scope"
+# (e.g., "global", "search_rescue", "overcooked") which allows re-using
+# IDs and characters across environments.
 OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 
 # Maps (scope, object_id) -> dict of static boolean properties for lookup table generation.
@@ -20,47 +19,47 @@ OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 _OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
 
 # Known classmethod names to scan for during component registration.
-_COMPONENT_METHODS = frozenset({
-    "build_tick_fn",
-    "extra_state_schema",
-    "extra_state_builder",
-    "build_static_tables",
-    "build_render_sync_fn",
-})
+_COMPONENT_METHODS = frozenset(
+    {
+        "build_tick_fn",
+        "extra_state_schema",
+        "extra_state_builder",
+        "build_static_tables",
+        "build_render_sync_fn",
+    }
+)
 
 
-def make_object(
-    object_id: str | None, scope: str = "global", **kwargs
-) -> GridObj:
+def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridObj:
+    """Create a GridObj instance by object_id, checking global then scope."""
     if object_id is None:
         return None
 
     if scope not in OBJECT_REGISTRY:
         raise ValueError(
-            f"No objects registered with scope `{scope}`. Existing scopes are {list(OBJECT_REGISTRY.keys())}."
+            f"No objects registered with scope `{scope}`. "
+            f"Existing scopes are {list(OBJECT_REGISTRY.keys())}."
         )
 
     if object_id in OBJECT_REGISTRY["global"]:
         return OBJECT_REGISTRY["global"][object_id](**kwargs)
     elif object_id not in OBJECT_REGISTRY[scope]:
         raise ValueError(
-            f"Object with object_id `{object_id}` not registered in scope `{scope}`. "
-            f"Call register_object('{object_id}', <class>, scope='{scope}') to add it to the registry."
+            f"Object with object_id `{object_id}` not registered "
+            f"in scope `{scope}`. Call register_object() to add it."
         )
 
     return OBJECT_REGISTRY[scope][object_id](**kwargs)
 
 
 def get_object_class(object_id: str, scope: str = "global") -> GridObj:
+    """Return the class registered for the given object_id."""
     return OBJECT_REGISTRY[scope][object_id]
 
 
-def register_object(
-    object_id: str, obj_class: GridObj, scope: str = "global"
-) -> None:
-    global_scope_chars = [
-        obj.char for obj in OBJECT_REGISTRY.get("global", {}).values()
-    ]
+def register_object(object_id: str, obj_class: GridObj, scope: str = "global") -> None:
+    """Register an object class under the given scope."""
+    global_scope_chars = [obj.char for obj in OBJECT_REGISTRY.get("global", {}).values()]
 
     if obj_class.char in global_scope_chars:
         raise ValueError(
@@ -97,16 +96,15 @@ def register_object_type(
     Usage::
 
         @register_object_type("wall", is_wall=True)
-        class Wall(GridObj):
-            ...
+        class Wall(GridObj): ...
     """
 
     def decorator(cls):
         # Lazy import to avoid circular dependency
         from cogrid.core.component_registry import (
+            _validate_classmethod_signature,
             get_all_components,
             register_component_metadata,
-            _validate_classmethod_signature,
         )
 
         properties = {
@@ -201,6 +199,7 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
             # Object registered via old register_object() without decorator.
             # Default to all-False properties.
             import warnings
+
             warnings.warn(
                 f"Object '{name}' in scope '{scope}' has no static properties "
                 f"(not registered via @register_object_type). "
@@ -230,10 +229,12 @@ def get_registered_object_ids(scope: str = "global") -> list[str]:
 
 
 def get_object_char(object_id: str, scope: str = "global") -> str:
+    """Return the character representation of an object."""
     return get_object_class(object_id, scope=scope).char
 
 
 def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
+    """Look up an object_id from its character, checking global first."""
     # First check global scope, no matter what scope was passed (default to global).
     for object_id, object_class in OBJECT_REGISTRY["global"].items():
         if object_class.char == object_char:
@@ -244,9 +245,7 @@ def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
             if object_class.char == object_char:
                 return object_id
 
-    raise ValueError(
-        f"There is no registered object with character representation `{object_char}` in scope `{scope}`."
-    )
+    raise ValueError(f"No registered object with char `{object_char}` in scope `{scope}`.")
 
 
 def get_object_names(scope: str = "global") -> list[str]:
@@ -259,11 +258,7 @@ def get_object_names(scope: str = "global") -> list[str]:
 
     # Add all registered global objects in sorted order (except free_space which we already added)
     global_objects = sorted(
-        [
-            obj_id
-            for obj_id in OBJECT_REGISTRY.get("global", {}).keys()
-            if obj_id != "free_space"
-        ]
+        [obj_id for obj_id in OBJECT_REGISTRY.get("global", {}).keys() if obj_id != "free_space"]
     )
     names.extend(global_objects)
 

@@ -14,7 +14,7 @@ module, even if ``set_backend()`` was called after the initial import
 of this package.
 """
 
-from cogrid.backend._dispatch import set_backend, get_backend
+from cogrid.backend._dispatch import get_backend, set_backend
 
 __all__ = ["xp", "set_backend", "get_backend"]
 
@@ -22,5 +22,6 @@ __all__ = ["xp", "set_backend", "get_backend"]
 def __getattr__(name: str):
     if name == "xp":
         from cogrid.backend import _dispatch
+
         return _dispatch.xp
     raise AttributeError(f"module 'cogrid.backend' has no attribute {name!r}")

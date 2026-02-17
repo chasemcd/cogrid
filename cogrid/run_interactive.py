@@ -1,30 +1,37 @@
-from cogrid.core.actions import Actions
-from cogrid.cogrid_env import CoGridEnv
-from cogrid.envs import registry
-from cogrid.core import typing
-
+"""Interactive human-play interface using pygame."""
 
 import numpy as np
+
+from cogrid.cogrid_env import CoGridEnv
+from cogrid.core import typing
+from cogrid.core.actions import Actions
+from cogrid.envs import registry
 
 try:
     import pygame
 except ImportError:
     pygame = None
-    raise ImportError(
-        "Must `pip install pygame` to use interactive visualizer!"
-    )
+    raise ImportError("Must `pip install pygame` to use interactive visualizer!")
 
-ORT_SESSIONS: dict[str, ort.InferenceSession] = {}
+try:
+    import onnxruntime as ort
+except ImportError:
+    ort = None
+
+try:
+    from scipy import special
+except ImportError:
+    special = None
+
+ORT_SESSIONS: dict[str, "ort.InferenceSession"] = {}
 
 REWARDS = []
 
 
 def sample_action_via_softmax(logits: np.ndarray) -> int:
-    """Given logits sample an action via softmax"""
+    """Given logits sample an action via softmax."""
     action_distribution = special.softmax(logits)
-    action = np.random.choice(
-        np.arange(len(action_distribution)), p=action_distribution
-    )
+    action = np.random.choice(np.arange(len(action_distribution)), p=action_distribution)
     return action
 
 
@@ -32,14 +39,13 @@ def inference_onnx_model(
     input_dict: dict[str, np.ndarray],
     model_path: str,
 ) -> np.ndarray:
-    """Given an input dict and path to an ONNX model, return the model outputs"""
+    """Given an input dict and path to an ONNX model, return the model outputs."""
     outputs = ORT_SESSIONS[model_path].run(["output"], input_dict)
     return outputs
 
 
-def onnx_model_inference_fn(
-    observation: dict[str, np.ndarray] | np.ndarray, onnx_model_path: str
-):
+def onnx_model_inference_fn(observation: dict[str, np.ndarray] | np.ndarray, onnx_model_path: str):
+    """Run inference on an ONNX model and sample an action via softmax."""
     # if it's a dictionary observation, the onnx model expects a flattened input array
     if isinstance(observation, dict):
         observation = np.hstack(list(observation.values())).reshape((1, -1))
@@ -50,9 +56,7 @@ def onnx_model_inference_fn(
             "state_ins": np.array([0.0], dtype=np.float32),  # rllib artifact
         },
         model_path=onnx_model_path,
-    )[0].reshape(
-        -1
-    )  # outputs list of a batch. batch size always 1 so index list and reshape
+    )[0].reshape(-1)  # outputs list of a batch. batch size always 1 so index list and reshape
 
     action = sample_action_via_softmax(model_outputs)
 
@@ -60,11 +64,9 @@ def onnx_model_inference_fn(
 
 
 def load_onnx_policy_fn(onnx_model_path: str) -> str:
-    """Initialize the ORT session and return the string to access it"""
+    """Initialize the ORT session and return the string to access it."""
     if ORT_SESSIONS.get(onnx_model_path) is None:
-        ORT_SESSIONS[onnx_model_path] = ort.InferenceSession(
-            onnx_model_path, None
-        )
+        ORT_SESSIONS[onnx_model_path] = ort.InferenceSession(onnx_model_path, None)
 
     return onnx_model_path
 
@@ -99,12 +101,15 @@ elif ACTION_SET == "rotation_actions":
 
 
 class HumanPlay:
+    """Interactive human-controlled environment player."""
+
     def __init__(
         self,
         env: CoGridEnv,
         human_agent_id: typing.AgentID = None,
         seed: int = None,
     ) -> None:
+        """Initialize with environment, human agent ID, and seed."""
         self.env = env
         self.seed = seed
         self.closed = False
@@ -113,11 +118,10 @@ class HumanPlay:
         self.cumulative_reward = 0
 
     def run(self):
+        """Run the main game loop until window is closed."""
         self.reset(self.seed)
         while not self.closed:
-            actions = {
-                agent_id: Actions.Noop for agent_id in self.env.agent_ids
-            }
+            actions = {agent_id: Actions.Noop for agent_id in self.env.agent_ids}
 
             for a_id, obs in self.obs.items():
                 if a_id == self.human_agent_id:
@@ -129,7 +133,7 @@ class HumanPlay:
                     self.env.close()
                     return
                 if event.type == pygame.KEYDOWN:
-                    event.key = pygame.key.name((int(event.key)))
+                    event.key = pygame.key.name(int(event.key))
 
                     if event.key == "escape":
                         self.env.close()
@@ -139,10 +143,7 @@ class HumanPlay:
                         self.reset(self.seed)
                         return
 
-                    if (
-                        self.human_agent_id is not None
-                        and event.key in KEY_TO_ACTION.keys()
-                    ):
+                    if self.human_agent_id is not None and event.key in KEY_TO_ACTION.keys():
                         actions[self.human_agent_id] = KEY_TO_ACTION[event.key]
                     else:
                         print(f"Invalid action: {event.key}")
@@ -150,11 +151,11 @@ class HumanPlay:
             self.step(actions)
 
     def step(self, actions: dict[str, Actions]):
+        """Execute one step with the given actions."""
         # Convert action enum strings to integer indices
         action_set = self.env.action_set
         int_actions = {
-            aid: action_set.index(a) if isinstance(a, str) else int(a)
-            for aid, a in actions.items()
+            aid: action_set.index(a) if isinstance(a, str) else int(a) for aid, a in actions.items()
         }
         self.obs, rewards, terminateds, truncateds, _ = self.env.step(int_actions)
         self.cumulative_reward += [*rewards.values()][0]
@@ -169,6 +170,7 @@ class HumanPlay:
             self.env.render()
 
     def reset(self, seed):
+        """Reset the environment with the given seed."""
         self.obs, _ = self.env.reset(seed=seed)
         self.cumulative_reward = 0
         self.env.render()
@@ -216,9 +218,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    def env_creator(
-        render_mode: str | None = None, render_message=""
-    ) -> CoGridEnv:
+    def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
+        """Create an Overcooked environment instance."""
         return registry.make(
             "Overcooked-CrampedRoom-V0",
             highlight=False,

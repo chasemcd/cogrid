@@ -11,7 +11,6 @@ import pytest
 
 from cogrid.envs import cramped_room_config
 
-
 OVERCOOKED_LAYOUTS = [
     "overcooked_cramped_room_v0",
     "overcooked_asymmetric_advantages_v0",
@@ -23,12 +22,14 @@ OVERCOOKED_LAYOUTS = [
 
 def _make_env(layout_name):
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     config = copy.deepcopy(cramped_room_config)
     config["grid"]["layout"] = layout_name
     from cogrid.cogrid_env import CoGridEnv
     from cogrid.envs.overcooked.agent import OvercookedAgent
+
     return CoGridEnv(config=config, agent_class=OvercookedAgent)
 
 
@@ -91,9 +92,7 @@ def test_next_to_counter_feature():
 
     # 3x3 grid: counter at (0,1) and (1,2), agent at (1,1)
     counter_id = 2
-    otm = np.array([[0, counter_id, 0],
-                     [0, 0, counter_id],
-                     [0, 0, 0]], dtype=np.int32)
+    otm = np.array([[0, counter_id, 0], [0, 0, counter_id], [0, 0, 0]], dtype=np.int32)
     agent_pos = np.array([[1, 1]], dtype=np.int32)
 
     result = next_to_counter_feature(agent_pos, 0, otm, counter_id)
@@ -130,9 +129,7 @@ def test_closest_obj_feature():
     from cogrid.envs.overcooked.features import closest_obj_feature
 
     target_id = 5
-    otm = np.array([[0, 0, 0],
-                     [0, 0, target_id],
-                     [target_id, 0, 0]], dtype=np.int32)
+    otm = np.array([[0, 0, 0], [0, 0, target_id], [target_id, 0, 0]], dtype=np.int32)
     osm = np.zeros_like(otm)
     agent_pos = np.array([[1, 1]], dtype=np.int32)
 
@@ -144,5 +141,3 @@ def test_closest_obj_feature():
     # Sorted by distance: (1,2) first, then (2,0)
     # Deltas: (1-1, 1-2) = (0, -1), (1-2, 1-0) = (-1, 1)
     np.testing.assert_array_equal(result, [0, -1, -1, 1])
-
-

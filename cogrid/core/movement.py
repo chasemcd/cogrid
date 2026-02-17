@@ -13,9 +13,14 @@ Usage::
     from cogrid.core.movement import move_agents
 
     new_pos, new_dir = move_agents(
-        agent_pos, agent_dir, actions,
-        wall_map, object_type_map, can_overlap,
-        priority, action_set,
+        agent_pos,
+        agent_dir,
+        actions,
+        wall_map,
+        object_type_map,
+        can_overlap,
+        priority,
+        action_set,
     )
 """
 
@@ -44,21 +49,21 @@ def _update_directions(agent_dir, actions, action_set):
     return new_dir, is_mover
 
 
-def _compute_proposed_positions(agent_pos, new_dir, is_mover, wall_map,
-                                object_type_map, can_overlap):
+def _compute_proposed_positions(
+    agent_pos, new_dir, is_mover, wall_map, object_type_map, can_overlap
+):
     """Compute proposed positions after direction, bounds, wall, and overlap checks."""
     H, W = wall_map.shape
 
     # Direction vectors and position offset
-    DIR_VEC_TABLE = xp.array(
-        [[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32
-    )
+    DIR_VEC_TABLE = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
     dir_vecs = DIR_VEC_TABLE[new_dir]  # (n_agents, 2)
     proposed = agent_pos + dir_vecs * is_mover[:, None].astype(xp.int32)
 
     # Bounds clipping
-    proposed = xp.clip(proposed, xp.array([0, 0], dtype=xp.int32),
-                       xp.array([H - 1, W - 1], dtype=xp.int32))
+    proposed = xp.clip(
+        proposed, xp.array([0, 0], dtype=xp.int32), xp.array([H - 1, W - 1], dtype=xp.int32)
+    )
 
     # Wall check -- revert to current pos if hitting a wall
     hits_wall = wall_map[proposed[:, 0], proposed[:, 1]].astype(xp.bool_)
@@ -86,16 +91,12 @@ def _resolve_collisions(proposed, agent_pos, priority):
 
     # Pairwise same-proposed check: (n_agents, n_agents) bool
     # same_proposed[i, j] = True iff proposed[i] == proposed[j] and i != j
-    same_proposed = xp.all(
-        proposed[:, None, :] == proposed[None, :, :], axis=2
-    )
+    same_proposed = xp.all(proposed[:, None, :] == proposed[None, :, :], axis=2)
     same_proposed = same_proposed & ~xp.eye(n_agents, dtype=xp.bool_)
 
     # Pairwise proposed-into-current check: (n_agents, n_agents) bool
     # into_current[i, j] = True iff proposed[i] == agent_pos[j] and i != j
-    into_current = xp.all(
-        proposed[:, None, :] == agent_pos[None, :, :], axis=2
-    )
+    into_current = xp.all(proposed[:, None, :] == agent_pos[None, :, :], axis=2)
     into_current = into_current & ~xp.eye(n_agents, dtype=xp.bool_)
 
     # (a) Blocked by same target: agent j has higher priority (lower rank)
@@ -110,9 +111,7 @@ def _resolve_collisions(proposed, agent_pos, priority):
     # When agent i resolves, agents with higher rank haven't resolved yet,
     # so their current positions are still "claimed".
     lower_priority = rank[None, :] > rank[:, None]  # [i, j]: j has lower priority than i
-    blocked_by_unresolved = xp.any(
-        into_current & ~staying[None, :] & lower_priority, axis=1
-    )
+    blocked_by_unresolved = xp.any(into_current & ~staying[None, :] & lower_priority, axis=1)
 
     # Initial block mask (staying agents are never blocked -- they don't move)
     blocked = (blocked_by_higher | blocked_by_staying | blocked_by_unresolved) & ~staying
@@ -134,9 +133,7 @@ def _resolve_swaps(final_pos, agent_pos):
     """Detect and revert agent swaps (two agents exchanging positions)."""
     n_agents = agent_pos.shape[0]
 
-    moved_to_old = xp.all(
-        final_pos[:, None, :] == agent_pos[None, :, :], axis=2
-    )
+    moved_to_old = xp.all(final_pos[:, None, :] == agent_pos[None, :, :], axis=2)
     swapped = moved_to_old & moved_to_old.T
     swapped = swapped & ~xp.eye(n_agents, dtype=xp.bool_)
     any_swap = xp.any(swapped, axis=1)
@@ -146,14 +143,14 @@ def _resolve_swaps(final_pos, agent_pos):
 
 
 def move_agents(
-    agent_pos,        # (n_agents, 2) int32 -- current positions [row, col]
-    agent_dir,        # (n_agents,) int32 -- current directions
-    actions,          # (n_agents,) int32 -- action indices
-    wall_map,         # (H, W) int32 -- 1 where walls exist
+    agent_pos,  # (n_agents, 2) int32 -- current positions [row, col]
+    agent_dir,  # (n_agents,) int32 -- current directions
+    actions,  # (n_agents,) int32 -- action indices
+    wall_map,  # (H, W) int32 -- 1 where walls exist
     object_type_map,  # (H, W) int32 -- type IDs at each cell
-    can_overlap,      # (n_types,) int32 -- 1 if overlappable, 0 if not
-    priority,         # (n_agents,) int32 -- pre-computed priority ordering
-    action_set,       # str -- "cardinal" or "rotation"
+    can_overlap,  # (n_types,) int32 -- 1 if overlappable, 0 if not
+    priority,  # (n_agents,) int32 -- pre-computed priority ordering
+    action_set,  # str -- "cardinal" or "rotation"
 ):
     """Compute new positions and directions with collision/swap resolution.
 
@@ -162,7 +159,12 @@ def move_agents(
     """
     new_dir, is_mover = _update_directions(agent_dir, actions, action_set)
     proposed = _compute_proposed_positions(
-        agent_pos, new_dir, is_mover, wall_map, object_type_map, can_overlap,
+        agent_pos,
+        new_dir,
+        is_mover,
+        wall_map,
+        object_type_map,
+        can_overlap,
     )
     final_pos = _resolve_collisions(proposed, agent_pos, priority)
     final_pos = _resolve_swaps(final_pos, agent_pos)

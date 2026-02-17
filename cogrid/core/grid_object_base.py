@@ -9,9 +9,10 @@ handling direction-based rendering and inventory display.
 """
 
 from __future__ import annotations
-from copy import deepcopy
+
 import math
 import uuid
+from copy import deepcopy
 
 import numpy as np
 
@@ -26,6 +27,8 @@ from cogrid.visualization.rendering import (
 
 
 class GridObj:
+    """Base class for all objects that can exist on a grid cell."""
+
     object_id: str = None
     color: str | tuple = None
     char: str = None
@@ -39,6 +42,7 @@ class GridObj:
         placed_on_value: float = 0,
         picked_up_from_value: float = 0,
     ):
+        """Initialize grid object with state and interaction reward values."""
         self.uuid: str = str(uuid.uuid4())
 
         self.state: int = state
@@ -66,26 +70,27 @@ class GridObj:
         return False
 
     def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        """
-        Can another object be placed on top of this object? e.g., a countertop that can't be walked through
-        but can have an item on top of it.
+        """Can another object be placed on top of this object?
+
+        For example, a countertop that can't be walked through but can
+        have an item on top of it.
         """
         return False
 
     def can_pickup_from(self, agent: GridAgent) -> bool:
         """Can the agent pick up an object from this one?"""
-        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(
-            agent=agent
-        )
+        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(agent=agent)
 
     def place_on(self, agent: GridAgent, cell: GridObj) -> None:
+        """Place another object on top of this one."""
         self.obj_placed_on = cell
         self.state = hash(cell.__class__.__name__) % (2**31 - 1)
 
     def pick_up_from(self, agent: GridAgent) -> GridObj:
-        assert (
-            self.obj_placed_on is not None
-        ), f"Picking up from but there's no object placed on {self.object_id}"
+        """Remove and return the object placed on top of this one."""
+        assert self.obj_placed_on is not None, (
+            f"Picking up from but there's no object placed on {self.object_id}"
+        )
         cell = self.obj_placed_on
         self.obj_placed_on = None
         self.state = 0
@@ -96,16 +101,19 @@ class GridObj:
         return True
 
     def visible(self) -> bool:
+        """Return True if this object is visible to agents."""
         return True
 
     def toggle(self, env, agent: GridAgent = None) -> bool:
-        """
-        Trigger/Toggle an action this object performs. Some toggles are conditioned on the environment
-        and require specific conditions to be met, which can be checked with the end.
+        """Trigger/Toggle an action this object performs.
+
+        Some toggles are conditioned on the environment and require
+        specific conditions to be met.
         """
         return False
 
     def encode(self, encode_char=True, scope: str = "global"):
+        """Encode this object as a (char/idx, extra, state) tuple."""
         from cogrid.core.grid_object_registry import object_to_idx
 
         return (
@@ -120,6 +128,7 @@ class GridObj:
 
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global"):
+        """Decode a char/idx and state into a GridObj instance."""
         from cogrid.core.grid_object_registry import get_object_id_from_char, make_object
 
         if char_or_idx in [
@@ -142,36 +151,35 @@ class GridObj:
         return make_object(object_id, state=state, scope=scope)
 
     def rotate_left(self):
-        """Some objects (e.g., agents) have a rotation and must be rotated with the grid."""
+        """Rotate this object counter-clockwise (overridden by agents)."""
         pass
 
     def tick(self):
-        """
-        Some objects have a time component (e.g., cooking soup), so we call the tick
-        method on all objects for each env.step()
-        """
+        """Advance time-dependent state (overridden by objects like pots)."""
         pass
 
     def _remove_from_grid(self, grid):
+        """Remove this object from the grid at its current position."""
         cell = grid.get(*self.pos)
         assert self is cell
         grid.set(*self.pos, None)
 
 
 def _is_str(chk):
+    """Check if value is a string type (including numpy str)."""
     return isinstance(chk, str) or isinstance(chk, np.str)
 
 
 def _is_int(chk):
+    """Check if value is an integer type (including numpy int)."""
     return isinstance(chk, int) or isinstance(chk, np.int)
 
 
 class GridAgent(GridObj):
+    """Grid wrapper for an Agent, handling direction rendering and inventory."""
+
     def __init__(self, agent, n_agents: int, scope: str = "global"):
-        """
-        Grid agents are initialized slightly differently. State corresponds to the object they are holding
-        and char/colors are unique for each agent.
-        """
+        """Initialize from an Agent, encoding direction as char and inventory as state."""
         from cogrid.core.grid_object_registry import object_to_idx
 
         self.char = {
@@ -181,17 +189,13 @@ class GridAgent(GridObj):
             Directions.Right: ">",
         }[agent.dir]
 
-        assert (
-            len(agent.inventory) <= 1
-        ), "Current implementation requires maximum inventory size of 1."
+        assert len(agent.inventory) <= 1, (
+            "Current implementation requires maximum inventory size of 1."
+        )
 
         self.object_id = f"agent_{self.char}"
 
-        state = (
-            0
-            if len(agent.inventory) == 0
-            else object_to_idx(agent.inventory[0], scope=scope)
-        )
+        state = 0 if len(agent.inventory) == 0 else object_to_idx(agent.inventory[0], scope=scope)
 
         super().__init__(state=state)
         self.dir = agent.dir
@@ -210,6 +214,7 @@ class GridAgent(GridObj):
         self.color = rgb_color
 
     def rotate_left(self):
+        """Rotate the agent's direction counter-clockwise."""
         self.char = {"^": "<", "<": "v", "v": ">", ">": "^"}[self.char]
         self.object_id = f"agent_{self.char}"
         self.dir -= 1
@@ -217,6 +222,7 @@ class GridAgent(GridObj):
             self.dir += 4
 
     def render(self, tile_img):
+        """Draw agent as a directional triangle with inventory items."""
         tri_fn = point_in_triangle(
             (0.12, 0.19),
             (0.87, 0.50),
@@ -225,9 +231,7 @@ class GridAgent(GridObj):
 
         # Rotate the triangle based on agent direction
         assert self.dir is not None
-        tri_fn = rotate_fn(
-            tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir
-        )
+        tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir)
         fill_coords(tile_img, tri_fn, self.color)
 
         # add any item in the inventory to the corner
@@ -235,17 +239,17 @@ class GridAgent(GridObj):
             tile_img.shape[0] // 3,
             tile_img.shape[1] // 3,
         )
-        assert (
-            len(self.inventory) <= 3
-        ), "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+        assert len(self.inventory) <= 3, (
+            "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+        )
 
         offset = 4  # offset so we still see grid lines
         for i, obj in enumerate(self.inventory):
             inventory_tile = np.zeros(shape=(inv_tile_rows, inv_tile_cols, 3))
             obj.render(inventory_tile)
 
-            # Take the subset of the image that we'll fill, then only fill where the image is non-zero
-            # this makes a transparent background, rather than adding a black square
+            # Take the subset of the image that we'll fill, then only
+            # fill where the image is non-zero (transparent background).
             tile_subset = tile_img[
                 i * inv_tile_rows + offset : (i + 1) * inv_tile_rows + offset,
                 offset : inv_tile_cols + offset,
@@ -256,6 +260,7 @@ class GridAgent(GridObj):
 
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global"):
+        """Decode a char/idx and state into a GridAgent-compatible object."""
         from cogrid.core.grid_object_registry import (
             get_object_id_from_char,
             get_object_names,

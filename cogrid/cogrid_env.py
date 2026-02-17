@@ -1,29 +1,22 @@
+"""CoGrid environment: stateful wrapper around the functional step/reset pipeline."""
+
 import copy
 
 import numpy as np
-
-
-from gymnasium import spaces
 import pettingzoo
-from cogrid import constants
-from cogrid.core import actions as grid_actions
-from cogrid.core.constants import CoreConstants
-from cogrid.core import directions
-from cogrid.core import grid
-from cogrid.core import grid_object
-from cogrid.core import grid_utils
-from cogrid.core import typing
-from cogrid.core import agent
+from gymnasium import spaces
 
-from cogrid.core import layouts
-from cogrid.rendering import EnvRenderer
+from cogrid import constants
 
 # Vectorized components
 from cogrid.backend import set_backend
+from cogrid.core import actions as grid_actions
+from cogrid.core import agent, directions, grid, grid_object, grid_utils, layouts, typing
+from cogrid.core.agent import create_agent_arrays
+from cogrid.core.constants import CoreConstants
 from cogrid.core.grid_object import build_lookup_tables
 from cogrid.core.grid_utils import layout_to_state
-from cogrid.core.agent import create_agent_arrays
-
+from cogrid.rendering import EnvRenderer
 
 RNG = RandomNumberGenerator = np.random.Generator
 
@@ -57,7 +50,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         The first environment created sets the global backend; subsequent
         envs must use the same backend or a RuntimeError is raised.
         """
-        super(CoGridEnv, self).__init__()
+        super().__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
         set_backend(backend)
@@ -71,9 +64,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.t = 0
 
         if "features" not in config or not isinstance(config["features"], list):
-            raise ValueError(
-                "config['features'] must be a list of feature names."
-            )
+            raise ValueError("config['features'] must be a list of feature names.")
 
         self._init_rendering(render_mode, kwargs)
         self._init_grid(config)
@@ -85,18 +76,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def _init_rendering(self, render_mode, kwargs):
         """Set up rendering attributes and optional EnvRenderer."""
         self.render_mode = render_mode
-        self.render_message = (
-            kwargs.get("render_message") or self.metadata["render_message"]
-        )
+        self.render_message = kwargs.get("render_message") or self.metadata["render_message"]
         self.tile_size = CoreConstants.TilePixels
-        self.screen_size = (
-            kwargs.get("screen_size") or self.metadata["screen_size"]
+        self.screen_size = kwargs.get("screen_size") or self.metadata["screen_size"]
+        self._renderer = (
+            EnvRenderer(
+                name=self.name,
+                screen_size=self.screen_size,
+                render_fps=self.metadata["render_fps"],
+            )
+            if render_mode
+            else None
         )
-        self._renderer = EnvRenderer(
-            name=self.name,
-            screen_size=self.screen_size,
-            render_fps=self.metadata["render_fps"],
-        ) if render_mode else None
         self.visualizer = None
 
     def _init_grid(self, config):
@@ -113,12 +104,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.possible_agents = [i for i in range(config["num_agents"])]
         self.agents = copy.copy(self.possible_agents)
         self._agent_ids: set[typing.AgentID] = set(self.agents)
-        self.env_agents: dict[typing.AgentID, agent.Agent] = {
-            i: None for i in self.agents
-        }
-        self.per_agent_reward: dict[typing.AgentID, float] = (
-            self.get_empty_reward_dict()
-        )
+        self.env_agents: dict[typing.AgentID, agent.Agent] = {i: None for i in self.agents}
+        self.per_agent_reward: dict[typing.AgentID, float] = self.get_empty_reward_dict()
         self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
         self.reward_this_step = self.get_empty_reward_dict()
         self.agent_view_size = self.config.get("agent_view_size", 7)
@@ -131,21 +118,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         elif action_str == "cardinal_actions":
             self.action_set = grid_actions.ActionSets.CardinalActions
         else:
-            raise ValueError(
-                f"Invalid or None action set string: {action_str}."
-            )
+            raise ValueError(f"Invalid or None action set string: {action_str}.")
 
         self.action_spaces = {
-            a_id: spaces.Discrete(len(self.action_set))
-            for a_id in self.agent_ids
+            a_id: spaces.Discrete(len(self.action_set)) for a_id in self.agent_ids
         }
 
-        self._action_pickup_drop_idx = self.action_set.index(
-            grid_actions.Actions.PickupDrop
-        )
-        self._action_toggle_idx = self.action_set.index(
-            grid_actions.Actions.Toggle
-        )
+        self._action_pickup_drop_idx = self.action_set.index(grid_actions.Actions.PickupDrop)
+        self._action_toggle_idx = self.action_set.index(grid_actions.Actions.Toggle)
         self.prev_actions = None
 
     def _init_vectorized_infrastructure(self):
@@ -153,9 +133,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
         from cogrid.core.autowire import (
-            build_scope_config_from_components,
             build_reward_config_from_components,
+            build_scope_config_from_components,
         )
+
         self._scope_config = build_scope_config_from_components(self.scope)
         if "interaction_fn" in self.config:
             self._scope_config["interaction_fn"] = self.config["interaction_fn"]
@@ -181,21 +162,21 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def _init_jax_arrays(self):
         """Convert lookup and scope config tables to JAX arrays (JAX backend only)."""
-        if self._backend != 'jax':
+        if self._backend != "jax":
             return
 
         import jax.numpy as jnp
+
         from cogrid.backend.env_state import register_envstate_pytree
 
         register_envstate_pytree()
 
         for key in self._lookup_tables:
-            self._lookup_tables[key] = jnp.array(
-                self._lookup_tables[key], dtype=jnp.int32
-            )
+            self._lookup_tables[key] = jnp.array(self._lookup_tables[key], dtype=jnp.int32)
 
         if "static_tables" in self._scope_config:
             import numpy as _np
+
             st = self._scope_config["static_tables"]
             for key in st:
                 if isinstance(st[key], _np.ndarray):
@@ -203,6 +184,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         if self._scope_config.get("interaction_tables") is not None:
             import numpy as _np
+
             it = self._scope_config["interaction_tables"]
             for key in it:
                 if isinstance(it[key], _np.ndarray):
@@ -229,7 +211,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         if layout_name is None and layout_fn is None:
             raise ValueError(
-                "Must provide either a `layout` name or layout-generating function in config['grid']"
+                "Must provide either a `layout` name or layout-generating"
+                " function in config['grid']"
             )
         elif layout_name is not None:
             layout, state_encoding = layouts.get_layout(layout_name)
@@ -247,13 +230,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Create a PCG64-backed Generator from an optional integer seed."""
         if seed is not None and not (isinstance(seed, int) and 0 <= seed):
             if isinstance(seed, int) is False:
-                raise ValueError(
-                    f"Seed must be a python integer, actual type: {type(seed)}"
-                )
+                raise ValueError(f"Seed must be a python integer, actual type: {type(seed)}")
             else:
-                raise ValueError(
-                    f"Seed must be greater or equal to zero, actual value: {seed}"
-                )
+                raise ValueError(f"Seed must be greater or equal to zero, actual value: {seed}")
 
         seed_seq = np.random.SeedSequence(seed)
         np_seed = seed_seq.entropy
@@ -315,9 +294,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.env_agents = {}
         self.setup_agents()
 
-        self.prev_actions = {
-            a_id: grid_actions.Actions.Noop for a_id in self.agent_ids
-        }
+        self.prev_actions = {a_id: grid_actions.Actions.Noop for a_id in self.agent_ids}
 
         self.t = 0
         self.on_reset()
@@ -325,16 +302,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def _build_state(self):
         """Build array state from grid layout, extra state, and agent arrays."""
-        self._state = layout_to_state(
-            self.grid, scope=self.scope, scope_config=self._scope_config
-        )
+        self._state = layout_to_state(self.grid, scope=self.scope, scope_config=self._scope_config)
 
         extra_state_builder = self._scope_config.get("extra_state_builder")
         if extra_state_builder is not None:
             extra = extra_state_builder(self._state, self.scope)
             scope_prefix = f"{self.scope}."
             stripped = {
-                (k[len(scope_prefix):] if k.startswith(scope_prefix) else k): v
+                (k[len(scope_prefix) :] if k.startswith(scope_prefix) else k): v
                 for k, v in extra.items()
             }
             self._state.update(stripped)
@@ -345,8 +320,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
     def _build_layout_arrays(self):
         """Convert array state to typed layout arrays for the active backend."""
-        if self._backend == 'jax':
+        if self._backend == "jax":
             import jax.numpy as jnp
+
             xp = jnp
         else:
             xp = np
@@ -357,12 +333,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             if key in skip_keys:
                 continue
             if isinstance(val, list):
-                val = np.array(val, dtype=np.int32) if len(val) > 0 else np.zeros((0, 2), dtype=np.int32)
+                val = (
+                    np.array(val, dtype=np.int32)
+                    if len(val) > 0
+                    else np.zeros((0, 2), dtype=np.int32)
+                )
             layout_arrays[key] = xp.array(val, dtype=xp.int32)
 
-        spawn_positions = xp.array(
-            self._state["agent_pos"], dtype=xp.int32
-        )
+        spawn_positions = xp.array(self._state["agent_pos"], dtype=xp.int32)
 
         if self.action_set == grid_actions.ActionSets.CardinalActions:
             action_set_name = "cardinal"
@@ -375,41 +353,49 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Build feature/step/reset pipeline and run initial reset."""
         from cogrid.core.autowire import build_feature_config_from_components
         from cogrid.core.component_registry import get_layout_index
-        from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
+        from cogrid.core.step_pipeline import build_reset_fn, build_step_fn
 
         n_agents = self.config["num_agents"]
         _layout_idx = get_layout_index(self.scope, self.current_layout_id)
 
         feature_config = build_feature_config_from_components(
-            self.scope, self.config["features"],
-            n_agents=n_agents, layout_idx=_layout_idx,
+            self.scope,
+            self.config["features"],
+            n_agents=n_agents,
+            layout_idx=_layout_idx,
         )
         self._feature_fn = feature_config["feature_fn"]
 
         self._reset_fn = build_reset_fn(
-            layout_arrays, spawn_positions, n_agents,
-            self._feature_fn, self._scope_config, action_set_name,
+            layout_arrays,
+            spawn_positions,
+            n_agents,
+            self._feature_fn,
+            self._scope_config,
+            action_set_name,
         )
 
         self._step_fn = build_step_fn(
-            self._scope_config, self._lookup_tables, self._feature_fn,
-            self._reward_config, self._action_pickup_drop_idx,
-            self._action_toggle_idx, self.max_steps,
+            self._scope_config,
+            self._lookup_tables,
+            self._feature_fn,
+            self._reward_config,
+            self._action_pickup_drop_idx,
+            self._action_toggle_idx,
+            self.max_steps,
             terminated_fn=self._terminated_fn,
         )
 
-        if self._backend == 'jax':
+        if self._backend == "jax":
             import jax
+
             rng = jax.random.key(seed if seed is not None else 42)
         else:
             rng = seed if seed is not None else 42
 
         self._env_state, obs_arr = self._reset_fn(rng)
 
-        obs = {
-            aid: np.array(obs_arr[i])
-            for i, aid in enumerate(self._agent_id_order)
-        }
+        obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
 
         self.per_agent_reward = self.get_empty_reward_dict()
         self.per_component_reward = {}
@@ -420,17 +406,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     ) -> dict[typing.AgentID, str]:
         """Convert action indices to their string names."""
         str_actions = {
-            a_id: (
-                self.action_set[action]
-                if not isinstance(action, str)
-                else action
-            )
+            a_id: (self.action_set[action] if not isinstance(action, str) else action)
             for a_id, action in actions.items()
         }
 
         return str_actions
 
-    def step(self, actions: dict[typing.AgentID, typing.ActionType]) -> tuple[
+    def step(
+        self, actions: dict[typing.AgentID, typing.ActionType]
+    ) -> tuple[
         dict[typing.AgentID, typing.ObsType],
         dict[typing.AgentID, float],
         dict[typing.AgentID, bool],
@@ -443,8 +427,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         ``self._step_fn``, and converts outputs back to PettingZoo dicts.
         """
         # Select array module
-        if self._backend == 'jax':
+        if self._backend == "jax":
             import jax.numpy as jnp
+
             xp = jnp
         else:
             xp = np
@@ -456,19 +441,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         # Delegate to the unified step pipeline
-        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = self._step_fn(
-            self._env_state, actions_arr
+        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = (
+            self._step_fn(self._env_state, actions_arr)
         )
 
         # Convert to PettingZoo dict format
-        obs = {
-            aid: np.array(obs_arr[i])
-            for i, aid in enumerate(self._agent_id_order)
-        }
-        rewards = {
-            aid: float(rewards_arr[i])
-            for i, aid in enumerate(self._agent_id_order)
-        }
+        obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+        rewards = {aid: float(rewards_arr[i]) for i, aid in enumerate(self._agent_id_order)}
 
         terminateds = {aid: bool(terminateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
         truncateds = {aid: bool(truncateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
@@ -510,9 +489,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             "wall_map": np.array(state.wall_map).tolist(),
             "object_type_map": np.array(state.object_type_map).tolist(),
             "object_state_map": np.array(state.object_state_map).tolist(),
-            "extra_state": {
-                k: np.array(v).tolist() for k, v in state.extra_state.items()
-            },
+            "extra_state": {k: np.array(v).tolist() for k, v in state.extra_state.items()},
             "rng_key": np.array(state.rng_key).tolist() if state.rng_key is not None else None,
             "time": int(state.time),
             "done": np.array(state.done).tolist(),
@@ -538,18 +515,18 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         if self._backend == "jax":
             import jax.numpy as jnp
+
             xp = jnp
         else:
             xp = np
 
-        extra_state = {
-            k: xp.array(v, dtype=xp.int32) for k, v in snapshot["extra_state"].items()
-        }
+        extra_state = {k: xp.array(v, dtype=xp.int32) for k, v in snapshot["extra_state"].items()}
 
         rng_key = snapshot["rng_key"]
         if rng_key is not None:
             if self._backend == "jax":
                 import jax
+
                 rng_key = jax.numpy.array(rng_key, dtype=jax.numpy.uint32)
             else:
                 rng_key = np.array(rng_key)
@@ -606,9 +583,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 agent_obj.inventory = []
             else:
                 obj_id = idx_to_object(inv_type_id, scope=self.scope)
-                agent_obj.inventory = (
-                    [make_object(obj_id, scope=self.scope)] if obj_id else []
-                )
+                agent_obj.inventory = [make_object(obj_id, scope=self.scope)] if obj_id else []
 
         # --- Sync grid cells from object_type_map / object_state_map ---
         otm = np.array(state.object_type_map)
@@ -648,9 +623,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def update_grid_agents(self) -> None:
         """Update the grid agents to reflect the current state of each Agent."""
         self.grid.grid_agents = {
-            a_id: grid_object.GridAgent(
-                agent, n_agents=self.config["num_agents"], scope=self.scope
-            )
+            a_id: grid_object.GridAgent(agent, n_agents=self.config["num_agents"], scope=self.scope)
             for a_id, agent in self.env_agents.items()
         }
 
@@ -660,7 +633,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         ``(EnvState, actions) -> (EnvState, obs, rewards, terminateds, truncateds, infos)``
         """
-        if self._backend != 'jax':
+        if self._backend != "jax":
             raise RuntimeError("jax_step is only available with backend='jax'")
         if self._step_fn is None:
             raise RuntimeError("Must call reset() before accessing jax_step")
@@ -672,13 +645,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         ``(rng_key) -> (EnvState, obs)``
         """
-        if self._backend != 'jax':
+        if self._backend != "jax":
             raise RuntimeError("jax_reset is only available with backend='jax'")
         if self._reset_fn is None:
             raise RuntimeError("Must call reset() before accessing jax_reset")
         return self._reset_fn
 
     def setup_agents(self):
+        """Set up agents using the default agent factory."""
         self._setup_agents()
 
     def _setup_agents(self):
@@ -694,9 +668,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     # Hooks for subclass customization
     # ------------------------------------------------------------------
 
-    def on_interact(
-        self, actions: dict[typing.AgentID, typing.ActionType]
-    ) -> None:
+    def on_interact(self, actions: dict[typing.AgentID, typing.ActionType]) -> None:
         """Hook for subclass logic after agents interact with the environment."""
         pass
 
@@ -724,16 +696,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     # Observation and reward helpers
     # ------------------------------------------------------------------
 
-    def get_infos(
-        self, **kwargs
-    ) -> dict[typing.AgentID, dict[typing.Any, typing.Any]]:
+    def get_infos(self, **kwargs) -> dict[typing.AgentID, dict[typing.Any, typing.Any]]:
         """Build per-agent info dicts from keyword argument dicts."""
         infos = {agent_id: {} for agent_id in self._agent_ids}
         for info_key, info_dict in kwargs.items():
             for agent_id, val in info_dict.items():
-                assert (
-                    agent_id in self._agent_ids
-                ), f"Must pass dicts keyed by AgentIDs to get_infos(), got invalid key: {agent_id}"
+                assert agent_id in self._agent_ids, (
+                    f"Must pass dicts keyed by AgentIDs to get_infos(), got invalid key: {agent_id}"
+                )
                 infos[agent_id][info_key] = val
         return infos
 
@@ -744,15 +714,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     @property
     def map_with_agents(self) -> np.ndarray:
         """Return the encoded grid with agents overlaid as numeric IDs."""
-
         grid_encoding = self.grid.encode(encode_char=True, scope=self.scope)
         grid = grid_encoding[:, :, 0]
 
-        for a_id, agent in self.env_agents.items():
-            if (
-                agent is not None
-            ):  # will be None before being set by subclassed env
-                grid[agent.pos[0], agent.pos[1]] = self.id_to_numeric(a_id)
+        for a_id, ag in self.env_agents.items():
+            if ag is not None:  # will be None before being set by subclassed env
+                grid[ag.pos[0], ag.pos[1]] = self.id_to_numeric(a_id)
 
         return grid
 
@@ -771,9 +738,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         for r in range(self.grid.height):
             for c in range(self.grid.width):
                 cell = self.grid.get(row=r, col=c)
-                if (r, c) not in self.agent_pos and (
-                    not cell or cell.object_id == "floor"
-                ):
+                if (r, c) not in self.agent_pos and (not cell or cell.object_id == "floor"):
                     spawns.append((r, c))
         return spawns
 
@@ -813,9 +778,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return topX, topY, botX, botY
 
-    def gen_obs_grid(
-        self, agent_id: typing.AgentID, agent_view_size: int = None
-    ) -> grid.Grid:
+    def gen_obs_grid(self, agent_id: typing.AgentID, agent_view_size: int = None) -> grid.Grid:
         """Return the rotated sub-grid and visibility mask for an agent's POV."""
         topX, topY, *_ = self.get_view_exts(agent_id, agent_view_size)
 
@@ -838,8 +801,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         assert len(grid.grid_agents) >= 1
         assert grid.grid_agents[agent_id].dir == directions.Directions.Up
 
-        # NOTE: In Minigrid, they replace the agent's position with the item they're carrying. We don't do that
-        #   here. Rather, we'll provide an additional observation space that represents the item(s) in inventory.
+        # NOTE: In Minigrid, they replace the agent's position with the item
+        #   they're carrying. We don't do that here. Rather, we'll provide an
+        #   additional observation space that represents the item(s) in inventory.
 
         return grid, vis_mask
 
@@ -861,9 +825,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     ) -> np.ndarray:
         """Render the full grid, optionally highlighting each agent's visible region."""
         if highlight:
-            highlight_mask = np.zeros(
-                shape=(self.grid.height, self.grid.width), dtype=bool
-            )
+            highlight_mask = np.zeros(shape=(self.grid.height, self.grid.width), dtype=bool)
             for a_id, agent in self.env_agents.items():
                 # Determine cell visibility for the agent
                 _, vis_mask = self.gen_obs_grid(a_id)
@@ -884,9 +846,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                             continue
 
                         # compute world coordinates of agent view
-                        abs_row, abs_col = (
-                            top_left - (f_vec * vis_row) + (r_vec * vis_col)
-                        )
+                        abs_row, abs_col = top_left - (f_vec * vis_row) + (r_vec * vis_col)
 
                         if abs_row < 0 or abs_row >= self.grid.height:
                             continue
@@ -897,9 +857,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             highlight_mask = None
 
-        img = self.grid.render(
-            tile_size=tile_size, highlight_mask=highlight_mask
-        )
+        img = self.grid.render(tile_size=tile_size, highlight_mask=highlight_mask)
         return img
 
     def get_frame(
@@ -910,13 +868,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     ) -> np.ndarray:
         """Return RGB image of the full environment or a single agent's POV."""
         if agent_pov:
-            frame = self.get_pov_render(
-                agent_id=self.agent_pov, tile_size=tile_size
-            )
+            frame = self.get_pov_render(agent_id=self.agent_pov, tile_size=tile_size)
         else:
-            frame = self.get_full_render(
-                highlight=highlight, tile_size=tile_size
-            )
+            frame = self.get_full_render(highlight=highlight, tile_size=tile_size)
 
         return frame
 
@@ -954,27 +908,28 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             return img
 
     def close(self):
+        """Close the renderer if active."""
         if self._renderer is not None:
             self._renderer.close()
 
     def get_action_mask(self, agent_id):
+        """Return action mask for the given agent (not implemented)."""
         raise NotImplementedError
 
     @property
     def agent_ids(self) -> list:
+        """Return list of active agent IDs."""
         return list(self.env_agents.keys())
 
     @property
     def agent_pos(self) -> list:
-        return [
-            tuple(agent.pos)
-            for agent in self.env_agents.values()
-            if agent is not None
-        ]
+        """Return list of agent positions."""
+        return [tuple(agent.pos) for agent in self.env_agents.values() if agent is not None]
 
     def id_to_numeric(self, agent_id) -> str:
-        """Converts agent id to integer, beginning with 1,
-        e.g., agent-0 -> 1, agent-1 -> 2, etc.
+        """Convert agent id to its numeric string representation.
+
+        For example, agent-0 -> 1, agent-1 -> 2, etc.
         """
         agent = self.env_agents[agent_id]
         return str(agent.agent_number)

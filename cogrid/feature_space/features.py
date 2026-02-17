@@ -16,7 +16,6 @@ implementation serves both paths.
 from cogrid.backend import xp
 from cogrid.core.features import Feature, register_feature_type
 
-
 # ---------------------------------------------------------------------------
 # Core feature extractors
 # ---------------------------------------------------------------------------
@@ -117,36 +116,50 @@ def inventory_feature(agent_inv, agent_idx):
 
 @register_feature_type("agent_dir", scope="global")
 class AgentDir(Feature):
+    """One-hot agent direction feature."""
+
     per_agent = True
     obs_dim = 4
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the agent direction feature function."""
+
         def fn(state, agent_idx):
             return agent_dir_feature(state.agent_dir, agent_idx)
+
         return fn
 
 
 @register_feature_type("agent_position", scope="global")
 class AgentPosition(Feature):
+    """Agent position feature."""
+
     per_agent = True
     obs_dim = 2
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the agent position feature function."""
+
         def fn(state, agent_idx):
             return agent_pos_feature(state.agent_pos, agent_idx)
+
         return fn
 
 
 @register_feature_type("can_move_direction", scope="global")
 class CanMoveDirection(Feature):
+    """Multi-hot encoding of walkable cardinal directions."""
+
     per_agent = True
     obs_dim = 4
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the can-move-direction feature function."""
         from cogrid.core.grid_object import build_lookup_tables
+
         tables = build_lookup_tables(scope=scope)
         can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
 
@@ -158,18 +171,24 @@ class CanMoveDirection(Feature):
                 state.object_type_map,
                 can_overlap_table,
             )
+
         return fn
 
 
 @register_feature_type("inventory", scope="global")
 class Inventory(Feature):
+    """Agent inventory contents as a single integer feature."""
+
     per_agent = True
     obs_dim = 1
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build the inventory feature function."""
+
         def fn(state, agent_idx):
             return inventory_feature(state.agent_inv, agent_idx)
+
         return fn
 
 

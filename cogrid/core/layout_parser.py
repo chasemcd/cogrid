@@ -26,10 +26,16 @@ Usage::
     state = parse_layout(layout_strings, "overcooked", scope_config)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from cogrid.core.grid_object import object_to_idx
 
+if TYPE_CHECKING:
+    from cogrid.backend.env_state import EnvState
 
 # Module-level registry: scope -> char -> properties dict.
 SYMBOL_REGISTRY: dict[str, dict[str, dict]] = {}
@@ -66,7 +72,7 @@ def parse_layout(
     n_agents: int = 2,
     action_set: str = "cardinal",
     rng_key=None,
-) -> "EnvState":
+) -> EnvState:
     """Parse ASCII layout strings directly into a fully initialized EnvState.
 
     No Grid, GridObj, or Agent objects are created. Special characters:
