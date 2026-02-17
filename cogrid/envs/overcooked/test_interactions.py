@@ -1159,3 +1159,168 @@ def test_per_recipe_cook_time():
     print("  Picked up tomato_soup: OK")
 
     print("  PASSED")
+
+
+def test_pickup_from_produces_config_driven():
+    """Verify config-driven pickup_from_produces table matches expected mappings."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.config import _build_interaction_tables
+
+    scope = "overcooked"
+    tables = _build_interaction_tables(scope)
+    pfp = tables["pickup_from_produces"]
+
+    onion_stack_id = object_to_idx("onion_stack", scope=scope)
+    tomato_stack_id = object_to_idx("tomato_stack", scope=scope)
+    plate_stack_id = object_to_idx("plate_stack", scope=scope)
+    onion_id = object_to_idx("onion", scope=scope)
+    tomato_id = object_to_idx("tomato", scope=scope)
+    plate_id = object_to_idx("plate", scope=scope)
+
+    # Verify expected mappings
+    assert int(pfp[onion_stack_id]) == onion_id, (
+        f"onion_stack should produce onion: {int(pfp[onion_stack_id])} != {onion_id}"
+    )
+    assert int(pfp[tomato_stack_id]) == tomato_id, (
+        f"tomato_stack should produce tomato: {int(pfp[tomato_stack_id])} != {tomato_id}"
+    )
+    assert int(pfp[plate_stack_id]) == plate_id, (
+        f"plate_stack should produce plate: {int(pfp[plate_stack_id])} != {plate_id}"
+    )
+
+    # Verify no spurious mappings: all other entries should be 0
+    for i in range(len(pfp)):
+        if i not in (onion_stack_id, tomato_stack_id, plate_stack_id):
+            assert int(pfp[i]) == 0, (
+                f"Unexpected non-zero entry at index {i}: {int(pfp[i])}"
+            )
+
+    print("  Config-driven pickup_from_produces: PASSED")
+
+
+def test_stack_subclasses_are_thin():
+    """Verify stack classes have no method overrides -- only class attributes."""
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.envs.overcooked.overcooked_grid_objects import (
+        OnionStack,
+        PlateStack,
+        TomatoStack,
+        _BaseStack,
+    )
+
+    for cls in (OnionStack, TomatoStack, PlateStack):
+        assert issubclass(cls, _BaseStack), f"{cls.__name__} should extend _BaseStack"
+
+        # Verify NO method overrides in the subclass __dict__
+        for method_name in ("can_pickup_from", "pick_up_from", "render"):
+            assert method_name not in cls.__dict__, (
+                f"{cls.__name__} should NOT define its own {method_name}"
+            )
+
+        # Verify produces is set to a non-None string
+        assert isinstance(cls.produces, str) and cls.produces is not None, (
+            f"{cls.__name__}.produces should be a non-None string"
+        )
+
+    print("  Stack subclasses are thin: PASSED")
+
+
+def test_factory_registers_new_types():
+    """Verify make_ingredient_and_stack creates and registers types correctly.
+
+    Demonstrates the required calling pattern: factory BEFORE table build.
+    """
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
+    from cogrid.envs.overcooked.config import _build_interaction_tables
+    from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
+
+    scope = "overcooked"
+
+    # Check if already registered (from a previous test run in the same process)
+    names = get_object_names(scope=scope)
+    if "test_mushroom" not in names:
+        make_ingredient_and_stack(
+            "test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M"
+        )
+
+    # Verify both types are registered
+    names = get_object_names(scope=scope)
+    assert "test_mushroom" in names, "test_mushroom should be registered"
+    assert "test_mushroom_stack" in names, "test_mushroom_stack should be registered"
+
+    # Verify stack produces attribute
+    stack_obj = make_object("test_mushroom_stack", scope=scope)
+    assert stack_obj.produces == "test_mushroom", (
+        f"Stack.produces should be 'test_mushroom', got {stack_obj.produces}"
+    )
+
+    # Build tables AFTER factory call and verify scan picks it up
+    tables = _build_interaction_tables(scope)
+    pfp = tables["pickup_from_produces"]
+    mushroom_stack_id = object_to_idx("test_mushroom_stack", scope=scope)
+    mushroom_id = object_to_idx("test_mushroom", scope=scope)
+    assert int(pfp[mushroom_stack_id]) == mushroom_id, (
+        f"pickup_from_produces should map test_mushroom_stack -> test_mushroom: "
+        f"{int(pfp[mushroom_stack_id])} != {mushroom_id}"
+    )
+
+    print("  Factory registers new types: PASSED")
+
+
+def test_factory_stack_dispenses_item():
+    """Verify a factory-created stack works at object level and through Branch 2B."""
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
+    from cogrid.envs.overcooked.config import _build_interaction_tables
+    from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
+
+    scope = "overcooked"
+
+    # Register if not already done
+    names = get_object_names(scope=scope)
+    if "test_mushroom" not in names:
+        make_ingredient_and_stack(
+            "test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M"
+        )
+
+    # Object-level check
+    stack = make_object("test_mushroom_stack", scope=scope)
+    assert stack.can_pickup_from(None) is True, "Stack should allow pickup"
+    item = stack.pick_up_from(None)
+    assert item.object_id == "test_mushroom", (
+        f"Dispensed item should be test_mushroom, got {item.object_id}"
+    )
+
+    # Branch 2B integration check: rebuild tables and verify entry
+    tables = _build_interaction_tables(scope)
+    pfp = tables["pickup_from_produces"]
+    mushroom_stack_id = object_to_idx("test_mushroom_stack", scope=scope)
+    mushroom_id = object_to_idx("test_mushroom", scope=scope)
+    assert int(pfp[mushroom_stack_id]) > 0, (
+        "pickup_from_produces should have non-zero entry for test_mushroom_stack"
+    )
+    assert int(pfp[mushroom_stack_id]) == mushroom_id, (
+        f"pickup_from_produces[test_mushroom_stack] should equal test_mushroom id"
+    )
+
+    print("  Factory stack dispenses item: PASSED")
