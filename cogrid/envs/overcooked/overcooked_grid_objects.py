@@ -236,15 +236,18 @@ class Pot(grid_object.GridObj):
     def build_static_tables(cls):
         """Return pre-computed static tables for the overcooked scope."""
         from cogrid.envs.overcooked.config import (
+            DEFAULT_RECIPES,
             _build_interaction_tables,
             _build_static_tables,
             _build_type_ids,
+            compile_recipes,
         )
 
         scope = "overcooked"
         itables = _build_interaction_tables(scope)
         type_ids = _build_type_ids(scope)
-        return _build_static_tables(scope, itables, type_ids)
+        recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+        return _build_static_tables(scope, itables, type_ids, recipe_tables=recipe_tables)
 
     @classmethod
     def build_render_sync_fn(cls):

@@ -633,3 +633,227 @@ def test_at_most_one_branch_fires():
     assert failures == 0, f"{failures} states had multiple branches fire out of {total_states}"
     print(f"  Tested {total_states} random states, all passed at-most-one invariant")
     print("  PASSED")
+
+
+def test_default_recipes_backward_compat():
+    """Verify DEFAULT_RECIPES compile to arrays matching current hardcoded behavior."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.config import (
+        DEFAULT_RECIPES,
+        _build_interaction_tables,
+        compile_recipes,
+    )
+
+    scope = "overcooked"
+    tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+
+    # Verify shapes
+    assert tables["recipe_ingredients"].shape == (2, 3), (
+        f"Expected (2, 3), got {tables['recipe_ingredients'].shape}"
+    )
+    assert tables["recipe_result"].shape == (2,)
+    assert tables["recipe_cooking_time"].shape == (2,)
+    assert tables["recipe_reward"].shape == (2,)
+
+    onion_id = object_to_idx("onion", scope=scope)
+    tomato_id = object_to_idx("tomato", scope=scope)
+    onion_soup_id = object_to_idx("onion_soup", scope=scope)
+    tomato_soup_id = object_to_idx("tomato_soup", scope=scope)
+
+    # Recipe 0: 3x onion -> onion_soup
+    assert list(tables["recipe_ingredients"][0]) == [onion_id, onion_id, onion_id]
+    assert tables["recipe_result"][0] == onion_soup_id
+
+    # Recipe 1: 3x tomato -> tomato_soup
+    assert list(tables["recipe_ingredients"][1]) == [tomato_id, tomato_id, tomato_id]
+    assert tables["recipe_result"][1] == tomato_soup_id
+
+    # Cooking times
+    assert list(tables["recipe_cooking_time"]) == [30, 30]
+
+    # Rewards
+    assert list(tables["recipe_reward"]) == [20.0, 20.0]
+
+    # legal_pot_ingredients must match current hardcoded behavior
+    old_itables = _build_interaction_tables(scope)
+    assert np.array_equal(
+        tables["legal_pot_ingredients"],
+        old_itables["legal_pot_ingredients"],
+    ), "legal_pot_ingredients must match current hardcoded values"
+
+    print("  Default recipe backward compatibility: PASSED")
+
+
+def test_recipe_validation_errors():
+    """Verify malformed recipes raise clear ValueError at init time."""
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.envs.overcooked.config import compile_recipes
+
+    scope = "overcooked"
+
+    test_cases = [
+        ("empty list", []),
+        (
+            "missing key (no reward)",
+            [{"ingredients": ["onion"], "result": "onion_soup", "cook_time": 30}],
+        ),
+        (
+            "extra key",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "onion_soup",
+                    "cook_time": 30,
+                    "reward": 20.0,
+                    "extra_key": True,
+                }
+            ],
+        ),
+        (
+            "non-string ingredient",
+            [{"ingredients": [123], "result": "onion_soup", "cook_time": 30, "reward": 20.0}],
+        ),
+        (
+            "invalid ingredient name",
+            [
+                {
+                    "ingredients": ["nonexistent_object"],
+                    "result": "onion_soup",
+                    "cook_time": 30,
+                    "reward": 20.0,
+                }
+            ],
+        ),
+        (
+            "invalid result name",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "nonexistent_soup",
+                    "cook_time": 30,
+                    "reward": 20.0,
+                }
+            ],
+        ),
+        (
+            "non-positive cook_time (0)",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "onion_soup",
+                    "cook_time": 0,
+                    "reward": 20.0,
+                }
+            ],
+        ),
+        (
+            "non-positive cook_time (-1)",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "onion_soup",
+                    "cook_time": -1,
+                    "reward": 20.0,
+                }
+            ],
+        ),
+        (
+            "non-numeric reward",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "onion_soup",
+                    "cook_time": 30,
+                    "reward": "bad",
+                }
+            ],
+        ),
+        (
+            "duplicate sorted ingredients",
+            [
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "onion_soup",
+                    "cook_time": 30,
+                    "reward": 20.0,
+                },
+                {
+                    "ingredients": ["onion", "onion", "onion"],
+                    "result": "tomato_soup",
+                    "cook_time": 30,
+                    "reward": 15.0,
+                },
+            ],
+        ),
+    ]
+
+    for name, config in test_cases:
+        try:
+            compile_recipes(config, scope)
+            assert False, f"Expected ValueError for: {name}"
+        except ValueError as e:
+            print(f"    {name}: {e}")
+
+    print("  Recipe validation errors: PASSED")
+
+
+def test_custom_recipe_compilation():
+    """Verify a non-default recipe config compiles with sorted ingredients."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.config import compile_recipes
+
+    scope = "overcooked"
+
+    # 2 onions + 1 tomato, deliberately unsorted
+    custom_recipe = {
+        "ingredients": ["onion", "tomato", "onion"],
+        "result": "onion_soup",
+        "cook_time": 20,
+        "reward": 15.0,
+    }
+    tables = compile_recipes([custom_recipe], scope)
+
+    # Shape check
+    assert tables["recipe_ingredients"].shape == (1, 3), (
+        f"Expected (1, 3), got {tables['recipe_ingredients'].shape}"
+    )
+
+    # Ingredient IDs must be sorted ascending
+    row = list(tables["recipe_ingredients"][0])
+    assert row == sorted(row), f"Ingredients not sorted: {row}"
+
+    onion_id = object_to_idx("onion", scope=scope)
+    tomato_id = object_to_idx("tomato", scope=scope)
+    expected = sorted([onion_id, onion_id, tomato_id])
+    assert row == expected, f"Expected {expected}, got {row}"
+
+    # Cooking time and reward
+    assert tables["recipe_cooking_time"][0] == 20
+    assert tables["recipe_reward"][0] == 15.0
+
+    # legal_pot_ingredients has 1 for both onion and tomato
+    assert tables["legal_pot_ingredients"][onion_id] == 1
+    assert tables["legal_pot_ingredients"][tomato_id] == 1
+
+    # max_ingredients
+    assert tables["max_ingredients"] == 3
+
+    print("  Custom recipe compilation: PASSED")
