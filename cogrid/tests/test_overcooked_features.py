@@ -39,12 +39,12 @@ def _make_env(layout_name):
 
 
 @pytest.mark.parametrize("layout_name", OVERCOOKED_LAYOUTS)
-def test_obs_shape_677(layout_name):
-    """Each agent should get a (677,) observation."""
+def test_obs_shape_210(layout_name):
+    """Each agent should get a (661,) observation."""
     env = _make_env(layout_name)
     obs, _ = env.reset(seed=42)
     for aid in env.possible_agents:
-        assert obs[aid].shape == (677,), f"Agent {aid} obs shape {obs[aid].shape} != (677,)"
+        assert obs[aid].shape == (661,), f"Agent {aid} obs shape {obs[aid].shape} != (661,)"
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def test_obs_shape_677(layout_name):
 
 
 def test_step_preserves_shape():
-    """Observation shape should remain (677,) after stepping."""
+    """Observation shape should remain (661,) after stepping."""
     env = _make_env("overcooked_cramped_room_v0")
     obs, _ = env.reset(seed=42)
 
@@ -63,7 +63,7 @@ def test_step_preserves_shape():
         if any(terms.values()) or any(truncs.values()):
             break
         for aid in env.possible_agents:
-            assert obs[aid].shape == (677,)
+            assert obs[aid].shape == (661,)
 
 
 # ---------------------------------------------------------------------------

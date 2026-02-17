@@ -1,16 +1,11 @@
-"""Cross-library Overcooked Cramped Room benchmark.
+"""Overcooked Cramped Room -- Scaling Benchmark.
 
-Compares environment throughput across three implementations:
-1. CoGrid (this library)          -- numpy single, JAX single, JAX vmap
-2. overcooked_ai (original)       -- numpy single (step + featurize_state_mdp)
-3. JaxMARL                        -- JAX single, JAX vmap
-
-All implementations compute per-agent observations each step so the
-comparison is apples-to-apples.  overcooked_ai's step() returns raw
-game state, so we call featurize_state_mdp() after each step.
+Sweeps over increasing numbers of vectorized environments and measures
+throughput for CoGrid JAX and JaxMARL on both CPU and GPU,
+with numpy baselines as reference lines.
 
 Install external dependencies before running:
-    pip install overcooked-ai jaxmarl
+    pip install overcooked-ai jaxmarl matplotlib
 
 Run:
     python -m cogrid.benchmarks.benchmark_comparison
@@ -23,11 +18,12 @@ import time
 # Constants
 # ---------------------------------------------------------------------------
 
-N_STEPS = 1000
+N_STEPS = 500
 N_WARMUP = 10
 N_TRIALS = 5
-BATCH_SIZE = 1024
+BATCH_SIZES = [1, 4, 16, 64, 256, 1024]
 SEED = 42
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -77,92 +73,6 @@ def bench_cogrid_numpy(n_steps=N_STEPS):
 
 
 # ===================================================================
-# CoGrid -- JAX single env (JIT)
-# ===================================================================
-
-
-def bench_cogrid_jax_single(n_steps=N_STEPS):
-    import jax
-    import jax.numpy as jnp
-    from cogrid.backend._dispatch import _reset_backend_for_testing
-
-    _reset_backend_for_testing()
-
-    import cogrid.envs  # noqa: F401
-    from cogrid.envs import registry
-
-    env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
-    env.reset(seed=SEED)
-    step_fn = env.jax_step
-    reset_fn = env.jax_reset
-    n_agents = len(env.possible_agents)
-    actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
-
-    # warmup (includes JIT compilation)
-    state, _ = reset_fn(jax.random.key(SEED))
-    state.agent_pos.block_until_ready()
-    for _ in range(N_WARMUP):
-        state, *_ = step_fn(state, actions)
-        state.agent_pos.block_until_ready()
-
-    def trial():
-        s, _ = reset_fn(jax.random.key(SEED))
-        s.agent_pos.block_until_ready()
-        t0 = time.perf_counter()
-        for _ in range(n_steps):
-            s, *_ = step_fn(s, actions)
-        s.agent_pos.block_until_ready()
-        return n_steps / (time.perf_counter() - t0)
-
-    return _run_trials(trial)
-
-
-# ===================================================================
-# CoGrid -- JAX vmap
-# ===================================================================
-
-
-def bench_cogrid_jax_vmap(n_steps=N_STEPS, batch_size=BATCH_SIZE):
-    import jax
-    import jax.numpy as jnp
-    from cogrid.backend._dispatch import _reset_backend_for_testing
-
-    _reset_backend_for_testing()
-
-    import cogrid.envs  # noqa: F401
-    from cogrid.envs import registry
-
-    env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
-    env.reset(seed=SEED)
-    step_fn = env.jax_step
-    reset_fn = env.jax_reset
-    n_agents = len(env.possible_agents)
-
-    v_reset = jax.jit(jax.vmap(reset_fn))
-    v_step = jax.jit(jax.vmap(step_fn))
-    keys = jax.random.split(jax.random.key(0), batch_size)
-    batch_actions = jnp.full((batch_size, n_agents), 6, dtype=jnp.int32)
-
-    # warmup
-    bs, _ = v_reset(keys)
-    bs.agent_pos.block_until_ready()
-    for _ in range(N_WARMUP):
-        bs, *_ = v_step(bs, batch_actions)
-        bs.agent_pos.block_until_ready()
-
-    def trial():
-        s, _ = v_reset(keys)
-        s.agent_pos.block_until_ready()
-        t0 = time.perf_counter()
-        for _ in range(n_steps):
-            s, *_ = v_step(s, batch_actions)
-        s.agent_pos.block_until_ready()
-        return (n_steps * batch_size) / (time.perf_counter() - t0)
-
-    return _run_trials(trial)
-
-
-# ===================================================================
 # overcooked_ai -- NumPy single env
 # ===================================================================
 
@@ -198,54 +108,82 @@ def bench_overcooked_ai(n_steps=N_STEPS):
 
 
 # ===================================================================
-# JaxMARL -- JAX single env (JIT)
+# CoGrid -- JAX (parameterized by batch_size and device)
 # ===================================================================
 
 
-def bench_jaxmarl_single(n_steps=N_STEPS):
+def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
+    """Returns list of steps/sec trials."""
     import jax
     import jax.numpy as jnp
-    from jaxmarl import make as jaxmarl_make
+    from cogrid.backend._dispatch import _reset_backend_for_testing
 
-    env = jaxmarl_make("overcooked")
-    agents = env.agents  # ["agent_0", "agent_1"]
+    _reset_backend_for_testing()
 
-    step_jit = jax.jit(env.step)
-    reset_jit = jax.jit(env.reset)
+    import cogrid.envs  # noqa: F401
+    from cogrid.envs import registry
 
-    noop_actions = {agent: jnp.int32(4) for agent in agents}  # 4 = stay
+    env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
+    env.reset(seed=SEED)
+    step_fn = env.jax_step
+    reset_fn = env.jax_reset
+    n_agents = len(env.possible_agents)
 
-    # warmup
-    key = jax.random.key(SEED)
-    key, k_reset = jax.random.split(key)
-    obs, state = reset_jit(k_reset)
-    jax.tree.map(lambda x: x.block_until_ready(), obs)
-    for _ in range(N_WARMUP):
-        key, k_step = jax.random.split(key)
-        obs, state, rew, done, info = step_jit(k_step, state, noop_actions)
-        jax.tree.map(lambda x: x.block_until_ready(), obs)
+    if batch_size == 1:
+        jit_step = jax.jit(step_fn)
+        jit_reset = jax.jit(reset_fn)
+        actions = jax.device_put(jnp.full((n_agents,), 6, dtype=jnp.int32), device)
+        key = jax.device_put(jax.random.key(SEED), device)
 
-    def trial():
-        nonlocal key
-        key, k_reset = jax.random.split(key)
-        obs, st = reset_jit(k_reset)
-        jax.tree.map(lambda x: x.block_until_ready(), obs)
-        t0 = time.perf_counter()
-        for _ in range(n_steps):
-            key, k_step = jax.random.split(key)
-            obs, st, rew, done, info = step_jit(k_step, st, noop_actions)
-        jax.tree.map(lambda x: x.block_until_ready(), obs)
-        return n_steps / (time.perf_counter() - t0)
+        # warmup (includes JIT compilation)
+        state, _ = jit_reset(key)
+        state.agent_pos.block_until_ready()
+        for _ in range(N_WARMUP):
+            state, *_ = jit_step(state, actions)
+            state.agent_pos.block_until_ready()
+
+        def trial():
+            s, _ = jit_reset(key)
+            s.agent_pos.block_until_ready()
+            t0 = time.perf_counter()
+            for _ in range(n_steps):
+                s, *_ = jit_step(s, actions)
+            s.agent_pos.block_until_ready()
+            return n_steps / (time.perf_counter() - t0)
+    else:
+        v_step = jax.jit(jax.vmap(step_fn))
+        v_reset = jax.jit(jax.vmap(reset_fn))
+        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
+        batch_actions = jax.device_put(
+            jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device
+        )
+
+        # warmup
+        bs, _ = v_reset(keys)
+        bs.agent_pos.block_until_ready()
+        for _ in range(N_WARMUP):
+            bs, *_ = v_step(bs, batch_actions)
+            bs.agent_pos.block_until_ready()
+
+        def trial():
+            s, _ = v_reset(keys)
+            s.agent_pos.block_until_ready()
+            t0 = time.perf_counter()
+            for _ in range(n_steps):
+                s, *_ = v_step(s, batch_actions)
+            s.agent_pos.block_until_ready()
+            return (n_steps * batch_size) / (time.perf_counter() - t0)
 
     return _run_trials(trial)
 
 
 # ===================================================================
-# JaxMARL -- JAX vmap
+# JaxMARL -- JAX (parameterized by batch_size and device)
 # ===================================================================
 
 
-def bench_jaxmarl_vmap(n_steps=N_STEPS, batch_size=BATCH_SIZE):
+def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
+    """Returns list of steps/sec trials."""
     import jax
     import jax.numpy as jnp
     from jaxmarl import make as jaxmarl_make
@@ -253,35 +191,68 @@ def bench_jaxmarl_vmap(n_steps=N_STEPS, batch_size=BATCH_SIZE):
     env = jaxmarl_make("overcooked")
     agents = env.agents
 
-    v_reset = jax.jit(jax.vmap(env.reset))
-    v_step = jax.jit(jax.vmap(env.step))
+    if batch_size == 1:
+        step_jit = jax.jit(env.step)
+        reset_jit = jax.jit(env.reset)
+        noop_actions = {
+            agent: jax.device_put(jnp.int32(4), device) for agent in agents
+        }
 
-    noop_actions = {
-        agent: jnp.full(batch_size, 4, dtype=jnp.int32) for agent in agents
-    }
+        # warmup
+        key = jax.device_put(jax.random.key(SEED), device)
+        key, k_reset = jax.random.split(key)
+        obs, state = reset_jit(k_reset)
+        jax.tree.map(lambda x: x.block_until_ready(), obs)
+        for _ in range(N_WARMUP):
+            key, k_step = jax.random.split(key)
+            obs, state, *_ = step_jit(k_step, state, noop_actions)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
 
-    # warmup
-    keys = jax.random.split(jax.random.key(0), batch_size)
-    obs, states = v_reset(keys)
-    jax.tree.map(lambda x: x.block_until_ready(), obs)
-    step_keys = jax.random.split(jax.random.key(1), batch_size)
-    for _ in range(N_WARMUP):
-        obs, states, rew, done, info = v_step(step_keys, states, noop_actions)
-        jax.tree.map(lambda x: x.block_until_ready(), obs)
+        def trial():
+            nonlocal key
+            key, k_reset = jax.random.split(key)
+            obs, st = reset_jit(k_reset)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
+            t0 = time.perf_counter()
+            for _ in range(n_steps):
+                key, k_step = jax.random.split(key)
+                obs, st, *_ = step_jit(k_step, st, noop_actions)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
+            return n_steps / (time.perf_counter() - t0)
+    else:
+        v_reset = jax.jit(jax.vmap(env.reset))
+        v_step = jax.jit(jax.vmap(env.step))
+        noop_actions = {
+            agent: jax.device_put(
+                jnp.full(batch_size, 4, dtype=jnp.int32), device
+            )
+            for agent in agents
+        }
 
-    def trial():
-        rng = jax.random.key(SEED)
-        rng, k_reset = jax.random.split(rng)
-        reset_keys = jax.random.split(k_reset, batch_size)
-        obs, st = v_reset(reset_keys)
+        # warmup
+        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
+        obs, states = v_reset(keys)
         jax.tree.map(lambda x: x.block_until_ready(), obs)
-        t0 = time.perf_counter()
-        for _ in range(n_steps):
-            rng, k_step = jax.random.split(rng)
-            s_keys = jax.random.split(k_step, batch_size)
-            obs, st, rew, done, info = v_step(s_keys, st, noop_actions)
-        jax.tree.map(lambda x: x.block_until_ready(), obs)
-        return (n_steps * batch_size) / (time.perf_counter() - t0)
+        step_keys = jax.device_put(
+            jax.random.split(jax.random.key(1), batch_size), device
+        )
+        for _ in range(N_WARMUP):
+            obs, states, *_ = v_step(step_keys, states, noop_actions)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
+
+        def trial():
+            rng = jax.device_put(jax.random.key(SEED), device)
+            rng, k_reset = jax.random.split(rng)
+            reset_keys = jax.random.split(k_reset, batch_size)
+            obs, st = v_reset(reset_keys)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
+            t0 = time.perf_counter()
+            for _ in range(n_steps):
+                rng, k_step = jax.random.split(rng)
+                s_keys = jax.random.split(k_step, batch_size)
+                obs, st, *_ = v_step(s_keys, st, noop_actions)
+            jax.tree.map(lambda x: x.block_until_ready(), obs)
+            return (n_steps * batch_size) / (time.perf_counter() - t0)
 
     return _run_trials(trial)
 
@@ -290,91 +261,164 @@ def bench_jaxmarl_vmap(n_steps=N_STEPS, batch_size=BATCH_SIZE):
 # Runner
 # ===================================================================
 
-_BENCHMARKS = [
-    ("CoGrid (NumPy)", "single", bench_cogrid_numpy),
-    ("CoGrid (JAX JIT)", "single", bench_cogrid_jax_single),
-    ("CoGrid (JAX vmap)", "vmap", bench_cogrid_jax_vmap),
-    ("overcooked_ai (NumPy)", "single", bench_overcooked_ai),
-    ("JaxMARL (JAX JIT)", "single", bench_jaxmarl_single),
-    ("JaxMARL (JAX vmap)", "vmap", bench_jaxmarl_vmap),
-]
 
+def run_scaling_benchmark():
+    """Sweep batch sizes for JAX backends on CPU and GPU."""
+    import jax
 
-def run_comparison():
-    """Run all benchmarks and print a comparison table."""
-    results = {}
+    # Discover devices
+    devices = {"cpu": jax.devices("cpu")[0]}
+    try:
+        devices["gpu"] = jax.devices("gpu")[0]
+    except RuntimeError:
+        pass
+    has_gpu = "gpu" in devices
 
-    for label, mode, fn in _BENCHMARKS:
-        print(f"  Running {label} ...")
+    device_names = ", ".join(
+        f"{name} ({dev.device_kind})" for name, dev in devices.items()
+    )
+    print("Overcooked Cramped Room -- Scaling Benchmark")
+    print(f"  Devices: {device_names}")
+    print()
+
+    results = {
+        "batch_sizes": BATCH_SIZES,
+        "has_gpu": has_gpu,
+        "cogrid_numpy": None,
+        "overcooked_ai": None,
+        "cogrid_jax": {name: {} for name in devices},
+        "jaxmarl": {name: {} for name in devices},
+    }
+
+    # --- numpy baselines (single env) ---------------------------------
+    print("  Reference baselines:")
+    for label, key, fn in [
+        ("CoGrid NumPy", "cogrid_numpy", bench_cogrid_numpy),
+        ("overcooked_ai", "overcooked_ai", bench_overcooked_ai),
+    ]:
         try:
             trials = fn()
             med = statistics.median(trials)
-            results[label] = {"trials": trials, "median": med, "mode": mode}
+            results[key] = med
+            print(f"    {label + ':':<20s}{_fmt(med)} steps/sec")
         except Exception as e:
-            print(f"    SKIPPED ({type(e).__name__}: {e})")
-            results[label] = None
-
-    # ---- print results ------------------------------------------------
+            print(f"    {label + ':':<20s} SKIPPED ({type(e).__name__}: {e})")
     print()
-    W = 78
-    print("=" * W)
-    print("Overcooked Cramped Room -- Environment Throughput Comparison")
-    print("=" * W)
-    print(
-        f"  Steps per trial: {N_STEPS}   |   Trials: {N_TRIALS}   |   "
-        f"vmap batch: {BATCH_SIZE}"
-    )
-    print("-" * W)
-    print(
-        f"  {'Library':<28} {'Mode':<10} "
-        f"{'Total steps/s':>14} {'Per-env steps/s':>16}"
-    )
-    print("-" * W)
 
-    for label, _, _ in _BENCHMARKS:
-        r = results[label]
-        if r is None:
-            print(f"  {label:<28} {'--':<10} {'(not installed)':>14}")
-        elif r["mode"] == "vmap":
-            per_env = r["median"] / BATCH_SIZE
-            print(
-                f"  {label:<28} {r['mode']:<10} "
-                f"{_fmt(r['median'])} {_fmt(per_env)}"
-            )
-        else:
-            print(
-                f"  {label:<28} {r['mode']:<10} "
-                f"{_fmt(r['median'])} {_fmt(r['median'])}"
-            )
+    # --- JAX scaling sweep per library --------------------------------
+    dev_names = list(devices.keys())  # e.g. ["cpu", "gpu"]
 
-    # ---- speedup summary ----------------------------------------------
-    print()
-    print("Speedup comparisons")
-    print("-" * W)
+    for lib_key, lib_label, bench_fn in [
+        ("cogrid_jax", "CoGrid JAX", bench_cogrid_jax),
+        ("jaxmarl", "JaxMARL", bench_jaxmarl),
+    ]:
+        print(f"  {lib_label}:")
 
-    def _ratio_line(label_a, label_b):
-        a, b = results.get(label_a), results.get(label_b)
-        if a and b and b["median"] > 0:
-            ratio = a["median"] / b["median"]
-            print(f"  {label_a:<28} {ratio:>7.1f}x  vs {label_b}")
+        # header
+        header = f"  {'Batch':>10s}"
+        for name in dev_names:
+            header += f"   {name.upper() + ' steps/s':>16s}"
+        print(header)
 
-    # single-env: each library vs overcooked_ai
-    _ratio_line("CoGrid (NumPy)", "overcooked_ai (NumPy)")
-    _ratio_line("CoGrid (JAX JIT)", "overcooked_ai (NumPy)")
-    _ratio_line("JaxMARL (JAX JIT)", "overcooked_ai (NumPy)")
+        for bs in BATCH_SIZES:
+            row = f"  {bs:>10,d}"
 
-    # single-env: JAX libs head-to-head
-    _ratio_line("CoGrid (JAX JIT)", "JaxMARL (JAX JIT)")
+            for dev_name in dev_names:
+                dev = devices[dev_name]
+                try:
+                    trials = bench_fn(bs, dev)
+                    med = statistics.median(trials)
+                    results[lib_key][dev_name][bs] = med
+                    row += f"   {_fmt(med)}"
+                except Exception as e:
+                    results[lib_key][dev_name][bs] = None
+                    row += f"   {'SKIP':>16s}"
 
-    # vmap: total throughput comparison
-    _ratio_line("CoGrid (JAX vmap)", "JaxMARL (JAX vmap)")
+            print(row)
 
-    # vmap vs single (within each library)
-    _ratio_line("CoGrid (JAX vmap)", "CoGrid (JAX JIT)")
-    _ratio_line("JaxMARL (JAX vmap)", "JaxMARL (JAX JIT)")
-    print("=" * W)
+        print()
+
     return results
 
 
+# ===================================================================
+# Plotting
+# ===================================================================
+
+
+def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png"):
+    import matplotlib.pyplot as plt
+
+    batch_sizes = results["batch_sizes"]
+    has_gpu = results["has_gpu"]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # Color families: CoGrid = blues, JaxMARL/overcooked_ai = oranges.
+    # CPU vs GPU distinguished by marker shape and linestyle.
+    COGRID_DARK = "#1a5fb4"   # dark blue  — JAX GPU
+    COGRID_MED = "#4a90d9"    # mid blue   — JAX CPU
+    COGRID_LIGHT = "#99c1f1"  # light blue — NumPy baseline
+
+    JAXMARL_DARK = "#c64600"  # dark orange — JAX GPU
+    JAXMARL_MED = "#e5841a"   # mid orange  — JAX CPU
+    JAXMARL_LIGHT = "#f9b97a" # light orange — overcooked_ai baseline
+
+    styles = [
+        ("cogrid_jax", "cpu", "CoGrid JAX (CPU)", COGRID_MED, "o", "-"),
+        ("jaxmarl", "cpu", "JaxMARL (CPU)", JAXMARL_MED, "s", "-"),
+    ]
+    if has_gpu:
+        styles += [
+            ("cogrid_jax", "gpu", "CoGrid JAX (GPU)", COGRID_DARK, "^", "--"),
+            ("jaxmarl", "gpu", "JaxMARL (GPU)", JAXMARL_DARK, "D", "--"),
+        ]
+
+    for lib, dev, label, color, marker, ls in styles:
+        data = results[lib].get(dev, {})
+        xs = [bs for bs in batch_sizes if data.get(bs) is not None]
+        ys = [data[bs] for bs in xs]
+        if xs:
+            ax.plot(
+                xs, ys,
+                linestyle=ls, color=color, marker=marker, markersize=6,
+                label=label, linewidth=2,
+            )
+
+    # numpy reference lines — same color families, lighter shades
+    baselines = [
+        ("cogrid_numpy", "CoGrid NumPy", COGRID_LIGHT),
+        ("overcooked_ai", "overcooked_ai", JAXMARL_LIGHT),
+    ]
+    for key, label, color in baselines:
+        val = results.get(key)
+        if val is not None:
+            ax.axhline(val, color=color, linestyle="-", linewidth=2.5, label=label)
+
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
+    ax.set_xticks(batch_sizes)
+    ax.set_xticklabels([str(bs) for bs in batch_sizes])
+    ax.set_xlabel("Number of parallel environments")
+    ax.set_ylabel("Total throughput (steps/sec)")
+    ax.set_title("Overcooked Cramped Room -- Throughput Scaling")
+    ax.legend(fontsize=9)
+    ax.grid(True, which="major", alpha=0.2)
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    print(f"  Plot saved to {output_path}")
+    plt.close(fig)
+
+
+# ===================================================================
+# Entry point
+# ===================================================================
+
 if __name__ == "__main__":
-    run_comparison()
+    results = run_scaling_benchmark()
+
+    try:
+        plot_scaling(results)
+    except Exception as e:
+        print(f"  Plotting skipped ({type(e).__name__}: {e})")

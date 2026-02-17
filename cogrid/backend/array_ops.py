@@ -23,3 +23,23 @@ def set_at(arr, idx, value):
 def set_at_2d(arr, row, col, value):
     """Return new array with arr[row, col] = value. Convenience wrapper."""
     return set_at(arr, (row, col), value)
+
+
+def topk_smallest_indices(arr, k):
+    """Return indices of the k smallest elements, sorted by value.
+
+    JAX: single ``top_k`` HLO op (no sequential dependency chain).
+    NumPy: ``argpartition`` O(n) selection + O(k log k) sort.
+    """
+    if get_backend() == "jax":
+        import jax.lax
+
+        # top_k returns k largest; negate to get k smallest
+        _, indices = jax.lax.top_k(-arr, k)
+        return indices
+    else:
+        import numpy as np
+
+        # argpartition is O(n) average, then sort the k elements
+        part = np.argpartition(arr, k)[:k]
+        return part[np.argsort(arr[part])]

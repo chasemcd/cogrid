@@ -437,13 +437,7 @@ _OVERCOOKED_FEATURES = [
     "overcooked_inventory",
     "next_to_counter",
     "next_to_pot",
-    "closest_onion",
-    "closest_plate",
-    "closest_plate_stack",
-    "closest_onion_stack",
-    "closest_onion_soup",
-    "closest_delivery_zone",
-    "closest_counter",
+    "object_type_masks",
     "ordered_pot_features",
     "dist_to_other_players",
     "agent_position",
@@ -467,12 +461,12 @@ def test_build_feature_config_overcooked():
     assert "obs_dim" in config
     assert "feature_names" in config
 
-    # obs_dim must match 677 for 2-agent Overcooked
-    assert config["obs_dim"] == 677, f"Expected obs_dim=677, got {config['obs_dim']}"
+    # obs_dim: 8 per-agent(61) * 2 agents = 122, + 3 global(539+5+462) = 1128
+    assert config["obs_dim"] == 1128, f"Expected obs_dim=1128, got {config['obs_dim']}"
 
-    # 15 per-agent + 2 global = 17 features
-    assert len(config["feature_names"]) == 17, (
-        f"Expected 17 feature names, got {len(config['feature_names'])}"
+    # 8 per-agent + 3 global = 11 features
+    assert len(config["feature_names"]) == 11, (
+        f"Expected 11 feature names, got {len(config['feature_names'])}"
     )
 
 
@@ -523,7 +517,7 @@ def test_build_feature_config_returns_callable():
     state_view = envstate_to_dict(env._env_state)
 
     result = feature_fn(state_view, agent_idx=0)
-    assert result.shape == (677,), f"Expected shape (677,), got {result.shape}"
+    assert result.shape == (1128,), f"Expected shape (1128,), got {result.shape}"
     assert result.dtype == np.float32, f"Expected dtype float32, got {result.dtype}"
 
     # Reset LayoutID

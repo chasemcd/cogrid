@@ -705,6 +705,71 @@ def test_dist_to_other_players_parity():
         assert result.dtype == np.int32
 
 
+def test_closest_objects_merged_parity():
+    """Merged closest_objects feature finds equally-close objects as the 7 individual features.
+
+    Different selection algorithms (argpartition vs argsort) may break ties
+    differently for equidistant objects, so we compare sorted manhattan
+    distances per type rather than exact (dy,dx) pairs.
+    """
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.features import (
+        _CLOSEST_SPECS_SORTED,
+        closest_obj_feature,
+        closest_objects_feature,
+    )
+
+    object_type_map = np.zeros((5, 7), dtype=np.int32)
+    object_state_map = np.zeros((5, 7), dtype=np.int32)
+
+    # Place several objects of each type
+    type_positions = {
+        "counter": [(0, 0), (0, 1), (0, 2), (0, 3), (4, 6)],
+        "delivery_zone": [(4, 0), (4, 1)],
+        "onion": [(1, 0), (1, 1), (1, 5), (1, 6)],
+        "onion_soup": [(3, 0), (3, 1), (3, 5), (3, 6)],
+        "onion_stack": [(0, 5), (0, 6)],
+        "plate": [(2, 0), (2, 6), (4, 2), (4, 3)],
+        "plate_stack": [(4, 4), (4, 5)],
+    }
+    for obj_name, positions in type_positions.items():
+        type_id = object_to_idx(obj_name, scope="overcooked")
+        for r, c in positions:
+            object_type_map[r, c] = type_id
+
+    agent_pos = np.array([[2, 3], [1, 2]], dtype=np.int32)
+
+    type_ids_and_ns = [
+        (object_to_idx(name, scope="overcooked"), n) for name, n in _CLOSEST_SPECS_SORTED
+    ]
+
+    for idx in (0, 1):
+        merged = closest_objects_feature(
+            agent_pos, idx, object_type_map, object_state_map, type_ids_and_ns
+        )
+        assert merged.shape == (44,)
+        assert merged.dtype == np.int32
+
+        # Compare per-type: same sorted manhattan distances (tie-breaking may differ)
+        offset = 0
+        for name, n in _CLOSEST_SPECS_SORTED:
+            type_id = object_to_idx(name, scope="overcooked")
+            individual = closest_obj_feature(
+                agent_pos, idx, object_type_map, object_state_map, type_id, n
+            )
+            chunk = merged[offset : offset + 2 * n]
+            offset += 2 * n
+
+            # Compare sorted manhattan distances of returned pairs
+            merged_dists = sorted(abs(chunk[0::2]) + abs(chunk[1::2]))
+            indiv_dists = sorted(abs(individual[0::2]) + abs(individual[1::2]))
+            assert merged_dists == indiv_dists, (
+                f"Agent {idx}, type {name}: "
+                f"merged dists={merged_dists} vs individual dists={indiv_dists}"
+            )
+
+
 def test_all_overcooked_per_agent_registered():
     """All per-agent Overcooked features are discoverable via get_feature_types."""
     import cogrid.envs  # noqa: F401
@@ -724,6 +789,7 @@ def test_all_overcooked_per_agent_registered():
         "closest_onion_soup",
         "closest_delivery_zone",
         "closest_counter",
+        "closest_objects",
         "ordered_pot_features",
         "dist_to_other_players",
     ]
@@ -806,7 +872,7 @@ def test_all_overcooked_features_registered():
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
 
-    # 12 per-agent features
+    # 13 per-agent features (7 individual closest_* + 1 merged closest_objects)
     per_agent_features = {
         "overcooked_inventory": 5,
         "next_to_counter": 4,
@@ -818,14 +884,16 @@ def test_all_overcooked_features_registered():
         "closest_onion_soup": 8,
         "closest_delivery_zone": 4,
         "closest_counter": 8,
+        "closest_objects": 44,
         "ordered_pot_features": 24,
         "dist_to_other_players": 2,
     }
 
-    # 2 global features
+    # 3 global features
     global_features = {
         "layout_id": 5,
         "environment_layout": 462,
+        "object_type_masks": 539,
     }
 
     for feat_id, expected_dim in per_agent_features.items():
@@ -842,8 +910,8 @@ def test_all_overcooked_features_registered():
             f"{feat_id} obs_dim={meta_by_id[feat_id].obs_dim}, expected {expected_dim}"
         )
 
-    # Total: 14 features
-    assert len(metas) == 14, f"Expected 14 overcooked features, got {len(metas)}"
+    # Total: 16 features (13 per-agent + 3 global)
+    assert len(metas) == 16, f"Expected 16 overcooked features, got {len(metas)}"
 
 
 # ===================================================================
