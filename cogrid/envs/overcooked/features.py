@@ -16,6 +16,15 @@ from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
 
 # ---------------------------------------------------------------------------
+# Order observation constants (defaults match _build_order_tables)
+# ---------------------------------------------------------------------------
+
+_ORDER_MAX_ACTIVE = 3
+_ORDER_N_RECIPES = 2  # DEFAULT_RECIPES has 2 recipes
+_ORDER_FEATURES_PER = _ORDER_N_RECIPES + 1  # recipe one-hot + normalized_time
+_ORDER_OBS_DIM = _ORDER_MAX_ACTIVE * _ORDER_FEATURES_PER  # 3 * 3 = 9
+
+# ---------------------------------------------------------------------------
 # Individual feature functions
 # ---------------------------------------------------------------------------
 
@@ -357,9 +366,61 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
 # ---------------------------------------------------------------------------
 
 
+@register_feature_type("order_observation", scope="overcooked")
+class OrderObservation(Feature):
+    """Encodes active orders as recipe one-hot + normalized time remaining.
+
+    Output: (_ORDER_OBS_DIM,) = max_active * (n_recipes + 1) = 9 by default.
+    Returns zeros when orders are not configured (backward compat).
+    """
+
+    per_agent = False  # Orders are global state, same for all agents
+    obs_dim = _ORDER_OBS_DIM  # 9
+
+    @classmethod
+    def build_feature_fn(cls, scope):
+        max_active = _ORDER_MAX_ACTIVE
+        n_recipes = _ORDER_N_RECIPES
+        time_limit = xp.float32(200.0)  # matches _build_order_tables default
+
+        def fn(state):
+            order_recipe = getattr(state, "order_recipe", None)
+            if order_recipe is None:
+                return xp.zeros(_ORDER_OBS_DIM, dtype=xp.float32)
+
+            order_timer = state.order_timer
+            active = order_recipe >= 0  # (max_active,) bool
+
+            parts = []
+            for i in range(max_active):
+                # Recipe type one-hot (n_recipes,)
+                recipe_onehot = xp.where(
+                    active[i],
+                    (xp.arange(n_recipes) == order_recipe[i]).astype(xp.float32),
+                    xp.zeros(n_recipes, dtype=xp.float32),
+                )
+                # Normalized time remaining (1,)
+                norm_time = xp.where(
+                    active[i],
+                    order_timer[i].astype(xp.float32) / time_limit,
+                    xp.float32(0.0),
+                )
+                parts.append(recipe_onehot)
+                parts.append(xp.array([norm_time], dtype=xp.float32))
+
+            return xp.concatenate(parts)
+
+        return fn
+
+
 @register_feature_type("overcooked_inventory", scope="overcooked")
 class OvercookedInventory(Feature):
-    """One-hot inventory encoding feature."""
+    """One-hot inventory encoding feature.
+
+    Dynamically discovers pickupable types from the component registry
+    at compose time. For the standard Overcooked type set this produces
+    the same 5-element encoding as the original hardcoded list.
+    """
 
     per_agent = True
     obs_dim = 5
@@ -368,10 +429,17 @@ class OvercookedInventory(Feature):
     def build_feature_fn(cls, scope):
         """Build the inventory feature function for the given scope."""
         from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.component_registry import get_all_components
 
-        inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
+        # Discover all pickupable types from the scope registry
+        pickupable_names = sorted(
+            meta.object_id
+            for meta in get_all_components(scope)
+            if meta.properties.get("can_pickup", False)
+        )
+
         inv_type_ids = xp.array(
-            [object_to_idx(name, scope=scope) for name in inv_type_order],
+            [object_to_idx(name, scope=scope) for name in pickupable_names],
             dtype=xp.int32,
         )
 
