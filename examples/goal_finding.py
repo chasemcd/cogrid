@@ -29,6 +29,7 @@ from cogrid.core.constants import Colors
 @register_object_type("goal", can_overlap=True)
 class Goal(GridObj):
     """A goal cell that agents can walk onto."""
+
     object_id = "goal"
     color = Colors.Green
     char = "g"
@@ -89,10 +90,9 @@ class GoalReward(Reward):
 # terminated_fn is scope-specific termination logic that is not part of
 # the Reward interface. We patch it onto the env after creation.
 
+
 def goal_terminated(prev_state, state, reward_config):
     """Terminate agents that are standing on the goal cell."""
-    from cogrid.backend import xp
-
     goal_id = reward_config["type_ids"].get("goal", -1)
     otm = state.object_type_map
     rows = state.agent_pos[:, 0]
@@ -129,9 +129,11 @@ registry.register(
 
 # -- 6. Run on numpy ----------------------------------------------------------
 
+
 def run_numpy():
     """Run the environment on the numpy backend."""
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     env = registry.make("GoalFinding-Simple-V0", backend="numpy")
@@ -158,11 +160,13 @@ def run_numpy():
 
 # -- 7. Run on JAX ------------------------------------------------------------
 
+
 def run_jax():
     """Run the environment on the JAX backend, then vmap over 1024 envs."""
     import jax
     import jax.numpy as jnp
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     # --- Single environment ---
@@ -184,14 +188,14 @@ def run_jax():
     print()
 
     # --- Direct functional API with JIT ---
-    step_fn = env.jax_step    # JIT-compiled (state, actions) -> (state, obs, rew, terminateds, truncateds, info)
-    reset_fn = env.jax_reset  # JIT-compiled (rng_key) -> (state, obs)
+    step_fn = env.jax_step  # JIT-compiled step function
+    reset_fn = env.jax_reset  # JIT-compiled reset function
 
     key = jax.random.key(0)
     state, obs = reset_fn(key)
     actions = jnp.array([0, 3], dtype=jnp.int32)  # Agent 0: Up, Agent 1: Right
     state, obs, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
-    print(f"Functional API -- reward: {rew}, terminateds: {terminateds_arr}, truncateds: {truncateds_arr}")
+    print(f"Functional API -- reward: {rew}, terms: {terminateds_arr}, truncs: {truncateds_arr}")
     print()
 
     # --- Batched rollouts with vmap ---
@@ -211,9 +215,7 @@ def run_jax():
     for _ in range(n_steps):
         action_key, subkey = jax.random.split(action_key)
         batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
-        batched_state, batched_obs, batched_rew, *_ = (
-            batched_step(batched_state, batched_actions)
-        )
+        batched_state, batched_obs, batched_rew, *_ = batched_step(batched_state, batched_actions)
         total_reward += batched_rew.sum()
 
     total_reward /= n_envs
@@ -227,7 +229,8 @@ if __name__ == "__main__":
     run_numpy()
 
     try:
-        import jax
+        import jax  # noqa: F401
+
         run_jax()
     except ImportError:
         print("JAX not installed -- skipping JAX examples.")
