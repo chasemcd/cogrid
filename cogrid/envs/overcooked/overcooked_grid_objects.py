@@ -219,11 +219,16 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def extra_state_schema(cls):
-        """Return schema for pot-related extra state arrays."""
+        """Return schema for pot-related and order queue extra state arrays."""
         return {
             "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
             "pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
             "pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
+            "order_recipe": {"shape": ("max_active",), "dtype": "int32"},
+            "order_timer": {"shape": ("max_active",), "dtype": "int32"},
+            "order_spawn_counter": {"shape": (), "dtype": "int32"},
+            "order_recipe_counter": {"shape": (), "dtype": "int32"},
+            "order_n_expired": {"shape": (), "dtype": "int32"},
         }
 
     @classmethod
@@ -239,6 +244,7 @@ class Pot(grid_object.GridObj):
         from cogrid.envs.overcooked.config import (
             DEFAULT_RECIPES,
             _build_interaction_tables,
+            _build_order_tables,
             _build_static_tables,
             _build_type_ids,
             compile_recipes,
@@ -248,7 +254,11 @@ class Pot(grid_object.GridObj):
         itables = _build_interaction_tables(scope)
         type_ids = _build_type_ids(scope)
         recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-        return _build_static_tables(scope, itables, type_ids, recipe_tables=recipe_tables)
+        order_tables = _build_order_tables(None, n_recipes=len(DEFAULT_RECIPES))
+        return _build_static_tables(
+            scope, itables, type_ids,
+            recipe_tables=recipe_tables, order_tables=order_tables,
+        )
 
     @classmethod
     def build_render_sync_fn(cls):

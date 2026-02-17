@@ -134,8 +134,20 @@ from cogrid.core.component_registry import get_all_components
 from cogrid.core.grid_object import get_object_names, object_to_idx
 
 
-def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
-    """Build pot state arrays (contents, timer, positions) from the layout."""
+def build_overcooked_extra_state(parsed_arrays, scope="overcooked", order_config=None):
+    """Build pot state arrays (contents, timer, positions) from the layout.
+
+    Parameters
+    ----------
+    parsed_arrays : dict
+        Must contain ``"object_type_map"``.
+    scope : str
+        Object registry scope.
+    order_config : dict or None
+        If not None and contains ``"max_active"``, order queue arrays are
+        added to the returned dict. When None, no order keys are present
+        (backward compatible).
+    """
     import numpy as _np
 
     pot_type_id = object_to_idx("pot", scope=scope)
@@ -155,11 +167,23 @@ def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
         pot_contents = _np.full((0, 3), -1, dtype=_np.int32)
         pot_timer = _np.zeros((0,), dtype=_np.int32)
 
-    return {
+    result = {
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
         "overcooked.pot_positions": pot_positions,
     }
+
+    # Order queue arrays (only when orders config is present)
+    if order_config is not None and "max_active" in order_config:
+        max_active = order_config["max_active"]
+        spawn_interval = order_config.get("spawn_interval", 40)
+        result["overcooked.order_recipe"] = _np.full((max_active,), -1, dtype=_np.int32)
+        result["overcooked.order_timer"] = _np.zeros((max_active,), dtype=_np.int32)
+        result["overcooked.order_spawn_counter"] = _np.int32(spawn_interval)
+        result["overcooked.order_recipe_counter"] = _np.int32(0)
+        result["overcooked.order_n_expired"] = _np.int32(0)
+
+    return result
 
 
 # ======================================================================
@@ -212,22 +236,30 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
     fwd_type = state.object_type_map[fwd_r, fwd_c]
     inv_item = state.agent_inv[agent_idx, 0]
 
+    # Extract order arrays from extra_state if present (None when disabled).
+    or_ = state.extra_state.get("overcooked.order_recipe")
+    ot_ = state.extra_state.get("overcooked.order_timer")
+
     # Delegate to the pure-array interaction body which evaluates all
     # seven branches and returns the (possibly updated) arrays.
-    agent_inv, otm, osm, pot_contents, pot_timer = overcooked_interaction_body(
-        agent_idx,
-        state.agent_inv,
-        state.object_type_map,
-        state.object_state_map,
-        fwd_r,
-        fwd_c,
-        fwd_type,
-        inv_item,
-        base_ok,
-        state.extra_state["overcooked.pot_contents"],
-        state.extra_state["overcooked.pot_timer"],
-        state.extra_state["overcooked.pot_positions"],
-        static_tables,
+    agent_inv, otm, osm, pot_contents, pot_timer, or_out, ot_out = (
+        overcooked_interaction_body(
+            agent_idx,
+            state.agent_inv,
+            state.object_type_map,
+            state.object_state_map,
+            fwd_r,
+            fwd_c,
+            fwd_type,
+            inv_item,
+            base_ok,
+            state.extra_state["overcooked.pot_contents"],
+            state.extra_state["overcooked.pot_timer"],
+            state.extra_state["overcooked.pot_positions"],
+            static_tables,
+            order_recipe=or_,
+            order_timer=ot_,
+        )
     )
 
     # Repack into a new immutable EnvState. pot_positions never changes
@@ -237,6 +269,9 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
     }
+    if or_out is not None:
+        new_extra["overcooked.order_recipe"] = or_out
+        new_extra["overcooked.order_timer"] = ot_out
     return dataclasses.replace(
         state,
         agent_inv=agent_inv,
@@ -604,6 +639,61 @@ def overcooked_tick_state(state, scope_config):
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
     }
+
+    # --- Order tick (skip when orders are not configured) ---
+    if "overcooked.order_recipe" in state.extra_state:
+        order_recipe = new_extra["overcooked.order_recipe"]
+        order_timer = new_extra["overcooked.order_timer"]
+        order_spawn_counter = new_extra["overcooked.order_spawn_counter"]
+        order_recipe_counter = new_extra["overcooked.order_recipe_counter"]
+        order_n_expired = new_extra["overcooked.order_n_expired"]
+
+        order_spawn_interval = static_tables["order_spawn_interval"]
+        order_time_limit = static_tables["order_time_limit"]
+        order_spawn_cycle = static_tables["order_spawn_cycle"]
+        cycle_len = order_spawn_cycle.shape[0]
+
+        # (1) Decrement active order timers
+        active = order_recipe != -1
+        new_order_timer = xp.where(active, order_timer - 1, order_timer)
+
+        # (2) Clear expired orders (timer reached 0)
+        expired = active & (new_order_timer <= 0)
+        order_recipe = xp.where(expired, -1, order_recipe)
+        new_order_timer = xp.where(expired, 0, new_order_timer)
+        order_n_expired = order_n_expired + xp.sum(expired).astype(xp.int32)
+
+        # (3) Spawn: decrement counter, check for spawn
+        new_counter = order_spawn_counter - xp.int32(1)
+        should_spawn = new_counter <= 0
+        empty = order_recipe == -1
+        has_empty = xp.any(empty)
+        first_empty = xp.argmax(empty)
+        spawn_now = should_spawn & has_empty
+
+        new_recipe_idx = order_spawn_cycle[order_recipe_counter % cycle_len]
+        order_recipe = xp.where(
+            spawn_now,
+            set_at(order_recipe, first_empty, new_recipe_idx),
+            order_recipe,
+        )
+        new_order_timer = xp.where(
+            spawn_now,
+            set_at(new_order_timer, first_empty, order_time_limit),
+            new_order_timer,
+        )
+
+        # Reset counter on spawn attempt (even if no empty slot)
+        new_counter = xp.where(should_spawn, xp.int32(order_spawn_interval), new_counter)
+        # Increment recipe counter only when actually spawned
+        new_recipe_counter = xp.where(spawn_now, order_recipe_counter + 1, order_recipe_counter)
+
+        new_extra["overcooked.order_recipe"] = order_recipe
+        new_extra["overcooked.order_timer"] = new_order_timer
+        new_extra["overcooked.order_spawn_counter"] = new_counter
+        new_extra["overcooked.order_recipe_counter"] = new_recipe_counter
+        new_extra["overcooked.order_n_expired"] = order_n_expired
+
     return dataclasses.replace(state, object_state_map=osm, extra_state=new_extra)
 
 
@@ -966,6 +1056,39 @@ def _branch_place_on_delivery(handled, ctx):
     )
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
     updates = {"agent_inv": inv}
+
+    # Order consumption (only when orders are enabled)
+    if ctx.get("order_recipe") is not None:
+        order_recipe = ctx["order_recipe"]
+        order_timer = ctx["order_timer"]
+        recipe_result = ctx["recipe_result"]
+
+        # Which recipe does this delivery match?
+        delivered_type = inv_item
+        recipe_matches = recipe_result == delivered_type  # (n_recipes,) bool
+
+        # Which active orders match any of those recipes?
+        safe_idx = xp.where(order_recipe >= 0, order_recipe, 0)
+        order_is_match = recipe_matches[safe_idx] & (order_recipe >= 0)
+
+        # Consume first matching order
+        has_match = xp.any(order_is_match)
+        first_match = xp.argmax(order_is_match)
+        consume = cond & has_match
+
+        new_order_recipe = xp.where(
+            consume,
+            set_at(order_recipe, first_match, -1),
+            order_recipe,
+        )
+        new_order_timer = xp.where(
+            consume,
+            set_at(order_timer, first_match, 0),
+            order_timer,
+        )
+        updates["order_recipe"] = new_order_recipe
+        updates["order_timer"] = new_order_timer
+
     return cond, updates, handled | cond
 
 
@@ -1063,6 +1186,9 @@ def overcooked_interaction_body(
     pot_timer,  # (n_pots,) int32: cooking countdown per pot
     pot_positions,  # (n_pots, 2) int32: (row, col) of each pot
     static_tables,  # dict: pre-built lookup arrays (see _build_static_tables)
+    *,
+    order_recipe=None,  # (max_active,) int32 or None: active order recipe indices
+    order_timer=None,  # (max_active,) int32 or None: active order timers
 ):
     """Evaluate all seven interaction branches for one agent and merge results.
 
@@ -1099,8 +1225,10 @@ def overcooked_interaction_body(
 
     Returns:
     -------
-    (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer)
+    (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer,
+     order_recipe_out, order_timer_out)
         Updated arrays. Unchanged if base_ok is False or no branch fires.
+        order_recipe_out and order_timer_out are None when orders are disabled.
     """
     # --- Unpack static tables ---
     CAN_PICKUP = static_tables["CAN_PICKUP"]
@@ -1160,6 +1288,11 @@ def overcooked_interaction_body(
         "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
     }
 
+    # Add order arrays to ctx when orders are enabled
+    if order_recipe is not None:
+        ctx["order_recipe"] = order_recipe
+        ctx["order_timer"] = order_timer
+
     # --- Evaluate all branches with accumulated handled ---
     handled = xp.bool_(False)
     branch_results = []
@@ -1173,6 +1306,8 @@ def overcooked_interaction_body(
     osm = object_state_map
     pc = pot_contents
     pt = pot_timer
+    or_ = order_recipe
+    ot_ = order_timer
 
     for cond, updates in branch_results:
         if "agent_inv" in updates:
@@ -1185,8 +1320,12 @@ def overcooked_interaction_body(
             pc = xp.where(cond, updates["pot_contents"], pc)
         if "pot_timer" in updates:
             pt = xp.where(cond, updates["pot_timer"], pt)
+        if "order_recipe" in updates:
+            or_ = xp.where(cond, updates["order_recipe"], or_)
+        if "order_timer" in updates:
+            ot_ = xp.where(cond, updates["order_timer"], ot_)
 
-    return inv, otm, osm, pc, pt
+    return inv, otm, osm, pc, pt, or_, ot_
 
 
 # ======================================================================
@@ -1194,7 +1333,7 @@ def overcooked_interaction_body(
 # ======================================================================
 
 
-def _build_static_tables(scope, itables, type_ids, recipe_tables=None):
+def _build_static_tables(scope, itables, type_ids, recipe_tables=None, order_tables=None):
     """Build the static tables dict used by overcooked_interaction_body.
 
     Called once at environment init time. The resulting dict is stored in
@@ -1230,6 +1369,10 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None):
         If provided (from ``compile_recipes``), recipe arrays are merged
         into the returned dict and ``legal_pot_ingredients`` is taken from
         the recipe compilation instead of the hardcoded interaction tables.
+    order_tables : dict or None
+        If provided (from ``_build_order_tables``), order config arrays are
+        merged into the returned dict. When None or disabled,
+        ``order_enabled`` is set to False.
     """
     from cogrid.core.grid_object import build_lookup_tables
 
@@ -1277,4 +1420,61 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None):
         tables["max_ingredients"] = 3
     tables["IS_DELIVERABLE"] = is_deliverable
 
+    # Merge order tables if provided
+    if order_tables is not None:
+        for k, v in order_tables.items():
+            tables[k] = v
+    if order_tables is None or not order_tables.get("order_enabled", False):
+        tables["order_enabled"] = False
+
     return tables
+
+
+def _build_order_tables(order_config, n_recipes):
+    """Build order queue static tables from config dict.
+
+    Parameters
+    ----------
+    order_config : dict or None
+        If None, orders are disabled. Otherwise contains:
+        ``spawn_interval`` (default 40), ``max_active`` (default 3),
+        ``time_limit`` (default 200), ``recipe_weights`` (default uniform).
+    n_recipes : int
+        Number of recipes (for default uniform weights).
+
+    Returns
+    -------
+    dict
+        Keys: ``order_enabled``, and when enabled also
+        ``order_spawn_interval``, ``order_max_active``,
+        ``order_time_limit``, ``order_spawn_cycle``.
+    """
+    import numpy as _np
+
+    if order_config is None:
+        return {"order_enabled": False}
+
+    spawn_interval = order_config.get("spawn_interval", 40)
+    max_active = order_config.get("max_active", 3)
+    time_limit = order_config.get("time_limit", 200)
+    recipe_weights = order_config.get("recipe_weights", None)
+
+    if recipe_weights is None:
+        recipe_weights = [1.0] * n_recipes
+
+    # Build deterministic spawn cycle from weights.
+    # Normalize to integers: [2.0, 1.0] -> [2, 1] -> cycle [0, 0, 1]
+    weights = _np.array(recipe_weights, dtype=_np.float32)
+    int_weights = _np.round(weights / weights.min()).astype(_np.int32)
+    cycle = []
+    for i, w in enumerate(int_weights):
+        cycle.extend([i] * int(w))
+    spawn_cycle = _np.array(cycle, dtype=_np.int32)
+
+    return {
+        "order_enabled": True,
+        "order_spawn_interval": _np.int32(spawn_interval),
+        "order_max_active": _np.int32(max_active),
+        "order_time_limit": _np.int32(time_limit),
+        "order_spawn_cycle": spawn_cycle,
+    }
