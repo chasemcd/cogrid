@@ -416,3 +416,220 @@ def test_interaction_parity():
 
     print()
     print("ALL PARITY TESTS PASSED")
+
+
+def test_at_most_one_branch_fires():
+    """Verify at most one branch fires per agent-interaction pair across random states.
+
+    Generates 600+ random interaction states (200 per configuration variant)
+    using seeded RNG for reproducibility. For each state, runs the full
+    branch sequence with handled accumulation and asserts that at most one
+    branch fires.
+
+    Run with::
+
+        python -c "from cogrid.envs.overcooked.test_interactions import \\
+            test_at_most_one_branch_fires; test_at_most_one_branch_fires()"
+    """
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401 -- trigger environment registration
+
+    from cogrid.envs.overcooked.config import _BRANCHES
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+    static_tables = scope_cfg["static_tables"]
+
+    # All type IDs for random forward cell generation
+    all_type_ids = [type_ids[n] for n in type_ids]
+    # Items an agent can hold (or -1 for empty hand)
+    holdable = [-1] + [type_ids[n] for n in ["onion", "tomato", "plate", "onion_soup", "tomato_soup"]]
+    # Ingredient types for pot contents
+    ingredient_ids = [type_ids["onion"], type_ids["tomato"]]
+
+    rng = np.random.default_rng(seed=42)
+
+    print("Invariant test: at-most-one-branch-fires")
+
+    # Three configuration variants to cover different pot/grid setups:
+    #   Variant A: pot at fwd cell, varied pot states
+    #   Variant B: non-pot objects at fwd cell (stacks, counters, delivery zones)
+    #   Variant C: empty fwd cell or random objects, varied inventory
+    n_states_per_variant = 200
+    total_states = 0
+    failures = 0
+
+    for variant in ["pot_focus", "non_pot_focus", "mixed"]:
+        for _ in range(n_states_per_variant):
+            # Random agent state
+            inv_item = int(rng.choice(holdable))
+            base_ok_val = bool(rng.choice([True, True, True, False]))  # 75% True to test branches
+
+            # Grid setup: 7x7 grid, agent at (2,3) facing right toward (2,4)
+            otm = np.zeros((7, 7), dtype=np.int32)
+            osm = np.zeros((7, 7), dtype=np.int32)
+
+            # Pot setup: 1 pot at (2,4) for pot-focused variants, plus
+            # a second pot at (4,4) to ensure pot_positions has >1 entry
+            if variant == "pot_focus":
+                # Forward cell is always a pot
+                fwd_type_val = int(type_ids["pot"])
+                otm[2, 4] = fwd_type_val
+                otm[4, 4] = fwd_type_val
+                pot_positions = np.array([[2, 4], [4, 4]], dtype=np.int32)
+
+                # Random pot contents: empty, partial (1-2 same type), full, or cooked
+                pot_state_choice = rng.choice(["empty", "partial", "full", "cooked"])
+                if pot_state_choice == "empty":
+                    pot_contents = np.array([[-1, -1, -1], [-1, -1, -1]], dtype=np.int32)
+                    pot_timer = np.array([30, 30], dtype=np.int32)
+                elif pot_state_choice == "partial":
+                    n_items = int(rng.choice([1, 2]))
+                    ing = int(rng.choice(ingredient_ids))
+                    row = [-1, -1, -1]
+                    for s in range(n_items):
+                        row[s] = ing
+                    pot_contents = np.array([row, [-1, -1, -1]], dtype=np.int32)
+                    pot_timer = np.array([30, 30], dtype=np.int32)
+                elif pot_state_choice == "full":
+                    ing = int(rng.choice(ingredient_ids))
+                    pot_contents = np.array([[ing, ing, ing], [-1, -1, -1]], dtype=np.int32)
+                    timer_val = int(rng.integers(1, 31))
+                    pot_timer = np.array([timer_val, 30], dtype=np.int32)
+                else:  # cooked
+                    ing = int(rng.choice(ingredient_ids))
+                    pot_contents = np.array([[ing, ing, ing], [-1, -1, -1]], dtype=np.int32)
+                    pot_timer = np.array([0, 30], dtype=np.int32)
+
+            elif variant == "non_pot_focus":
+                # Forward cell is a non-pot object
+                non_pot_types = [
+                    type_ids[n]
+                    for n in [
+                        "onion", "tomato", "plate", "onion_soup", "tomato_soup",
+                        "onion_stack", "tomato_stack", "plate_stack",
+                        "counter", "delivery_zone",
+                    ]
+                ]
+                fwd_type_val = int(rng.choice(non_pot_types))
+                otm[2, 4] = fwd_type_val
+
+                # Random counter state (occupied or empty)
+                if fwd_type_val == type_ids["counter"]:
+                    osm[2, 4] = int(rng.choice([0, type_ids["onion"], type_ids["plate"]]))
+
+                # Minimal pot setup (no pot at fwd cell)
+                pot_positions = np.array([[4, 4]], dtype=np.int32)
+                pot_contents = np.array([[-1, -1, -1]], dtype=np.int32)
+                pot_timer = np.array([30], dtype=np.int32)
+
+            else:  # mixed
+                # Random forward cell: could be anything including empty
+                fwd_type_val = int(rng.choice([0] + all_type_ids))
+                if fwd_type_val > 0:
+                    otm[2, 4] = fwd_type_val
+
+                # If counter, randomize occupancy
+                if fwd_type_val == type_ids.get("counter", -1):
+                    osm[2, 4] = int(rng.choice([0, type_ids["onion"]]))
+
+                # If it's a pot, set up pot_positions to include it
+                if fwd_type_val == type_ids["pot"]:
+                    pot_positions = np.array([[2, 4]], dtype=np.int32)
+                    pot_state_choice = rng.choice(["empty", "partial", "full", "cooked"])
+                    if pot_state_choice == "empty":
+                        pot_contents = np.array([[-1, -1, -1]], dtype=np.int32)
+                        pot_timer = np.array([30], dtype=np.int32)
+                    elif pot_state_choice == "partial":
+                        n_items = int(rng.choice([1, 2]))
+                        ing = int(rng.choice(ingredient_ids))
+                        row = [-1, -1, -1]
+                        for s in range(n_items):
+                            row[s] = ing
+                        pot_contents = np.array([row], dtype=np.int32)
+                        pot_timer = np.array([30], dtype=np.int32)
+                    elif pot_state_choice == "full":
+                        ing = int(rng.choice(ingredient_ids))
+                        pot_contents = np.array([[ing, ing, ing]], dtype=np.int32)
+                        pot_timer = np.array([int(rng.integers(1, 31))], dtype=np.int32)
+                    else:
+                        ing = int(rng.choice(ingredient_ids))
+                        pot_contents = np.array([[ing, ing, ing]], dtype=np.int32)
+                        pot_timer = np.array([0], dtype=np.int32)
+                else:
+                    pot_positions = np.array([[4, 4]], dtype=np.int32)
+                    pot_contents = np.array([[-1, -1, -1]], dtype=np.int32)
+                    pot_timer = np.array([30], dtype=np.int32)
+
+            # Build scalar arrays
+            agent_inv = np.array([[inv_item]], dtype=np.int32)
+            fwd_r = np.int32(2)
+            fwd_c = np.int32(4)
+            fwd_type = np.int32(fwd_type_val)
+            inv_item_arr = np.int32(inv_item)
+            base_ok = np.bool_(base_ok_val)
+            agent_idx = np.int32(0)
+
+            # Pot matching (same logic as orchestrator)
+            fwd_pos_2d = np.stack([fwd_r, fwd_c])
+            pot_match = np.all(pot_positions == fwd_pos_2d[None, :], axis=1)
+            pot_idx = np.argmax(pot_match)
+            has_pot_match = np.any(pot_match)
+
+            # Assemble ctx dict (same structure as overcooked_interaction_body)
+            ctx = {
+                "base_ok": base_ok,
+                "fwd_type": fwd_type,
+                "fwd_r": fwd_r,
+                "fwd_c": fwd_c,
+                "inv_item": inv_item_arr,
+                "agent_idx": agent_idx,
+                "agent_inv": agent_inv,
+                "object_type_map": otm,
+                "object_state_map": osm,
+                "pot_contents": pot_contents,
+                "pot_timer": pot_timer,
+                "pot_idx": pot_idx,
+                "has_pot_match": has_pot_match,
+                "CAN_PICKUP": static_tables["CAN_PICKUP"],
+                "CAN_PICKUP_FROM": static_tables["CAN_PICKUP_FROM"],
+                "CAN_PLACE_ON": static_tables["CAN_PLACE_ON"],
+                "pickup_from_produces": static_tables["pickup_from_produces"],
+                "legal_pot_ingredients": static_tables["legal_pot_ingredients"],
+                "pot_id": static_tables["pot_id"],
+                "plate_id": static_tables["plate_id"],
+                "tomato_id": static_tables["tomato_id"],
+                "onion_soup_id": static_tables["onion_soup_id"],
+                "tomato_soup_id": static_tables["tomato_soup_id"],
+                "delivery_zone_id": static_tables["delivery_zone_id"],
+                "cooking_time": static_tables["cooking_time"],
+            }
+
+            # Run branches with handled accumulation (as the real orchestrator does)
+            handled = np.bool_(False)
+            fired_count = 0
+            fired_names = []
+            for branch_fn in _BRANCHES:
+                cond, updates, handled = branch_fn(handled, ctx)
+                if bool(cond):
+                    fired_count += 1
+                    fired_names.append(branch_fn.__name__)
+
+            if fired_count > 1:
+                failures += 1
+                print(
+                    f"  FAIL: {fired_count} branches fired: {fired_names} "
+                    f"(variant={variant}, inv={inv_item}, fwd_type={fwd_type_val}, "
+                    f"base_ok={base_ok_val})"
+                )
+
+            total_states += 1
+
+    assert failures == 0, f"{failures} states had multiple branches fire out of {total_states}"
+    print(f"  Tested {total_states} random states, all passed at-most-one invariant")
+    print("  PASSED")
