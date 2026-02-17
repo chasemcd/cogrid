@@ -1787,6 +1787,385 @@ def test_order_backward_compat_no_config():
     print("  PASSED")
 
 
+# ======================================================================
+# Order-aware reward tests
+# ======================================================================
+
+
+def _sv_from_dict(fields, n_agents=2, H=5, W=5):
+    """Convert a plain dict of arrays to a StateView, filling missing core fields."""
+    import numpy as _np
+
+    from cogrid.backend.state_view import StateView
+
+    defaults = dict(
+        agent_pos=_np.zeros((n_agents, 2), dtype=_np.int32),
+        agent_dir=_np.zeros(n_agents, dtype=_np.int32),
+        agent_inv=_np.full((n_agents, 1), -1, dtype=_np.int32),
+        wall_map=_np.zeros((H, W), dtype=_np.int32),
+        object_type_map=_np.zeros((H, W), dtype=_np.int32),
+        object_state_map=_np.zeros((H, W), dtype=_np.int32),
+    )
+    _CORE = {"agent_pos", "agent_dir", "agent_inv", "wall_map", "object_type_map", "object_state_map"}
+    extra = {}
+    for k, v in fields.items():
+        if k in _CORE:
+            defaults[k] = v
+        else:
+            extra[k] = v
+    return StateView(**defaults, extra=extra)
+
+
+def test_delivery_reward_uses_is_deliverable():
+    """Verify IS_DELIVERABLE lookup replaces hardcoded onion_soup check."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.autowire import build_scope_config_from_components
+    from cogrid.envs.overcooked.rewards import delivery_reward
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+    static_tables = scope_cfg["static_tables"]
+
+    onion_soup_id = type_ids["onion_soup"]
+    onion_id = type_ids["onion"]
+    dz_id = type_ids["delivery_zone"]
+
+    n_agents = 1
+    reward_config = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+    }
+
+    print("test_delivery_reward_uses_is_deliverable:")
+
+    # Agent holds onion_soup (deliverable), faces delivery zone
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[1, 3] = dz_id
+    prev_state = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),  # Right -> (1,3)
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+    }, n_agents=1)
+    actions = np.array([4], dtype=np.int32)
+
+    r = delivery_reward(prev_state, prev_state, actions, type_ids, n_agents,
+                        reward_config=reward_config)
+    assert float(r[0]) > 0, f"Deliverable item should earn reward, got {float(r[0])}"
+    print("  Deliverable item (onion_soup) earns reward: OK")
+
+    # Agent holds onion (NOT deliverable), faces delivery zone
+    prev_state2 = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_id]], dtype=np.int32),
+        "object_type_map": otm,
+    }, n_agents=1)
+    r2 = delivery_reward(prev_state2, prev_state2, actions, type_ids, n_agents,
+                         reward_config=reward_config)
+    assert float(r2[0]) == 0.0, f"Non-deliverable should get 0, got {float(r2[0])}"
+    print("  Non-deliverable item (onion) gets zero: OK")
+
+    print("  PASSED")
+
+
+def test_delivery_reward_per_recipe_values():
+    """Verify per-recipe reward lookup returns correct values per recipe."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.autowire import build_scope_config_from_components
+    from cogrid.envs.overcooked.config import (
+        _build_interaction_tables,
+        _build_static_tables,
+        _build_type_ids,
+        compile_recipes,
+    )
+    from cogrid.envs.overcooked.rewards import delivery_reward
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+
+    # Custom recipes with different reward values
+    custom_recipes = [
+        {"ingredients": ["onion", "onion", "onion"], "result": "onion_soup", "cook_time": 30, "reward": 20.0},
+        {"ingredients": ["tomato", "tomato", "tomato"], "result": "tomato_soup", "cook_time": 30, "reward": 30.0},
+    ]
+    itables = _build_interaction_tables(scope)
+    type_ids_dict = _build_type_ids(scope)
+    recipe_tables = compile_recipes(custom_recipes, scope=scope)
+    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
+
+    onion_soup_id = type_ids["onion_soup"]
+    tomato_soup_id = type_ids["tomato_soup"]
+    dz_id = type_ids["delivery_zone"]
+    n_agents = 1
+
+    reward_config = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+    }
+
+    print("test_delivery_reward_per_recipe_values:")
+
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[1, 3] = dz_id
+    actions = np.array([4], dtype=np.int32)
+
+    # Deliver tomato_soup -> should get 30.0 (not 20.0)
+    prev_state = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[tomato_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+    }, n_agents=1)
+    r = delivery_reward(prev_state, prev_state, actions, type_ids, n_agents,
+                        reward_config=reward_config)
+    assert float(r[0]) == 30.0, f"Expected 30.0 for tomato_soup, got {float(r[0])}"
+    print("  Tomato soup reward = 30.0: OK")
+
+    # Deliver onion_soup -> should get 20.0
+    prev_state2 = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+    }, n_agents=1)
+    r2 = delivery_reward(prev_state2, prev_state2, actions, type_ids, n_agents,
+                         reward_config=reward_config)
+    assert float(r2[0]) == 20.0, f"Expected 20.0 for onion_soup, got {float(r2[0])}"
+    print("  Onion soup reward = 20.0: OK")
+
+    print("  PASSED")
+
+
+def test_delivery_reward_order_match_required():
+    """Verify delivery reward fires only when matching active order exists."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.autowire import build_scope_config_from_components
+    from cogrid.envs.overcooked.config import (
+        DEFAULT_RECIPES,
+        _build_interaction_tables,
+        _build_order_tables,
+        _build_static_tables,
+        _build_type_ids,
+        compile_recipes,
+    )
+    from cogrid.envs.overcooked.rewards import delivery_reward
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+
+    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 1000}
+    itables = _build_interaction_tables(scope)
+    type_ids_dict = _build_type_ids(scope)
+    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
+    static_tables = _build_static_tables(scope, itables, type_ids_dict,
+                                         recipe_tables=recipe_tables, order_tables=order_tables)
+
+    onion_soup_id = type_ids["onion_soup"]
+    dz_id = type_ids["delivery_zone"]
+    n_agents = 1
+
+    reward_config = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+    }
+
+    print("test_delivery_reward_order_match_required:")
+
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[1, 3] = dz_id
+    actions = np.array([4], dtype=np.int32)
+
+    # Case 1: Active order for recipe 0 (onion_soup), deliver onion_soup -> reward fires
+    # prev_state has order active, state has order consumed (recipe=-1)
+    prev_sv = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([0, -1, -1], dtype=np.int32),
+        "order_timer": np.array([100, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+    curr_sv = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[-1]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),  # order consumed
+        "order_timer": np.array([0, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
+                        reward_config=reward_config)
+    assert float(r[0]) > 0, f"Matching order should earn reward, got {float(r[0])}"
+    print("  Matching order -> reward fires: OK")
+
+    # Case 2: No active orders, deliver onion_soup -> reward is zero
+    prev_sv2 = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+        "order_timer": np.array([0, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+    curr_sv2 = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[-1]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+        "order_timer": np.array([0, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+    r2 = delivery_reward(prev_sv2, curr_sv2, actions, type_ids, n_agents,
+                         reward_config=reward_config)
+    assert float(r2[0]) == 0.0, f"No matching order should yield zero, got {float(r2[0])}"
+    print("  No matching order -> zero reward: OK")
+
+    print("  PASSED")
+
+
+def test_expired_order_penalty():
+    """Verify ExpiredOrderPenalty returns penalty for newly expired orders."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.envs.overcooked.rewards import ExpiredOrderPenalty
+
+    print("test_expired_order_penalty:")
+
+    n_agents = 2
+    reward_config = {"n_agents": n_agents, "expired_order_penalty": -5.0}
+
+    # prev_state: order_n_expired=0, state: order_n_expired=2
+    prev_sv = _sv_from_dict({"order_n_expired": np.int32(0)}, n_agents=n_agents)
+    curr_sv = _sv_from_dict({"order_n_expired": np.int32(2)}, n_agents=n_agents)
+    actions = np.array([6, 6], dtype=np.int32)  # Noop
+
+    penalty = ExpiredOrderPenalty()
+    r = penalty.compute(prev_sv, curr_sv, actions, reward_config)
+    expected = 2 * (-5.0)
+    assert float(r[0]) == expected, f"Expected {expected}, got {float(r[0])}"
+    assert float(r[1]) == expected, f"Expected {expected} for all agents, got {float(r[1])}"
+    print(f"  2 newly expired * -5.0 = {expected} for all agents: OK")
+
+    # No expiry: prev=3, curr=3
+    prev_sv2 = _sv_from_dict({"order_n_expired": np.int32(3)}, n_agents=n_agents)
+    curr_sv2 = _sv_from_dict({"order_n_expired": np.int32(3)}, n_agents=n_agents)
+    r2 = penalty.compute(prev_sv2, curr_sv2, actions, reward_config)
+    assert float(r2[0]) == 0.0, f"No new expiry should give 0, got {float(r2[0])}"
+    print("  No new expiry -> zero penalty: OK")
+
+    print("  PASSED")
+
+
+def test_delivery_reward_backward_compat_no_orders():
+    """Verify delivery reward fires unconditionally when no order arrays exist."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.autowire import build_scope_config_from_components
+    from cogrid.envs.overcooked.rewards import delivery_reward
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+    static_tables = scope_cfg["static_tables"]
+
+    onion_soup_id = type_ids["onion_soup"]
+    dz_id = type_ids["delivery_zone"]
+    n_agents = 1
+
+    reward_config = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+    }
+
+    print("test_delivery_reward_backward_compat_no_orders:")
+
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[1, 3] = dz_id
+    actions = np.array([4], dtype=np.int32)
+
+    # No order arrays -> reward fires unconditionally
+    prev_sv = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+    }, n_agents=1)
+    r = delivery_reward(prev_sv, prev_sv, actions, type_ids, n_agents,
+                        reward_config=reward_config)
+    assert float(r[0]) > 0, f"No orders -> unconditional reward, got {float(r[0])}"
+    print("  No order arrays -> reward fires unconditionally: OK")
+
+    print("  PASSED")
+
+
+def test_static_tables_in_reward_config_via_env():
+    """Verify static_tables flows through cogrid_env.py to reward_config."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.cogrid_env import CoGridEnv
+
+    print("test_static_tables_in_reward_config_via_env:")
+
+    config = cogrid.envs.cramped_room_config
+    env = CoGridEnv(config)
+    env.reset(seed=42)
+
+    assert "static_tables" in env._reward_config, "static_tables missing from _reward_config"
+    st = env._reward_config["static_tables"]
+    assert "IS_DELIVERABLE" in st, "IS_DELIVERABLE missing from static_tables"
+    assert "recipe_reward" in st, "recipe_reward missing from static_tables"
+    assert "recipe_result" in st, "recipe_result missing from static_tables"
+    print("  env._reward_config has static_tables with IS_DELIVERABLE, recipe_reward: OK")
+
+    print("  PASSED")
+
+
 def test_order_config_validation():
     """Test _build_order_tables edge cases and config validation."""
     import numpy as np
