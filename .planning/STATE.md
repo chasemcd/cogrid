@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core -- readable, simple, and fast.
-**Current focus:** Phase 28 - Generic Stack Table Building
+**Current focus:** Phase 29 - Order Queue
 
 ## Current Position
 
-Phase: 28 of 30 (Generic Stack Table Building)
+Phase: 29 of 30 (Order Queue)
 Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 28 complete
-Last activity: 2026-02-17 -- Completed 28-01 generic stack table building
+Status: Phase 29 complete
+Last activity: 2026-02-17 -- Completed 29-01 order queue implementation
 
-Progress: [====================] 100% (Phase 28: 1/1 plans)
+Progress: [====================] 100% (Phase 29: 1/1 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 4min
-- Total execution time: 0.27 hours
+- Total execution time: 0.35 hours
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: [====================] 100% (Phase 28: 1/1 plans)
 | 26-recipe-table-infrastructure | 1 | 3min | 3min |
 | 27-generalize-interaction-branches | 1 | 5min | 5min |
 | 28-generic-stack-table-building | 1 | 3min | 3min |
+| 29-order-queue | 1 | 5min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 5min, 3min, 5min, 3min
+- Last 5 plans: 3min, 5min, 3min, 5min
 - Trend: stable
 
 ## Accumulated Context
@@ -58,6 +59,10 @@ Recent decisions affecting current work:
 - [28-01]: _BaseStack.pick_up_from uses make_object(self.produces) for runtime-registered type dispatch
 - [28-01]: Component scan iterates both [scope, "global"] to catch cross-scope stacks
 - [28-01]: Stack type_ids kept in _build_interaction_tables via inline object_to_idx for backward compat
+- [29-01]: Deterministic spawn (weighted round-robin) avoids RNG-under-vmap concern
+- [29-01]: order_n_expired scalar in extra_state enables Phase 30 reward via prev/curr diff
+- [29-01]: Delivery without matching order still succeeds (backward compat; reward handles distinction)
+- [29-01]: Order arrays as kwargs + ctx dict, not positional args, to minimize signature disruption
 
 ### Pending Todos
 
@@ -66,10 +71,10 @@ None yet.
 ### Blockers/Concerns
 
 - (RESOLVED) Interaction cascade refactored to accumulated-handled pattern -- Phase 25 complete, Phases 27/29 unblocked
-- RNG under vmap for order spawning (Phase 29) needs verification -- each env in a vmap batch must receive a different subkey
+- (RESOLVED) RNG under vmap for order spawning -- Phase 29 uses deterministic weighted round-robin, no RNG needed
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 28-01-PLAN.md (Phase 28 complete)
+Stopped at: Completed 29-01-PLAN.md (Phase 29 complete)
 Resume file: None
