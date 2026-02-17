@@ -130,6 +130,7 @@ branch's result or the original.
 
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
+from cogrid.core.component_registry import get_all_components
 from cogrid.core.grid_object import get_object_names, object_to_idx
 
 
@@ -271,18 +272,19 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
     pot_id = object_to_idx("pot", scope=scope)
     onion_soup_id = object_to_idx("onion_soup", scope=scope)
     tomato_soup_id = object_to_idx("tomato_soup", scope=scope)
-    onion_stack_id = object_to_idx("onion_stack", scope=scope)
-    tomato_stack_id = object_to_idx("tomato_stack", scope=scope)
-    plate_stack_id = object_to_idx("plate_stack", scope=scope)
     counter_id = object_to_idx("counter", scope=scope)
     delivery_zone_id = object_to_idx("delivery_zone", scope=scope)
 
     # Stacks are infinite dispensers: picking up from a stack produces
     # the corresponding loose item, but the stack itself stays on the grid.
-    #   onion_stack -> onion,  tomato_stack -> tomato,  plate_stack -> plate
-    pickup_from_produces = set_at(pickup_from_produces, onion_stack_id, onion_id)
-    pickup_from_produces = set_at(pickup_from_produces, tomato_stack_id, tomato_id)
-    pickup_from_produces = set_at(pickup_from_produces, plate_stack_id, plate_id)
+    # Built by scanning all components with a `produces` attribute.
+    for component_scope in [scope, "global"]:
+        for meta in get_all_components(component_scope):
+            produces = getattr(meta.cls, "produces", None)
+            if produces is not None and meta.properties.get("can_pickup_from", False):
+                stack_id = object_to_idx(meta.object_id, scope=scope)
+                produced_id = object_to_idx(produces, scope=scope)
+                pickup_from_produces = set_at(pickup_from_produces, stack_id, produced_id)
 
     # Only onions and tomatoes can go into a pot.
     legal_pot_ingredients = set_at(legal_pot_ingredients, onion_id, 1)
@@ -295,9 +297,9 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
         "pot": pot_id,
         "onion_soup": onion_soup_id,
         "tomato_soup": tomato_soup_id,
-        "onion_stack": onion_stack_id,
-        "tomato_stack": tomato_stack_id,
-        "plate_stack": plate_stack_id,
+        "onion_stack": object_to_idx("onion_stack", scope=scope),
+        "tomato_stack": object_to_idx("tomato_stack", scope=scope),
+        "plate_stack": object_to_idx("plate_stack", scope=scope),
         "counter": counter_id,
         "delivery_zone": delivery_zone_id,
     }
