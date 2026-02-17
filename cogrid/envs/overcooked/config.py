@@ -585,7 +585,12 @@ def overcooked_tick_state(state, scope_config):
     pot_positions = state.extra_state["overcooked.pot_positions"]
     n_pots = pot_positions.shape[0]
 
-    pot_contents, pot_timer, pot_state = overcooked_tick(pot_contents, pot_timer)
+    static_tables = scope_config.get("static_tables", {})
+    capacity = static_tables.get("max_ingredients", 3)
+
+    pot_contents, pot_timer, pot_state = overcooked_tick(
+        pot_contents, pot_timer, capacity=capacity
+    )
 
     # Write pot_state into object_state_map at pot positions
     osm = state.object_state_map
@@ -663,7 +668,7 @@ def _branch_pickup(handled, ctx):
 
 
 def _branch_pickup_from_pot(handled, ctx):
-    """Branch 2A: Pick up cooked soup from a pot that has finished cooking.
+    """Branch 2A: Pick up cooked soup from a pot using recipe table lookup.
 
     Preconditions (all must be True):
         - ~handled: no prior branch has fired
@@ -673,15 +678,15 @@ def _branch_pickup_from_pot(handled, ctx):
         - pot has contents (at least one slot != -1)
         - pot_timer[pot_idx] == 0: cooking is complete
         - inv_item == plate_id: agent is holding a plate
+        - has_recipe_match: pot contents match a known recipe
 
     Effects when condition is True:
-        - agent_inv[agent_idx] = soup_type  (plate replaced with soup)
+        - agent_inv[agent_idx] = recipe_result[matched_idx]  (plate replaced with recipe output)
         - pot_contents[pot_idx, :] = -1  (pot emptied)
-        - pot_timer[pot_idx] = cooking_time  (timer reset to 30)
+        - pot_timer[pot_idx] = cooking_time  (timer reset)
 
-    Soup type determination:
-        If ALL non-empty slots contain tomato -> tomato_soup
-        Otherwise -> onion_soup  (mixed or all-onion)
+    Recipe matching: sort pot contents, compare against all recipe_ingredients
+    rows. The matched recipe's result item is placed in the agent's inventory.
 
     Example: Agent holds a plate, pot has 3 cooked onions.
 
@@ -694,7 +699,6 @@ def _branch_pickup_from_pot(handled, ctx):
     """
     pot_idx = ctx["pot_idx"]
     pot_contents = ctx["pot_contents"]
-    tomato_id = ctx["tomato_id"]
 
     is_pot = ctx["fwd_type"] == ctx["pot_id"]
 
@@ -702,10 +706,19 @@ def _branch_pickup_from_pot(handled, ctx):
     has_contents = xp.sum(pot_contents[pot_idx] != -1) > 0
     is_ready = ctx["pot_timer"][pot_idx] == 0
 
-    # Determine soup type: check if all non-empty slots are tomato.
-    # Slots that are -1 (empty) are masked out with the OR condition.
-    all_tomato = xp.all((pot_contents[pot_idx] == -1) | (pot_contents[pot_idx] == tomato_id))
-    soup_type = xp.where(all_tomato, ctx["tomato_soup_id"], ctx["onion_soup_id"])
+    # Recipe matching: sort pot contents and compare against all recipes.
+    # Replace -1 sentinels with max int32 before sorting so they sort to
+    # the end (matching recipe_ingredients layout: values first, -1 last).
+    _SORT_HIGH = xp.int32(2147483647)
+    raw = pot_contents[pot_idx]
+    sort_buf = xp.where(raw == -1, _SORT_HIGH, raw)
+    sorted_pot = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
+    matches = xp.all(sorted_pot[None, :] == ctx["recipe_ingredients"], axis=1)
+    matched_idx = xp.argmax(matches)
+    has_recipe_match = xp.any(matches)
+
+    # Output item comes from the matched recipe.
+    soup_type = ctx["recipe_result"][matched_idx]
 
     cond = (
         ~handled
@@ -715,12 +728,13 @@ def _branch_pickup_from_pot(handled, ctx):
         & has_contents
         & is_ready
         & (ctx["inv_item"] == ctx["plate_id"])
+        & has_recipe_match
     )
 
-    # If condition fires: replace plate in inventory with soup, clear pot.
+    # If condition fires: replace plate in inventory with recipe output, clear pot.
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), soup_type)
-    pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all 3 slots
-    pt = set_at(ctx["pot_timer"], pot_idx, ctx["cooking_time"])  # reset to 30
+    pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all slots
+    pt = set_at(ctx["pot_timer"], pot_idx, ctx["cooking_time"])  # reset timer
     updates = {"agent_inv": inv, "pot_contents": pc, "pot_timer": pt}
     return cond, updates, handled | cond
 
@@ -806,7 +820,7 @@ def _branch_drop_on_empty(handled, ctx):
 
 
 def _branch_place_on_pot(handled, ctx):
-    """Branch 4A: Place an ingredient into a pot.
+    """Branch 4A: Place an ingredient into a pot using recipe prefix matching.
 
     Preconditions (all must be True):
         - ~handled: no prior branch has fired
@@ -816,14 +830,19 @@ def _branch_place_on_pot(handled, ctx):
         - inv_item != -1: agent is holding something
         - fwd_type == pot_id: forward cell is specifically a pot
         - has_pot_match: pot found in pot_positions array
-        - legal_pot_ingredients[inv_item] == 1: held item is onion or tomato
-        - n_items_in_pot < 3: pot has capacity (max 3 ingredients)
-        - same_type: pot is empty OR first slot matches held item type
-          (prevents mixing onions and tomatoes in the same pot)
+        - legal_pot_ingredients[inv_item] == 1: held item is a legal ingredient
+        - n_items_in_pot < max_ingredients: pot has capacity
+        - any_recipe_accepts: the would-be pot contents (after adding the
+          ingredient) match a prefix of at least one recipe
 
     Effects when condition is True:
         - pot_contents[pot_idx, first_empty_slot] = inv_item  (ingredient added)
         - agent_inv[agent_idx] = -1  (hand emptied)
+        - pot_timer[pot_idx] = recipe cook time  (if pot becomes full)
+
+    When the pot becomes full, an exact recipe match determines the cook
+    time. The matched recipe's ``recipe_cooking_time`` is written into
+    ``pot_timer`` so that ``overcooked_tick`` uses per-recipe cook times.
 
     Slot assignment: ``first_empty_slot = argmax(pot_contents[pot_idx] == -1)``
     fills left-to-right (slot 0, then 1, then 2).
@@ -840,21 +859,34 @@ def _branch_place_on_pot(handled, ctx):
     inv_item = ctx["inv_item"]
     pot_idx = ctx["pot_idx"]
     pot_contents = ctx["pot_contents"]
+    max_ingredients = ctx["max_ingredients"]
+    recipe_ingredients = ctx["recipe_ingredients"]
+    recipe_cooking_time = ctx["recipe_cooking_time"]
 
     is_pot = fwd_type == ctx["pot_id"]
     is_legal = ctx["legal_pot_ingredients"][inv_item] == 1
     n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
-    has_capacity = n_items_in_pot < 3
-
-    # Same-type check: pot must be empty OR existing ingredients must
-    # match the held item. We check by comparing the first slot only
-    # (all filled slots are guaranteed to be the same type).
-    first_slot = pot_contents[pot_idx, 0]
-    same_type = (n_items_in_pot == 0) | (first_slot == inv_item)
+    has_capacity = n_items_in_pot < max_ingredients
 
     # Find the first empty slot to place the ingredient into.
     slot_empty = pot_contents[pot_idx] == -1
     first_empty_slot = xp.argmax(slot_empty)
+
+    # Build would-be contents: current contents with new item in first empty slot.
+    # Replace -1 sentinels with max int32 before sorting so they sort to
+    # the end (matching recipe_ingredients layout: values first, -1 last).
+    _SORT_HIGH = xp.int32(2147483647)
+    would_be = set_at(pot_contents[pot_idx], first_empty_slot, inv_item)
+    sort_buf = xp.where(would_be == -1, _SORT_HIGH, would_be)
+    sorted_would_be = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
+    n_would_be = n_items_in_pot + 1
+
+    # Prefix match: compare filled slots against each recipe.
+    # For positions beyond n_would_be, treat as "don't care" (always True).
+    slot_mask = xp.arange(max_ingredients) < n_would_be
+    slot_matches = (sorted_would_be[None, :] == recipe_ingredients) | ~slot_mask[None, :]
+    recipe_compatible = xp.all(slot_matches, axis=1)
+    any_recipe_accepts = xp.any(recipe_compatible)
 
     cond = (
         ~handled
@@ -866,21 +898,34 @@ def _branch_place_on_pot(handled, ctx):
         & ctx["has_pot_match"]
         & is_legal
         & has_capacity
-        & same_type
+        & any_recipe_accepts
     )
     pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
+
+    # If this placement fills the pot, set cook time from matched recipe.
+    is_now_full = n_would_be == max_ingredients
+    full_matches = xp.all(sorted_would_be[None, :] == recipe_ingredients, axis=1)
+    full_match_idx = xp.argmax(full_matches)
+    new_cook_time = recipe_cooking_time[full_match_idx]
+    pt = xp.where(
+        cond & is_now_full,
+        set_at(ctx["pot_timer"], pot_idx, new_cook_time),
+        ctx["pot_timer"],
+    )
+
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
-    updates = {"agent_inv": inv, "pot_contents": pc}
+    updates = {"agent_inv": inv, "pot_contents": pc, "pot_timer": pt}
     return cond, updates, handled | cond
 
 
 def _branch_place_on_delivery(handled, ctx):
-    """Branch 4B: Place a soup on the delivery zone.
+    """Branch 4B: Place any recipe output on the delivery zone.
 
-    Only soups (onion_soup or tomato_soup) can be delivered. Attempting
-    to deliver any other item (raw ingredients, plates, etc.) is rejected.
+    Any item marked as deliverable (derived from recipe_result at init
+    time via IS_DELIVERABLE) can be delivered. Attempting to deliver a
+    non-recipe item (raw ingredients, plates, etc.) is rejected.
 
-    The delivery zone acts as a sink -- the soup disappears from the
+    The delivery zone acts as a sink -- the item disappears from the
     agent's inventory. Scoring is handled by the reward function, not here.
 
     Preconditions (all must be True):
@@ -890,10 +935,10 @@ def _branch_place_on_delivery(handled, ctx):
         - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
         - inv_item != -1: agent is holding something
         - fwd_type == delivery_zone_id: forward cell is a delivery zone
-        - inv_item is onion_soup or tomato_soup
+        - IS_DELIVERABLE[inv_item] == 1: held item is a recipe output
 
     Effects when condition is True:
-        - agent_inv[agent_idx] = -1  (soup consumed / delivered)
+        - agent_inv[agent_idx] = -1  (item consumed / delivered)
 
     Example: Agent delivers onion soup.
 
@@ -907,7 +952,7 @@ def _branch_place_on_delivery(handled, ctx):
     inv_item = ctx["inv_item"]
 
     is_dz = fwd_type == ctx["delivery_zone_id"]
-    is_soup = (inv_item == ctx["onion_soup_id"]) | (inv_item == ctx["tomato_soup_id"])
+    is_deliverable = ctx["IS_DELIVERABLE"][inv_item] == 1
     cond = (
         ~handled
         & ctx["base_ok"]
@@ -915,7 +960,7 @@ def _branch_place_on_delivery(handled, ctx):
         & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
         & (inv_item != -1)
         & is_dz
-        & is_soup
+        & is_deliverable
     )
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
     updates = {"agent_inv": inv}
@@ -1106,6 +1151,11 @@ def overcooked_interaction_body(
         "tomato_soup_id": tomato_soup_id,
         "delivery_zone_id": delivery_zone_id,
         "cooking_time": cooking_time,
+        "recipe_ingredients": static_tables["recipe_ingredients"],
+        "recipe_result": static_tables["recipe_result"],
+        "recipe_cooking_time": static_tables["recipe_cooking_time"],
+        "max_ingredients": static_tables["max_ingredients"],
+        "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
     }
 
     # --- Evaluate all branches with accumulated handled ---
@@ -1209,5 +1259,20 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None):
         tables["recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]
         tables["recipe_reward"] = recipe_tables["recipe_reward"]
         tables["max_ingredients"] = recipe_tables["max_ingredients"]
+
+    # Build IS_DELIVERABLE array: 1 for any type that is a recipe output
+    import numpy as _np
+
+    n_types = len(get_object_names(scope=scope))
+    is_deliverable = _np.zeros(n_types, dtype=_np.int32)
+    if recipe_tables is not None:
+        for result_id in recipe_tables["recipe_result"]:
+            is_deliverable[int(result_id)] = 1
+    else:
+        # Backward compat fallback: hardcode onion_soup and tomato_soup
+        is_deliverable[int(type_ids.get("onion_soup", -1))] = 1
+        is_deliverable[int(type_ids.get("tomato_soup", -1))] = 1
+        tables["max_ingredients"] = 3
+    tables["IS_DELIVERABLE"] = is_deliverable
 
     return tables

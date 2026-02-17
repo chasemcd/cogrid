@@ -608,6 +608,11 @@ def test_at_most_one_branch_fires():
                 "tomato_soup_id": static_tables["tomato_soup_id"],
                 "delivery_zone_id": static_tables["delivery_zone_id"],
                 "cooking_time": static_tables["cooking_time"],
+                "recipe_ingredients": static_tables["recipe_ingredients"],
+                "recipe_result": static_tables["recipe_result"],
+                "recipe_cooking_time": static_tables["recipe_cooking_time"],
+                "max_ingredients": static_tables["max_ingredients"],
+                "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
             }
 
             # Run branches with handled accumulation (as the real orchestrator does)
