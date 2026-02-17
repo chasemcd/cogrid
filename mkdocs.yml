@@ -4,32 +4,14 @@ repo_url: https://github.com/chasemcd/cogrid
 repo_name: chasemcd/cogrid
 
 theme:
-  name: material
+  name: readthedocs
   logo: assets/images/cogrid_logo_nobg.png
-  features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.expand
-    - content.tabs.link
-    - content.code.copy
-  palette:
-    - scheme: default
-      primary: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - scheme: slate
-      primary: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
 
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
+  - pymdownx.tabbed
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
