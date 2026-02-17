@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Minimal code paths, maximal clarity. One functional simulation core -- readable, simple, and fast.
-**Current focus:** Phase 29 - Order Queue
+**Current focus:** Phase 30 - Features & Rewards Adaptation
 
 ## Current Position
 
-Phase: 29 of 30 (Order Queue)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 29 complete
-Last activity: 2026-02-17 -- Completed 29-01 order queue implementation
+Phase: 30 of 30 (Features & Rewards Adaptation)
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase 30 plan 02 complete
+Last activity: 2026-02-17 -- Completed 30-02 features adaptation
 
-Progress: [====================] 100% (Phase 29: 1/1 plans)
+Progress: [====================] 100% (Phase 30: 2/2 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 7
 - Average duration: 4min
-- Total execution time: 0.35 hours
+- Total execution time: 0.47 hours
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: [====================] 100% (Phase 29: 1/1 plans)
 | 27-generalize-interaction-branches | 1 | 5min | 5min |
 | 28-generic-stack-table-building | 1 | 3min | 3min |
 | 29-order-queue | 1 | 5min | 5min |
+| 30-features-rewards-adaptation | 2 | 10min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 3min, 5min, 3min, 5min
+- Last 5 plans: 5min, 3min, 5min, 5min, 5min
 - Trend: stable
 
 ## Accumulated Context
@@ -63,6 +64,13 @@ Recent decisions affecting current work:
 - [29-01]: order_n_expired scalar in extra_state enables Phase 30 reward via prev/curr diff
 - [29-01]: Delivery without matching order still succeeds (backward compat; reward handles distinction)
 - [29-01]: Order arrays as kwargs + ctx dict, not positional args, to minimize signature disruption
+- [30-01]: Backward compat fallback uses coefficient (not coefficient*20) when static_tables absent
+- [30-01]: Tip bonus integrated into delivery_reward (not separate class) to avoid duplicating order-consumption detection
+- [30-01]: ExpiredOrderPenalty broadcasts to all agents (common penalty)
+- [30-01]: Default tip_coefficient=0.0 (disabled) for backward compatibility
+- [30-02]: OrderObservation uses fixed defaults (max_active=3, n_recipes=2, time_limit=200) matching _build_order_tables
+- [30-02]: OvercookedInventory scans only scope registry (not global) to avoid cross-scope type pollution
+- [30-02]: Inventory tests written robust against test-time registry pollution from factory tests
 
 ### Pending Todos
 
@@ -76,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 29-01-PLAN.md (Phase 29 complete)
+Stopped at: Completed 30-02-PLAN.md (Phase 30 plan 02 complete)
 Resume file: None
