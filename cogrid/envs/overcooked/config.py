@@ -309,6 +309,170 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
     }
 
 
+DEFAULT_RECIPES = [
+    {
+        "ingredients": ["onion", "onion", "onion"],
+        "result": "onion_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+    {
+        "ingredients": ["tomato", "tomato", "tomato"],
+        "result": "tomato_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+]
+
+
+def _validate_recipe(recipe, index, scope):
+    """Validate a single recipe dict at init time.
+
+    Checks that ``recipe`` is a dict with exactly the keys
+    ``{"ingredients", "result", "cook_time", "reward"}`` and that each
+    value has the correct type and refers to registered object names.
+
+    Raises ``ValueError`` with a message including *index* for any failure.
+    """
+    required_keys = {"ingredients", "result", "cook_time", "reward"}
+    if not isinstance(recipe, dict):
+        raise ValueError(f"Recipe {index}: expected dict, got {type(recipe).__name__}")
+
+    missing = required_keys - set(recipe.keys())
+    if missing:
+        raise ValueError(f"Recipe {index}: missing keys {missing}")
+
+    extra = set(recipe.keys()) - required_keys
+    if extra:
+        raise ValueError(f"Recipe {index}: unexpected keys {extra}")
+
+    ingredients = recipe["ingredients"]
+    if not isinstance(ingredients, list) or len(ingredients) == 0:
+        raise ValueError(f"Recipe {index}: 'ingredients' must be a non-empty list")
+
+    names = get_object_names(scope=scope)
+    for ing_name in ingredients:
+        if not isinstance(ing_name, str):
+            raise ValueError(f"Recipe {index}: ingredient {ing_name!r} must be a string")
+        if ing_name not in names:
+            raise ValueError(
+                f"Recipe {index}: ingredient '{ing_name}' is not a registered object type "
+                f"in scope '{scope}'. Registered types: {[n for n in names if n]}"
+            )
+
+    result = recipe["result"]
+    if not isinstance(result, str) or result not in names:
+        raise ValueError(
+            f"Recipe {index}: result '{result}' is not a registered object type "
+            f"in scope '{scope}'."
+        )
+
+    cook_time = recipe["cook_time"]
+    if not isinstance(cook_time, int) or cook_time <= 0:
+        raise ValueError(
+            f"Recipe {index}: 'cook_time' must be a positive integer, got {cook_time}"
+        )
+
+    reward = recipe["reward"]
+    if not isinstance(reward, (int, float)):
+        raise ValueError(
+            f"Recipe {index}: 'reward' must be a number, got {type(reward).__name__}"
+        )
+
+
+def compile_recipes(recipe_config, scope="overcooked"):
+    """Compile a list of recipe dicts into fixed-shape lookup arrays.
+
+    Called at init time (not under JIT). Produces sentinel-padded arrays
+    suitable for storage in ``static_tables``.
+
+    Parameters
+    ----------
+    recipe_config : list[dict]
+        Each dict has keys: ``"ingredients"`` (list[str]), ``"result"`` (str),
+        ``"cook_time"`` (int), ``"reward"`` (float).
+    scope : str
+        Object registry scope for resolving type names to IDs.
+
+    Returns
+    -------
+    dict with keys:
+        recipe_ingredients : (n_recipes, max_ingredients) int32
+            Sorted ingredient type IDs per recipe, -1 sentinel for empty slots.
+        recipe_result : (n_recipes,) int32
+            Output item type ID per recipe.
+        recipe_cooking_time : (n_recipes,) int32
+            Cook time per recipe.
+        recipe_reward : (n_recipes,) float32
+            Reward value per recipe.
+        legal_pot_ingredients : (n_types,) int32
+            1 for any type that appears as an ingredient in any recipe.
+        max_ingredients : int
+            Maximum number of ingredients across all recipes.
+
+    Raises
+    ------
+    ValueError
+        If ``recipe_config`` is empty, any recipe dict is malformed,
+        contains invalid type names, or has duplicate sorted ingredient
+        combinations.
+    """
+    import numpy as _np
+
+    if not recipe_config:
+        raise ValueError("recipe_config must be a non-empty list of recipe dicts.")
+
+    names = get_object_names(scope=scope)
+    n_types = len(names)
+
+    # Validate all recipes first
+    for i, recipe in enumerate(recipe_config):
+        _validate_recipe(recipe, i, scope)
+
+    max_ing = max(len(r["ingredients"]) for r in recipe_config)
+    n_recipes = len(recipe_config)
+
+    # Build arrays
+    recipe_ingredients = _np.full((n_recipes, max_ing), -1, dtype=_np.int32)
+    recipe_result = _np.zeros(n_recipes, dtype=_np.int32)
+    recipe_cooking_time = _np.zeros(n_recipes, dtype=_np.int32)
+    recipe_reward = _np.zeros(n_recipes, dtype=_np.float32)
+    legal_pot_ingredients = _np.zeros(n_types, dtype=_np.int32)
+
+    seen_combos = {}
+    for i, recipe in enumerate(recipe_config):
+        ing_ids = sorted(
+            [object_to_idx(name, scope=scope) for name in recipe["ingredients"]]
+        )
+
+        # Duplicate combo check
+        combo_key = tuple(ing_ids)
+        if combo_key in seen_combos:
+            raise ValueError(
+                f"Recipe {i} has same sorted ingredients as recipe {seen_combos[combo_key]}. "
+                f"Duplicate ingredient combinations are not allowed."
+            )
+        seen_combos[combo_key] = i
+
+        # Fill ingredient slots (sorted), remaining slots stay -1
+        for j, tid in enumerate(ing_ids):
+            recipe_ingredients[i, j] = tid
+            legal_pot_ingredients[tid] = 1
+
+        recipe_result[i] = object_to_idx(recipe["result"], scope=scope)
+        recipe_cooking_time[i] = recipe["cook_time"]
+        recipe_reward[i] = recipe["reward"]
+
+    return {
+        "recipe_ingredients": recipe_ingredients,
+        "recipe_result": recipe_result,
+        "recipe_cooking_time": recipe_cooking_time,
+        "recipe_reward": recipe_reward,
+        "legal_pot_ingredients": legal_pot_ingredients,
+        "max_ingredients": max_ing,
+    }
+
+
 def _build_type_ids(scope: str = "overcooked") -> dict:
     """Map Overcooked type names to integer type IDs (-1 if missing)."""
     names = get_object_names(scope=scope)
@@ -978,7 +1142,7 @@ def overcooked_interaction_body(
 # ======================================================================
 
 
-def _build_static_tables(scope, itables, type_ids):
+def _build_static_tables(scope, itables, type_ids, recipe_tables=None):
     """Build the static tables dict used by overcooked_interaction_body.
 
     Called once at environment init time. The resulting dict is stored in
@@ -1001,17 +1165,34 @@ def _build_static_tables(scope, itables, type_ids):
          - pot_id, plate_id, tomato_id, onion_soup_id, tomato_soup_id,
            delivery_zone_id
          - cooking_time: 30 (number of ticks to cook a full pot)
+
+    Parameters
+    ----------
+    scope : str
+        Object registry scope.
+    itables : dict
+        From ``_build_interaction_tables``.
+    type_ids : dict
+        From ``_build_type_ids``.
+    recipe_tables : dict or None
+        If provided (from ``compile_recipes``), recipe arrays are merged
+        into the returned dict and ``legal_pot_ingredients`` is taken from
+        the recipe compilation instead of the hardcoded interaction tables.
     """
     from cogrid.core.grid_object import build_lookup_tables
 
     lookup = build_lookup_tables(scope=scope)
 
-    return {
+    tables = {
         "CAN_PICKUP": lookup["CAN_PICKUP"],
         "CAN_PICKUP_FROM": lookup["CAN_PICKUP_FROM"],
         "CAN_PLACE_ON": lookup["CAN_PLACE_ON"],
         "pickup_from_produces": itables["pickup_from_produces"],
-        "legal_pot_ingredients": itables["legal_pot_ingredients"],
+        "legal_pot_ingredients": (
+            recipe_tables["legal_pot_ingredients"]
+            if recipe_tables is not None
+            else itables["legal_pot_ingredients"]
+        ),
         "pot_id": int(type_ids.get("pot", -1)),
         "plate_id": int(type_ids.get("plate", -1)),
         "tomato_id": int(type_ids.get("tomato", -1)),
@@ -1020,3 +1201,13 @@ def _build_static_tables(scope, itables, type_ids):
         "delivery_zone_id": int(type_ids.get("delivery_zone", -1)),
         "cooking_time": 30,
     }
+
+    # Add recipe tables if provided
+    if recipe_tables is not None:
+        tables["recipe_ingredients"] = recipe_tables["recipe_ingredients"]
+        tables["recipe_result"] = recipe_tables["recipe_result"]
+        tables["recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]
+        tables["recipe_reward"] = recipe_tables["recipe_reward"]
+        tables["max_ingredients"] = recipe_tables["max_ingredients"]
+
+    return tables
