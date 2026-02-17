@@ -161,20 +161,7 @@ def closest_obj_feature(
     top_dxs = xp.where(top_valid, top_dxs, 0)
 
     # Interleave (dy0, dx0, dy1, dx1, ...)
-    result = xp.zeros(2 * n, dtype=xp.int32)
-    for i in range(n):
-        result = (
-            result.at[2 * i].set(top_dys[i])
-            if hasattr(result, "at")
-            else _set_idx(result, 2 * i, top_dys[i])
-        )
-        result = (
-            result.at[2 * i + 1].set(top_dxs[i])
-            if hasattr(result, "at")
-            else _set_idx(result, 2 * i + 1, top_dxs[i])
-        )
-
-    return result
+    return xp.stack([top_dys, top_dxs], axis=1).ravel().astype(xp.int32)
 
 
 def ordered_pot_features(
@@ -254,23 +241,12 @@ def ordered_pot_features(
 def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
     """(2 * (n_agents - 1),) distance to other agents."""
     pos = agent_pos[agent_idx]
-    result = xp.zeros(2 * (n_agents - 1), dtype=xp.int32)
-    out_idx = 0
-    for i in range(n_agents):
-        if i == agent_idx:  # agent_idx is a Python int, this is fine under JIT
-            continue
-        dy = pos[0] - agent_pos[i, 0]
-        dx = pos[1] - agent_pos[i, 1]
-        result = (
-            result.at[out_idx].set(dy) if hasattr(result, "at") else _set_idx(result, out_idx, dy)
-        )
-        result = (
-            result.at[out_idx + 1].set(dx)
-            if hasattr(result, "at")
-            else _set_idx(result, out_idx + 1, dx)
-        )
-        out_idx += 2
-    return result
+    # Build mask of other agents (agent_idx is a Python int, safe under JIT)
+    others = [i for i in range(n_agents) if i != agent_idx]
+    other_pos = xp.stack([agent_pos[i] for i in others])  # (n_agents-1, 2)
+    dys = pos[0] - other_pos[:, 0]
+    dxs = pos[1] - other_pos[:, 1]
+    return xp.stack([dys, dxs], axis=1).ravel().astype(xp.int32)
 
 
 def layout_id_feature(layout_idx, num_layouts=5):
@@ -309,23 +285,9 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
         if hasattr(result, "at"):  # JAX
             result = result.at[target_indices].add(is_match)
         else:
-            for j in range(len(target_indices)):
-                if is_match[j]:
-                    result[target_indices[j]] = 1
+            result[target_indices[is_match.astype(bool)]] = 1
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# Helper: backend-agnostic element assignment
-# ---------------------------------------------------------------------------
-
-
-def _set_idx(arr, idx, value):
-    """Set a single element, returning a new array."""
-    out = arr.copy()
-    out[idx] = value
-    return out
 
 
 # ---------------------------------------------------------------------------
