@@ -413,6 +413,16 @@ class OrderObservation(Feature):
         return fn
 
 
+def _count_pickupable_types(scope="overcooked"):
+    """Count pickupable types registered in the given scope."""
+    from cogrid.core.component_registry import get_all_components
+
+    return sum(1 for m in get_all_components(scope) if m.properties.get("can_pickup", False))
+
+
+_INVENTORY_OBS_DIM = _count_pickupable_types()
+
+
 @register_feature_type("overcooked_inventory", scope="overcooked")
 class OvercookedInventory(Feature):
     """One-hot inventory encoding feature.
@@ -423,7 +433,7 @@ class OvercookedInventory(Feature):
     """
 
     per_agent = True
-    obs_dim = 5
+    obs_dim = _INVENTORY_OBS_DIM
 
     @classmethod
     def build_feature_fn(cls, scope):
