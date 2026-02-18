@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 30 of 30 (Features & Rewards Adaptation)
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase 30 plan 02 complete
-Last activity: 2026-02-17 -- Completed 30-02 features adaptation
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase 30 plan 03 complete (gap closure)
+Last activity: 2026-02-17 -- Completed 30-03 gap closure
 
-Progress: [====================] 100% (Phase 30: 2/2 plans)
+Progress: [====================] 100% (Phase 30: 3/3 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 4min
-- Total execution time: 0.47 hours
+- Total execution time: 0.52 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [====================] 100% (Phase 30: 2/2 plans)
 | 27-generalize-interaction-branches | 1 | 5min | 5min |
 | 28-generic-stack-table-building | 1 | 3min | 3min |
 | 29-order-queue | 1 | 5min | 5min |
-| 30-features-rewards-adaptation | 2 | 10min | 5min |
+| 30-features-rewards-adaptation | 3 | 13min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 5min, 3min, 5min, 5min, 5min
+- Last 5 plans: 3min, 5min, 5min, 5min, 3min
 - Trend: stable
 
 ## Accumulated Context
@@ -71,6 +71,8 @@ Recent decisions affecting current work:
 - [30-02]: OrderObservation uses fixed defaults (max_active=3, n_recipes=2, time_limit=200) matching _build_order_tables
 - [30-02]: OvercookedInventory scans only scope registry (not global) to avoid cross-scope type pollution
 - [30-02]: Inventory tests written robust against test-time registry pollution from factory tests
+- [30-03]: _INVENTORY_OBS_DIM computed once at import time via _count_pickupable_types() helper
+- [30-03]: Import order in __init__.py: overcooked_grid_objects first so registry is populated before features.py runs
 
 ### Pending Todos
 
@@ -84,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 30-02-PLAN.md (Phase 30 plan 02 complete)
+Stopped at: Completed 30-03-PLAN.md (Phase 30 plan 03 complete -- all gaps closed)
 Resume file: None
