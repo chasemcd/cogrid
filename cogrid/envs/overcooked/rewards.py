@@ -94,8 +94,7 @@ def delivery_reward(
 
     # --- Order matching and tip bonus ---
     tip_coefficient = (
-        reward_config.get("tip_coefficient", 0.0)
-        if reward_config is not None else 0.0
+        reward_config.get("tip_coefficient", 0.0) if reward_config is not None else 0.0
     )
     prev_order = getattr(prev_state, "order_recipe", None)
     if prev_order is not None:

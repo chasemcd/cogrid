@@ -512,9 +512,16 @@ def test_at_most_one_branch_fires():
                 non_pot_types = [
                     type_ids[n]
                     for n in [
-                        "onion", "tomato", "plate", "onion_soup", "tomato_soup",
-                        "onion_stack", "tomato_stack", "plate_stack",
-                        "counter", "delivery_zone",
+                        "onion",
+                        "tomato",
+                        "plate",
+                        "onion_soup",
+                        "tomato_soup",
+                        "onion_stack",
+                        "tomato_stack",
+                        "plate_stack",
+                        "counter",
+                        "delivery_zone",
                     ]
                 ]
                 fwd_type_val = int(rng.choice(non_pot_types))
@@ -935,8 +942,14 @@ def test_mixed_recipe_end_to_end():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables,
-            scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state,
+            actions_arr,
+            overcooked_interaction_fn,
+            tables,
+            scope_cfg,
+            dir_vec,
+            PICKUP_DROP,
+            5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -952,7 +965,14 @@ def test_mixed_recipe_end_to_end():
     actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
     state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
     state = process_interactions(
-        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        actions_arr,
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     otm = state.object_type_map
     osm = state.object_state_map
@@ -974,7 +994,14 @@ def test_mixed_recipe_end_to_end():
     actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
     state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
     state = process_interactions(
-        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        actions_arr,
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == onion_soup_id, (
         f"Expected onion_soup ({onion_soup_id}), got {state.agent_inv[0, 0]}"
@@ -993,7 +1020,14 @@ def test_mixed_recipe_end_to_end():
     osm_dz = state.object_state_map
     state = _make_state(agent_pos_dz, agent_dir, agent_inv, otm_dz, osm_dz, pc, pt, pp)
     state = process_interactions(
-        state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        actions_arr,
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == -1, "Soup should be delivered via IS_DELIVERABLE"
     print("  Delivered onion_soup: OK")
@@ -1082,8 +1116,14 @@ def test_per_recipe_cook_time():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables,
-            scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state,
+            actions_arr,
+            overcooked_interaction_fn,
+            tables,
+            scope_cfg,
+            dir_vec,
+            PICKUP_DROP,
+            5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1104,8 +1144,14 @@ def test_per_recipe_cook_time():
     agent_inv = np.array([[plate_id]], dtype=np.int32)
     state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
     state = process_interactions(
-        state, np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == onion_soup_id, (
         f"Expected onion_soup, got {state.agent_inv[0, 0]}"
@@ -1125,8 +1171,14 @@ def test_per_recipe_cook_time():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables,
-            scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state,
+            actions_arr,
+            overcooked_interaction_fn,
+            tables,
+            scope_cfg,
+            dir_vec,
+            PICKUP_DROP,
+            5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1147,8 +1199,14 @@ def test_per_recipe_cook_time():
     agent_inv = np.array([[plate_id]], dtype=np.int32)
     state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
     state = process_interactions(
-        state, np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == tomato_soup_id, (
         f"Expected tomato_soup, got {state.agent_inv[0, 0]}"
@@ -1192,9 +1250,7 @@ def test_pickup_from_produces_config_driven():
     # Verify no spurious mappings: all other entries should be 0
     for i in range(len(pfp)):
         if i not in (onion_stack_id, tomato_stack_id, plate_stack_id):
-            assert int(pfp[i]) == 0, (
-                f"Unexpected non-zero entry at index {i}: {int(pfp[i])}"
-            )
+            assert int(pfp[i]) == 0, f"Unexpected non-zero entry at index {i}: {int(pfp[i])}"
 
     print("  Config-driven pickup_from_produces: PASSED")
 
@@ -1247,9 +1303,7 @@ def test_factory_registers_new_types():
     # Check if already registered (from a previous test run in the same process)
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack(
-            "test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M"
-        )
+        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
 
     # Verify both types are registered
     names = get_object_names(scope=scope)
@@ -1290,9 +1344,7 @@ def test_factory_stack_dispenses_item():
     # Register if not already done
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack(
-            "test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M"
-        )
+        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
 
     # Object-level check
     stack = make_object("test_mushroom_stack", scope=scope)
@@ -1323,10 +1375,18 @@ def test_factory_stack_dispenses_item():
 
 
 def _make_state_with_orders(
-    agent_pos, agent_dir, agent_inv, otm, osm,
-    pot_contents, pot_timer, pot_positions,
-    order_recipe=None, order_timer=None,
-    order_spawn_counter=None, order_recipe_counter=None,
+    agent_pos,
+    agent_dir,
+    agent_inv,
+    otm,
+    osm,
+    pot_contents,
+    pot_timer,
+    pot_positions,
+    order_recipe=None,
+    order_timer=None,
+    order_spawn_counter=None,
+    order_recipe_counter=None,
     order_n_expired=None,
 ):
     """Build a minimal EnvState with optional order arrays for testing."""
@@ -1401,8 +1461,11 @@ def test_order_tick_lifecycle():
     recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
     order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
     static_tables = _build_static_tables(
-        scope, itables, type_ids_dict,
-        recipe_tables=recipe_tables, order_tables=order_tables,
+        scope,
+        itables,
+        type_ids_dict,
+        recipe_tables=recipe_tables,
+        order_tables=order_tables,
     )
     scope_cfg = build_scope_config_from_components(scope)
     scope_cfg["static_tables"] = static_tables
@@ -1427,8 +1490,16 @@ def test_order_tick_lifecycle():
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
-        agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp,
-        order_recipe=order_recipe, order_timer=order_timer,
+        agent_pos,
+        agent_dir,
+        agent_inv,
+        otm,
+        osm,
+        pc,
+        pt,
+        pp,
+        order_recipe=order_recipe,
+        order_timer=order_timer,
         order_spawn_counter=order_spawn_counter,
         order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
@@ -1518,8 +1589,11 @@ def test_order_delivery_consumes_order():
     recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
     order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
     static_tables = _build_static_tables(
-        scope, itables, type_ids_dict,
-        recipe_tables=recipe_tables, order_tables=order_tables,
+        scope,
+        itables,
+        type_ids_dict,
+        recipe_tables=recipe_tables,
+        order_tables=order_tables,
     )
     scope_cfg["static_tables"] = static_tables
     scope_cfg["interaction_fn"] = overcooked_interaction_fn
@@ -1550,8 +1624,16 @@ def test_order_delivery_consumes_order():
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
-        agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp,
-        order_recipe=order_recipe, order_timer=order_timer,
+        agent_pos,
+        agent_dir,
+        agent_inv,
+        otm,
+        osm,
+        pc,
+        pt,
+        pp,
+        order_recipe=order_recipe,
+        order_timer=order_timer,
         order_spawn_counter=order_spawn_counter,
         order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
@@ -1613,8 +1695,11 @@ def test_order_delivery_without_matching_order():
     recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
     order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
     static_tables = _build_static_tables(
-        scope, itables, type_ids_dict,
-        recipe_tables=recipe_tables, order_tables=order_tables,
+        scope,
+        itables,
+        type_ids_dict,
+        recipe_tables=recipe_tables,
+        order_tables=order_tables,
     )
     scope_cfg["static_tables"] = static_tables
     scope_cfg["interaction_fn"] = overcooked_interaction_fn
@@ -1644,8 +1729,16 @@ def test_order_delivery_without_matching_order():
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
-        agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp,
-        order_recipe=order_recipe, order_timer=order_timer,
+        agent_pos,
+        agent_dir,
+        agent_inv,
+        otm,
+        osm,
+        pc,
+        pt,
+        pp,
+        order_recipe=order_recipe,
+        order_timer=order_timer,
         order_spawn_counter=order_spawn_counter,
         order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
@@ -1732,8 +1825,14 @@ def test_order_backward_compat_no_config():
         agent_inv = np.array([[onion_id]], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, np.array([PICKUP_DROP], dtype=np.int32),
-            overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state,
+            np.array([PICKUP_DROP], dtype=np.int32),
+            overcooked_interaction_fn,
+            tables,
+            scope_cfg,
+            dir_vec,
+            PICKUP_DROP,
+            5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1748,8 +1847,14 @@ def test_order_backward_compat_no_config():
     agent_inv = np.array([[plate_id]], dtype=np.int32)
     state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
     state = process_interactions(
-        state, np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == onion_soup_id, "Should get onion_soup"
     print("  Full workflow without orders: OK")
@@ -1764,8 +1869,14 @@ def test_order_backward_compat_no_config():
     pt_out = state.extra_state["overcooked.pot_timer"]
     state = _make_state(agent_pos_dz, agent_dir, agent_inv, otm_dz, osm_dz, pc_out, pt_out, pp)
     state = process_interactions(
-        state, np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+        state,
+        np.array([PICKUP_DROP], dtype=np.int32),
+        overcooked_interaction_fn,
+        tables,
+        scope_cfg,
+        dir_vec,
+        PICKUP_DROP,
+        5,
     )
     assert state.agent_inv[0, 0] == -1, "Delivery should succeed"
     print("  Delivery without orders: OK")
@@ -1793,8 +1904,12 @@ def _sv_from_dict(fields, n_agents=2, H=5, W=5):
         object_state_map=_np.zeros((H, W), dtype=_np.int32),
     )
     _CORE = {
-        "agent_pos", "agent_dir", "agent_inv",
-        "wall_map", "object_type_map", "object_state_map",
+        "agent_pos",
+        "agent_dir",
+        "agent_inv",
+        "wall_map",
+        "object_type_map",
+        "object_state_map",
     }
     extra = {}
     for k, v in fields.items():
@@ -1838,28 +1953,36 @@ def test_delivery_reward_uses_is_deliverable():
     # Agent holds onion_soup (deliverable), faces delivery zone
     otm = np.zeros((5, 5), dtype=np.int32)
     otm[1, 3] = dz_id
-    prev_state = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),  # Right -> (1,3)
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-    }, n_agents=1)
+    prev_state = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),  # Right -> (1,3)
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+        },
+        n_agents=1,
+    )
     actions = np.array([4], dtype=np.int32)
 
-    r = delivery_reward(prev_state, prev_state, actions, type_ids, n_agents,
-                        reward_config=reward_config)
+    r = delivery_reward(
+        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
+    )
     assert float(r[0]) > 0, f"Deliverable item should earn reward, got {float(r[0])}"
     print("  Deliverable item (onion_soup) earns reward: OK")
 
     # Agent holds onion (NOT deliverable), faces delivery zone
-    prev_state2 = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_id]], dtype=np.int32),
-        "object_type_map": otm,
-    }, n_agents=1)
-    r2 = delivery_reward(prev_state2, prev_state2, actions, type_ids, n_agents,
-                         reward_config=reward_config)
+    prev_state2 = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_id]], dtype=np.int32),
+            "object_type_map": otm,
+        },
+        n_agents=1,
+    )
+    r2 = delivery_reward(
+        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
+    )
     assert float(r2[0]) == 0.0, f"Non-deliverable should get 0, got {float(r2[0])}"
     print("  Non-deliverable item (onion) gets zero: OK")
 
@@ -1889,10 +2012,18 @@ def test_delivery_reward_per_recipe_values():
 
     # Custom recipes with different reward values
     custom_recipes = [
-        {"ingredients": ["onion", "onion", "onion"], "result": "onion_soup",
-         "cook_time": 30, "reward": 20.0},
-        {"ingredients": ["tomato", "tomato", "tomato"], "result": "tomato_soup",
-         "cook_time": 30, "reward": 30.0},
+        {
+            "ingredients": ["onion", "onion", "onion"],
+            "result": "onion_soup",
+            "cook_time": 30,
+            "reward": 20.0,
+        },
+        {
+            "ingredients": ["tomato", "tomato", "tomato"],
+            "result": "tomato_soup",
+            "cook_time": 30,
+            "reward": 30.0,
+        },
     ]
     itables = _build_interaction_tables(scope)
     type_ids_dict = _build_type_ids(scope)
@@ -1918,26 +2049,34 @@ def test_delivery_reward_per_recipe_values():
     actions = np.array([4], dtype=np.int32)
 
     # Deliver tomato_soup -> should get 30.0 (not 20.0)
-    prev_state = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[tomato_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-    }, n_agents=1)
-    r = delivery_reward(prev_state, prev_state, actions, type_ids, n_agents,
-                        reward_config=reward_config)
+    prev_state = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[tomato_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+        },
+        n_agents=1,
+    )
+    r = delivery_reward(
+        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
+    )
     assert float(r[0]) == 30.0, f"Expected 30.0 for tomato_soup, got {float(r[0])}"
     print("  Tomato soup reward = 30.0: OK")
 
     # Deliver onion_soup -> should get 20.0
-    prev_state2 = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-    }, n_agents=1)
-    r2 = delivery_reward(prev_state2, prev_state2, actions, type_ids, n_agents,
-                         reward_config=reward_config)
+    prev_state2 = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+        },
+        n_agents=1,
+    )
+    r2 = delivery_reward(
+        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
+    )
     assert float(r2[0]) == 20.0, f"Expected 20.0 for onion_soup, got {float(r2[0])}"
     print("  Onion soup reward = 20.0: OK")
 
@@ -1972,8 +2111,9 @@ def test_delivery_reward_order_match_required():
     type_ids_dict = _build_type_ids(scope)
     recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
     order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(scope, itables, type_ids_dict,
-                                         recipe_tables=recipe_tables, order_tables=order_tables)
+    static_tables = _build_static_tables(
+        scope, itables, type_ids_dict, recipe_tables=recipe_tables, order_tables=order_tables
+    )
 
     onion_soup_id = type_ids["onion_soup"]
     dz_id = type_ids["delivery_zone"]
@@ -1994,46 +2134,58 @@ def test_delivery_reward_order_match_required():
 
     # Case 1: Active order for recipe 0 (onion_soup), deliver onion_soup -> reward fires
     # prev_state has order active, state has order consumed (recipe=-1)
-    prev_sv = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([0, -1, -1], dtype=np.int32),
-        "order_timer": np.array([100, 0, 0], dtype=np.int32),
-    }, n_agents=1)
-    curr_sv = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[-1]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),  # order consumed
-        "order_timer": np.array([0, 0, 0], dtype=np.int32),
-    }, n_agents=1)
-    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
-                        reward_config=reward_config)
+    prev_sv = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([0, -1, -1], dtype=np.int32),
+            "order_timer": np.array([100, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
+    curr_sv = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[-1]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([-1, -1, -1], dtype=np.int32),  # order consumed
+            "order_timer": np.array([0, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
+    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config)
     assert float(r[0]) > 0, f"Matching order should earn reward, got {float(r[0])}"
     print("  Matching order -> reward fires: OK")
 
     # Case 2: No active orders, deliver onion_soup -> reward is zero
-    prev_sv2 = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
-        "order_timer": np.array([0, 0, 0], dtype=np.int32),
-    }, n_agents=1)
-    curr_sv2 = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[-1]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
-        "order_timer": np.array([0, 0, 0], dtype=np.int32),
-    }, n_agents=1)
-    r2 = delivery_reward(prev_sv2, curr_sv2, actions, type_ids, n_agents,
-                         reward_config=reward_config)
+    prev_sv2 = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+            "order_timer": np.array([0, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
+    curr_sv2 = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[-1]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+            "order_timer": np.array([0, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
+    r2 = delivery_reward(
+        prev_sv2, curr_sv2, actions, type_ids, n_agents, reward_config=reward_config
+    )
     assert float(r2[0]) == 0.0, f"No matching order should yield zero, got {float(r2[0])}"
     print("  No matching order -> zero reward: OK")
 
@@ -2111,14 +2263,16 @@ def test_delivery_reward_backward_compat_no_orders():
     actions = np.array([4], dtype=np.int32)
 
     # No order arrays -> reward fires unconditionally
-    prev_sv = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-    }, n_agents=1)
-    r = delivery_reward(prev_sv, prev_sv, actions, type_ids, n_agents,
-                        reward_config=reward_config)
+    prev_sv = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+        },
+        n_agents=1,
+    )
+    r = delivery_reward(prev_sv, prev_sv, actions, type_ids, n_agents, reward_config=reward_config)
     assert float(r[0]) > 0, f"No orders -> unconditional reward, got {float(r[0])}"
     print("  No order arrays -> reward fires unconditionally: OK")
 
@@ -2165,9 +2319,7 @@ def test_order_config_validation():
     print("  None config -> disabled: OK")
 
     # Case 2: Valid config with defaults
-    result = _build_order_tables(
-        {"spawn_interval": 10, "max_active": 5, "time_limit": 100}, 2
-    )
+    result = _build_order_tables({"spawn_interval": 10, "max_active": 5, "time_limit": 100}, 2)
     assert result["order_enabled"] is True
     assert int(result["order_spawn_interval"]) == 10
     assert int(result["order_max_active"]) == 5
@@ -2220,8 +2372,9 @@ def test_delivery_reward_tip_bonus():
     type_ids_dict = _build_type_ids(scope)
     recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
     order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(scope, itables, type_ids_dict,
-                                         recipe_tables=recipe_tables, order_tables=order_tables)
+    static_tables = _build_static_tables(
+        scope, itables, type_ids_dict, recipe_tables=recipe_tables, order_tables=order_tables
+    )
 
     onion_soup_id = type_ids["onion_soup"]
     dz_id = type_ids["delivery_zone"]
@@ -2234,22 +2387,28 @@ def test_delivery_reward_tip_bonus():
     actions = np.array([4], dtype=np.int32)
 
     # Build states: prev has active order with 100 steps remaining, curr has order consumed
-    prev_sv = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([0, -1, -1], dtype=np.int32),
-        "order_timer": np.array([100, 0, 0], dtype=np.int32),
-    }, n_agents=1)
-    curr_sv = _sv_from_dict({
-        "agent_pos": np.array([[1, 2]], dtype=np.int32),
-        "agent_dir": np.array([0], dtype=np.int32),
-        "agent_inv": np.array([[-1]], dtype=np.int32),
-        "object_type_map": otm,
-        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
-        "order_timer": np.array([0, 0, 0], dtype=np.int32),
-    }, n_agents=1)
+    prev_sv = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([0, -1, -1], dtype=np.int32),
+            "order_timer": np.array([100, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
+    curr_sv = _sv_from_dict(
+        {
+            "agent_pos": np.array([[1, 2]], dtype=np.int32),
+            "agent_dir": np.array([0], dtype=np.int32),
+            "agent_inv": np.array([[-1]], dtype=np.int32),
+            "object_type_map": otm,
+            "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+            "order_timer": np.array([0, 0, 0], dtype=np.int32),
+        },
+        n_agents=1,
+    )
 
     # Case 1: tip_coefficient = 10.0 -> tip = 100/200 * 10.0 = 5.0
     reward_config_with_tip = {
@@ -2259,8 +2418,9 @@ def test_delivery_reward_tip_bonus():
         "static_tables": static_tables,
         "tip_coefficient": 10.0,
     }
-    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
-                        reward_config=reward_config_with_tip)
+    r = delivery_reward(
+        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_with_tip
+    )
     # Base recipe reward (20.0 for onion_soup) + tip (5.0) = 25.0
     expected_tip = 100.0 / 200.0 * 10.0  # 5.0
     base_reward = float(r[0]) - expected_tip
@@ -2280,8 +2440,9 @@ def test_delivery_reward_tip_bonus():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
-    r2 = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
-                         reward_config=reward_config_no_tip)
+    r2 = delivery_reward(
+        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_no_tip
+    )
     assert float(r2[0]) == base_reward, (
         f"Without tip_coefficient, reward should be {base_reward}, got {float(r2[0])}"
     )

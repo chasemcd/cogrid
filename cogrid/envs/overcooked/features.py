@@ -627,9 +627,7 @@ def object_type_masks_feature(object_type_map, object_state_map, type_ids):
 
     parts = []
     for type_id in type_ids:
-        mask = (
-            (object_type_map == type_id) | (object_state_map == type_id)
-        ).astype(xp.int32)
+        mask = ((object_type_map == type_id) | (object_state_map == type_id)).astype(xp.int32)
         if pad_h > 0 or pad_w > 0:
             mask = xp.pad(mask, ((0, pad_h), (0, pad_w)))
         parts.append(mask.ravel())

@@ -256,8 +256,11 @@ class Pot(grid_object.GridObj):
         recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
         order_tables = _build_order_tables(None, n_recipes=len(DEFAULT_RECIPES))
         return _build_static_tables(
-            scope, itables, type_ids,
-            recipe_tables=recipe_tables, order_tables=order_tables,
+            scope,
+            itables,
+            type_ids,
+            recipe_tables=recipe_tables,
+            order_tables=order_tables,
         )
 
     @classmethod

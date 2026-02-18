@@ -242,24 +242,22 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
 
     # Delegate to the pure-array interaction body which evaluates all
     # seven branches and returns the (possibly updated) arrays.
-    agent_inv, otm, osm, pot_contents, pot_timer, or_out, ot_out = (
-        overcooked_interaction_body(
-            agent_idx,
-            state.agent_inv,
-            state.object_type_map,
-            state.object_state_map,
-            fwd_r,
-            fwd_c,
-            fwd_type,
-            inv_item,
-            base_ok,
-            state.extra_state["overcooked.pot_contents"],
-            state.extra_state["overcooked.pot_timer"],
-            state.extra_state["overcooked.pot_positions"],
-            static_tables,
-            order_recipe=or_,
-            order_timer=ot_,
-        )
+    agent_inv, otm, osm, pot_contents, pot_timer, or_out, ot_out = overcooked_interaction_body(
+        agent_idx,
+        state.agent_inv,
+        state.object_type_map,
+        state.object_state_map,
+        fwd_r,
+        fwd_c,
+        fwd_type,
+        inv_item,
+        base_ok,
+        state.extra_state["overcooked.pot_contents"],
+        state.extra_state["overcooked.pot_timer"],
+        state.extra_state["overcooked.pot_positions"],
+        static_tables,
+        order_recipe=or_,
+        order_timer=ot_,
     )
 
     # Repack into a new immutable EnvState. pot_positions never changes
@@ -400,21 +398,16 @@ def _validate_recipe(recipe, index, scope):
     result = recipe["result"]
     if not isinstance(result, str) or result not in names:
         raise ValueError(
-            f"Recipe {index}: result '{result}' is not a registered object type "
-            f"in scope '{scope}'."
+            f"Recipe {index}: result '{result}' is not a registered object type in scope '{scope}'."
         )
 
     cook_time = recipe["cook_time"]
     if not isinstance(cook_time, int) or cook_time <= 0:
-        raise ValueError(
-            f"Recipe {index}: 'cook_time' must be a positive integer, got {cook_time}"
-        )
+        raise ValueError(f"Recipe {index}: 'cook_time' must be a positive integer, got {cook_time}")
 
     reward = recipe["reward"]
     if not isinstance(reward, (int, float)):
-        raise ValueError(
-            f"Recipe {index}: 'reward' must be a number, got {type(reward).__name__}"
-        )
+        raise ValueError(f"Recipe {index}: 'reward' must be a number, got {type(reward).__name__}")
 
 
 def compile_recipes(recipe_config, scope="overcooked"):
@@ -478,9 +471,7 @@ def compile_recipes(recipe_config, scope="overcooked"):
 
     seen_combos = {}
     for i, recipe in enumerate(recipe_config):
-        ing_ids = sorted(
-            [object_to_idx(name, scope=scope) for name in recipe["ingredients"]]
-        )
+        ing_ids = sorted([object_to_idx(name, scope=scope) for name in recipe["ingredients"]])
 
         # Duplicate combo check
         combo_key = tuple(ing_ids)
@@ -625,9 +616,7 @@ def overcooked_tick_state(state, scope_config):
     static_tables = scope_config.get("static_tables", {})
     capacity = static_tables.get("max_ingredients", 3)
 
-    pot_contents, pot_timer, pot_state = overcooked_tick(
-        pot_contents, pot_timer, capacity=capacity
-    )
+    pot_contents, pot_timer, pot_state = overcooked_tick(pot_contents, pot_timer, capacity=capacity)
 
     # Write pot_state into object_state_map at pot positions
     osm = state.object_state_map
@@ -898,12 +887,7 @@ def _branch_drop_on_empty(handled, ctx):
         | inv=o |       |   --->     | inv=- | onion |
         +-------+-------+            +-------+-------+
     """
-    cond = (
-        ~handled
-        & ctx["base_ok"]
-        & (ctx["fwd_type"] == 0)
-        & (ctx["inv_item"] != -1)
-    )
+    cond = ~handled & ctx["base_ok"] & (ctx["fwd_type"] == 0) & (ctx["inv_item"] != -1)
     otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], ctx["inv_item"])
     osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)

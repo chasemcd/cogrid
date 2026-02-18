@@ -97,9 +97,7 @@ cramped_room_config = {
 
 registry.register(
     "Overcooked-CrampedRoom-V0",
-    functools.partial(
-        CoGridEnv, config=cramped_room_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=cramped_room_config, agent_class=OvercookedAgent),
 )
 
 asymmetric_adv_config = copy.deepcopy(cramped_room_config)
@@ -107,9 +105,7 @@ asymmetric_adv_config["grid"]["layout"] = "overcooked_asymmetric_advantages_v0"
 
 registry.register(
     "Overcooked-AsymmetricAdvantages-V0",
-    functools.partial(
-        CoGridEnv, config=asymmetric_adv_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=asymmetric_adv_config, agent_class=OvercookedAgent),
 )
 
 coordination_ring_config = copy.deepcopy(cramped_room_config)
@@ -117,15 +113,11 @@ coordination_ring_config["grid"]["layout"] = "overcooked_coordination_ring_v0"
 
 registry.register(
     "Overcooked-CoordinationRing-V0",
-    functools.partial(
-        CoGridEnv, config=coordination_ring_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=coordination_ring_config, agent_class=OvercookedAgent),
 )
 
 forced_coordination_config = copy.deepcopy(cramped_room_config)
-forced_coordination_config["grid"][
-    "layout"
-] = "overcooked_forced_coordination_v0"
+forced_coordination_config["grid"]["layout"] = "overcooked_forced_coordination_v0"
 
 registry.register(
     "Overcooked-ForcedCoordination-V0",
@@ -141,9 +133,7 @@ counter_circuit_config["grid"]["layout"] = "overcooked_counter_circuit_v0"
 
 registry.register(
     "Overcooked-CounterCircuit-V0",
-    functools.partial(
-        CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent),
 )
 
 

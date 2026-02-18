@@ -155,9 +155,7 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
         v_step = jax.jit(jax.vmap(step_fn))
         v_reset = jax.jit(jax.vmap(reset_fn))
         keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
-        batch_actions = jax.device_put(
-            jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device
-        )
+        batch_actions = jax.device_put(jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device)
 
         # warmup
         bs, _ = v_reset(keys)
@@ -195,9 +193,7 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
     if batch_size == 1:
         step_jit = jax.jit(env.step)
         reset_jit = jax.jit(env.reset)
-        noop_actions = {
-            agent: jax.device_put(jnp.int32(4), device) for agent in agents
-        }
+        noop_actions = {agent: jax.device_put(jnp.int32(4), device) for agent in agents}
 
         # warmup
         key = jax.device_put(jax.random.key(SEED), device)
@@ -224,9 +220,7 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
         v_reset = jax.jit(jax.vmap(env.reset))
         v_step = jax.jit(jax.vmap(env.step))
         noop_actions = {
-            agent: jax.device_put(
-                jnp.full(batch_size, 4, dtype=jnp.int32), device
-            )
+            agent: jax.device_put(jnp.full(batch_size, 4, dtype=jnp.int32), device)
             for agent in agents
         }
 
@@ -234,9 +228,7 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
         keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
         obs, states = v_reset(keys)
         jax.tree.map(lambda x: x.block_until_ready(), obs)
-        step_keys = jax.device_put(
-            jax.random.split(jax.random.key(1), batch_size), device
-        )
+        step_keys = jax.device_put(jax.random.split(jax.random.key(1), batch_size), device)
         for _ in range(N_WARMUP):
             obs, states, *_ = v_step(step_keys, states, noop_actions)
             jax.tree.map(lambda x: x.block_until_ready(), obs)
@@ -275,9 +267,7 @@ def run_scaling_benchmark():
         pass
     has_gpu = "gpu" in devices
 
-    device_names = ", ".join(
-        f"{name} ({dev.device_kind})" for name, dev in devices.items()
-    )
+    device_names = ", ".join(f"{name} ({dev.device_kind})" for name, dev in devices.items())
     print("Overcooked Cramped Room -- Scaling Benchmark")
     print(f"  Devices: {device_names}")
     print()
@@ -357,13 +347,13 @@ def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png")
 
     # Color families: CoGrid = blues, JaxMARL/overcooked_ai = oranges.
     # CPU vs GPU distinguished by marker shape and linestyle.
-    COGRID_DARK = "#1a5fb4"   # dark blue  — JAX GPU
-    COGRID_MED = "#4a90d9"    # mid blue   — JAX CPU
+    COGRID_DARK = "#1a5fb4"  # dark blue  — JAX GPU
+    COGRID_MED = "#4a90d9"  # mid blue   — JAX CPU
     COGRID_LIGHT = "#99c1f1"  # light blue — NumPy baseline
 
     JAXMARL_DARK = "#c64600"  # dark orange — JAX GPU
-    JAXMARL_MED = "#e5841a"   # mid orange  — JAX CPU
-    JAXMARL_LIGHT = "#f9b97a" # light orange — overcooked_ai baseline
+    JAXMARL_MED = "#e5841a"  # mid orange  — JAX CPU
+    JAXMARL_LIGHT = "#f9b97a"  # light orange — overcooked_ai baseline
 
     styles = [
         ("cogrid_jax", "cpu", "CoGrid JAX (CPU)", COGRID_MED, "o", "-"),
@@ -381,9 +371,14 @@ def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png")
         ys = [data[bs] for bs in xs]
         if xs:
             ax.plot(
-                xs, ys,
-                linestyle=ls, color=color, marker=marker, markersize=6,
-                label=label, linewidth=2,
+                xs,
+                ys,
+                linestyle=ls,
+                color=color,
+                marker=marker,
+                markersize=6,
+                label=label,
+                linewidth=2,
             )
 
     # numpy reference lines — same color families, lighter shades

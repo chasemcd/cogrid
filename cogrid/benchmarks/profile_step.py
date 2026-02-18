@@ -21,6 +21,7 @@ N_WARMUP = 20
 def _setup_cogrid():
     """Build CoGrid env, return (step_fn, reset_fn, state, actions, internals)."""
     from cogrid.backend._dispatch import _reset_backend_for_testing
+
     _reset_backend_for_testing()
 
     import cogrid.envs  # noqa: F401
@@ -84,7 +85,7 @@ def profile_phases():
     action_pickup_drop_idx = env._action_pickup_drop_idx
     action_toggle_idx = env._action_toggle_idx
     _ = env.max_steps
-    _ = getattr(env, '_terminated_fn', None)
+    _ = getattr(env, "_terminated_fn", None)
 
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
@@ -96,6 +97,7 @@ def profile_phases():
     # --- Phase: Tick ---
     tick_handler = scope_config.get("tick_handler")
     if tick_handler is not None:
+
         @jax.jit
         def jit_tick(state):
             return tick_handler(state, scope_config)
@@ -136,9 +138,14 @@ def profile_phases():
     @jax.jit
     def jit_move(state, actions, priority):
         return move_agents(
-            state.agent_pos, state.agent_dir, actions,
-            state.wall_map, state.object_type_map,
-            lookup_tables["CAN_OVERLAP"], priority, state.action_set,
+            state.agent_pos,
+            state.agent_dir,
+            actions,
+            state.wall_map,
+            state.object_type_map,
+            lookup_tables["CAN_OVERLAP"],
+            priority,
+            state.action_set,
         )
 
     for _ in range(N_WARMUP):
@@ -157,9 +164,14 @@ def profile_phases():
     @jax.jit
     def jit_interact(state, actions):
         return process_interactions(
-            state, actions, interaction_fn, lookup_tables,
-            scope_config, dir_vec_table,
-            action_pickup_drop_idx, action_toggle_idx,
+            state,
+            actions,
+            interaction_fn,
+            lookup_tables,
+            scope_config,
+            dir_vec_table,
+            action_pickup_drop_idx,
+            action_toggle_idx,
         )
 
     for _ in range(N_WARMUP):
@@ -225,12 +237,16 @@ def profile_phases():
 
     # Overhead = full step dispatch minus sum of parts
     parts_sum = (
-        1 / tick_rate + 1 / rng_rate + 1 / move_rate
-        + 1 / interact_rate + 1 / obs_rate + 1 / reward_rate
+        1 / tick_rate
+        + 1 / rng_rate
+        + 1 / move_rate
+        + 1 / interact_rate
+        + 1 / obs_rate
+        + 1 / reward_rate
     )
-    full_time = 1/full_rate
+    full_time = 1 / full_rate
     overhead_pct = (full_time - parts_sum) / full_time * 100
-    print(f"  Sum-of-parts:  {1/parts_sum:>12,.0f} calls/sec (theoretical)")
+    print(f"  Sum-of-parts:  {1 / parts_sum:>12,.0f} calls/sec (theoretical)")
     print(f"  Overhead:      {overhead_pct:>11.1f}%")
     print()
 
@@ -255,7 +271,7 @@ def hlo_analysis():
     compiled = lowered.compile()
     hlo_text = compiled.as_text()
     # Count HLO instructions (lines starting with %)
-    cogrid_ops = sum(1 for line in hlo_text.split('\n') if line.strip().startswith('%'))
+    cogrid_ops = sum(1 for line in hlo_text.split("\n") if line.strip().startswith("%"))
     cogrid_bytes = len(hlo_text)
     print(f"  CoGrid step HLO:   {cogrid_ops:>6,d} ops, {cogrid_bytes:>8,d} bytes")
 
@@ -268,13 +284,14 @@ def hlo_analysis():
     lowered_v = v_step.lower(batch_state, batch_actions)
     compiled_v = lowered_v.compile()
     hlo_v = compiled_v.as_text()
-    v_ops = sum(1 for line in hlo_v.split('\n') if line.strip().startswith('%'))
+    v_ops = sum(1 for line in hlo_v.split("\n") if line.strip().startswith("%"))
     v_bytes = len(hlo_v)
     print(f"  CoGrid vmap(4) HLO: {v_ops:>5,d} ops, {v_bytes:>8,d} bytes")
 
     # JaxMARL
     try:
         from jaxmarl import make as jaxmarl_make
+
         jm_env = jaxmarl_make("overcooked")
         agents = jm_env.agents
 
@@ -289,7 +306,7 @@ def hlo_analysis():
         jm_lowered = jax.jit(jm_env.step).lower(k_step, jm_state, jm_actions)
         jm_compiled = jm_lowered.compile()
         jm_hlo = jm_compiled.as_text()
-        jm_ops = sum(1 for line in jm_hlo.split('\n') if line.strip().startswith('%'))
+        jm_ops = sum(1 for line in jm_hlo.split("\n") if line.strip().startswith("%"))
         jm_bytes = len(jm_hlo)
         print(f"  JaxMARL step HLO:  {jm_ops:>6,d} ops, {jm_bytes:>8,d} bytes")
 
@@ -305,14 +322,14 @@ def hlo_analysis():
         jm_v_lowered = jm_v_step.lower(jm_v_keys, jm_v_state, jm_v_actions)
         jm_v_compiled = jm_v_lowered.compile()
         jm_v_hlo = jm_v_compiled.as_text()
-        jm_v_ops = sum(1 for line in jm_v_hlo.split('\n') if line.strip().startswith('%'))
+        jm_v_ops = sum(1 for line in jm_v_hlo.split("\n") if line.strip().startswith("%"))
         jm_v_bytes = len(jm_v_hlo)
         print(f"  JaxMARL vmap(4) HLO: {jm_v_ops:>4,d} ops, {jm_v_bytes:>8,d} bytes")
     except Exception as e:
         print(f"  JaxMARL: SKIPPED ({e})")
 
     print()
-    print(f"  CoGrid/JaxMARL op ratio: {cogrid_ops/jm_ops:.1f}x")
+    print(f"  CoGrid/JaxMARL op ratio: {cogrid_ops / jm_ops:.1f}x")
     print()
 
     return hlo_text, hlo_v
@@ -321,12 +338,13 @@ def hlo_analysis():
 def hlo_top_ops(hlo_text, label="CoGrid", top_n=15):
     """Count the most common HLO op types."""
     import re
+
     op_counts = {}
-    for line in hlo_text.split('\n'):
+    for line in hlo_text.split("\n"):
         line = line.strip()
-        if line.startswith('%'):
+        if line.startswith("%"):
             # Extract op name: %name = <type>[] op(...)
-            m = re.match(r'%\S+\s*=\s*\S+\s+(\w+)', line)
+            m = re.match(r"%\S+\s*=\s*\S+\s+(\w+)", line)
             if m:
                 op = m.group(1)
                 op_counts[op] = op_counts.get(op, 0) + 1
@@ -365,7 +383,7 @@ def profile_per_feature():
     print("=" * 65)
     print()
     print(f"  {'Feature':<28s} {'obs_dim':>7s} {'HLO ops':>8s} {'calls/s':>12s}")
-    print(f"  {'-'*28} {'-'*7} {'-'*8} {'-'*12}")
+    print(f"  {'-' * 28} {'-' * 7} {'-' * 8} {'-' * 12}")
 
     total_ops = 0
     for name in sorted(feature_names):
@@ -373,6 +391,7 @@ def profile_per_feature():
         fn = meta.cls.build_feature_fn(scope)
 
         if meta.per_agent:
+
             @jax.jit
             def jit_feat(state, _fn=fn):
                 sv = envstate_to_dict(state)
@@ -381,7 +400,7 @@ def profile_per_feature():
             # HLO ops
             lowered = jit_feat.lower(state)
             hlo = lowered.compile().as_text()
-            ops = sum(1 for line in hlo.split('\n') if line.strip().startswith('%'))
+            ops = sum(1 for line in hlo.split("\n") if line.strip().startswith("%"))
 
             # Throughput
             for _ in range(10):
@@ -393,6 +412,7 @@ def profile_per_feature():
             r.block_until_ready()
             rate = N_STEPS / (time.perf_counter() - t0)
         else:
+
             @jax.jit
             def jit_feat(state, _fn=fn):
                 sv = envstate_to_dict(state)
@@ -400,7 +420,7 @@ def profile_per_feature():
 
             lowered = jit_feat.lower(state)
             hlo = lowered.compile().as_text()
-            ops = sum(1 for line in hlo.split('\n') if line.strip().startswith('%'))
+            ops = sum(1 for line in hlo.split("\n") if line.strip().startswith("%"))
 
             for _ in range(10):
                 r = jit_feat(state)
@@ -417,7 +437,7 @@ def profile_per_feature():
 
         total_ops += ops
 
-    print(f"  {'':28s} {'':>7s} {total_ops//2:>8,d} {'(total)':>12s}")
+    print(f"  {'':28s} {'':>7s} {total_ops // 2:>8,d} {'(total)':>12s}")
     print()
 
 
@@ -432,10 +452,12 @@ def profile_interaction_detail():
     interaction_fn = scope_config.get("interaction_fn")
 
     from cogrid.backend import xp
+
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
     # Profile just the overcooked interaction for 1 agent
     if interaction_fn is not None:
+
         @jax.jit
         def jit_single_interact(state):
             H, W = state.object_type_map.shape
@@ -452,7 +474,7 @@ def profile_interaction_detail():
 
         lowered = jit_single_interact.lower(state)
         hlo = lowered.compile().as_text()
-        ops = sum(1 for line in hlo.split('\n') if line.strip().startswith('%'))
+        ops = sum(1 for line in hlo.split("\n") if line.strip().startswith("%"))
 
         for _ in range(10):
             s = jit_single_interact(state)
@@ -469,7 +491,7 @@ def profile_interaction_detail():
         print()
         print(f"  Single-agent interaction:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
         print(
-            f"  Full interaction (x2):     ~{ops*2:>5,d} HLO ops,"
+            f"  Full interaction (x2):     ~{ops * 2:>5,d} HLO ops,"
             f" {10631:>12,d} calls/sec (from phase profile)"
         )
         print()
