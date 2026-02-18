@@ -7,14 +7,14 @@
 | cogrid/\_\_init\_\_.py                                      |        5 |        3 |     40% |     11-14 |
 | cogrid/backend/\_\_init\_\_.py                              |        7 |        1 |     86% |        27 |
 | cogrid/backend/\_dispatch.py                                |       30 |        9 |     70% |35, 50, 57-69 |
-| cogrid/backend/array\_ops.py                                |        9 |        1 |     89% |        17 |
+| cogrid/backend/array\_ops.py                                |       17 |        4 |     76% | 17, 35-39 |
 | cogrid/backend/env\_state.py                                |       50 |       32 |     36% |100-106, 114-117, 129-134, 139-141, 150-156, 163-201 |
-| cogrid/backend/state\_view.py                               |       16 |        7 |     56% |65-66, 72-78 |
-| cogrid/cogrid\_env.py                                       |      464 |      211 |     55% |67, 117, 121, 168-191, 213, 220-222, 232-235, 246, 252, 262, 281-282, 324-326, 348, 390-392, 408-413, 431-433, 456, 467-468, 481-503, 511-555, 566-621, 636-640, 648-652, 673, 677, 681, 693, 701-708, 717-724, 747-749, 758-779, 783-808, 816-821, 827-861, 870-875, 879-908, 912-913, 917, 934-935 |
+| cogrid/backend/state\_view.py                               |       16 |        5 |     69% |     72-78 |
+| cogrid/cogrid\_env.py                                       |      464 |      211 |     55% |67, 117, 121, 169-192, 214, 221-223, 233-236, 247, 253, 263, 282-283, 325-327, 349, 391-393, 409-414, 432-434, 457, 468-469, 482-504, 512-556, 567-622, 637-641, 649-653, 674, 678, 682, 694, 702-709, 718-725, 748-750, 759-780, 784-809, 817-822, 828-862, 871-876, 880-909, 913-914, 918, 935-936 |
 | cogrid/constants.py                                         |        7 |        0 |    100% |           |
 | cogrid/core/actions.py                                      |       17 |        0 |    100% |           |
 | cogrid/core/agent.py                                        |       73 |       17 |     77% |37-39, 43, 64-65, 69, 78, 82, 107-117, 149, 162-169 |
-| cogrid/core/autowire.py                                     |      102 |       17 |     83% |113-120, 131-137, 157-158, 219-221 |
+| cogrid/core/autowire.py                                     |      105 |       17 |     84% |113-120, 131-137, 157-158, 219-221 |
 | cogrid/core/component\_registry.py                          |      121 |        4 |     97% |110, 244, 254, 365 |
 | cogrid/core/constants.py                                    |       40 |        0 |    100% |           |
 | cogrid/core/directions.py                                   |        6 |        0 |    100% |           |
@@ -33,16 +33,16 @@
 | cogrid/core/roles.py                                        |        5 |        0 |    100% |           |
 | cogrid/core/step\_pipeline.py                               |       94 |        9 |     90% |52-58, 74-76, 83-85 |
 | cogrid/core/typing.py                                       |        7 |        0 |    100% |           |
-| cogrid/envs/\_\_init\_\_.py                                 |       39 |        2 |     95% |   146-155 |
+| cogrid/envs/\_\_init\_\_.py                                 |       39 |        2 |     95% |   142-151 |
 | cogrid/envs/goal\_seeking/agent.py                          |       14 |       14 |      0% |      3-37 |
 | cogrid/envs/goal\_seeking/goal\_seeking.py                  |       41 |       41 |      0% |      3-85 |
 | cogrid/envs/overcooked/\_\_init\_\_.py                      |        1 |        0 |    100% |           |
 | cogrid/envs/overcooked/agent.py                             |        8 |        3 |     62% |     22-27 |
-| cogrid/envs/overcooked/config.py                            |      201 |       26 |     87% |135-137, 315, 324-351 |
-| cogrid/envs/overcooked/features.py                          |      231 |        1 |     99% |       310 |
-| cogrid/envs/overcooked/overcooked\_grid\_objects.py         |      210 |       86 |     59% |28, 35, 39, 56, 63, 67, 80, 84, 88-90, 103, 107, 111-113, 143, 150-157, 161-168, 172, 177, 181-185, 190, 194-204, 208-210, 255-281, 309, 313, 317-319, 336, 345, 349, 370-377, 381, 398, 405, 410-413, 434, 441, 446-449 |
-| cogrid/envs/overcooked/rewards.py                           |       73 |        5 |     93% |71, 128-129, 171-172 |
-| cogrid/envs/overcooked/test\_interactions.py                |      161 |      161 |      0% |    12-418 |
+| cogrid/envs/overcooked/config.py                            |      409 |      111 |     73% |166-168, 178-184, 271-272, 374, 378, 382, 386, 391, 393, 400, 406, 410, 453, 479, 525, 534-561, 634-684, 1046-1074, 1277-1278, 1308, 1310, 1402-1404, 1441-1458 |
+| cogrid/envs/overcooked/features.py                          |      309 |        6 |     98% |357, 580-595 |
+| cogrid/envs/overcooked/overcooked\_grid\_objects.py         |      216 |       91 |     58% |28, 35, 39, 56, 63, 67, 82, 86-88, 92-94, 144, 151-158, 162-169, 173, 178, 182-186, 191, 195-205, 209-211, 272-298, 348-387, 404, 413, 417, 438-445, 449, 466, 473, 478-481, 502, 509, 514-517 |
+| cogrid/envs/overcooked/rewards.py                           |      113 |       21 |     81% |102-123, 135, 192-193, 235-236, 325-332 |
+| cogrid/envs/overcooked/test\_interactions.py                |     1044 |     1044 |      0% |   12-2451 |
 | cogrid/envs/registry.py                                     |        8 |        1 |     88% |        11 |
 | cogrid/envs/search\_rescue/search\_rescue\_grid\_objects.py |      132 |       70 |     47% |23, 29, 34-36, 51, 57, 62-78, 93, 100, 104-119, 123-125, 140, 147-153, 157, 172, 179-185, 189, 204, 211-224, 228, 243-247, 251-253, 261-274, 278 |
 | cogrid/envs/search\_rescue/sr\_utils.py                     |       46 |       46 |      0% |     3-112 |
@@ -53,7 +53,7 @@
 | cogrid/run\_interactive.py                                  |      110 |      110 |      0% |     3-243 |
 | cogrid/test\_overcooked\_env.py                             |      118 |      118 |      0% |     1-275 |
 | cogrid/visualization/rendering.py                           |       84 |       69 |     18% |15-22, 27-34, 40-49, 54-81, 87-90, 96-99, 104-128, 133-135, 148-153 |
-| **TOTAL**                                                   | **3530** | **1500** | **58%** |           |
+| **TOTAL**                                                   | **4756** | **2495** | **48%** |           |
 
 4 empty files skipped.
 
