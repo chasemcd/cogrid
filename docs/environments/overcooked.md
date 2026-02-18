@@ -13,15 +13,19 @@ the finished dishes, and deliver them to a serving area for reward.
 
 ### Game Mechanics
 
-1. **Pick up ingredients** -- agents take onions (or tomatoes) from infinite
-   supply stacks.
-2. **Place in pot** -- ingredients are placed into a pot (capacity 3, same
-   ingredient type per pot).
-3. **Wait for cooking** -- once the pot is full, a 30-step cooking timer starts.
+1. **Pick up ingredients** -- agents take ingredients (onions, tomatoes, or
+   custom types) from infinite supply stacks.
+2. **Place in pot** -- ingredients are placed into a pot (capacity 3). The pot
+   accepts any combination of ingredients that matches a valid recipe prefix.
+3. **Wait for cooking** -- once the pot is full and matches a recipe, a
+   per-recipe cooking timer starts (default 30 steps for the built-in recipes).
 4. **Plate the soup** -- when the timer reaches zero the soup is ready; an agent
    holding a plate can pick it up from the pot.
 5. **Deliver** -- carry the plated soup to a delivery zone to earn the delivery
    reward.
+
+By default, the classic onion soup and tomato soup recipes are used. See
+[Recipe System](#recipe-system) below for custom recipes.
 
 ### Objects
 
@@ -39,13 +43,23 @@ the finished dishes, and deliver them to a serving area for reward.
 | DeliveryZone | `@` | Delivery area for serving soup |
 | Counter | `C` | Impassable counter surface |
 
+This is the default set. Custom ingredients and their stacks can be registered
+at init time using `make_ingredient_and_stack()` -- see
+[Custom Ingredients](#custom-ingredients) below.
+
 ### Rewards
 
 | Reward | Coefficient | Scope | Description |
 |--------|-------------|-------|-------------|
-| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone |
+| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone. When orders are enabled, reward fires only for deliveries matching an active order. Per-recipe reward values are supported. |
 | Onion-in-pot | 0.1 | Individual | Place an onion into a pot with capacity |
 | Soup-in-dish | 0.3 | Individual | Pick up a finished soup from a pot with a plate |
+| ExpiredOrderPenalty | -5.0 | Common | Penalty when an active order expires (requires order queue) |
+| Tip bonus | configurable | Common | Bonus for fast delivery based on remaining order time (requires order queue, `tip_coefficient > 0`) |
+
+By default, order-based rewards (tip bonus, expired penalty) are disabled.
+Enable them by configuring the order queue -- see [Order Queue](#order-queue)
+below.
 
 ## Available Layouts
 
