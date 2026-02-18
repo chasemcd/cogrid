@@ -78,8 +78,8 @@ def bench_cogrid_numpy(n_steps=N_STEPS):
 
 
 def bench_overcooked_ai(n_steps=N_STEPS):
-    from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld, Action
     from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
+    from overcooked_ai_py.mdp.overcooked_mdp import Action, OvercookedGridworld
 
     mdp = OvercookedGridworld.from_layout_name("cramped_room")
     env = OvercookedEnv.from_mdp(mdp, horizon=400, info_level=0)
@@ -116,6 +116,7 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     """Returns list of steps/sec trials."""
     import jax
     import jax.numpy as jnp
+
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
@@ -330,7 +331,7 @@ def run_scaling_benchmark():
                     med = statistics.median(trials)
                     results[lib_key][dev_name][bs] = med
                     row += f"   {_fmt(med)}"
-                except Exception as e:
+                except Exception:
                     results[lib_key][dev_name][bs] = None
                     row += f"   {'SKIP':>16s}"
 

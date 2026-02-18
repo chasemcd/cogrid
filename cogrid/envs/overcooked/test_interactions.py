@@ -419,7 +419,7 @@ def test_interaction_parity():
 
 
 def test_at_most_one_branch_fires():
-    """Verify at most one branch fires per agent-interaction pair across random states.
+    r"""Verify at most one branch fires per agent-interaction pair across random states.
 
     Generates 600+ random interaction states (200 per configuration variant)
     using seeded RNG for reproducibility. For each state, runs the full
@@ -428,7 +428,7 @@ def test_at_most_one_branch_fires():
 
     Run with::
 
-        python -c "from cogrid.envs.overcooked.test_interactions import \\
+        python -c "from cogrid.envs.overcooked.test_interactions import \
             test_at_most_one_branch_fires; test_at_most_one_branch_fires()"
     """
     import numpy as np
@@ -437,7 +437,6 @@ def test_at_most_one_branch_fires():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401 -- trigger environment registration
-
     from cogrid.envs.overcooked.config import _BRANCHES
 
     scope = "overcooked"
@@ -448,7 +447,9 @@ def test_at_most_one_branch_fires():
     # All type IDs for random forward cell generation
     all_type_ids = [type_ids[n] for n in type_ids]
     # Items an agent can hold (or -1 for empty hand)
-    holdable = [-1] + [type_ids[n] for n in ["onion", "tomato", "plate", "onion_soup", "tomato_soup"]]
+    holdable = [-1] + [
+        type_ids[n] for n in ["onion", "tomato", "plate", "onion_soup", "tomato_soup"]
+    ]
     # Ingredient types for pot contents
     ingredient_ids = [type_ids["onion"], type_ids["tomato"]]
 
@@ -648,7 +649,6 @@ def test_default_recipes_backward_compat():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.grid_object import object_to_idx
     from cogrid.envs.overcooked.config import (
         DEFAULT_RECIPES,
@@ -702,7 +702,6 @@ def test_recipe_validation_errors():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.envs.overcooked.config import compile_recipes
 
     scope = "overcooked"
@@ -815,13 +814,10 @@ def test_recipe_validation_errors():
 
 def test_custom_recipe_compilation():
     """Verify a non-default recipe config compiles with sorted ingredients."""
-    import numpy as np
-
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.grid_object import object_to_idx
     from cogrid.envs.overcooked.config import compile_recipes
 
@@ -877,9 +873,8 @@ def test_mixed_recipe_end_to_end():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
         _build_interaction_tables,
         _build_static_tables,
@@ -940,7 +935,8 @@ def test_mixed_recipe_end_to_end():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state, actions_arr, overcooked_interaction_fn, tables,
+            scope_cfg, dir_vec, PICKUP_DROP, 5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1018,9 +1014,8 @@ def test_per_recipe_cook_time():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
         _build_interaction_tables,
         _build_static_tables,
@@ -1087,7 +1082,8 @@ def test_per_recipe_cook_time():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state, actions_arr, overcooked_interaction_fn, tables,
+            scope_cfg, dir_vec, PICKUP_DROP, 5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1129,7 +1125,8 @@ def test_per_recipe_cook_time():
         actions_arr = np.array([PICKUP_DROP], dtype=np.int32)
         state = _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pc, pt, pp)
         state = process_interactions(
-            state, actions_arr, overcooked_interaction_fn, tables, scope_cfg, dir_vec, PICKUP_DROP, 5,
+            state, actions_arr, overcooked_interaction_fn, tables,
+            scope_cfg, dir_vec, PICKUP_DROP, 5,
         )
         otm = state.object_type_map
         osm = state.object_state_map
@@ -1163,13 +1160,10 @@ def test_per_recipe_cook_time():
 
 def test_pickup_from_produces_config_driven():
     """Verify config-driven pickup_from_produces table matches expected mappings."""
-    import numpy as np
-
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.grid_object import object_to_idx
     from cogrid.envs.overcooked.config import _build_interaction_tables
 
@@ -1211,7 +1205,6 @@ def test_stack_subclasses_are_thin():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.envs.overcooked.overcooked_grid_objects import (
         OnionStack,
         PlateStack,
@@ -1245,7 +1238,6 @@ def test_factory_registers_new_types():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
     from cogrid.envs.overcooked.config import _build_interaction_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
@@ -1289,7 +1281,6 @@ def test_factory_stack_dispenses_item():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
     from cogrid.envs.overcooked.config import _build_interaction_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
@@ -1320,7 +1311,7 @@ def test_factory_stack_dispenses_item():
         "pickup_from_produces should have non-zero entry for test_mushroom_stack"
     )
     assert int(pfp[mushroom_stack_id]) == mushroom_id, (
-        f"pickup_from_produces[test_mushroom_stack] should equal test_mushroom id"
+        "pickup_from_produces[test_mushroom_stack] should equal test_mushroom id"
     )
 
     print("  Factory stack dispenses item: PASSED")
@@ -1386,8 +1377,6 @@ def test_order_tick_lifecycle():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
-    from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
         DEFAULT_RECIPES,
         _build_interaction_tables,
@@ -1500,7 +1489,6 @@ def test_order_delivery_consumes_order():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.agent import get_dir_vec_table
     from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
@@ -1597,7 +1585,6 @@ def test_order_delivery_without_matching_order():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.agent import get_dir_vec_table
     from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
@@ -1693,7 +1680,6 @@ def test_order_backward_compat_no_config():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.agent import get_dir_vec_table
     from cogrid.core.grid_object import build_lookup_tables
     from cogrid.envs.overcooked.config import (
@@ -1806,7 +1792,10 @@ def _sv_from_dict(fields, n_agents=2, H=5, W=5):
         object_type_map=_np.zeros((H, W), dtype=_np.int32),
         object_state_map=_np.zeros((H, W), dtype=_np.int32),
     )
-    _CORE = {"agent_pos", "agent_dir", "agent_inv", "wall_map", "object_type_map", "object_state_map"}
+    _CORE = {
+        "agent_pos", "agent_dir", "agent_inv",
+        "wall_map", "object_type_map", "object_state_map",
+    }
     extra = {}
     for k, v in fields.items():
         if k in _CORE:
@@ -1824,7 +1813,6 @@ def test_delivery_reward_uses_is_deliverable():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import delivery_reward
 
@@ -1886,7 +1874,6 @@ def test_delivery_reward_per_recipe_values():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.config import (
         _build_interaction_tables,
@@ -1902,8 +1889,10 @@ def test_delivery_reward_per_recipe_values():
 
     # Custom recipes with different reward values
     custom_recipes = [
-        {"ingredients": ["onion", "onion", "onion"], "result": "onion_soup", "cook_time": 30, "reward": 20.0},
-        {"ingredients": ["tomato", "tomato", "tomato"], "result": "tomato_soup", "cook_time": 30, "reward": 30.0},
+        {"ingredients": ["onion", "onion", "onion"], "result": "onion_soup",
+         "cook_time": 30, "reward": 20.0},
+        {"ingredients": ["tomato", "tomato", "tomato"], "result": "tomato_soup",
+         "cook_time": 30, "reward": 30.0},
     ]
     itables = _build_interaction_tables(scope)
     type_ids_dict = _build_type_ids(scope)
@@ -1963,7 +1952,6 @@ def test_delivery_reward_order_match_required():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.config import (
         DEFAULT_RECIPES,
@@ -2060,7 +2048,6 @@ def test_expired_order_penalty():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.envs.overcooked.rewards import ExpiredOrderPenalty
 
     print("test_expired_order_penalty:")
@@ -2098,7 +2085,6 @@ def test_delivery_reward_backward_compat_no_orders():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import delivery_reward
 
@@ -2141,13 +2127,10 @@ def test_delivery_reward_backward_compat_no_orders():
 
 def test_static_tables_in_reward_config_via_env():
     """Verify static_tables flows through cogrid_env.py to reward_config."""
-    import numpy as np
-
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.cogrid_env import CoGridEnv
 
     print("test_static_tables_in_reward_config_via_env:")
@@ -2168,13 +2151,10 @@ def test_static_tables_in_reward_config_via_env():
 
 def test_order_config_validation():
     """Test _build_order_tables edge cases and config validation."""
-    import numpy as np
-
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.envs.overcooked.config import _build_order_tables
 
     print("Order config validation test:")
@@ -2193,7 +2173,8 @@ def test_order_config_validation():
     assert int(result["order_max_active"]) == 5
     assert int(result["order_time_limit"]) == 100
     assert len(result["order_spawn_cycle"]) == 2, (
-        f"Uniform weights over 2 recipes should give cycle of length 2, got {len(result['order_spawn_cycle'])}"
+        "Uniform weights over 2 recipes should give cycle of length 2, "
+        f"got {len(result['order_spawn_cycle'])}"
     )
     assert list(result["order_spawn_cycle"]) == [0, 1]
     print("  Valid config with uniform weights: OK")
@@ -2212,14 +2193,13 @@ def test_order_config_validation():
 
 
 def test_delivery_reward_tip_bonus():
-    """Verify tip_coefficient from reward_config produces tip bonus proportional to remaining time."""
+    """Verify tip_coefficient produces tip bonus proportional to remaining time."""
     import numpy as np
 
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.config import (
         DEFAULT_RECIPES,
@@ -2288,7 +2268,10 @@ def test_delivery_reward_tip_bonus():
     assert abs(float(r[0]) - (base_reward + expected_tip)) < 1e-5, (
         f"Reward with tip should be {base_reward + expected_tip}, got {float(r[0])}"
     )
-    print(f"  tip_coefficient=10.0 -> reward={float(r[0])} (base={base_reward} + tip={expected_tip}): OK")
+    print(
+        f"  tip_coefficient=10.0 -> reward={float(r[0])}"
+        f" (base={base_reward} + tip={expected_tip}): OK"
+    )
 
     # Case 2: tip_coefficient absent -> tip = 0 (backward compat)
     reward_config_no_tip = {

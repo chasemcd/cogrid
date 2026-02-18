@@ -336,7 +336,7 @@ def make_ingredient_and_stack(
     scope : str
         Registry scope (default "overcooked").
 
-    Returns
+    Returns:
     -------
     tuple
         (IngredientCls, StackCls) -- the two newly created and registered classes.

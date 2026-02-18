@@ -9,7 +9,7 @@ Run:
 """
 
 import time
-import dataclasses
+
 import jax
 import jax.numpy as jnp
 
@@ -59,12 +59,11 @@ def _bench_fn(jit_fn, state, extra_args, n_steps=N_STEPS, extract_state=None):
 def profile_phases():
     """Profile each step phase in isolation."""
     from cogrid.backend import xp
-    from cogrid.backend._dispatch import get_backend
-    from cogrid.core.step_pipeline import (
-        _backend_rng, envstate_to_dict, step,
-    )
-    from cogrid.core.movement import move_agents
     from cogrid.core.interactions import process_interactions
+    from cogrid.core.movement import move_agents
+    from cogrid.core.step_pipeline import (
+        envstate_to_dict,
+    )
     from cogrid.feature_space.features import get_all_agent_obs
 
     env, key, actions, n_agents = _setup_cogrid()
@@ -84,8 +83,8 @@ def profile_phases():
     reward_config = env._reward_config
     action_pickup_drop_idx = env._action_pickup_drop_idx
     action_toggle_idx = env._action_toggle_idx
-    max_steps = env.max_steps
-    terminated_fn = getattr(env, '_terminated_fn', None)
+    _ = env.max_steps
+    _ = getattr(env, '_terminated_fn', None)
 
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
@@ -111,7 +110,7 @@ def profile_phases():
         tick_rate = N_STEPS / (time.perf_counter() - t0)
         print(f"  Tick:          {tick_rate:>12,.0f} calls/sec")
     else:
-        print(f"  Tick:          (no tick handler)")
+        print("  Tick:          (no tick handler)")
 
     # --- Phase: RNG ---
     @jax.jit
@@ -174,7 +173,7 @@ def profile_phases():
     print(f"  Interactions:  {interact_rate:>12,.0f} calls/sec")
 
     # --- Phase: Observations ---
-    sv = envstate_to_dict(state)
+    envstate_to_dict(state)
 
     @jax.jit
     def jit_obs(state):
@@ -225,7 +224,10 @@ def profile_phases():
     print()
 
     # Overhead = full step dispatch minus sum of parts
-    parts_sum = 1/tick_rate + 1/rng_rate + 1/move_rate + 1/interact_rate + 1/obs_rate + 1/reward_rate
+    parts_sum = (
+        1 / tick_rate + 1 / rng_rate + 1 / move_rate
+        + 1 / interact_rate + 1 / obs_rate + 1 / reward_rate
+    )
     full_time = 1/full_rate
     overhead_pct = (full_time - parts_sum) / full_time * 100
     print(f"  Sum-of-parts:  {1/parts_sum:>12,.0f} calls/sec (theoretical)")
@@ -339,14 +341,14 @@ def hlo_top_ops(hlo_text, label="CoGrid", top_n=15):
 
 def profile_per_feature():
     """Profile each individual feature function: HLO ops and throughput."""
-    from cogrid.core.step_pipeline import envstate_to_dict
     from cogrid.core.component_registry import get_feature_types
+    from cogrid.core.step_pipeline import envstate_to_dict
 
     env, key, actions, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
-    sv = envstate_to_dict(state)
+    envstate_to_dict(state)
 
     # Get the feature names used by this env
     feature_names = env.config["features"]
@@ -411,10 +413,6 @@ def profile_per_feature():
 
         total_ops += ops
         # Count how many times this feature is called per step
-        if meta.per_agent:
-            calls_per_step = n_agents * n_agents  # each agent calls it for all agents
-        else:
-            calls_per_step = n_agents  # once per agent call
         print(f"  {name:<28s} {meta.obs_dim:>7d} {ops:>8,d} {rate:>12,.0f}")
 
         total_ops += ops
@@ -425,8 +423,6 @@ def profile_per_feature():
 
 def profile_interaction_detail():
     """Profile interaction sub-costs."""
-    from cogrid.core.step_pipeline import envstate_to_dict
-
     env, key, actions, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     state, _ = jit_reset(key)
@@ -472,7 +468,10 @@ def profile_interaction_detail():
         print("=" * 65)
         print()
         print(f"  Single-agent interaction:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
-        print(f"  Full interaction (x2):     ~{ops*2:>5,d} HLO ops, {10631:>12,d} calls/sec (from phase profile)")
+        print(
+            f"  Full interaction (x2):     ~{ops*2:>5,d} HLO ops,"
+            f" {10631:>12,d} calls/sec (from phase profile)"
+        )
         print()
 
 

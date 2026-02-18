@@ -93,7 +93,10 @@ def delivery_reward(
         per_agent_reward = xp.full(n_agents, coefficient, dtype=xp.float32)
 
     # --- Order matching and tip bonus ---
-    tip_coefficient = reward_config.get("tip_coefficient", 0.0) if reward_config is not None else 0.0
+    tip_coefficient = (
+        reward_config.get("tip_coefficient", 0.0)
+        if reward_config is not None else 0.0
+    )
     prev_order = getattr(prev_state, "order_recipe", None)
     if prev_order is not None:
         # Orders are enabled -- check if a matching order was consumed this step
@@ -109,7 +112,9 @@ def delivery_reward(
             remaining_time = prev_state.order_timer[consumed_idx]
             tip = xp.where(
                 any_consumed,
-                remaining_time.astype(xp.float32) / xp.float32(order_time_limit) * xp.float32(tip_coefficient),
+                remaining_time.astype(xp.float32)
+                / xp.float32(order_time_limit)
+                * xp.float32(tip_coefficient),
                 xp.float32(0.0),
             )
         else:

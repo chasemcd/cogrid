@@ -147,7 +147,7 @@ def test_closest_obj_feature():
 # OrderObservation tests
 # ---------------------------------------------------------------------------
 
-from cogrid.backend.state_view import StateView
+from cogrid.backend.state_view import StateView  # noqa: E402
 
 
 def _sv(**kwargs):
@@ -185,7 +185,7 @@ def test_order_observation_shape():
 
 
 def test_order_observation_encoding():
-    """Verify encoding: active order gets recipe one-hot + normalized time, empty slots get zeros."""
+    """Verify encoding: active order gets one-hot + normalized time, empty slots zeros."""
     from cogrid.envs.overcooked.features import OrderObservation
 
     fn = OrderObservation.build_feature_fn("overcooked")
@@ -231,9 +231,8 @@ def _get_discovered_pickupable_names():
     tests remain valid even when other tests register extra types (e.g.
     test_mushroom from test_factory_registers_new_types).
     """
-    from cogrid.core.component_registry import get_all_components
-
     import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
+    from cogrid.core.component_registry import get_all_components
 
     return sorted(
         meta.object_id
@@ -244,8 +243,8 @@ def _get_discovered_pickupable_names():
 
 def test_inventory_dynamic_matches_hardcoded():
     """Dynamic OvercookedInventory includes the 5 standard types and encodes onion correctly."""
-    from cogrid.envs.overcooked.features import OvercookedInventory
     from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.features import OvercookedInventory
 
     fn = OvercookedInventory.build_feature_fn("overcooked")
     discovered = _get_discovered_pickupable_names()
@@ -268,8 +267,8 @@ def test_inventory_dynamic_matches_hardcoded():
 
 def test_inventory_dynamic_all_types():
     """Dynamic OvercookedInventory produces correct one-hot for each standard pickupable type."""
-    from cogrid.envs.overcooked.features import OvercookedInventory
     from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.features import OvercookedInventory
 
     fn = OvercookedInventory.build_feature_fn("overcooked")
     discovered = _get_discovered_pickupable_names()
@@ -291,7 +290,7 @@ def test_inventory_dynamic_all_types():
 
 def test_inventory_obs_dim_matches_registry():
     """Verify _INVENTORY_OBS_DIM and OvercookedInventory.obs_dim equal registry pickupable count."""
-    from cogrid.envs.overcooked.features import OvercookedInventory, _INVENTORY_OBS_DIM
+    from cogrid.envs.overcooked.features import _INVENTORY_OBS_DIM, OvercookedInventory
 
     discovered = _get_discovered_pickupable_names()
     count = len(discovered)

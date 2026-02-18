@@ -431,7 +431,7 @@ def compile_recipes(recipe_config, scope="overcooked"):
     scope : str
         Object registry scope for resolving type names to IDs.
 
-    Returns
+    Returns:
     -------
     dict with keys:
         recipe_ingredients : (n_recipes, max_ingredients) int32
@@ -447,7 +447,7 @@ def compile_recipes(recipe_config, scope="overcooked"):
         max_ingredients : int
             Maximum number of ingredients across all recipes.
 
-    Raises
+    Raises:
     ------
     ValueError
         If ``recipe_config`` is empty, any recipe dict is malformed,
@@ -1442,7 +1442,7 @@ def _build_order_tables(order_config, n_recipes):
     n_recipes : int
         Number of recipes (for default uniform weights).
 
-    Returns
+    Returns:
     -------
     dict
         Keys: ``order_enabled``, and when enabled also

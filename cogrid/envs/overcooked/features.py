@@ -379,6 +379,7 @@ class OrderObservation(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build order observation feature function."""
         max_active = _ORDER_MAX_ACTIVE
         n_recipes = _ORDER_N_RECIPES
         time_limit = xp.float32(200.0)  # matches _build_order_tables default
@@ -438,8 +439,8 @@ class OvercookedInventory(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the inventory feature function for the given scope."""
-        from cogrid.core.grid_object import object_to_idx
         from cogrid.core.component_registry import get_all_components
+        from cogrid.core.grid_object import object_to_idx
 
         # Discover all pickupable types from the scope registry
         pickupable_names = sorted(
@@ -575,6 +576,7 @@ class ClosestObjects(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build closest-object feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         type_ids_and_ns = [
@@ -643,6 +645,7 @@ class ObjectTypeMasks(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build object-type mask feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
