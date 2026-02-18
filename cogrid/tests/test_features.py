@@ -910,8 +910,8 @@ def test_all_overcooked_features_registered():
             f"{feat_id} obs_dim={meta_by_id[feat_id].obs_dim}, expected {expected_dim}"
         )
 
-    # Total: 16 features (13 per-agent + 3 global)
-    assert len(metas) == 16, f"Expected 16 overcooked features, got {len(metas)}"
+    # Total: 17 features (13 per-agent + 4 global, including OrderObservation)
+    assert len(metas) == 17, f"Expected 17 overcooked features, got {len(metas)}"
 
 
 # ===================================================================
