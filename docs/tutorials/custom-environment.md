@@ -194,6 +194,15 @@ class Pot(grid_object.GridObj):
         ...
 ```
 
+!!! tip "Advanced: Generic Stacks and Factory Registration"
+    If your environment has multiple dispenser types that share the same
+    pick-up behavior (like Overcooked's ingredient stacks), you can use
+    a shared base class and factory function instead of writing each one
+    manually. The Overcooked environment provides `make_ingredient_and_stack()`
+    which registers both an ingredient class and its stack class from a
+    single call. See the [Overcooked docs](../environments/overcooked.md#custom-ingredients)
+    for an example.
+
 
 ## Step 3: Declare Extra State (if needed)
 
@@ -379,6 +388,15 @@ class DeliveryReward(Reward):
   `prev_state.extra_state["my_env.pot_timer"]`).
 - Multiple rewards can be registered per scope. They are summed at step time.
 
+!!! tip "Advanced: Static Tables in Rewards"
+    If your reward logic needs environment-specific lookup data (e.g.,
+    per-recipe reward values, deliverable item sets), access it via
+    `reward_config["static_tables"]`. Static tables are built at init
+    time by `build_static_tables()` classmethods on grid objects and
+    flow through the autowire layer into reward_config automatically.
+    See the [Overcooked docs](../environments/overcooked.md#recipe-system)
+    for how per-recipe rewards use this pattern.
+
 
 ## Step 7: Define Feature Extractors
 
@@ -427,6 +445,13 @@ class MyInventory(Feature):
 
 2. **Global** (`per_agent = False`): Function signature is
    `fn(state) -> (obs_dim,) array`. Appended once after all per-agent blocks.
+
+**Global features** (`per_agent = False`) are useful for encoding
+environment-wide state that all agents share, such as active orders or
+global timers. The Overcooked `OrderObservation` feature is an example:
+it encodes the current order queue state identically for every agent.
+See the [Overcooked docs](../environments/overcooked.md#order-observations)
+for details.
 
 **Composition order** (automatic):
 

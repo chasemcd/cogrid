@@ -235,6 +235,7 @@ def build_reward_config_from_components(
     n_agents: int,
     type_ids: dict,
     action_pickup_drop_idx: int = 4,
+    static_tables: dict | None = None,
 ) -> dict:
     """Build reward_config from registered Reward subclasses.
 
@@ -258,9 +259,12 @@ def build_reward_config_from_components(
             total = total + inst.compute(prev_state, state, actions, reward_config)
         return total
 
-    return {
+    result = {
         "compute_fn": compute_fn,
         "type_ids": type_ids,
         "n_agents": n_agents,
         "action_pickup_drop_idx": action_pickup_drop_idx,
     }
+    if static_tables is not None:
+        result["static_tables"] = static_tables
+    return result

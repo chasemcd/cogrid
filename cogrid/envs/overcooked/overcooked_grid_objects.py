@@ -67,50 +67,51 @@ class Tomato(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
 
 
+class _BaseStack(grid_object.GridObj):
+    """Base class for infinite dispenser stacks.
+
+    Subclasses set class attributes only: object_id, color, char, produces.
+    All behavior (can_pickup_from, pick_up_from, render) is inherited.
+    """
+
+    produces: str = None
+    scope: str = "overcooked"
+
+    def can_pickup_from(self, agent) -> bool:
+        """Return True; stacks always allow pickup."""
+        return True
+
+    def pick_up_from(self, agent) -> grid_object.GridObj:
+        """Dispense a fresh instance of the produced item."""
+        from cogrid.core.grid_object import make_object
+
+        return make_object(self.produces, scope=self.scope)
+
+    def render(self, tile_img):
+        """Draw three stacked circles using self.color."""
+        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+
+
 @register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
-class OnionStack(grid_object.GridObj):
-    """An OnionStack is just an (infinite) pile of onions."""
+class OnionStack(_BaseStack):
+    """An infinite pile of onions."""
 
     object_id = "onion_stack"
     color = constants.Colors.Yellow
     char = "O"
-
-    def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
-        """Return True; agents can always take an onion from the stack."""
-        return True
-
-    def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
-        """Dispense a fresh Onion."""
-        return Onion()
-
-    def render(self, tile_img: np.ndarray):
-        """Draw three stacked yellow circles."""
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+    produces = "onion"
 
 
 @register_object_type("tomato_stack", scope="overcooked", can_pickup_from=True)
-class TomatoStack(grid_object.GridObj):
-    """A TomatoStack is just an (infinite) pile of tomatoes."""
+class TomatoStack(_BaseStack):
+    """An infinite pile of tomatoes."""
 
     object_id = "tomato_stack"
     color = constants.Colors.Red
     char = "T"
-
-    def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
-        """Return True; agents can always take a tomato from the stack."""
-        return True
-
-    def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
-        """Dispense a fresh Tomato."""
-        return Tomato()
-
-    def render(self, tile_img: np.ndarray):
-        """Draw three stacked red circles."""
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+    produces = "tomato"
 
 
 @register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
@@ -218,11 +219,16 @@ class Pot(grid_object.GridObj):
 
     @classmethod
     def extra_state_schema(cls):
-        """Return schema for pot-related extra state arrays."""
+        """Return schema for pot-related and order queue extra state arrays."""
         return {
             "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
             "pot_timer": {"shape": ("n_pots",), "dtype": "int32"},
             "pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
+            "order_recipe": {"shape": ("max_active",), "dtype": "int32"},
+            "order_timer": {"shape": ("max_active",), "dtype": "int32"},
+            "order_spawn_counter": {"shape": (), "dtype": "int32"},
+            "order_recipe_counter": {"shape": (), "dtype": "int32"},
+            "order_n_expired": {"shape": (), "dtype": "int32"},
         }
 
     @classmethod
@@ -236,15 +242,26 @@ class Pot(grid_object.GridObj):
     def build_static_tables(cls):
         """Return pre-computed static tables for the overcooked scope."""
         from cogrid.envs.overcooked.config import (
+            DEFAULT_RECIPES,
             _build_interaction_tables,
+            _build_order_tables,
             _build_static_tables,
             _build_type_ids,
+            compile_recipes,
         )
 
         scope = "overcooked"
         itables = _build_interaction_tables(scope)
         type_ids = _build_type_ids(scope)
-        return _build_static_tables(scope, itables, type_ids)
+        recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+        order_tables = _build_order_tables(None, n_recipes=len(DEFAULT_RECIPES))
+        return _build_static_tables(
+            scope,
+            itables,
+            type_ids,
+            recipe_tables=recipe_tables,
+            order_tables=order_tables,
+        )
 
     @classmethod
     def build_render_sync_fn(cls):
@@ -284,39 +301,90 @@ class Pot(grid_object.GridObj):
 
 
 @register_object_type("plate_stack", scope="overcooked", can_pickup_from=True)
-class PlateStack(grid_object.GridObj):
+class PlateStack(_BaseStack):
     """An infinite stack of plates for picking up soup."""
 
     object_id = "plate_stack"
     color = constants.Colors.White
     char = "="
+    produces = "plate"
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Initialize with default state."""
-        super().__init__(
-            state=0,
-            toggle_value=0,
-            inventory_value=0,
-            overlap_value=0,
-        )
 
-    def can_pickup_from(self, agent: grid_object.GridAgent) -> bool:
-        """Return True; agents can always take a plate from the stack."""
+def make_ingredient_and_stack(
+    ingredient_name: str,
+    ingredient_char: str,
+    ingredient_color,
+    stack_name: str,
+    stack_char: str,
+    scope: str = "overcooked",
+) -> tuple:
+    """Create and register a new ingredient + stack pair at runtime.
+
+    Must be called BEFORE ``_build_interaction_tables`` runs (i.e. before
+    env autowire). Typical call sites: at module-import time in a custom
+    env module, or during env config setup before ``build_overcooked_extra_state``.
+
+    Parameters
+    ----------
+    ingredient_name : str
+        Object ID for the ingredient (e.g. "mushroom").
+    ingredient_char : str
+        Single character for grid encoding. Must be unique within *scope*.
+    ingredient_color : tuple or list
+        RGB color for rendering.
+    stack_name : str
+        Object ID for the stack (e.g. "mushroom_stack").
+    stack_char : str
+        Single character for grid encoding. Must be unique within *scope*.
+    scope : str
+        Registry scope (default "overcooked").
+
+    Returns:
+    -------
+    tuple
+        (IngredientCls, StackCls) -- the two newly created and registered classes.
+    """
+    # --- Create ingredient class ---
+    IngredientCls = type(
+        ingredient_name.title().replace("_", ""),
+        (grid_object.GridObj,),
+        {
+            "object_id": ingredient_name,
+            "color": ingredient_color,
+            "char": ingredient_char,
+        },
+    )
+
+    def _ingredient_init(self, *args, **kwargs):
+        grid_object.GridObj.__init__(self, state=0, inventory_value=0.0)
+
+    def _ingredient_can_pickup(self, agent):
         return True
 
-    def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
-        """Dispense a fresh Plate."""
-        return Plate()
+    def _ingredient_render(self, tile_img):
+        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
 
-    def render(self, tile_img):
-        """Draw three stacked white circles."""
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+    IngredientCls.__init__ = _ingredient_init
+    IngredientCls.can_pickup = _ingredient_can_pickup
+    IngredientCls.render = _ingredient_render
+
+    register_object_type(ingredient_name, scope=scope, can_pickup=True)(IngredientCls)
+
+    # --- Create stack class ---
+    StackCls = type(
+        stack_name.title().replace("_", ""),
+        (_BaseStack,),
+        {
+            "object_id": stack_name,
+            "color": ingredient_color,
+            "char": stack_char,
+            "produces": ingredient_name,
+        },
+    )
+
+    register_object_type(stack_name, scope=scope, can_pickup_from=True)(StackCls)
+
+    return (IngredientCls, StackCls)
 
 
 @register_object_type("plate", scope="overcooked", can_pickup=True)

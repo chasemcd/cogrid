@@ -141,6 +141,12 @@ new_extra = {**state.extra_state, "overcooked.pot_timer": new_timer}
 state = dataclasses.replace(state, extra_state=new_extra)
 ```
 
+Environments with complex mechanics may have many extra state arrays. For
+example, Overcooked stores pot cooking state (`pot_contents`, `pot_timer`,
+`pot_positions`) and, when the order queue is enabled, order tracking arrays
+(`order_recipe`, `order_timer`, `order_n_expired`). All follow the
+same scope-prefixed key pattern (`"overcooked.order_recipe"`, etc.).
+
 ### StateView
 
 Reward functions and feature extractors receive a
@@ -206,7 +212,8 @@ At environment initialization, the autowire layer:
 1. Scans the object registry for all objects in the environment's scope
 2. Collects classmethods (`build_tick_fn`, `extra_state_schema`, etc.)
 3. Builds a `scope_config` dict containing tick handlers, interaction tables,
-   type ID mappings, and static lookup tables
+   type ID mappings, and static lookup tables (from `build_static_tables()`
+   classmethods -- e.g., recipe arrays, deliverable-item sets)
 4. Builds a `reward_config` from registered reward components
 5. Builds a `feature_config` by composing registered feature functions
 

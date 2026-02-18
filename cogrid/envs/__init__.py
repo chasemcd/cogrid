@@ -83,19 +83,11 @@ cramped_room_config = {
         "overcooked_inventory",
         "next_to_counter",
         "next_to_pot",
-        "closest_onion",
-        "closest_plate",
-        "closest_plate_stack",
-        "closest_onion_stack",
-        "closest_onion_soup",
-        "closest_delivery_zone",
-        "closest_counter",
+        "object_type_masks",
         "ordered_pot_features",
         "dist_to_other_players",
         "agent_position",
         "can_move_direction",
-        "layout_id",
-        "environment_layout",
     ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
@@ -129,7 +121,11 @@ forced_coordination_config["grid"]["layout"] = "overcooked_forced_coordination_v
 
 registry.register(
     "Overcooked-ForcedCoordination-V0",
-    functools.partial(CoGridEnv, config=forced_coordination_config, agent_class=OvercookedAgent),
+    functools.partial(
+        CoGridEnv,
+        config=forced_coordination_config,
+        agent_class=OvercookedAgent,
+    ),
 )
 
 counter_circuit_config = copy.deepcopy(cramped_room_config)

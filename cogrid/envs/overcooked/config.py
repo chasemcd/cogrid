@@ -21,14 +21,17 @@ whether another agent is blocking it. It then calls
 ``overcooked_interaction_fn`` once per agent (lower index = higher priority).
 
 The interaction resolves to exactly one of seven mutually exclusive branches,
-evaluated in strict priority order. The first branch whose condition is True
-wins; all later branches are suppressed via cascading ``~earlier_cond`` guards.
+evaluated in strict priority order via an accumulated ``handled`` mask. Each
+branch checks ``~handled`` as its first condition term; if a prior branch
+already fired, all subsequent branches are suppressed. Adding a new branch
+means writing one ``(handled, ctx) -> (cond, updates, handled)`` function and
+appending it to the ``_BRANCHES`` list.
 
 Decision tree (evaluated per agent per step):
 
     base_ok?  (agent issued PickupDrop AND no other agent in the forward cell)
         |
-        +-- No  --> no-op (all branches short-circuit)
+        +-- No  --> no-op (all branches short-circuit via ~handled or base_ok)
         |
         +-- Yes
              |
@@ -92,31 +95,59 @@ position against all entries in pot_positions and take argmax of the
 boolean match vector.
 
 
-Branchless xp.where pattern
-----------------------------
+Branch list + accumulated-handled pattern
+------------------------------------------
 
-Every branch function computes BOTH the condition (bool scalar) AND the
-would-be result arrays unconditionally. No Python if/else gates the
-computation -- this is required for JAX tracing where all code paths
-must execute. The final ``_apply_interaction_updates`` merges results
-using cascading ``xp.where(cond, branch_result, previous)``:
+Each branch function has the uniform signature:
 
-    result = xp.where(b1_cond, b1_result, original)
-    result = xp.where(b2_cond, b2_result, result)
-    ...
+    (handled, ctx) -> (cond, updates, new_handled)
 
-Because conditions are mutually exclusive (each guards against all
-earlier conditions), exactly zero or one condition is True, so the
-final value is either the matching branch's result or the original.
+Where:
+    - ``handled`` is a bool scalar, True if a prior branch already fired
+    - ``ctx`` is a dict of all shared arrays and static tables (assembled
+      once by the orchestrator, never mutated between branches)
+    - ``cond`` is a bool scalar, True if this branch fires (always
+      includes ``~handled`` as the first term)
+    - ``updates`` is a dict with ONLY the arrays this branch modifies,
+      using these exact keys: ``"agent_inv"``, ``"object_type_map"``,
+      ``"object_state_map"``, ``"pot_contents"``, ``"pot_timer"``
+    - ``new_handled`` is ``handled | cond``
+
+The orchestrator (``overcooked_interaction_body``) iterates the
+``_BRANCHES`` list in priority order, passing the accumulated ``handled``
+through each branch. After all branches run, it merges results using
+sparse ``xp.where`` over the 5 output arrays:
+
+    for cond, updates in branch_results:
+        if "agent_inv" in updates:
+            inv = xp.where(cond, updates["agent_inv"], inv)
+        ...
+
+Because conditions are mutually exclusive (each guards with ``~handled``),
+at most one condition is True, so the final value is either the matching
+branch's result or the original.
 """
 
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
+from cogrid.core.component_registry import get_all_components
 from cogrid.core.grid_object import get_object_names, object_to_idx
 
 
-def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
-    """Build pot state arrays (contents, timer, positions) from the layout."""
+def build_overcooked_extra_state(parsed_arrays, scope="overcooked", order_config=None):
+    """Build pot state arrays (contents, timer, positions) from the layout.
+
+    Parameters
+    ----------
+    parsed_arrays : dict
+        Must contain ``"object_type_map"``.
+    scope : str
+        Object registry scope.
+    order_config : dict or None
+        If not None and contains ``"max_active"``, order queue arrays are
+        added to the returned dict. When None, no order keys are present
+        (backward compatible).
+    """
     import numpy as _np
 
     pot_type_id = object_to_idx("pot", scope=scope)
@@ -136,11 +167,23 @@ def build_overcooked_extra_state(parsed_arrays, scope="overcooked"):
         pot_contents = _np.full((0, 3), -1, dtype=_np.int32)
         pot_timer = _np.zeros((0,), dtype=_np.int32)
 
-    return {
+    result = {
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
         "overcooked.pot_positions": pot_positions,
     }
+
+    # Order queue arrays (only when orders config is present)
+    if order_config is not None and "max_active" in order_config:
+        max_active = order_config["max_active"]
+        spawn_interval = order_config.get("spawn_interval", 40)
+        result["overcooked.order_recipe"] = _np.full((max_active,), -1, dtype=_np.int32)
+        result["overcooked.order_timer"] = _np.zeros((max_active,), dtype=_np.int32)
+        result["overcooked.order_spawn_counter"] = _np.int32(spawn_interval)
+        result["overcooked.order_recipe_counter"] = _np.int32(0)
+        result["overcooked.order_n_expired"] = _np.int32(0)
+
+    return result
 
 
 # ======================================================================
@@ -193,9 +236,13 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
     fwd_type = state.object_type_map[fwd_r, fwd_c]
     inv_item = state.agent_inv[agent_idx, 0]
 
+    # Extract order arrays from extra_state if present (None when disabled).
+    or_ = state.extra_state.get("overcooked.order_recipe")
+    ot_ = state.extra_state.get("overcooked.order_timer")
+
     # Delegate to the pure-array interaction body which evaluates all
     # seven branches and returns the (possibly updated) arrays.
-    agent_inv, otm, osm, pot_contents, pot_timer = overcooked_interaction_body(
+    agent_inv, otm, osm, pot_contents, pot_timer, or_out, ot_out = overcooked_interaction_body(
         agent_idx,
         state.agent_inv,
         state.object_type_map,
@@ -209,6 +256,8 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
         state.extra_state["overcooked.pot_timer"],
         state.extra_state["overcooked.pot_positions"],
         static_tables,
+        order_recipe=or_,
+        order_timer=ot_,
     )
 
     # Repack into a new immutable EnvState. pot_positions never changes
@@ -218,6 +267,9 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
     }
+    if or_out is not None:
+        new_extra["overcooked.order_recipe"] = or_out
+        new_extra["overcooked.order_timer"] = ot_out
     return dataclasses.replace(
         state,
         agent_inv=agent_inv,
@@ -253,18 +305,19 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
     pot_id = object_to_idx("pot", scope=scope)
     onion_soup_id = object_to_idx("onion_soup", scope=scope)
     tomato_soup_id = object_to_idx("tomato_soup", scope=scope)
-    onion_stack_id = object_to_idx("onion_stack", scope=scope)
-    tomato_stack_id = object_to_idx("tomato_stack", scope=scope)
-    plate_stack_id = object_to_idx("plate_stack", scope=scope)
     counter_id = object_to_idx("counter", scope=scope)
     delivery_zone_id = object_to_idx("delivery_zone", scope=scope)
 
     # Stacks are infinite dispensers: picking up from a stack produces
     # the corresponding loose item, but the stack itself stays on the grid.
-    #   onion_stack -> onion,  tomato_stack -> tomato,  plate_stack -> plate
-    pickup_from_produces = set_at(pickup_from_produces, onion_stack_id, onion_id)
-    pickup_from_produces = set_at(pickup_from_produces, tomato_stack_id, tomato_id)
-    pickup_from_produces = set_at(pickup_from_produces, plate_stack_id, plate_id)
+    # Built by scanning all components with a `produces` attribute.
+    for component_scope in [scope, "global"]:
+        for meta in get_all_components(component_scope):
+            produces = getattr(meta.cls, "produces", None)
+            if produces is not None and meta.properties.get("can_pickup_from", False):
+                stack_id = object_to_idx(meta.object_id, scope=scope)
+                produced_id = object_to_idx(produces, scope=scope)
+                pickup_from_produces = set_at(pickup_from_produces, stack_id, produced_id)
 
     # Only onions and tomatoes can go into a pot.
     legal_pot_ingredients = set_at(legal_pot_ingredients, onion_id, 1)
@@ -277,9 +330,9 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
         "pot": pot_id,
         "onion_soup": onion_soup_id,
         "tomato_soup": tomato_soup_id,
-        "onion_stack": onion_stack_id,
-        "tomato_stack": tomato_stack_id,
-        "plate_stack": plate_stack_id,
+        "onion_stack": object_to_idx("onion_stack", scope=scope),
+        "tomato_stack": object_to_idx("tomato_stack", scope=scope),
+        "plate_stack": object_to_idx("plate_stack", scope=scope),
         "counter": counter_id,
         "delivery_zone": delivery_zone_id,
     }
@@ -288,6 +341,163 @@ def _build_interaction_tables(scope: str = "overcooked") -> dict:
         "pickup_from_produces": pickup_from_produces,
         "legal_pot_ingredients": legal_pot_ingredients,
         "type_ids": type_ids,
+    }
+
+
+DEFAULT_RECIPES = [
+    {
+        "ingredients": ["onion", "onion", "onion"],
+        "result": "onion_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+    {
+        "ingredients": ["tomato", "tomato", "tomato"],
+        "result": "tomato_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+]
+
+
+def _validate_recipe(recipe, index, scope):
+    """Validate a single recipe dict at init time.
+
+    Checks that ``recipe`` is a dict with exactly the keys
+    ``{"ingredients", "result", "cook_time", "reward"}`` and that each
+    value has the correct type and refers to registered object names.
+
+    Raises ``ValueError`` with a message including *index* for any failure.
+    """
+    required_keys = {"ingredients", "result", "cook_time", "reward"}
+    if not isinstance(recipe, dict):
+        raise ValueError(f"Recipe {index}: expected dict, got {type(recipe).__name__}")
+
+    missing = required_keys - set(recipe.keys())
+    if missing:
+        raise ValueError(f"Recipe {index}: missing keys {missing}")
+
+    extra = set(recipe.keys()) - required_keys
+    if extra:
+        raise ValueError(f"Recipe {index}: unexpected keys {extra}")
+
+    ingredients = recipe["ingredients"]
+    if not isinstance(ingredients, list) or len(ingredients) == 0:
+        raise ValueError(f"Recipe {index}: 'ingredients' must be a non-empty list")
+
+    names = get_object_names(scope=scope)
+    for ing_name in ingredients:
+        if not isinstance(ing_name, str):
+            raise ValueError(f"Recipe {index}: ingredient {ing_name!r} must be a string")
+        if ing_name not in names:
+            raise ValueError(
+                f"Recipe {index}: ingredient '{ing_name}' is not a registered object type "
+                f"in scope '{scope}'. Registered types: {[n for n in names if n]}"
+            )
+
+    result = recipe["result"]
+    if not isinstance(result, str) or result not in names:
+        raise ValueError(
+            f"Recipe {index}: result '{result}' is not a registered object type in scope '{scope}'."
+        )
+
+    cook_time = recipe["cook_time"]
+    if not isinstance(cook_time, int) or cook_time <= 0:
+        raise ValueError(f"Recipe {index}: 'cook_time' must be a positive integer, got {cook_time}")
+
+    reward = recipe["reward"]
+    if not isinstance(reward, (int, float)):
+        raise ValueError(f"Recipe {index}: 'reward' must be a number, got {type(reward).__name__}")
+
+
+def compile_recipes(recipe_config, scope="overcooked"):
+    """Compile a list of recipe dicts into fixed-shape lookup arrays.
+
+    Called at init time (not under JIT). Produces sentinel-padded arrays
+    suitable for storage in ``static_tables``.
+
+    Parameters
+    ----------
+    recipe_config : list[dict]
+        Each dict has keys: ``"ingredients"`` (list[str]), ``"result"`` (str),
+        ``"cook_time"`` (int), ``"reward"`` (float).
+    scope : str
+        Object registry scope for resolving type names to IDs.
+
+    Returns:
+    -------
+    dict with keys:
+        recipe_ingredients : (n_recipes, max_ingredients) int32
+            Sorted ingredient type IDs per recipe, -1 sentinel for empty slots.
+        recipe_result : (n_recipes,) int32
+            Output item type ID per recipe.
+        recipe_cooking_time : (n_recipes,) int32
+            Cook time per recipe.
+        recipe_reward : (n_recipes,) float32
+            Reward value per recipe.
+        legal_pot_ingredients : (n_types,) int32
+            1 for any type that appears as an ingredient in any recipe.
+        max_ingredients : int
+            Maximum number of ingredients across all recipes.
+
+    Raises:
+    ------
+    ValueError
+        If ``recipe_config`` is empty, any recipe dict is malformed,
+        contains invalid type names, or has duplicate sorted ingredient
+        combinations.
+    """
+    import numpy as _np
+
+    if not recipe_config:
+        raise ValueError("recipe_config must be a non-empty list of recipe dicts.")
+
+    names = get_object_names(scope=scope)
+    n_types = len(names)
+
+    # Validate all recipes first
+    for i, recipe in enumerate(recipe_config):
+        _validate_recipe(recipe, i, scope)
+
+    max_ing = max(len(r["ingredients"]) for r in recipe_config)
+    n_recipes = len(recipe_config)
+
+    # Build arrays
+    recipe_ingredients = _np.full((n_recipes, max_ing), -1, dtype=_np.int32)
+    recipe_result = _np.zeros(n_recipes, dtype=_np.int32)
+    recipe_cooking_time = _np.zeros(n_recipes, dtype=_np.int32)
+    recipe_reward = _np.zeros(n_recipes, dtype=_np.float32)
+    legal_pot_ingredients = _np.zeros(n_types, dtype=_np.int32)
+
+    seen_combos = {}
+    for i, recipe in enumerate(recipe_config):
+        ing_ids = sorted([object_to_idx(name, scope=scope) for name in recipe["ingredients"]])
+
+        # Duplicate combo check
+        combo_key = tuple(ing_ids)
+        if combo_key in seen_combos:
+            raise ValueError(
+                f"Recipe {i} has same sorted ingredients as recipe {seen_combos[combo_key]}. "
+                f"Duplicate ingredient combinations are not allowed."
+            )
+        seen_combos[combo_key] = i
+
+        # Fill ingredient slots (sorted), remaining slots stay -1
+        for j, tid in enumerate(ing_ids):
+            recipe_ingredients[i, j] = tid
+            legal_pot_ingredients[tid] = 1
+
+        recipe_result[i] = object_to_idx(recipe["result"], scope=scope)
+        recipe_cooking_time[i] = recipe["cook_time"]
+        recipe_reward[i] = recipe["reward"]
+
+    return {
+        "recipe_ingredients": recipe_ingredients,
+        "recipe_result": recipe_result,
+        "recipe_cooking_time": recipe_cooking_time,
+        "recipe_reward": recipe_reward,
+        "legal_pot_ingredients": legal_pot_ingredients,
+        "max_ingredients": max_ing,
     }
 
 
@@ -403,7 +613,10 @@ def overcooked_tick_state(state, scope_config):
     pot_positions = state.extra_state["overcooked.pot_positions"]
     n_pots = pot_positions.shape[0]
 
-    pot_contents, pot_timer, pot_state = overcooked_tick(pot_contents, pot_timer)
+    static_tables = scope_config.get("static_tables", {})
+    capacity = static_tables.get("max_ingredients", 3)
+
+    pot_contents, pot_timer, pot_state = overcooked_tick(pot_contents, pot_timer, capacity=capacity)
 
     # Write pot_state into object_state_map at pot positions
     osm = state.object_state_map
@@ -415,6 +628,61 @@ def overcooked_tick_state(state, scope_config):
         "overcooked.pot_contents": pot_contents,
         "overcooked.pot_timer": pot_timer,
     }
+
+    # --- Order tick (skip when orders are not configured) ---
+    if "overcooked.order_recipe" in state.extra_state:
+        order_recipe = new_extra["overcooked.order_recipe"]
+        order_timer = new_extra["overcooked.order_timer"]
+        order_spawn_counter = new_extra["overcooked.order_spawn_counter"]
+        order_recipe_counter = new_extra["overcooked.order_recipe_counter"]
+        order_n_expired = new_extra["overcooked.order_n_expired"]
+
+        order_spawn_interval = static_tables["order_spawn_interval"]
+        order_time_limit = static_tables["order_time_limit"]
+        order_spawn_cycle = static_tables["order_spawn_cycle"]
+        cycle_len = order_spawn_cycle.shape[0]
+
+        # (1) Decrement active order timers
+        active = order_recipe != -1
+        new_order_timer = xp.where(active, order_timer - 1, order_timer)
+
+        # (2) Clear expired orders (timer reached 0)
+        expired = active & (new_order_timer <= 0)
+        order_recipe = xp.where(expired, -1, order_recipe)
+        new_order_timer = xp.where(expired, 0, new_order_timer)
+        order_n_expired = order_n_expired + xp.sum(expired).astype(xp.int32)
+
+        # (3) Spawn: decrement counter, check for spawn
+        new_counter = order_spawn_counter - xp.int32(1)
+        should_spawn = new_counter <= 0
+        empty = order_recipe == -1
+        has_empty = xp.any(empty)
+        first_empty = xp.argmax(empty)
+        spawn_now = should_spawn & has_empty
+
+        new_recipe_idx = order_spawn_cycle[order_recipe_counter % cycle_len]
+        order_recipe = xp.where(
+            spawn_now,
+            set_at(order_recipe, first_empty, new_recipe_idx),
+            order_recipe,
+        )
+        new_order_timer = xp.where(
+            spawn_now,
+            set_at(new_order_timer, first_empty, order_time_limit),
+            new_order_timer,
+        )
+
+        # Reset counter on spawn attempt (even if no empty slot)
+        new_counter = xp.where(should_spawn, xp.int32(order_spawn_interval), new_counter)
+        # Increment recipe counter only when actually spawned
+        new_recipe_counter = xp.where(spawn_now, order_recipe_counter + 1, order_recipe_counter)
+
+        new_extra["overcooked.order_recipe"] = order_recipe
+        new_extra["overcooked.order_timer"] = new_order_timer
+        new_extra["overcooked.order_spawn_counter"] = new_counter
+        new_extra["overcooked.order_recipe_counter"] = new_recipe_counter
+        new_extra["overcooked.order_n_expired"] = order_n_expired
+
     return dataclasses.replace(state, object_state_map=osm, extra_state=new_extra)
 
 
@@ -425,13 +693,17 @@ def overcooked_tick_state(state, scope_config):
 # Each function evaluates ONE branch of the interaction decision tree.
 # All functions are pure: they take arrays, return arrays. No mutations.
 #
-# Naming convention:
-#   b<N>_cond  -- bool scalar, True if this branch fires
-#   b<N>_inv   -- would-be agent_inv if this branch fires
-#   b<N>_otm   -- would-be object_type_map if this branch fires
-#   b<N>_osm   -- would-be object_state_map if this branch fires
-#   b<N>_pc    -- would-be pot_contents if this branch fires
-#   b<N>_pt    -- would-be pot_timer if this branch fires
+# Uniform interface:
+#   (handled, ctx) -> (cond, updates, new_handled)
+#
+# Where:
+#   handled    -- bool scalar, True if a prior branch already fired
+#   ctx        -- dict of all shared arrays and static tables
+#   cond       -- bool scalar, True if this branch fires
+#   updates    -- dict with ONLY the arrays this branch modifies, using
+#                 keys: "agent_inv", "object_type_map", "object_state_map",
+#                 "pot_contents", "pot_timer"
+#   new_handled -- handled | cond
 #
 # Every function computes results unconditionally (no Python if/else)
 # so that JAX can trace through all branches. The condition is returned
@@ -439,21 +711,11 @@ def overcooked_tick_state(state, scope_config):
 # ======================================================================
 
 
-def _interact_pickup(
-    base_ok,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-    CAN_PICKUP,
-):
+def _branch_pickup(handled, ctx):
     """Branch 1: Pick up a loose object from the forward cell.
 
     Preconditions (all must be True):
+        - ~handled: no prior branch has fired
         - base_ok: agent is interacting and no agent ahead
         - fwd_type > 0: forward cell is not empty
         - CAN_PICKUP[fwd_type] == 1: the object type is pickupable
@@ -472,49 +734,40 @@ def _interact_pickup(
         | inv=- | onion |   --->     | inv=o | empty |
         +-------+-------+            +-------+-------+
     """
-    b1_cond = base_ok & (fwd_type > 0) & (CAN_PICKUP[fwd_type] == 1) & (inv_item == -1)
-    b1_inv = set_at(agent_inv, (agent_idx, 0), fwd_type)
-    b1_otm = set_at_2d(object_type_map, fwd_r, fwd_c, 0)
-    b1_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
-    return b1_cond, b1_inv, b1_otm, b1_osm
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (ctx["fwd_type"] > 0)
+        & (ctx["CAN_PICKUP"][ctx["fwd_type"]] == 1)
+        & (ctx["inv_item"] == -1)
+    )
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), ctx["fwd_type"])
+    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
-def _interact_pickup_from_pot(
-    base_ok,
-    b1_cond,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_contents,
-    pot_timer,
-    pot_idx,
-    has_pot_match,
-    pot_id,
-    plate_id,
-    tomato_id,
-    onion_soup_id,
-    tomato_soup_id,
-    cooking_time,
-):
-    """Branch 2A: Pick up cooked soup from a pot that has finished cooking.
+def _branch_pickup_from_pot(handled, ctx):
+    """Branch 2A: Pick up cooked soup from a pot using recipe table lookup.
 
     Preconditions (all must be True):
-        - base_ok AND Branch 1 did NOT fire (~b1_cond)
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type == pot_id: forward cell is a pot
         - has_pot_match: the pot was found in pot_positions
         - pot has contents (at least one slot != -1)
         - pot_timer[pot_idx] == 0: cooking is complete
         - inv_item == plate_id: agent is holding a plate
+        - has_recipe_match: pot contents match a known recipe
 
     Effects when condition is True:
-        - agent_inv[agent_idx] = soup_type  (plate replaced with soup)
+        - agent_inv[agent_idx] = recipe_result[matched_idx]  (plate replaced with recipe output)
         - pot_contents[pot_idx, :] = -1  (pot emptied)
-        - pot_timer[pot_idx] = cooking_time  (timer reset to 30)
+        - pot_timer[pot_idx] = cooking_time  (timer reset)
 
-    Soup type determination:
-        If ALL non-empty slots contain tomato -> tomato_soup
-        Otherwise -> onion_soup  (mixed or all-onion)
+    Recipe matching: sort pot contents, compare against all recipe_ingredients
+    rows. The matched recipe's result item is placed in the agent's inventory.
 
     Example: Agent holds a plate, pot has 3 cooked onions.
 
@@ -525,45 +778,49 @@ def _interact_pickup_from_pot(
         +-------+-------+               +-------+-------+
           P=plate  ooo=3 onions            S=onion_soup  ---=empty, timer reset
     """
-    is_pot = fwd_type == pot_id
+    pot_idx = ctx["pot_idx"]
+    pot_contents = ctx["pot_contents"]
+
+    is_pot = ctx["fwd_type"] == ctx["pot_id"]
 
     # Check pot state: does it have contents and is cooking complete?
     has_contents = xp.sum(pot_contents[pot_idx] != -1) > 0
-    is_ready = pot_timer[pot_idx] == 0
+    is_ready = ctx["pot_timer"][pot_idx] == 0
 
-    # Determine soup type: check if all non-empty slots are tomato.
-    # Slots that are -1 (empty) are masked out with the OR condition.
-    all_tomato = xp.all((pot_contents[pot_idx] == -1) | (pot_contents[pot_idx] == tomato_id))
-    soup_type = xp.where(all_tomato, tomato_soup_id, onion_soup_id)
+    # Recipe matching: sort pot contents and compare against all recipes.
+    # Replace -1 sentinels with max int32 before sorting so they sort to
+    # the end (matching recipe_ingredients layout: values first, -1 last).
+    _SORT_HIGH = xp.int32(2147483647)
+    raw = pot_contents[pot_idx]
+    sort_buf = xp.where(raw == -1, _SORT_HIGH, raw)
+    sorted_pot = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
+    matches = xp.all(sorted_pot[None, :] == ctx["recipe_ingredients"], axis=1)
+    matched_idx = xp.argmax(matches)
+    has_recipe_match = xp.any(matches)
 
-    b2_pot_cond = (
-        base_ok
-        & ~b1_cond
+    # Output item comes from the matched recipe.
+    soup_type = ctx["recipe_result"][matched_idx]
+
+    cond = (
+        ~handled
+        & ctx["base_ok"]
         & is_pot
-        & has_pot_match
+        & ctx["has_pot_match"]
         & has_contents
         & is_ready
-        & (inv_item == plate_id)
+        & (ctx["inv_item"] == ctx["plate_id"])
+        & has_recipe_match
     )
 
-    # If condition fires: replace plate in inventory with soup, clear pot.
-    b2_pot_inv = set_at(agent_inv, (agent_idx, 0), soup_type)
-    b2_pot_pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all 3 slots
-    b2_pot_pt = set_at(pot_timer, pot_idx, cooking_time)  # reset to 30
-    return b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt
+    # If condition fires: replace plate in inventory with recipe output, clear pot.
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), soup_type)
+    pc = set_at(pot_contents, (pot_idx, slice(None)), -1)  # clear all slots
+    pt = set_at(ctx["pot_timer"], pot_idx, ctx["cooking_time"])  # reset timer
+    updates = {"agent_inv": inv, "pot_contents": pc, "pot_timer": pt}
+    return cond, updates, handled | cond
 
 
-def _interact_pickup_from_stack(
-    base_ok,
-    b1_cond,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_id,
-    CAN_PICKUP_FROM,
-    pickup_from_produces,
-):
+def _branch_pickup_from_stack(handled, ctx):
     """Branch 2B: Pick up a produced item from an infinite dispenser stack.
 
     Stacks are objects with CAN_PICKUP_FROM=1 that produce a different
@@ -574,7 +831,8 @@ def _interact_pickup_from_stack(
     Branch 2A, so we explicitly exclude pots here.
 
     Preconditions (all must be True):
-        - base_ok AND Branch 1 did NOT fire (~b1_cond)
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type is NOT a pot
         - CAN_PICKUP_FROM[fwd_type] == 1: forward cell is a pickup-from source
         - inv_item == -1: agent's hand is empty
@@ -597,32 +855,22 @@ def _interact_pickup_from_stack(
         | inv=- |  OOO  |   --->     | inv=o |  OOO  |  (stack unchanged)
         +-------+-------+            +-------+-------+
     """
+    fwd_type = ctx["fwd_type"]
     # Exclude pots (they have CAN_PICKUP_FROM=1 but use Branch 2A)
-    is_stack = ~(fwd_type == pot_id) & (CAN_PICKUP_FROM[fwd_type] == 1)
-    produced = pickup_from_produces[fwd_type]
-    b2_stack_cond = base_ok & ~b1_cond & is_stack & (inv_item == -1) & (produced > 0)
-    b2_stack_inv = set_at(agent_inv, (agent_idx, 0), produced)
-    return b2_stack_cond, b2_stack_inv
+    is_stack = ~(fwd_type == ctx["pot_id"]) & (ctx["CAN_PICKUP_FROM"][fwd_type] == 1)
+    produced = ctx["pickup_from_produces"][fwd_type]
+    cond = ~handled & ctx["base_ok"] & is_stack & (ctx["inv_item"] == -1) & (produced > 0)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), produced)
+    updates = {"agent_inv": inv}
+    return cond, updates, handled | cond
 
 
-def _interact_drop_on_empty(
-    base_ok,
-    b1_cond,
-    b2_pot_cond,
-    b2_stack_cond,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-):
+def _branch_drop_on_empty(handled, ctx):
     """Branch 3: Drop held item onto an empty floor cell.
 
     Preconditions (all must be True):
-        - base_ok AND Branches 1, 2A, 2B did NOT fire
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
         - fwd_type == 0: forward cell is empty (no object)
         - inv_item != -1: agent is holding something
 
@@ -639,42 +887,38 @@ def _interact_drop_on_empty(
         | inv=o |       |   --->     | inv=- | onion |
         +-------+-------+            +-------+-------+
     """
-    b3_cond = (
-        base_ok & ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & (fwd_type == 0) & (inv_item != -1)
-    )
-    b3_otm = set_at_2d(object_type_map, fwd_r, fwd_c, inv_item)
-    b3_osm = set_at_2d(object_state_map, fwd_r, fwd_c, 0)
-    b3_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b3_cond, b3_inv, b3_otm, b3_osm
+    cond = ~handled & ctx["base_ok"] & (ctx["fwd_type"] == 0) & (ctx["inv_item"] != -1)
+    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], ctx["inv_item"])
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_pot(
-    b4_base,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    pot_contents,
-    pot_idx,
-    has_pot_match,
-    pot_id,
-    legal_pot_ingredients,
-):
-    """Branch 4A: Place an ingredient into a pot.
+def _branch_place_on_pot(handled, ctx):
+    """Branch 4A: Place an ingredient into a pot using recipe prefix matching.
 
-    Preconditions (all must be True, b4_base encodes the shared ones):
-        - b4_base: base_ok, no earlier branch fired, forward cell is a
-          place-on target, agent holds an item
+    Preconditions (all must be True):
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type == pot_id: forward cell is specifically a pot
         - has_pot_match: pot found in pot_positions array
-        - legal_pot_ingredients[inv_item] == 1: held item is onion or tomato
-        - n_items_in_pot < 3: pot has capacity (max 3 ingredients)
-        - same_type: pot is empty OR first slot matches held item type
-          (prevents mixing onions and tomatoes in the same pot)
+        - legal_pot_ingredients[inv_item] == 1: held item is a legal ingredient
+        - n_items_in_pot < max_ingredients: pot has capacity
+        - any_recipe_accepts: the would-be pot contents (after adding the
+          ingredient) match a prefix of at least one recipe
 
     Effects when condition is True:
         - pot_contents[pot_idx, first_empty_slot] = inv_item  (ingredient added)
         - agent_inv[agent_idx] = -1  (hand emptied)
+        - pot_timer[pot_idx] = recipe cook time  (if pot becomes full)
+
+    When the pot becomes full, an exact recipe match determines the cook
+    time. The matched recipe's ``recipe_cooking_time`` is written into
+    ``pot_timer`` so that ``overcooked_tick`` uses per-recipe cook times.
 
     Slot assignment: ``first_empty_slot = argmax(pot_contents[pot_idx] == -1)``
     fills left-to-right (slot 0, then 1, then 2).
@@ -687,52 +931,90 @@ def _interact_place_on_pot(
         | inv=o | [o, -, -] |     --->         | inv=- | [o, o, -] |
         +-------+-----------+                  +-------+-----------+
     """
-    is_pot = fwd_type == pot_id
-    is_legal = legal_pot_ingredients[inv_item] == 1
-    n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
-    has_capacity = n_items_in_pot < 3
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+    pot_idx = ctx["pot_idx"]
+    pot_contents = ctx["pot_contents"]
+    max_ingredients = ctx["max_ingredients"]
+    recipe_ingredients = ctx["recipe_ingredients"]
+    recipe_cooking_time = ctx["recipe_cooking_time"]
 
-    # Same-type check: pot must be empty OR existing ingredients must
-    # match the held item. We check by comparing the first slot only
-    # (all filled slots are guaranteed to be the same type).
-    first_slot = pot_contents[pot_idx, 0]
-    same_type = (n_items_in_pot == 0) | (first_slot == inv_item)
+    is_pot = fwd_type == ctx["pot_id"]
+    is_legal = ctx["legal_pot_ingredients"][inv_item] == 1
+    n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
+    has_capacity = n_items_in_pot < max_ingredients
 
     # Find the first empty slot to place the ingredient into.
     slot_empty = pot_contents[pot_idx] == -1
     first_empty_slot = xp.argmax(slot_empty)
 
-    b4_pot_cond = b4_base & is_pot & has_pot_match & is_legal & has_capacity & same_type
-    b4_pot_pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
-    b4_pot_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_pot_cond, b4_pot_inv, b4_pot_pc
+    # Build would-be contents: current contents with new item in first empty slot.
+    # Replace -1 sentinels with max int32 before sorting so they sort to
+    # the end (matching recipe_ingredients layout: values first, -1 last).
+    _SORT_HIGH = xp.int32(2147483647)
+    would_be = set_at(pot_contents[pot_idx], first_empty_slot, inv_item)
+    sort_buf = xp.where(would_be == -1, _SORT_HIGH, would_be)
+    sorted_would_be = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
+    n_would_be = n_items_in_pot + 1
+
+    # Prefix match: compare filled slots against each recipe.
+    # For positions beyond n_would_be, treat as "don't care" (always True).
+    slot_mask = xp.arange(max_ingredients) < n_would_be
+    slot_matches = (sorted_would_be[None, :] == recipe_ingredients) | ~slot_mask[None, :]
+    recipe_compatible = xp.all(slot_matches, axis=1)
+    any_recipe_accepts = xp.any(recipe_compatible)
+
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_pot
+        & ctx["has_pot_match"]
+        & is_legal
+        & has_capacity
+        & any_recipe_accepts
+    )
+    pc = set_at(pot_contents, (pot_idx, first_empty_slot), inv_item)
+
+    # If this placement fills the pot, set cook time from matched recipe.
+    is_now_full = n_would_be == max_ingredients
+    full_matches = xp.all(sorted_would_be[None, :] == recipe_ingredients, axis=1)
+    full_match_idx = xp.argmax(full_matches)
+    new_cook_time = recipe_cooking_time[full_match_idx]
+    pt = xp.where(
+        cond & is_now_full,
+        set_at(ctx["pot_timer"], pot_idx, new_cook_time),
+        ctx["pot_timer"],
+    )
+
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "pot_contents": pc, "pot_timer": pt}
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_delivery(
-    b4_base,
-    fwd_type,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    delivery_zone_id,
-    onion_soup_id,
-    tomato_soup_id,
-):
-    """Branch 4B: Place a soup on the delivery zone.
+def _branch_place_on_delivery(handled, ctx):
+    """Branch 4B: Place any recipe output on the delivery zone.
 
-    Only soups (onion_soup or tomato_soup) can be delivered. Attempting
-    to deliver any other item (raw ingredients, plates, etc.) is rejected.
+    Any item marked as deliverable (derived from recipe_result at init
+    time via IS_DELIVERABLE) can be delivered. Attempting to deliver a
+    non-recipe item (raw ingredients, plates, etc.) is rejected.
 
-    The delivery zone acts as a sink -- the soup disappears from the
+    The delivery zone acts as a sink -- the item disappears from the
     agent's inventory. Scoring is handled by the reward function, not here.
 
     Preconditions (all must be True):
-        - b4_base: shared place-on preconditions
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type == delivery_zone_id: forward cell is a delivery zone
-        - inv_item is onion_soup or tomato_soup
+        - IS_DELIVERABLE[inv_item] == 1: held item is a recipe output
 
     Effects when condition is True:
-        - agent_inv[agent_idx] = -1  (soup consumed / delivered)
+        - agent_inv[agent_idx] = -1  (item consumed / delivered)
 
     Example: Agent delivers onion soup.
 
@@ -742,25 +1024,59 @@ def _interact_place_on_delivery(
         | inv=S |  D.Z. |   --->     | inv=- |  D.Z. |
         +-------+-------+            +-------+-------+
     """
-    is_dz = fwd_type == delivery_zone_id
-    is_soup = (inv_item == onion_soup_id) | (inv_item == tomato_soup_id)
-    b4_dz_cond = b4_base & is_dz & is_soup
-    b4_dz_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_dz_cond, b4_dz_inv
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+
+    is_dz = fwd_type == ctx["delivery_zone_id"]
+    is_deliverable = ctx["IS_DELIVERABLE"][inv_item] == 1
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_dz
+        & is_deliverable
+    )
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv}
+
+    # Order consumption (only when orders are enabled)
+    if ctx.get("order_recipe") is not None:
+        order_recipe = ctx["order_recipe"]
+        order_timer = ctx["order_timer"]
+        recipe_result = ctx["recipe_result"]
+
+        # Which recipe does this delivery match?
+        delivered_type = inv_item
+        recipe_matches = recipe_result == delivered_type  # (n_recipes,) bool
+
+        # Which active orders match any of those recipes?
+        safe_idx = xp.where(order_recipe >= 0, order_recipe, 0)
+        order_is_match = recipe_matches[safe_idx] & (order_recipe >= 0)
+
+        # Consume first matching order
+        has_match = xp.any(order_is_match)
+        first_match = xp.argmax(order_is_match)
+        consume = cond & has_match
+
+        new_order_recipe = xp.where(
+            consume,
+            set_at(order_recipe, first_match, -1),
+            order_recipe,
+        )
+        new_order_timer = xp.where(
+            consume,
+            set_at(order_timer, first_match, 0),
+            order_timer,
+        )
+        updates["order_recipe"] = new_order_recipe
+        updates["order_timer"] = new_order_timer
+
+    return cond, updates, handled | cond
 
 
-def _interact_place_on_counter(
-    b4_base,
-    fwd_type,
-    fwd_r,
-    fwd_c,
-    inv_item,
-    agent_idx,
-    agent_inv,
-    object_state_map,
-    pot_id,
-    delivery_zone_id,
-):
+def _branch_place_on_counter(handled, ctx):
     """Branch 4C: Place a held item on a counter (generic place-on target).
 
     Counters store placed items in ``object_state_map`` rather than
@@ -773,7 +1089,11 @@ def _interact_place_on_counter(
     pots and NOT delivery zones.
 
     Preconditions (all must be True):
-        - b4_base: shared place-on preconditions
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - inv_item != -1: agent is holding something
         - fwd_type is NOT pot_id and NOT delivery_zone_id
         - object_state_map[fwd_r, fwd_c] == 0: counter is empty
 
@@ -795,107 +1115,40 @@ def _interact_place_on_counter(
         | inv=o | state=0 |   --->       | inv=- | state=o |
         +-------+---------+              +-------+---------+
     """
+    fwd_type = ctx["fwd_type"]
+    inv_item = ctx["inv_item"]
+
     # Exclude pots and delivery zones (they have their own branches)
-    is_generic = ~(fwd_type == pot_id) & ~(fwd_type == delivery_zone_id)
-    counter_empty = object_state_map[fwd_r, fwd_c] == 0
-    b4_gen_cond = b4_base & is_generic & counter_empty
-    b4_gen_osm = set_at_2d(object_state_map, fwd_r, fwd_c, inv_item)
-    b4_gen_inv = set_at(agent_inv, (agent_idx, 0), -1)
-    return b4_gen_cond, b4_gen_inv, b4_gen_osm
+    is_generic = ~(fwd_type == ctx["pot_id"]) & ~(fwd_type == ctx["delivery_zone_id"])
+    counter_empty = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]] == 0
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & (inv_item != -1)
+        & is_generic
+        & counter_empty
+    )
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], inv_item)
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
+    updates = {"agent_inv": inv, "object_state_map": osm}
+    return cond, updates, handled | cond
 
 
 # ======================================================================
-# Branch merge
+# Branch list (priority order)
 # ======================================================================
 
-
-def _apply_interaction_updates(
-    b1_cond,
-    b1_inv,
-    b1_otm,
-    b1_osm,
-    b2_pot_cond,
-    b2_pot_inv,
-    b2_pot_pc,
-    b2_pot_pt,
-    b2_stack_cond,
-    b2_stack_inv,
-    b3_cond,
-    b3_inv,
-    b3_otm,
-    b3_osm,
-    b4_pot_cond,
-    b4_pot_inv,
-    b4_pot_pc,
-    b4_dz_cond,
-    b4_dz_inv,
-    b4_gen_cond,
-    b4_gen_inv,
-    b4_gen_osm,
-    agent_inv,
-    object_type_map,
-    object_state_map,
-    pot_contents,
-    pot_timer,
-):
-    """Merge all branch results into final arrays using cascading xp.where.
-
-    Each array is updated by every branch that could modify it. Because
-    branch conditions are mutually exclusive (enforced by the ~earlier_cond
-    guards), at most one condition is True for each array.
-
-    The cascade order matches the priority order:
-
-        Branch 1   (pickup)            -- highest priority
-        Branch 2A  (pickup from pot)
-        Branch 2B  (pickup from stack)
-        Branch 3   (drop on empty)
-        Branch 4A  (place on pot)
-        Branch 4B  (place on delivery)
-        Branch 4C  (place on counter)  -- lowest priority
-
-    Which arrays each branch modifies:
-
-        Branch  | agent_inv | obj_type_map | obj_state_map | pot_contents | pot_timer
-        --------|-----------|--------------|---------------|--------------|----------
-        1       |     X     |      X       |       X       |              |
-        2A      |     X     |              |               |      X       |     X
-        2B      |     X     |              |               |              |
-        3       |     X     |      X       |       X       |              |
-        4A      |     X     |              |               |      X       |
-        4B      |     X     |              |               |              |
-        4C      |     X     |              |       X       |              |
-
-    Returns (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer).
-    """
-    # --- agent_inv: modified by every branch ---
-    new_inv = xp.where(b1_cond, b1_inv, agent_inv)
-    new_inv = xp.where(b2_pot_cond, b2_pot_inv, new_inv)
-    new_inv = xp.where(b2_stack_cond, b2_stack_inv, new_inv)
-    new_inv = xp.where(b3_cond, b3_inv, new_inv)
-    new_inv = xp.where(b4_pot_cond, b4_pot_inv, new_inv)
-    new_inv = xp.where(b4_dz_cond, b4_dz_inv, new_inv)
-    new_inv = xp.where(b4_gen_cond, b4_gen_inv, new_inv)
-
-    # --- object_type_map: only Branch 1 (pickup removes object) and
-    #     Branch 3 (drop places object) ---
-    new_otm = xp.where(b1_cond, b1_otm, object_type_map)
-    new_otm = xp.where(b3_cond, b3_otm, new_otm)
-
-    # --- object_state_map: Branch 1 (clear cell), Branch 3 (clear cell),
-    #     Branch 4C (store item on counter) ---
-    new_osm = xp.where(b1_cond, b1_osm, object_state_map)
-    new_osm = xp.where(b3_cond, b3_osm, new_osm)
-    new_osm = xp.where(b4_gen_cond, b4_gen_osm, new_osm)
-
-    # --- pot_contents: Branch 2A (clear pot) and Branch 4A (add ingredient) ---
-    new_pc = xp.where(b2_pot_cond, b2_pot_pc, pot_contents)
-    new_pc = xp.where(b4_pot_cond, b4_pot_pc, new_pc)
-
-    # --- pot_timer: Branch 2A only (reset timer after soup pickup) ---
-    new_pt = xp.where(b2_pot_cond, b2_pot_pt, pot_timer)
-
-    return new_inv, new_otm, new_osm, new_pc, new_pt
+_BRANCHES = [
+    _branch_pickup,
+    _branch_pickup_from_pot,
+    _branch_pickup_from_stack,
+    _branch_drop_on_empty,
+    _branch_place_on_pot,
+    _branch_place_on_delivery,
+    _branch_place_on_counter,
+]
 
 
 # ======================================================================
@@ -917,25 +1170,23 @@ def overcooked_interaction_body(
     pot_timer,  # (n_pots,) int32: cooking countdown per pot
     pot_positions,  # (n_pots, 2) int32: (row, col) of each pot
     static_tables,  # dict: pre-built lookup arrays (see _build_static_tables)
+    *,
+    order_recipe=None,  # (max_active,) int32 or None: active order recipe indices
+    order_timer=None,  # (max_active,) int32 or None: active order timers
 ):
     """Evaluate all seven interaction branches for one agent and merge results.
 
     This is the core dispatch function. It:
         1. Unpacks static lookup tables (type IDs, property arrays)
         2. Resolves which pot (if any) the agent is facing
-        3. Calls each branch function to compute conditions and would-be results
-        4. Calls _apply_interaction_updates to merge via cascading xp.where
+        3. Assembles a shared context dict (``ctx``) with all arrays and tables
+        4. Iterates ``_BRANCHES`` in priority order, accumulating a ``handled``
+           scalar that suppresses later branches once one fires
+        5. Merges branch results via sparse ``xp.where`` over the 5 output arrays
 
-    The branch evaluation order and mutual exclusion are critical:
-
-        Branch 1  -> b1_cond
-        Branch 2A -> requires ~b1_cond
-        Branch 2B -> requires ~b1_cond
-        Branch 3  -> requires ~b1_cond & ~b2_pot_cond & ~b2_stack_cond
-        Branch 4* -> requires ~b1_cond & ~b2_pot_cond & ~b2_stack_cond & ~b3_cond
-
-    This ensures that if an agent could both pick up and place on (ambiguous),
-    pickup always wins.
+    Each branch receives ``(handled, ctx)`` and returns
+    ``(cond, updates_dict, new_handled)``. The ``~handled`` guard in each
+    branch's condition ensures mutual exclusion: at most one branch fires.
 
     Parameters
     ----------
@@ -958,8 +1209,10 @@ def overcooked_interaction_body(
 
     Returns:
     -------
-    (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer)
+    (agent_inv, object_type_map, object_state_map, pot_contents, pot_timer,
+     order_recipe_out, order_timer_out)
         Updated arrays. Unchanged if base_ok is False or no branch fires.
+        order_recipe_out and order_timer_out are None when orders are disabled.
     """
     # --- Unpack static tables ---
     CAN_PICKUP = static_tables["CAN_PICKUP"]
@@ -985,153 +1238,78 @@ def overcooked_interaction_body(
     pot_idx = xp.argmax(pot_match)
     has_pot_match = xp.any(pot_match)
 
-    # --- Branch 1: pickup loose object ---
-    b1_cond, b1_inv, b1_otm, b1_osm = _interact_pickup(
-        base_ok,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-        CAN_PICKUP,
-    )
+    # --- Assemble shared context ---
+    ctx = {
+        "base_ok": base_ok,
+        "fwd_type": fwd_type,
+        "fwd_r": fwd_r,
+        "fwd_c": fwd_c,
+        "inv_item": inv_item,
+        "agent_idx": agent_idx,
+        "agent_inv": agent_inv,
+        "object_type_map": object_type_map,
+        "object_state_map": object_state_map,
+        "pot_contents": pot_contents,
+        "pot_timer": pot_timer,
+        "pot_idx": pot_idx,
+        "has_pot_match": has_pot_match,
+        "CAN_PICKUP": CAN_PICKUP,
+        "CAN_PICKUP_FROM": CAN_PICKUP_FROM,
+        "CAN_PLACE_ON": CAN_PLACE_ON,
+        "pickup_from_produces": pickup_from_produces,
+        "legal_pot_ingredients": legal_pot_ingredients,
+        "pot_id": pot_id,
+        "plate_id": plate_id,
+        "tomato_id": tomato_id,
+        "onion_soup_id": onion_soup_id,
+        "tomato_soup_id": tomato_soup_id,
+        "delivery_zone_id": delivery_zone_id,
+        "cooking_time": cooking_time,
+        "recipe_ingredients": static_tables["recipe_ingredients"],
+        "recipe_result": static_tables["recipe_result"],
+        "recipe_cooking_time": static_tables["recipe_cooking_time"],
+        "max_ingredients": static_tables["max_ingredients"],
+        "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
+    }
 
-    # --- Branch 2A: pickup cooked soup from pot ---
-    b2_pot_cond, b2_pot_inv, b2_pot_pc, b2_pot_pt = _interact_pickup_from_pot(
-        base_ok,
-        b1_cond,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_contents,
-        pot_timer,
-        pot_idx,
-        has_pot_match,
-        pot_id,
-        plate_id,
-        tomato_id,
-        onion_soup_id,
-        tomato_soup_id,
-        cooking_time,
-    )
+    # Add order arrays to ctx when orders are enabled
+    if order_recipe is not None:
+        ctx["order_recipe"] = order_recipe
+        ctx["order_timer"] = order_timer
 
-    # --- Branch 2B: pickup from stack (onion/tomato/plate dispenser) ---
-    b2_stack_cond, b2_stack_inv = _interact_pickup_from_stack(
-        base_ok,
-        b1_cond,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_id,
-        CAN_PICKUP_FROM,
-        pickup_from_produces,
-    )
+    # --- Evaluate all branches with accumulated handled ---
+    handled = xp.bool_(False)
+    branch_results = []
+    for branch_fn in _BRANCHES:
+        cond, updates, handled = branch_fn(handled, ctx)
+        branch_results.append((cond, updates))
 
-    # --- Branch 3: drop on empty cell ---
-    b3_cond, b3_inv, b3_otm, b3_osm = _interact_drop_on_empty(
-        base_ok,
-        b1_cond,
-        b2_pot_cond,
-        b2_stack_cond,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-    )
+    # --- Merge results using sparse xp.where ---
+    inv = agent_inv
+    otm = object_type_map
+    osm = object_state_map
+    pc = pot_contents
+    pt = pot_timer
+    or_ = order_recipe
+    ot_ = order_timer
 
-    # --- Shared base condition for all place-on branches (4A, 4B, 4C) ---
-    # All three require: base_ok, no earlier branch fired, forward cell
-    # has a place-on target, and agent is holding something.
-    b4_base = (
-        base_ok
-        & ~b1_cond
-        & ~b2_pot_cond
-        & ~b2_stack_cond
-        & ~b3_cond
-        & (fwd_type > 0)
-        & (CAN_PLACE_ON[fwd_type] == 1)
-        & (inv_item != -1)
-    )
+    for cond, updates in branch_results:
+        if "agent_inv" in updates:
+            inv = xp.where(cond, updates["agent_inv"], inv)
+        if "object_type_map" in updates:
+            otm = xp.where(cond, updates["object_type_map"], otm)
+        if "object_state_map" in updates:
+            osm = xp.where(cond, updates["object_state_map"], osm)
+        if "pot_contents" in updates:
+            pc = xp.where(cond, updates["pot_contents"], pc)
+        if "pot_timer" in updates:
+            pt = xp.where(cond, updates["pot_timer"], pt)
+        if "order_recipe" in updates:
+            or_ = xp.where(cond, updates["order_recipe"], or_)
+        if "order_timer" in updates:
+            ot_ = xp.where(cond, updates["order_timer"], ot_)
 
-    # --- Branch 4A: place ingredient on pot ---
-    b4_pot_cond, b4_pot_inv, b4_pot_pc = _interact_place_on_pot(
-        b4_base,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        pot_contents,
-        pot_idx,
-        has_pot_match,
-        pot_id,
-        legal_pot_ingredients,
-    )
-
-    # --- Branch 4B: deliver soup to delivery zone ---
-    b4_dz_cond, b4_dz_inv = _interact_place_on_delivery(
-        b4_base,
-        fwd_type,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        delivery_zone_id,
-        onion_soup_id,
-        tomato_soup_id,
-    )
-
-    # --- Branch 4C: place item on counter ---
-    b4_gen_cond, b4_gen_inv, b4_gen_osm = _interact_place_on_counter(
-        b4_base,
-        fwd_type,
-        fwd_r,
-        fwd_c,
-        inv_item,
-        agent_idx,
-        agent_inv,
-        object_state_map,
-        pot_id,
-        delivery_zone_id,
-    )
-
-    # --- Merge all branch results using cascading xp.where ---
-    return _apply_interaction_updates(
-        b1_cond,
-        b1_inv,
-        b1_otm,
-        b1_osm,
-        b2_pot_cond,
-        b2_pot_inv,
-        b2_pot_pc,
-        b2_pot_pt,
-        b2_stack_cond,
-        b2_stack_inv,
-        b3_cond,
-        b3_inv,
-        b3_otm,
-        b3_osm,
-        b4_pot_cond,
-        b4_pot_inv,
-        b4_pot_pc,
-        b4_dz_cond,
-        b4_dz_inv,
-        b4_gen_cond,
-        b4_gen_inv,
-        b4_gen_osm,
-        agent_inv,
-        object_type_map,
-        object_state_map,
-        pot_contents,
-        pot_timer,
-    )
+    return inv, otm, osm, pc, pt, or_, ot_
 
 
 # ======================================================================
@@ -1139,7 +1317,7 @@ def overcooked_interaction_body(
 # ======================================================================
 
 
-def _build_static_tables(scope, itables, type_ids):
+def _build_static_tables(scope, itables, type_ids, recipe_tables=None, order_tables=None):
     """Build the static tables dict used by overcooked_interaction_body.
 
     Called once at environment init time. The resulting dict is stored in
@@ -1162,17 +1340,38 @@ def _build_static_tables(scope, itables, type_ids):
          - pot_id, plate_id, tomato_id, onion_soup_id, tomato_soup_id,
            delivery_zone_id
          - cooking_time: 30 (number of ticks to cook a full pot)
+
+    Parameters
+    ----------
+    scope : str
+        Object registry scope.
+    itables : dict
+        From ``_build_interaction_tables``.
+    type_ids : dict
+        From ``_build_type_ids``.
+    recipe_tables : dict or None
+        If provided (from ``compile_recipes``), recipe arrays are merged
+        into the returned dict and ``legal_pot_ingredients`` is taken from
+        the recipe compilation instead of the hardcoded interaction tables.
+    order_tables : dict or None
+        If provided (from ``_build_order_tables``), order config arrays are
+        merged into the returned dict. When None or disabled,
+        ``order_enabled`` is set to False.
     """
     from cogrid.core.grid_object import build_lookup_tables
 
     lookup = build_lookup_tables(scope=scope)
 
-    return {
+    tables = {
         "CAN_PICKUP": lookup["CAN_PICKUP"],
         "CAN_PICKUP_FROM": lookup["CAN_PICKUP_FROM"],
         "CAN_PLACE_ON": lookup["CAN_PLACE_ON"],
         "pickup_from_produces": itables["pickup_from_produces"],
-        "legal_pot_ingredients": itables["legal_pot_ingredients"],
+        "legal_pot_ingredients": (
+            recipe_tables["legal_pot_ingredients"]
+            if recipe_tables is not None
+            else itables["legal_pot_ingredients"]
+        ),
         "pot_id": int(type_ids.get("pot", -1)),
         "plate_id": int(type_ids.get("plate", -1)),
         "tomato_id": int(type_ids.get("tomato", -1)),
@@ -1180,4 +1379,86 @@ def _build_static_tables(scope, itables, type_ids):
         "tomato_soup_id": int(type_ids.get("tomato_soup", -1)),
         "delivery_zone_id": int(type_ids.get("delivery_zone", -1)),
         "cooking_time": 30,
+    }
+
+    # Add recipe tables if provided
+    if recipe_tables is not None:
+        tables["recipe_ingredients"] = recipe_tables["recipe_ingredients"]
+        tables["recipe_result"] = recipe_tables["recipe_result"]
+        tables["recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]
+        tables["recipe_reward"] = recipe_tables["recipe_reward"]
+        tables["max_ingredients"] = recipe_tables["max_ingredients"]
+
+    # Build IS_DELIVERABLE array: 1 for any type that is a recipe output
+    import numpy as _np
+
+    n_types = len(get_object_names(scope=scope))
+    is_deliverable = _np.zeros(n_types, dtype=_np.int32)
+    if recipe_tables is not None:
+        for result_id in recipe_tables["recipe_result"]:
+            is_deliverable[int(result_id)] = 1
+    else:
+        # Backward compat fallback: hardcode onion_soup and tomato_soup
+        is_deliverable[int(type_ids.get("onion_soup", -1))] = 1
+        is_deliverable[int(type_ids.get("tomato_soup", -1))] = 1
+        tables["max_ingredients"] = 3
+    tables["IS_DELIVERABLE"] = is_deliverable
+
+    # Merge order tables if provided
+    if order_tables is not None:
+        for k, v in order_tables.items():
+            tables[k] = v
+    if order_tables is None or not order_tables.get("order_enabled", False):
+        tables["order_enabled"] = False
+
+    return tables
+
+
+def _build_order_tables(order_config, n_recipes):
+    """Build order queue static tables from config dict.
+
+    Parameters
+    ----------
+    order_config : dict or None
+        If None, orders are disabled. Otherwise contains:
+        ``spawn_interval`` (default 40), ``max_active`` (default 3),
+        ``time_limit`` (default 200), ``recipe_weights`` (default uniform).
+    n_recipes : int
+        Number of recipes (for default uniform weights).
+
+    Returns:
+    -------
+    dict
+        Keys: ``order_enabled``, and when enabled also
+        ``order_spawn_interval``, ``order_max_active``,
+        ``order_time_limit``, ``order_spawn_cycle``.
+    """
+    import numpy as _np
+
+    if order_config is None:
+        return {"order_enabled": False}
+
+    spawn_interval = order_config.get("spawn_interval", 40)
+    max_active = order_config.get("max_active", 3)
+    time_limit = order_config.get("time_limit", 200)
+    recipe_weights = order_config.get("recipe_weights", None)
+
+    if recipe_weights is None:
+        recipe_weights = [1.0] * n_recipes
+
+    # Build deterministic spawn cycle from weights.
+    # Normalize to integers: [2.0, 1.0] -> [2, 1] -> cycle [0, 0, 1]
+    weights = _np.array(recipe_weights, dtype=_np.float32)
+    int_weights = _np.round(weights / weights.min()).astype(_np.int32)
+    cycle = []
+    for i, w in enumerate(int_weights):
+        cycle.extend([i] * int(w))
+    spawn_cycle = _np.array(cycle, dtype=_np.int32)
+
+    return {
+        "order_enabled": True,
+        "order_spawn_interval": _np.int32(spawn_interval),
+        "order_max_active": _np.int32(max_active),
+        "order_time_limit": _np.int32(time_limit),
+        "order_spawn_cycle": spawn_cycle,
     }
