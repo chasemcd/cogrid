@@ -2209,3 +2209,99 @@ def test_order_config_validation():
     print("  Weighted config [2.0, 1.0] -> cycle [0, 0, 1]: OK")
 
     print("  PASSED")
+
+
+def test_delivery_reward_tip_bonus():
+    """Verify tip_coefficient from reward_config produces tip bonus proportional to remaining time."""
+    import numpy as np
+
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    import cogrid.envs  # noqa: F401
+
+    from cogrid.core.autowire import build_scope_config_from_components
+    from cogrid.envs.overcooked.config import (
+        DEFAULT_RECIPES,
+        _build_interaction_tables,
+        _build_order_tables,
+        _build_static_tables,
+        _build_type_ids,
+        compile_recipes,
+    )
+    from cogrid.envs.overcooked.rewards import delivery_reward
+
+    scope = "overcooked"
+    scope_cfg = build_scope_config_from_components(scope)
+    type_ids = scope_cfg["type_ids"]
+
+    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 200}
+    itables = _build_interaction_tables(scope)
+    type_ids_dict = _build_type_ids(scope)
+    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
+    static_tables = _build_static_tables(scope, itables, type_ids_dict,
+                                         recipe_tables=recipe_tables, order_tables=order_tables)
+
+    onion_soup_id = type_ids["onion_soup"]
+    dz_id = type_ids["delivery_zone"]
+    n_agents = 1
+
+    print("test_delivery_reward_tip_bonus:")
+
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[1, 3] = dz_id
+    actions = np.array([4], dtype=np.int32)
+
+    # Build states: prev has active order with 100 steps remaining, curr has order consumed
+    prev_sv = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[onion_soup_id]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([0, -1, -1], dtype=np.int32),
+        "order_timer": np.array([100, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+    curr_sv = _sv_from_dict({
+        "agent_pos": np.array([[1, 2]], dtype=np.int32),
+        "agent_dir": np.array([0], dtype=np.int32),
+        "agent_inv": np.array([[-1]], dtype=np.int32),
+        "object_type_map": otm,
+        "order_recipe": np.array([-1, -1, -1], dtype=np.int32),
+        "order_timer": np.array([0, 0, 0], dtype=np.int32),
+    }, n_agents=1)
+
+    # Case 1: tip_coefficient = 10.0 -> tip = 100/200 * 10.0 = 5.0
+    reward_config_with_tip = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+        "tip_coefficient": 10.0,
+    }
+    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
+                        reward_config=reward_config_with_tip)
+    # Base recipe reward (20.0 for onion_soup) + tip (5.0) = 25.0
+    expected_tip = 100.0 / 200.0 * 10.0  # 5.0
+    base_reward = float(r[0]) - expected_tip
+    assert base_reward > 0, f"Base reward should be positive, got {base_reward}"
+    assert abs(float(r[0]) - (base_reward + expected_tip)) < 1e-5, (
+        f"Reward with tip should be {base_reward + expected_tip}, got {float(r[0])}"
+    )
+    print(f"  tip_coefficient=10.0 -> reward={float(r[0])} (base={base_reward} + tip={expected_tip}): OK")
+
+    # Case 2: tip_coefficient absent -> tip = 0 (backward compat)
+    reward_config_no_tip = {
+        "type_ids": type_ids,
+        "n_agents": n_agents,
+        "action_pickup_drop_idx": 4,
+        "static_tables": static_tables,
+    }
+    r2 = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents,
+                         reward_config=reward_config_no_tip)
+    assert float(r2[0]) == base_reward, (
+        f"Without tip_coefficient, reward should be {base_reward}, got {float(r2[0])}"
+    )
+    print(f"  tip_coefficient absent -> reward={float(r2[0])} (no tip): OK")
+
+    print("  PASSED")

@@ -287,3 +287,18 @@ def test_inventory_dynamic_all_types():
         np.testing.assert_array_equal(
             result, expected, err_msg=f"Failed for type '{name}' at index {expected_idx}"
         )
+
+
+def test_inventory_obs_dim_matches_registry():
+    """Verify _INVENTORY_OBS_DIM and OvercookedInventory.obs_dim equal registry pickupable count."""
+    from cogrid.envs.overcooked.features import OvercookedInventory, _INVENTORY_OBS_DIM
+
+    discovered = _get_discovered_pickupable_names()
+    count = len(discovered)
+
+    assert _INVENTORY_OBS_DIM == count, (
+        f"_INVENTORY_OBS_DIM={_INVENTORY_OBS_DIM} != registry count={count}"
+    )
+    assert OvercookedInventory.obs_dim == count, (
+        f"OvercookedInventory.obs_dim={OvercookedInventory.obs_dim} != registry count={count}"
+    )
