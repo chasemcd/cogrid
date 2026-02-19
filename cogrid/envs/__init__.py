@@ -152,33 +152,6 @@ registry.register(
 )
 
 
-def randomized_layout_fn(**kwargs):
-    """Return a randomly chosen Overcooked layout name and data."""
-    layout_name = random.choice(
-        [
-            "overcooked_cramped_room_v0",
-            "overcooked_asymmetric_advantages_v0",
-            "overcooked_coordination_ring_v0",
-            "overcooked_forced_coordination_v0",
-            "overcooked_counter_circuit_v0",
-        ]
-    )
-    return layout_name, *layouts.get_layout(layout_name)
-
-
-overcooked_randomized_config = copy.deepcopy(cramped_room_config)
-overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
-
-registry.register(
-    "Overcooked-RandomizedLayout-V0",
-    functools.partial(
-        CoGridEnv,
-        config=overcooked_randomized_config,
-        agent_class=OvercookedAgent,
-    ),
-)
-
-
 sa_overcooked_config = copy.deepcopy(cramped_room_config)
 sa_overcooked_config["num_agents"] = 1
 registry.register(
