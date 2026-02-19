@@ -224,80 +224,114 @@ def test_order_observation_no_orders():
 # ---------------------------------------------------------------------------
 
 
-def _get_discovered_pickupable_names():
-    """Return the sorted pickupable type names that build_feature_fn discovers.
-
-    Mirrors the discovery logic in OvercookedInventory.build_feature_fn so
-    tests remain valid even when other tests register extra types (e.g.
-    test_mushroom from test_factory_registers_new_types).
-    """
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-    from cogrid.core.component_registry import get_all_components
-
-    return sorted(
-        meta.object_id
-        for meta in get_all_components("overcooked")
-        if meta.properties.get("can_pickup", False)
+def test_inventory_config_driven_matches_defaults():
+    """Config-driven OvercookedInventory uses default types and encodes onion correctly."""
+    from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.features import (
+        _DEFAULT_PICKUPABLE_TYPES,
+        OvercookedInventory,
     )
 
-
-def test_inventory_dynamic_matches_hardcoded():
-    """Dynamic OvercookedInventory includes the 5 standard types and encodes onion correctly."""
-    from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.features import OvercookedInventory
-
+    standard = sorted(_DEFAULT_PICKUPABLE_TYPES)
     fn = OvercookedInventory.build_feature_fn("overcooked")
-    discovered = _get_discovered_pickupable_names()
 
-    # The 5 standard types must be present (extra test-registered types are allowed)
-    standard = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
-    for name in standard:
-        assert name in discovered, f"Standard type '{name}' missing from discovered types"
-
-    onion_idx = discovered.index("onion")
+    onion_idx = standard.index("onion")
     onion_id = object_to_idx("onion", scope="overcooked")
     state = _sv(agent_inv=np.array([[onion_id], [-1]], dtype=np.int32))
 
     result = fn(state, 0)
-    assert result.shape == (len(discovered),)
-    # Onion should be 1 at its alphabetical position, 0 elsewhere
+    assert result.shape == (len(standard),)
     assert result[onion_idx] == 1
     assert np.sum(result) == 1  # exactly one-hot
 
 
-def test_inventory_dynamic_all_types():
-    """Dynamic OvercookedInventory produces correct one-hot for each standard pickupable type."""
+def test_inventory_config_driven_all_types():
+    """Config-driven OvercookedInventory: correct one-hot for each standard pickupable type."""
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.features import OvercookedInventory
+    from cogrid.envs.overcooked.features import (
+        _DEFAULT_PICKUPABLE_TYPES,
+        OvercookedInventory,
+    )
 
+    standard = sorted(_DEFAULT_PICKUPABLE_TYPES)
     fn = OvercookedInventory.build_feature_fn("overcooked")
-    discovered = _get_discovered_pickupable_names()
 
-    standard = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
     for name in standard:
         type_id = object_to_idx(name, scope="overcooked")
         state = _sv(agent_inv=np.array([[type_id], [-1]], dtype=np.int32))
         result = fn(state, 0)
-        assert result.shape == (len(discovered),)
+        assert result.shape == (len(standard),)
 
-        expected_idx = discovered.index(name)
-        expected = np.zeros(len(discovered), dtype=np.int32)
+        expected_idx = standard.index(name)
+        expected = np.zeros(len(standard), dtype=np.int32)
         expected[expected_idx] = 1
         np.testing.assert_array_equal(
             result, expected, err_msg=f"Failed for type '{name}' at index {expected_idx}"
         )
 
 
-def test_inventory_obs_dim_matches_registry():
-    """Verify _INVENTORY_OBS_DIM and OvercookedInventory.obs_dim equal registry pickupable count."""
-    from cogrid.envs.overcooked.features import _INVENTORY_OBS_DIM, OvercookedInventory
-
-    discovered = _get_discovered_pickupable_names()
-    count = len(discovered)
-
-    assert _INVENTORY_OBS_DIM == count, (
-        f"_INVENTORY_OBS_DIM={_INVENTORY_OBS_DIM} != registry count={count}"
+def test_inventory_obs_dim_matches_defaults():
+    """Verify OvercookedInventory.obs_dim equals default pickupable count."""
+    from cogrid.envs.overcooked.features import (
+        _DEFAULT_PICKUPABLE_TYPES,
+        OvercookedInventory,
     )
-    assert OvercookedInventory.obs_dim == count, (
-        f"OvercookedInventory.obs_dim={OvercookedInventory.obs_dim} != registry count={count}"
+
+    assert OvercookedInventory.obs_dim == len(_DEFAULT_PICKUPABLE_TYPES), (
+        f"OvercookedInventory.obs_dim={OvercookedInventory.obs_dim} "
+        f"!= default count={len(_DEFAULT_PICKUPABLE_TYPES)}"
     )
+
+
+def test_compute_obs_dim_without_config():
+    """compute_obs_dim without env_config returns default obs_dim."""
+    from cogrid.envs.overcooked.features import (
+        OrderObservation,
+        OvercookedInventory,
+    )
+
+    assert OvercookedInventory.compute_obs_dim("overcooked") == 5
+    assert OrderObservation.compute_obs_dim("overcooked") == 9
+
+
+def test_compute_obs_dim_with_config():
+    """compute_obs_dim with env_config reads dimensions from config."""
+    from cogrid.envs.overcooked.features import (
+        OrderObservation,
+        OvercookedInventory,
+    )
+
+    # Custom pickupable_types with 3 types -> obs_dim=3
+    cfg = {"pickupable_types": ["onion", "plate", "tomato"]}
+    assert OvercookedInventory.compute_obs_dim("overcooked", cfg) == 3
+
+    # Custom recipes (3 recipes) + custom orders -> obs_dim changes
+    cfg = {
+        "recipes": [{"r": 1}, {"r": 2}, {"r": 3}],
+        "orders": {"max_active": 2},
+    }
+    # 2 * (3 + 1) = 8
+    assert OrderObservation.compute_obs_dim("overcooked", cfg) == 8
+
+
+def test_inventory_isolation_from_registry():
+    """Creating a standard env produces the same obs_dim even after make_ingredient_and_stack."""
+    from cogrid.envs.overcooked.features import OvercookedInventory
+    from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
+
+    # Standard config
+    cfg = {"pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]}
+
+    dim_before = OvercookedInventory.compute_obs_dim("overcooked", cfg)
+
+    # Pollute the global registry
+    make_ingredient_and_stack(
+        "mushroom_test_iso", "m", (128, 128, 0), "mushroom_test_iso_stack", "M"
+    )
+
+    dim_after = OvercookedInventory.compute_obs_dim("overcooked", cfg)
+    assert dim_before == dim_after == 5
+
+    # Without config, the default also stays at 5 (reads _DEFAULT_PICKUPABLE_TYPES)
+    dim_no_cfg = OvercookedInventory.compute_obs_dim("overcooked")
+    assert dim_no_cfg == 5

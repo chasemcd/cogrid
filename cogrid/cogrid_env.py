@@ -136,6 +136,15 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             build_reward_config_from_components,
             build_scope_config_from_components,
         )
+        from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
+
+        # Run pre-compose hook before scope config so that config-driven
+        # class attributes (e.g. Pot._recipes_config) are set before
+        # build_static_tables reads them.
+        pre_hook = get_pre_compose_hook(self.scope)
+        if pre_hook is not None:
+            _layout_idx = get_layout_index(self.scope, self.current_layout_id)
+            pre_hook(layout_idx=_layout_idx, scope=self.scope, env_config=self.config)
 
         self._scope_config = build_scope_config_from_components(self.scope)
         if "interaction_fn" in self.config:
@@ -364,6 +373,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self.config["features"],
             n_agents=n_agents,
             layout_idx=_layout_idx,
+            env_config=self.config,
         )
         self._feature_fn = feature_config["feature_fn"]
 

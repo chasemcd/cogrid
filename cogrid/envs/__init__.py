@@ -2,7 +2,6 @@
 
 import copy
 import functools
-import random
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import layouts
@@ -93,6 +92,21 @@ cramped_room_config = {
     "max_steps": 1000,
     "scope": "overcooked",
     "interaction_fn": overcooked_interaction_fn,
+    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+    "recipes": [
+        {
+            "ingredients": ["onion", "onion", "onion"],
+            "result": "onion_soup",
+            "cook_time": 30,
+            "reward": 1.0,
+        },
+        {
+            "ingredients": ["tomato", "tomato", "tomato"],
+            "result": "tomato_soup",
+            "cook_time": 30,
+            "reward": 1.0,
+        },
+    ],
 }
 
 registry.register(
@@ -134,33 +148,6 @@ counter_circuit_config["grid"]["layout"] = "overcooked_counter_circuit_v0"
 registry.register(
     "Overcooked-CounterCircuit-V0",
     functools.partial(CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent),
-)
-
-
-def randomized_layout_fn(**kwargs):
-    """Return a randomly chosen Overcooked layout name and data."""
-    layout_name = random.choice(
-        [
-            "overcooked_cramped_room_v0",
-            "overcooked_asymmetric_advantages_v0",
-            "overcooked_coordination_ring_v0",
-            "overcooked_forced_coordination_v0",
-            "overcooked_counter_circuit_v0",
-        ]
-    )
-    return layout_name, *layouts.get_layout(layout_name)
-
-
-overcooked_randomized_config = copy.deepcopy(cramped_room_config)
-overcooked_randomized_config["grid"] = {"layout_fn": randomized_layout_fn}
-
-registry.register(
-    "Overcooked-RandomizedLayout-V0",
-    functools.partial(
-        CoGridEnv,
-        config=overcooked_randomized_config,
-        agent_class=OvercookedAgent,
-    ),
 )
 
 

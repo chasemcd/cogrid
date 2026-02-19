@@ -372,22 +372,48 @@ class OrderObservation(Feature):
 
     Output: (_ORDER_OBS_DIM,) = max_active * (n_recipes + 1) = 9 by default.
     Returns zeros when orders are not configured (backward compat).
+
+    When *env_config* is provided, ``"recipes"`` length and
+    ``"orders"["max_active"]`` override the defaults.
     """
 
     per_agent = False  # Orders are global state, same for all agents
     obs_dim = _ORDER_OBS_DIM  # 9
 
     @classmethod
-    def build_feature_fn(cls, scope):
+    def compute_obs_dim(cls, scope, env_config=None):
+        """Return obs_dim from env_config recipe/order counts, or default."""
+        if env_config is not None:
+            n_recipes = len(env_config["recipes"]) if "recipes" in env_config else _ORDER_N_RECIPES
+            max_active = (
+                env_config["orders"].get("max_active", _ORDER_MAX_ACTIVE)
+                if "orders" in env_config
+                else _ORDER_MAX_ACTIVE
+            )
+            return max_active * (n_recipes + 1)
+        return cls.obs_dim
+
+    @classmethod
+    def build_feature_fn(cls, scope, env_config=None):
         """Build order observation feature function."""
-        max_active = _ORDER_MAX_ACTIVE
-        n_recipes = _ORDER_N_RECIPES
-        time_limit = xp.float32(200.0)  # matches _build_order_tables default
+        if env_config is not None and "recipes" in env_config:
+            n_recipes = len(env_config["recipes"])
+        else:
+            n_recipes = _ORDER_N_RECIPES
+
+        if env_config is not None and "orders" in env_config:
+            max_active = env_config["orders"].get("max_active", _ORDER_MAX_ACTIVE)
+            time_limit = xp.float32(env_config["orders"].get("time_limit", 200.0))
+        else:
+            max_active = _ORDER_MAX_ACTIVE
+            time_limit = xp.float32(200.0)
+
+        total_dim = max_active * (n_recipes + 1)
 
         def fn(state):
             order_recipe = getattr(state, "order_recipe", None)
             if order_recipe is None:
-                return xp.zeros(_ORDER_OBS_DIM, dtype=xp.float32)
+                return xp.zeros(total_dim, dtype=xp.float32)
 
             order_timer = state.order_timer
             active = order_recipe >= 0  # (max_active,) bool
@@ -414,40 +440,38 @@ class OrderObservation(Feature):
         return fn
 
 
-def _count_pickupable_types(scope="overcooked"):
-    """Count pickupable types registered in the given scope."""
-    from cogrid.core.component_registry import get_all_components
-
-    return sum(1 for m in get_all_components(scope) if m.properties.get("can_pickup", False))
-
-
-_INVENTORY_OBS_DIM = _count_pickupable_types()
+_DEFAULT_PICKUPABLE_TYPES = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
 
 
 @register_feature_type("overcooked_inventory", scope="overcooked")
 class OvercookedInventory(Feature):
     """One-hot inventory encoding feature.
 
-    Dynamically discovers pickupable types from the component registry
-    at compose time. For the standard Overcooked type set this produces
-    the same 5-element encoding as the original hardcoded list.
+    Reads pickupable types from ``env_config["pickupable_types"]`` when
+    available, otherwise uses ``_DEFAULT_PICKUPABLE_TYPES``.  This
+    ensures the observation dimension is deterministic per config and
+    independent of the global component registry.
     """
 
     per_agent = True
-    obs_dim = _INVENTORY_OBS_DIM
+    obs_dim = len(_DEFAULT_PICKUPABLE_TYPES)  # 5
 
     @classmethod
-    def build_feature_fn(cls, scope):
+    def compute_obs_dim(cls, scope, env_config=None):
+        """Return obs_dim from env_config pickupable_types, or default."""
+        if env_config is not None and "pickupable_types" in env_config:
+            return len(env_config["pickupable_types"])
+        return cls.obs_dim
+
+    @classmethod
+    def build_feature_fn(cls, scope, env_config=None):
         """Build the inventory feature function for the given scope."""
-        from cogrid.core.component_registry import get_all_components
         from cogrid.core.grid_object import object_to_idx
 
-        # Discover all pickupable types from the scope registry
-        pickupable_names = sorted(
-            meta.object_id
-            for meta in get_all_components(scope)
-            if meta.properties.get("can_pickup", False)
-        )
+        if env_config is not None and "pickupable_types" in env_config:
+            pickupable_names = sorted(env_config["pickupable_types"])
+        else:
+            pickupable_names = sorted(_DEFAULT_PICKUPABLE_TYPES)
 
         inv_type_ids = xp.array(
             [object_to_idx(name, scope=scope) for name in pickupable_names],
@@ -766,9 +790,18 @@ from cogrid.core.component_registry import (  # noqa: E402
 )
 
 
-def _overcooked_pre_compose_hook(layout_idx: int, scope: str) -> None:
-    """Set LayoutID._layout_idx before feature composition."""
+def _overcooked_pre_compose_hook(layout_idx: int, scope: str, env_config=None) -> None:
+    """Set LayoutID._layout_idx and Pot config before feature composition."""
     LayoutID._layout_idx = layout_idx
+
+    from cogrid.envs.overcooked.overcooked_grid_objects import Pot
+
+    if env_config is not None:
+        Pot._recipes_config = env_config.get("recipes")
+        Pot._orders_config = env_config.get("orders")
+    else:
+        Pot._recipes_config = None
+        Pot._orders_config = None
 
 
 register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)
