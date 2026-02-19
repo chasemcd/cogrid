@@ -122,6 +122,8 @@ class Pot(grid_object.GridObj):
     color = constants.Colors.Grey
     char = "U"
     cooking_time: int = 30  # env steps to cook a soup
+    _recipes_config = None  # set by pre-compose hook from env_config
+    _orders_config = None  # set by pre-compose hook from env_config
 
     def __init__(
         self,
@@ -251,10 +253,11 @@ class Pot(grid_object.GridObj):
         )
 
         scope = "overcooked"
+        recipes = cls._recipes_config if cls._recipes_config is not None else DEFAULT_RECIPES
         itables = _build_interaction_tables(scope)
         type_ids = _build_type_ids(scope)
-        recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-        order_tables = _build_order_tables(None, n_recipes=len(DEFAULT_RECIPES))
+        recipe_tables = compile_recipes(recipes, scope=scope)
+        order_tables = _build_order_tables(cls._orders_config, n_recipes=len(recipes))
         return _build_static_tables(
             scope,
             itables,

@@ -93,6 +93,21 @@ cramped_room_config = {
     "max_steps": 1000,
     "scope": "overcooked",
     "interaction_fn": overcooked_interaction_fn,
+    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+    "recipes": [
+        {
+            "ingredients": ["onion", "onion", "onion"],
+            "result": "onion_soup",
+            "cook_time": 30,
+            "reward": 1.0,
+        },
+        {
+            "ingredients": ["tomato", "tomato", "tomato"],
+            "result": "tomato_soup",
+            "cook_time": 30,
+            "reward": 1.0,
+        },
+    ],
 }
 
 registry.register(

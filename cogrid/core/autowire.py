@@ -18,11 +18,16 @@ def build_feature_config_from_components(
     feature_names: list[str],
     n_agents: int,
     layout_idx: int = 0,
+    env_config: dict | None = None,
 ) -> dict:
     """Build feature_config from registered Feature subclasses.
 
     Composes features listed in *feature_names* into a single
     ``feature_fn(state, agent_idx) -> (obs_dim,) float32``.
+
+    When *env_config* is provided it is forwarded to the pre-compose hook,
+    ``compose_feature_fns``, and ``obs_dim_for_features`` so that features
+    can read their dimensions from the config instead of the global registry.
     """
     # Ensure global Feature subclasses are registered
     import cogrid.feature_space.features  # noqa: F401
@@ -33,7 +38,7 @@ def build_feature_config_from_components(
     # before feature closures capture it).
     pre_hook = get_pre_compose_hook(scope)
     if pre_hook is not None:
-        pre_hook(layout_idx=layout_idx, scope=scope)
+        pre_hook(layout_idx=layout_idx, scope=scope, env_config=env_config)
 
     lookup_scopes = [scope, "global"]
 
@@ -43,6 +48,7 @@ def build_feature_config_from_components(
         n_agents,
         scopes=lookup_scopes,
         preserve_order=True,
+        env_config=env_config,
     )
 
     total_dim = obs_dim_for_features(
@@ -50,6 +56,7 @@ def build_feature_config_from_components(
         scope,
         n_agents,
         scopes=lookup_scopes,
+        env_config=env_config,
     )
 
     return {
