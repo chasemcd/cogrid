@@ -2,7 +2,6 @@
 
 import copy
 import functools
-import random
 
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import layouts
