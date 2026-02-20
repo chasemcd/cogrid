@@ -12,64 +12,53 @@ from cogrid.envs.overcooked.config import overcooked_interaction_fn
 layouts.register_layout(
     "overcooked_cramped_room_v0",
     [
-        "#######",
-        "#CCUCC#",
-        "#O   O#",
-        "#C   C#",
-        "#C=C@C#",
-        "#######",
+        "CCUCC",
+        "O   O",
+        "C   C",
+        "C=C@C",
     ],
 )
 
 layouts.register_layout(
     "overcooked_asymmetric_advantages_v0",
     [
-        "###########",
-        "#CCCCCCCCC#",
-        "#O C@COC @#",
-        "#C   U   C#",
-        "#C   U   C#",
-        "#CCC=C=CCC#",
-        "###########",
+        "CCCCCCCCC",
+        "O C@COC @",
+        "C   U   C",
+        "C   U   C",
+        "CCC=C=CCC",
     ],
 )
 
 layouts.register_layout(
     "overcooked_coordination_ring_v0",
     [
-        "#######",
-        "#CCCUC#",
-        "#C   U#",
-        "#= C C#",
-        "#O   C#",
-        "#CO@CC#",
-        "#######",
+        "CCCUC",
+        "C   U",
+        "= C C",
+        "O   C",
+        "CO@CC",
     ],
 )
 
 layouts.register_layout(
     "overcooked_forced_coordination_v0",
     [
-        "#######",
-        "#CCCUC#",
-        "#O+C U#",
-        "#O C C#",
-        "#= C+C#",
-        "#CCC@C#",
-        "#######",
+        "CCCUC",
+        "O+C U",
+        "O C C",
+        "= C+C",
     ],
 )
 
 layouts.register_layout(
     "overcooked_counter_circuit_v0",
     [
-        "##########",
-        "#CCCUUCCC#",
-        "#C      C#",
-        "#= CCCC @#",
-        "#C      C#",
-        "#CCCOOCCC#",
-        "##########",
+        "CCCUUCCC",
+        "C      C",
+        "= CCCC @",
+        "C      C",
+        "CCCOOCCC",
     ],
 )
 
