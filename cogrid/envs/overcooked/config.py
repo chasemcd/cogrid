@@ -20,7 +20,7 @@ When an agent issues a PickupDrop action, ``process_interactions`` (in
 whether another agent is blocking it. It then calls
 ``overcooked_interaction_fn`` once per agent (lower index = higher priority).
 
-The interaction resolves to exactly one of seven mutually exclusive branches,
+The interaction resolves to exactly one of eight mutually exclusive branches,
 evaluated in strict priority order via an accumulated ``handled`` mask. Each
 branch checks ``~handled`` as its first condition term; if a prior branch
 already fired, all subsequent branches are suppressed. Adding a new branch
@@ -50,6 +50,13 @@ Decision tree (evaluated per agent per step):
              |                hand is empty
              |     effect:    produced item placed in agent inventory,
              |                stack remains on grid (infinite supply)
+             |
+             +-- Branch 2C: PICKUP FROM COUNTER
+             |     condition: forward cell is a counter (place-on target,
+             |                not pot/delivery), counter has item (state != 0),
+             |                hand is empty
+             |     effect:    item from object_state_map placed in inventory,
+             |                counter state cleared to 0
              |
              +-- Branch 3: DROP on empty cell
              |     condition: forward cell is empty (type 0), hand is not empty
@@ -241,7 +248,7 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
     ot_ = state.extra_state.get("overcooked.order_timer")
 
     # Delegate to the pure-array interaction body which evaluates all
-    # seven branches and returns the (possibly updated) arrays.
+    # eight branches and returns the (possibly updated) arrays.
     agent_inv, otm, osm, pot_contents, pot_timer, or_out, ot_out = overcooked_interaction_body(
         agent_idx,
         state.agent_inv,
@@ -865,6 +872,52 @@ def _branch_pickup_from_stack(handled, ctx):
     return cond, updates, handled | cond
 
 
+def _branch_pickup_from_counter(handled, ctx):
+    """Branch 2C: Pick up an item placed on a counter.
+
+    Items on counters are stored in ``object_state_map`` (not
+    ``object_type_map``), so the generic Branch 1 pickup cannot reach
+    them. This branch reads the state map value instead.
+
+    Preconditions (all must be True):
+        - ~handled: no prior branch has fired
+        - base_ok: agent is interacting and no agent ahead
+        - fwd_type > 0: forward cell is not empty
+        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
+        - fwd_type is NOT pot_id and NOT delivery_zone_id
+        - object_state_map[fwd_r, fwd_c] != 0: counter has an item
+        - inv_item == -1: agent's hand is empty
+
+    Effects when condition is True:
+        - agent_inv[agent_idx] = object_state_map[fwd_r, fwd_c]
+        - object_state_map[fwd_r, fwd_c] = 0  (counter cleared)
+
+    Example: Agent faces a counter holding an onion, hands empty.
+
+        BEFORE                            AFTER
+        +-------+---------+              +-------+---------+
+        | Agent | Counter |              | Agent | Counter |
+        | inv=- | state=o |   --->       | inv=o | state=0 |
+        +-------+---------+              +-------+---------+
+    """
+    fwd_type = ctx["fwd_type"]
+    is_generic = ~(fwd_type == ctx["pot_id"]) & ~(fwd_type == ctx["delivery_zone_id"])
+    counter_item = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]]
+    cond = (
+        ~handled
+        & ctx["base_ok"]
+        & (fwd_type > 0)
+        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
+        & is_generic
+        & (counter_item != 0)
+        & (ctx["inv_item"] == -1)
+    )
+    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), counter_item)
+    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
+    updates = {"agent_inv": inv, "object_state_map": osm}
+    return cond, updates, handled | cond
+
+
 def _branch_drop_on_empty(handled, ctx):
     """Branch 3: Drop held item onto an empty floor cell.
 
@@ -1101,11 +1154,8 @@ def _branch_place_on_counter(handled, ctx):
         - object_state_map[fwd_r, fwd_c] = inv_item  (item stored on counter)
         - agent_inv[agent_idx] = -1  (hand emptied)
 
-    Note: Picking up an item from a counter is handled by Branch 1 only
-    if the item is in object_type_map. Items stored in object_state_map
-    (on counters) have a separate pickup path via the rendering sync
-    and tick logic. In practice, counters use the state map as temporary
-    storage visible to features and rendering.
+    Note: Picking up an item from a counter is handled by Branch 2C
+    (``_branch_pickup_from_counter``), which reads from object_state_map.
 
     Example: Agent places an onion on an empty counter.
 
@@ -1144,6 +1194,7 @@ _BRANCHES = [
     _branch_pickup,
     _branch_pickup_from_pot,
     _branch_pickup_from_stack,
+    _branch_pickup_from_counter,
     _branch_drop_on_empty,
     _branch_place_on_pot,
     _branch_place_on_delivery,
@@ -1174,7 +1225,7 @@ def overcooked_interaction_body(
     order_recipe=None,  # (max_active,) int32 or None: active order recipe indices
     order_timer=None,  # (max_active,) int32 or None: active order timers
 ):
-    """Evaluate all seven interaction branches for one agent and merge results.
+    """Evaluate all eight interaction branches for one agent and merge results.
 
     This is the core dispatch function. It:
         1. Unpacks static lookup tables (type IDs, property arrays)
