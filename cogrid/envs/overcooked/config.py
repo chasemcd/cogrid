@@ -20,12 +20,16 @@ When an agent issues a PickupDrop action, ``process_interactions`` (in
 whether another agent is blocking it. It then calls
 ``overcooked_interaction_fn`` once per agent (lower index = higher priority).
 
-The interaction resolves to exactly one of eight mutually exclusive branches,
+The interaction resolves to exactly one of seven mutually exclusive branches,
 evaluated in strict priority order via an accumulated ``handled`` mask. Each
 branch checks ``~handled`` as its first condition term; if a prior branch
 already fired, all subsequent branches are suppressed. Adding a new branch
 means writing one ``(handled, ctx) -> (cond, updates, handled)`` function and
 appending it to the ``_BRANCHES`` list.
+
+Four generic branches are imported from ``cogrid.core.interactions``:
+pickup, pickup_from (unified stacks + counters), drop_on_empty, and place_on.
+Three Overcooked-specific branches handle pots and delivery zones.
 
 Decision tree (evaluated per agent per step):
 
@@ -35,7 +39,7 @@ Decision tree (evaluated per agent per step):
         |
         +-- Yes
              |
-             +-- Branch 1: PICKUP loose object
+             +-- Branch 1 (core): PICKUP loose object
              |     condition: forward cell has a pickupable object, hand is empty
              |     effect:    object moves from grid to agent inventory
              |
@@ -45,41 +49,29 @@ Decision tree (evaluated per agent per step):
              |     effect:    plate replaced with soup in inventory,
              |                pot contents/timer reset
              |
-             +-- Branch 2B: PICKUP FROM STACK (dispenser)
-             |     condition: forward cell is a stack (onion/tomato/plate),
-             |                hand is empty
-             |     effect:    produced item placed in agent inventory,
-             |                stack remains on grid (infinite supply)
+             +-- Branch 2B (core): PICKUP FROM (stacks + counters)
+             |     condition: forward cell is CAN_PICKUP_FROM, hand is empty,
+             |                stack produces something or counter has item
+             |     effect:    produced/stored item placed in agent inventory
              |
-             +-- Branch 2C: PICKUP FROM COUNTER
-             |     condition: forward cell is a counter (place-on target,
-             |                not pot/delivery), counter has item (state != 0),
-             |                hand is empty
-             |     effect:    item from object_state_map placed in inventory,
-             |                counter state cleared to 0
-             |
-             +-- Branch 3: DROP on empty cell
+             +-- Branch 3 (core): DROP on empty cell
              |     condition: forward cell is empty (type 0), hand is not empty
              |     effect:    held item placed on grid, inventory cleared
              |
-             +-- Branch 4 (place-on): agent holds an item, forward cell is
-             |   a "place-on" target (pot, delivery zone, or counter)
-             |     |
-             |     +-- 4A: PLACE ON POT
-             |     |     condition: forward cell is pot, held item is a legal
-             |     |                ingredient, pot has capacity, same ingredient type
-             |     |     effect:    item added to pot_contents, inventory cleared
-             |     |
-             |     +-- 4B: PLACE ON DELIVERY ZONE
-             |     |     condition: forward cell is delivery zone, held item is soup
-             |     |     effect:    soup removed from inventory (delivery scored
-             |     |                by the reward function, not here)
-             |     |
-             |     +-- 4C: PLACE ON COUNTER
-             |           condition: forward cell is a counter/generic place-on
-             |                      target (not pot, not delivery zone),
-             |                      counter cell is empty (state == 0)
-             |           effect:    item stored in object_state_map, inventory cleared
+             +-- Branch 4A: PLACE ON POT
+             |     condition: forward cell is pot, held item is a legal
+             |                ingredient, pot has capacity, recipe prefix match
+             |     effect:    item added to pot_contents, inventory cleared
+             |
+             +-- Branch 4B: PLACE ON DELIVERY ZONE
+             |     condition: forward cell is delivery zone, held item is
+             |                a recipe output (IS_DELIVERABLE)
+             |     effect:    soup removed from inventory
+             |
+             +-- Branch 4C (core): PLACE ON COUNTER
+             |     condition: forward cell is CAN_PLACE_ON, hand not empty,
+             |                surface is empty (state == 0)
+             |     effect:    item stored in object_state_map, inventory cleared
 
 
 Array layout (extra_state)
@@ -137,8 +129,13 @@ branch's result or the original.
 
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
-from cogrid.core.component_registry import get_all_components
 from cogrid.core.grid_object import get_object_names, object_to_idx
+from cogrid.core.interactions import (
+    branch_drop_on_empty,
+    branch_pickup,
+    branch_pickup_from,
+    branch_place_on,
+)
 
 
 def build_overcooked_extra_state(parsed_arrays, scope="overcooked", order_config=None):
@@ -292,62 +289,28 @@ def overcooked_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_con
 
 
 def _build_interaction_tables(scope: str = "overcooked") -> dict:
-    """Build pickup_from_produces and legal_pot_ingredients lookup arrays.
+    """Build Overcooked-specific interaction lookup arrays.
 
-    These are (n_types,) int32 arrays indexed by object type ID:
+    Returns ``legal_pot_ingredients`` -- a (n_types,) int32 array where
+    entry is 1 if the type can go in a pot, else 0.
 
-    - ``pickup_from_produces[type_id]``: what picking up from this type
-      produces (e.g. onion_stack -> onion). 0 means "not a pickup-from source".
-    - ``legal_pot_ingredients[type_id]``: 1 if this type can go in a pot, else 0.
+    Note: ``pickup_from_produces`` is now built generically by
+    ``build_lookup_tables`` in ``cogrid.core.grid_object_registry``.
     """
     names = get_object_names(scope=scope)
     n_types = len(names)
 
-    pickup_from_produces = xp.zeros(n_types, dtype=xp.int32)
     legal_pot_ingredients = xp.zeros(n_types, dtype=xp.int32)
 
     onion_id = object_to_idx("onion", scope=scope)
     tomato_id = object_to_idx("tomato", scope=scope)
-    plate_id = object_to_idx("plate", scope=scope)
-    pot_id = object_to_idx("pot", scope=scope)
-    onion_soup_id = object_to_idx("onion_soup", scope=scope)
-    tomato_soup_id = object_to_idx("tomato_soup", scope=scope)
-    counter_id = object_to_idx("counter", scope=scope)
-    delivery_zone_id = object_to_idx("delivery_zone", scope=scope)
-
-    # Stacks are infinite dispensers: picking up from a stack produces
-    # the corresponding loose item, but the stack itself stays on the grid.
-    # Built by scanning all components with a `produces` attribute.
-    for component_scope in [scope, "global"]:
-        for meta in get_all_components(component_scope):
-            produces = getattr(meta.cls, "produces", None)
-            if produces is not None and meta.properties.get("can_pickup_from", False):
-                stack_id = object_to_idx(meta.object_id, scope=scope)
-                produced_id = object_to_idx(produces, scope=scope)
-                pickup_from_produces = set_at(pickup_from_produces, stack_id, produced_id)
 
     # Only onions and tomatoes can go into a pot.
     legal_pot_ingredients = set_at(legal_pot_ingredients, onion_id, 1)
     legal_pot_ingredients = set_at(legal_pot_ingredients, tomato_id, 1)
 
-    type_ids = {
-        "onion": onion_id,
-        "tomato": tomato_id,
-        "plate": plate_id,
-        "pot": pot_id,
-        "onion_soup": onion_soup_id,
-        "tomato_soup": tomato_soup_id,
-        "onion_stack": object_to_idx("onion_stack", scope=scope),
-        "tomato_stack": object_to_idx("tomato_stack", scope=scope),
-        "plate_stack": object_to_idx("plate_stack", scope=scope),
-        "counter": counter_id,
-        "delivery_zone": delivery_zone_id,
-    }
-
     return {
-        "pickup_from_produces": pickup_from_produces,
         "legal_pot_ingredients": legal_pot_ingredients,
-        "type_ids": type_ids,
     }
 
 
@@ -694,65 +657,16 @@ def overcooked_tick_state(state, scope_config):
 
 
 # ======================================================================
-# Interaction branch functions
+# Overcooked-specific interaction branch functions
 # ======================================================================
 #
-# Each function evaluates ONE branch of the interaction decision tree.
-# All functions are pure: they take arrays, return arrays. No mutations.
+# Generic branches (pickup, pickup_from, drop_on_empty, place_on) are
+# imported from cogrid.core.interactions. Only Overcooked-specific
+# branches (pot pickup, pot place, delivery) are defined here.
 #
 # Uniform interface:
 #   (handled, ctx) -> (cond, updates, new_handled)
-#
-# Where:
-#   handled    -- bool scalar, True if a prior branch already fired
-#   ctx        -- dict of all shared arrays and static tables
-#   cond       -- bool scalar, True if this branch fires
-#   updates    -- dict with ONLY the arrays this branch modifies, using
-#                 keys: "agent_inv", "object_type_map", "object_state_map",
-#                 "pot_contents", "pot_timer"
-#   new_handled -- handled | cond
-#
-# Every function computes results unconditionally (no Python if/else)
-# so that JAX can trace through all branches. The condition is returned
-# alongside the results; the caller uses xp.where to select.
 # ======================================================================
-
-
-def _branch_pickup(handled, ctx):
-    """Branch 1: Pick up a loose object from the forward cell.
-
-    Preconditions (all must be True):
-        - ~handled: no prior branch has fired
-        - base_ok: agent is interacting and no agent ahead
-        - fwd_type > 0: forward cell is not empty
-        - CAN_PICKUP[fwd_type] == 1: the object type is pickupable
-        - inv_item == -1: agent's hand is empty
-
-    Effects when condition is True:
-        - agent_inv[agent_idx] = fwd_type  (object moves to inventory)
-        - object_type_map[fwd_r, fwd_c] = 0  (cell becomes empty)
-        - object_state_map[fwd_r, fwd_c] = 0  (cell state cleared)
-
-    Example: Agent faces a loose onion on the floor.
-
-        BEFORE                        AFTER
-        +-------+-------+            +-------+-------+
-        | Agent |  (o)  |            | Agent |       |
-        | inv=- | onion |   --->     | inv=o | empty |
-        +-------+-------+            +-------+-------+
-    """
-    cond = (
-        ~handled
-        & ctx["base_ok"]
-        & (ctx["fwd_type"] > 0)
-        & (ctx["CAN_PICKUP"][ctx["fwd_type"]] == 1)
-        & (ctx["inv_item"] == -1)
-    )
-    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), ctx["fwd_type"])
-    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
-    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
-    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
-    return cond, updates, handled | cond
 
 
 def _branch_pickup_from_pot(handled, ctx):
@@ -827,135 +741,12 @@ def _branch_pickup_from_pot(handled, ctx):
     return cond, updates, handled | cond
 
 
-def _branch_pickup_from_stack(handled, ctx):
-    """Branch 2B: Pick up a produced item from an infinite dispenser stack.
-
-    Stacks are objects with CAN_PICKUP_FROM=1 that produce a different
-    item type when picked from (e.g. onion_stack produces onion). The
-    stack itself remains on the grid (infinite supply).
-
-    Pots also have CAN_PICKUP_FROM=1 but are handled separately in
-    Branch 2A, so we explicitly exclude pots here.
-
-    Preconditions (all must be True):
-        - ~handled: no prior branch has fired
-        - base_ok: agent is interacting and no agent ahead
-        - fwd_type is NOT a pot
-        - CAN_PICKUP_FROM[fwd_type] == 1: forward cell is a pickup-from source
-        - inv_item == -1: agent's hand is empty
-        - pickup_from_produces[fwd_type] > 0: stack actually produces something
-
-    Effects when condition is True:
-        - agent_inv[agent_idx] = produced item type ID
-        - Grid is unchanged (stack stays)
-
-    Lookup:
-        pickup_from_produces[onion_stack_id]  = onion_id
-        pickup_from_produces[tomato_stack_id] = tomato_id
-        pickup_from_produces[plate_stack_id]  = plate_id
-
-    Example: Agent faces an onion stack with empty hands.
-
-        BEFORE                        AFTER
-        +-------+-------+            +-------+-------+
-        | Agent | Stack |            | Agent | Stack |
-        | inv=- |  OOO  |   --->     | inv=o |  OOO  |  (stack unchanged)
-        +-------+-------+            +-------+-------+
-    """
-    fwd_type = ctx["fwd_type"]
-    # Exclude pots (they have CAN_PICKUP_FROM=1 but use Branch 2A)
-    is_stack = ~(fwd_type == ctx["pot_id"]) & (ctx["CAN_PICKUP_FROM"][fwd_type] == 1)
-    produced = ctx["pickup_from_produces"][fwd_type]
-    cond = ~handled & ctx["base_ok"] & is_stack & (ctx["inv_item"] == -1) & (produced > 0)
-    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), produced)
-    updates = {"agent_inv": inv}
-    return cond, updates, handled | cond
-
-
-def _branch_pickup_from_counter(handled, ctx):
-    """Branch 2C: Pick up an item placed on a counter.
-
-    Items on counters are stored in ``object_state_map`` (not
-    ``object_type_map``), so the generic Branch 1 pickup cannot reach
-    them. This branch reads the state map value instead.
-
-    Preconditions (all must be True):
-        - ~handled: no prior branch has fired
-        - base_ok: agent is interacting and no agent ahead
-        - fwd_type > 0: forward cell is not empty
-        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
-        - fwd_type is NOT pot_id and NOT delivery_zone_id
-        - object_state_map[fwd_r, fwd_c] != 0: counter has an item
-        - inv_item == -1: agent's hand is empty
-
-    Effects when condition is True:
-        - agent_inv[agent_idx] = object_state_map[fwd_r, fwd_c]
-        - object_state_map[fwd_r, fwd_c] = 0  (counter cleared)
-
-    Example: Agent faces a counter holding an onion, hands empty.
-
-        BEFORE                            AFTER
-        +-------+---------+              +-------+---------+
-        | Agent | Counter |              | Agent | Counter |
-        | inv=- | state=o |   --->       | inv=o | state=0 |
-        +-------+---------+              +-------+---------+
-    """
-    fwd_type = ctx["fwd_type"]
-    is_generic = ~(fwd_type == ctx["pot_id"]) & ~(fwd_type == ctx["delivery_zone_id"])
-    counter_item = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]]
-    cond = (
-        ~handled
-        & ctx["base_ok"]
-        & (fwd_type > 0)
-        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
-        & is_generic
-        & (counter_item != 0)
-        & (ctx["inv_item"] == -1)
-    )
-    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), counter_item)
-    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
-    updates = {"agent_inv": inv, "object_state_map": osm}
-    return cond, updates, handled | cond
-
-
-def _branch_drop_on_empty(handled, ctx):
-    """Branch 3: Drop held item onto an empty floor cell.
-
-    Preconditions (all must be True):
-        - ~handled: no prior branch has fired
-        - base_ok: agent is interacting and no agent ahead
-        - fwd_type == 0: forward cell is empty (no object)
-        - inv_item != -1: agent is holding something
-
-    Effects when condition is True:
-        - object_type_map[fwd_r, fwd_c] = inv_item  (item appears on grid)
-        - object_state_map[fwd_r, fwd_c] = 0  (fresh state)
-        - agent_inv[agent_idx] = -1  (hand emptied)
-
-    Example: Agent holds an onion, faces an empty cell.
-
-        BEFORE                        AFTER
-        +-------+-------+            +-------+-------+
-        | Agent | empty |            | Agent |  (o)  |
-        | inv=o |       |   --->     | inv=- | onion |
-        +-------+-------+            +-------+-------+
-    """
-    cond = ~handled & ctx["base_ok"] & (ctx["fwd_type"] == 0) & (ctx["inv_item"] != -1)
-    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], ctx["inv_item"])
-    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
-    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
-    updates = {"agent_inv": inv, "object_type_map": otm, "object_state_map": osm}
-    return cond, updates, handled | cond
-
-
 def _branch_place_on_pot(handled, ctx):
     """Branch 4A: Place an ingredient into a pot using recipe prefix matching.
 
     Preconditions (all must be True):
         - ~handled: no prior branch has fired
         - base_ok: agent is interacting and no agent ahead
-        - fwd_type > 0: forward cell is not empty
-        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
         - inv_item != -1: agent is holding something
         - fwd_type == pot_id: forward cell is specifically a pot
         - has_pot_match: pot found in pot_positions array
@@ -1020,8 +811,6 @@ def _branch_place_on_pot(handled, ctx):
     cond = (
         ~handled
         & ctx["base_ok"]
-        & (fwd_type > 0)
-        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
         & (inv_item != -1)
         & is_pot
         & ctx["has_pot_match"]
@@ -1060,8 +849,6 @@ def _branch_place_on_delivery(handled, ctx):
     Preconditions (all must be True):
         - ~handled: no prior branch has fired
         - base_ok: agent is interacting and no agent ahead
-        - fwd_type > 0: forward cell is not empty
-        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
         - inv_item != -1: agent is holding something
         - fwd_type == delivery_zone_id: forward cell is a delivery zone
         - IS_DELIVERABLE[inv_item] == 1: held item is a recipe output
@@ -1082,15 +869,7 @@ def _branch_place_on_delivery(handled, ctx):
 
     is_dz = fwd_type == ctx["delivery_zone_id"]
     is_deliverable = ctx["IS_DELIVERABLE"][inv_item] == 1
-    cond = (
-        ~handled
-        & ctx["base_ok"]
-        & (fwd_type > 0)
-        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
-        & (inv_item != -1)
-        & is_dz
-        & is_deliverable
-    )
+    cond = ~handled & ctx["base_ok"] & (inv_item != -1) & is_dz & is_deliverable
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
     updates = {"agent_inv": inv}
 
@@ -1129,76 +908,18 @@ def _branch_place_on_delivery(handled, ctx):
     return cond, updates, handled | cond
 
 
-def _branch_place_on_counter(handled, ctx):
-    """Branch 4C: Place a held item on a counter (generic place-on target).
-
-    Counters store placed items in ``object_state_map`` rather than
-    ``object_type_map`` -- the counter object itself stays in the type
-    map, and the placed item's type ID is written into the state map.
-    This means a counter can hold at most one item (state != 0 means
-    occupied).
-
-    This branch is the catch-all for place-on targets that are NOT
-    pots and NOT delivery zones.
-
-    Preconditions (all must be True):
-        - ~handled: no prior branch has fired
-        - base_ok: agent is interacting and no agent ahead
-        - fwd_type > 0: forward cell is not empty
-        - CAN_PLACE_ON[fwd_type] == 1: forward cell is a place-on target
-        - inv_item != -1: agent is holding something
-        - fwd_type is NOT pot_id and NOT delivery_zone_id
-        - object_state_map[fwd_r, fwd_c] == 0: counter is empty
-
-    Effects when condition is True:
-        - object_state_map[fwd_r, fwd_c] = inv_item  (item stored on counter)
-        - agent_inv[agent_idx] = -1  (hand emptied)
-
-    Note: Picking up an item from a counter is handled by Branch 2C
-    (``_branch_pickup_from_counter``), which reads from object_state_map.
-
-    Example: Agent places an onion on an empty counter.
-
-        BEFORE                            AFTER
-        +-------+---------+              +-------+---------+
-        | Agent | Counter |              | Agent | Counter |
-        | inv=o | state=0 |   --->       | inv=- | state=o |
-        +-------+---------+              +-------+---------+
-    """
-    fwd_type = ctx["fwd_type"]
-    inv_item = ctx["inv_item"]
-
-    # Exclude pots and delivery zones (they have their own branches)
-    is_generic = ~(fwd_type == ctx["pot_id"]) & ~(fwd_type == ctx["delivery_zone_id"])
-    counter_empty = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]] == 0
-    cond = (
-        ~handled
-        & ctx["base_ok"]
-        & (fwd_type > 0)
-        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
-        & (inv_item != -1)
-        & is_generic
-        & counter_empty
-    )
-    osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], inv_item)
-    inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
-    updates = {"agent_inv": inv, "object_state_map": osm}
-    return cond, updates, handled | cond
-
-
 # ======================================================================
 # Branch list (priority order)
 # ======================================================================
 
 _BRANCHES = [
-    _branch_pickup,
-    _branch_pickup_from_pot,
-    _branch_pickup_from_stack,
-    _branch_pickup_from_counter,
-    _branch_drop_on_empty,
-    _branch_place_on_pot,
-    _branch_place_on_delivery,
-    _branch_place_on_counter,
+    branch_pickup,  # core: loose object
+    _branch_pickup_from_pot,  # Overcooked: cooked soup from pot
+    branch_pickup_from,  # core: stacks + counters
+    branch_drop_on_empty,  # core: empty cell
+    _branch_place_on_pot,  # Overcooked: ingredient into pot
+    _branch_place_on_delivery,  # Overcooked: soup at delivery zone
+    branch_place_on,  # core: counter/surface
 ]
 
 
@@ -1225,7 +946,7 @@ def overcooked_interaction_body(
     order_recipe=None,  # (max_active,) int32 or None: active order recipe indices
     order_timer=None,  # (max_active,) int32 or None: active order timers
 ):
-    """Evaluate all eight interaction branches for one agent and merge results.
+    """Evaluate all seven interaction branches for one agent and merge results.
 
     This is the core dispatch function. It:
         1. Unpacks static lookup tables (type IDs, property arrays)
@@ -1379,12 +1100,12 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None, order_tab
     1. Property arrays -- (n_types,) int32 arrays indexed by type ID.
        Built by ``build_lookup_tables`` from @register_object_type metadata.
          - CAN_PICKUP: 1 for onion, tomato, plate, onion_soup, tomato_soup
-         - CAN_PICKUP_FROM: 1 for onion_stack, tomato_stack, plate_stack, pot
-         - CAN_PLACE_ON: 1 for pot, delivery_zone, counter
+         - CAN_PICKUP_FROM: 1 for onion_stack, tomato_stack, plate_stack, counter
+         - CAN_PLACE_ON: 1 for counter
+         - pickup_from_produces: maps stack type -> produced type
 
     2. Interaction tables -- (n_types,) int32 arrays for Overcooked-specific
        rules. Built by ``_build_interaction_tables``.
-         - pickup_from_produces: maps stack type -> produced type
          - legal_pot_ingredients: 1 for onion and tomato
 
     3. Scalar type IDs -- int constants for direct comparison.
@@ -1417,7 +1138,7 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None, order_tab
         "CAN_PICKUP": lookup["CAN_PICKUP"],
         "CAN_PICKUP_FROM": lookup["CAN_PICKUP_FROM"],
         "CAN_PLACE_ON": lookup["CAN_PLACE_ON"],
-        "pickup_from_produces": itables["pickup_from_produces"],
+        "pickup_from_produces": lookup["pickup_from_produces"],
         "legal_pot_ingredients": (
             recipe_tables["legal_pot_ingredients"]
             if recipe_tables is not None

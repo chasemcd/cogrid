@@ -57,7 +57,7 @@ class Floor(GridObj):
         return True
 
 
-@register_object_type("counter", can_place_on=True)
+@register_object_type("counter", can_place_on=True, can_pickup_from=True)
 class Counter(GridObj):
     """A counter surface that can hold one object on top."""
 

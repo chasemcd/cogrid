@@ -114,7 +114,7 @@ class TomatoStack(_BaseStack):
     produces = "tomato"
 
 
-@register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
+@register_object_type("pot", scope="overcooked")
 class Pot(grid_object.GridObj):
     """A cooking pot that accepts ingredients and produces soup."""
 
@@ -420,7 +420,7 @@ class Plate(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
 
 
-@register_object_type("delivery_zone", scope="overcooked", can_place_on=True)
+@register_object_type("delivery_zone", scope="overcooked")
 class DeliveryZone(grid_object.GridObj):
     """A zone where agents deliver completed soups for reward."""
 

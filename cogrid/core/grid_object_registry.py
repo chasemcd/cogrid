@@ -220,6 +220,21 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
             if props.get(prop_name, False):
                 tables[table_key] = set_at(tables[table_key], idx, 1)
 
+    # Build pickup_from_produces: maps stack/dispenser type -> produced type.
+    # Scans all components with a `produces` class attribute AND can_pickup_from=True.
+    pickup_from_produces = xp.zeros(n_types, dtype=xp.int32)
+    from cogrid.core.component_registry import get_all_components
+
+    for component_scope in [scope, "global"]:
+        for meta in get_all_components(component_scope):
+            produced_name = getattr(meta.cls, "produces", None)
+            if produced_name is not None and meta.properties.get("can_pickup_from", False):
+                stack_idx = object_to_idx(meta.object_id, scope=scope)
+                if produced_name in type_names:
+                    produced_idx = type_names.index(produced_name)
+                    pickup_from_produces = set_at(pickup_from_produces, stack_idx, produced_idx)
+    tables["pickup_from_produces"] = pickup_from_produces
+
     return tables
 
 
