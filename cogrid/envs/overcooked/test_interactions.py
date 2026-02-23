@@ -1223,10 +1223,10 @@ def test_pickup_from_produces_config_driven():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.config import _build_interaction_tables
+    from cogrid.core.grid_object_registry import build_lookup_tables
 
     scope = "overcooked"
-    tables = _build_interaction_tables(scope)
+    tables = build_lookup_tables(scope)
     pfp = tables["pickup_from_produces"]
 
     onion_stack_id = object_to_idx("onion_stack", scope=scope)
@@ -1272,7 +1272,7 @@ def test_stack_subclasses_are_thin():
         assert issubclass(cls, _BaseStack), f"{cls.__name__} should extend _BaseStack"
 
         # Verify NO method overrides in the subclass __dict__
-        for method_name in ("can_pickup_from", "pick_up_from", "render"):
+        for method_name in ("pick_up_from", "render"):
             assert method_name not in cls.__dict__, (
                 f"{cls.__name__} should NOT define its own {method_name}"
             )
@@ -1295,7 +1295,7 @@ def test_factory_registers_new_types():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
-    from cogrid.envs.overcooked.config import _build_interaction_tables
+    from cogrid.core.grid_object_registry import build_lookup_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
 
     scope = "overcooked"
@@ -1317,7 +1317,7 @@ def test_factory_registers_new_types():
     )
 
     # Build tables AFTER factory call and verify scan picks it up
-    tables = _build_interaction_tables(scope)
+    tables = build_lookup_tables(scope)
     pfp = tables["pickup_from_produces"]
     mushroom_stack_id = object_to_idx("test_mushroom_stack", scope=scope)
     mushroom_id = object_to_idx("test_mushroom", scope=scope)
@@ -1336,7 +1336,7 @@ def test_factory_stack_dispenses_item():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
-    from cogrid.envs.overcooked.config import _build_interaction_tables
+    from cogrid.core.grid_object_registry import build_lookup_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
 
     scope = "overcooked"
@@ -1348,14 +1348,14 @@ def test_factory_stack_dispenses_item():
 
     # Object-level check
     stack = make_object("test_mushroom_stack", scope=scope)
-    assert stack.can_pickup_from(None) is True, "Stack should allow pickup"
+    assert stack.can_pickup_from, "Stack should allow pickup"
     item = stack.pick_up_from(None)
     assert item.object_id == "test_mushroom", (
         f"Dispensed item should be test_mushroom, got {item.object_id}"
     )
 
     # Branch 2B integration check: rebuild tables and verify entry
-    tables = _build_interaction_tables(scope)
+    tables = build_lookup_tables(scope)
     pfp = tables["pickup_from_produces"]
     mushroom_stack_id = object_to_idx("test_mushroom_stack", scope=scope)
     mushroom_id = object_to_idx("test_mushroom", scope=scope)

@@ -79,24 +79,28 @@ def register_object(object_id: str, obj_class: GridObj, scope: str = "global") -
     OBJECT_REGISTRY[scope][object_id] = obj_class
 
 
+_CAPABILITY_ATTRS = frozenset({"can_pickup", "can_overlap", "can_place_on", "can_pickup_from", "is_wall"})
+
+
 def register_object_type(
     object_id: str,
     scope: str = "global",
-    can_pickup: bool = False,
-    can_overlap: bool = False,
-    can_place_on: bool = False,
-    can_pickup_from: bool = False,
-    is_wall: bool = False,
 ):
     """Register a GridObj subclass with static property metadata.
 
     Stores boolean properties for ``build_lookup_tables()`` and
     auto-discovers component classmethods (tick, interaction, etc.).
 
-    Usage::
+    Capabilities are declared as class attributes using :func:`when`
+    descriptors or plain ``True``::
 
-        @register_object_type("wall", is_wall=True)
-        class Wall(GridObj): ...
+        @register_object_type("onion", scope="overcooked")
+        class Onion(GridObj):
+            can_pickup = when()
+
+        @register_object_type("wall")
+        class Wall(GridObj):
+            is_wall = True
     """
 
     def decorator(cls):
@@ -107,13 +111,18 @@ def register_object_type(
             register_component_metadata,
         )
 
-        properties = {
-            "can_pickup": can_pickup,
-            "can_overlap": can_overlap,
-            "can_place_on": can_place_on,
-            "can_pickup_from": can_pickup_from,
-            "is_wall": is_wall,
-        }
+        from cogrid.core.when import When
+
+        # Scan class for capability attributes (When instances or plain bool True)
+        properties = {}
+        for attr in _CAPABILITY_ATTRS:
+            val = getattr(cls, attr, None)
+            if isinstance(val, When):
+                properties[attr] = True
+            elif val is True:
+                properties[attr] = True
+            else:
+                properties[attr] = False
 
         # Store static properties for lookup table generation
         _OBJECT_TYPE_PROPERTIES[(scope, object_id)] = properties

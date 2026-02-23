@@ -429,15 +429,13 @@ def test_existing_objects_backward_compat():
 # ---------------------------------------------------------------------------
 
 
-def test_old_register_object_no_metadata():
-    """Search rescue objects (old-style register_object) return None from metadata query."""
-    # Ensure search_rescue objects are imported / registered
+def test_search_rescue_objects_have_metadata():
+    """Search rescue objects registered via @register_object_type have metadata."""
     from cogrid.envs.search_rescue import search_rescue_grid_objects  # noqa: F401
 
     meta = get_component_metadata("medkit", scope="search_rescue")
-    assert meta is None, (
-        "Old-style register_object() classes should not appear in ComponentMetadata"
-    )
+    assert meta is not None, "medkit should have ComponentMetadata"
+    assert meta.properties.get("can_pickup") is True
 
     meta2 = get_component_metadata("rubble", scope="search_rescue")
-    assert meta2 is None
+    assert meta2 is not None, "rubble should have ComponentMetadata"

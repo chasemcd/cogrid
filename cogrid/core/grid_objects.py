@@ -14,6 +14,7 @@ from cogrid.core.grid_object_registry import (
     make_object,
     register_object_type,
 )
+from cogrid.core.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
@@ -21,13 +22,14 @@ from cogrid.visualization.rendering import (
 )
 
 
-@register_object_type("wall", is_wall=True)
+@register_object_type("wall")
 class Wall(GridObj):
     """An impassable wall tile."""
 
     object_id = "wall"
     color = constants.Colors.Grey
     char = "#"
+    is_wall = True
 
     def __init__(self, *args, **kwargs):
         """Initialize wall with default state."""
@@ -38,13 +40,14 @@ class Wall(GridObj):
         return False
 
 
-@register_object_type("floor", can_overlap=True)
+@register_object_type("floor")
 class Floor(GridObj):
     """An empty floor tile that agents can walk over."""
 
     object_id = "floor"
     color = constants.Colors.PaleBlue
     char = GridConstants.FreeSpace
+    can_overlap = when()
 
     def __init__(self, **kwargs):
         """Initialize floor with default state."""
@@ -52,28 +55,22 @@ class Floor(GridObj):
             state=0,
         )
 
-    def can_overlap(self) -> bool:
-        """Return True; agents can walk over floor tiles."""
-        return True
 
-
-@register_object_type("counter", can_place_on=True, can_pickup_from=True)
+@register_object_type("counter")
 class Counter(GridObj):
     """A counter surface that can hold one object on top."""
 
     object_id = "counter"
     color = constants.Colors.LightBrown
     char = "C"
+    can_place_on = when()
+    can_pickup_from = when()
 
     def __init__(self, state: int = 0, **kwargs):
         """Initialize counter with given state."""
         super().__init__(
             state=state,
         )
-
-    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        """True when the counter has no object on it."""
-        return self.obj_placed_on is None
 
     def render(self, tile_img):
         """Draw counter and any object placed on it."""
@@ -106,21 +103,18 @@ class Counter(GridObj):
         return counter_render_sync
 
 
-@register_object_type("key", can_pickup=True)
+@register_object_type("key")
 class Key(GridObj):
     """A key that can be picked up to unlock doors."""
 
     object_id = "key"
     color = constants.Colors.Yellow
     char = "K"
+    can_pickup = when()
 
     def __init__(self, state=0):
         """Initialize key with given state."""
         super().__init__(state=state)
-
-    def can_pickup(self, agent: GridAgent):
-        """Return True; keys are always pickable."""
-        return True
 
     def render(self, tile_img):
         """Draw key icon with ring and teeth."""
@@ -149,10 +143,6 @@ class Door(GridObj):
         super().__init__(state=state)
         self.is_open = state == 2
         self.is_locked = state == 0
-
-    def can_overlap(self, agent: GridAgent) -> bool:
-        """The agent can only walk over this cell when the door is open."""
-        return self.is_open
 
     def see_behind(self, agent: GridAgent) -> bool:
         """Return True only when the door is open."""

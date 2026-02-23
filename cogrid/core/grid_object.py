@@ -36,6 +36,7 @@ from cogrid.core.grid_object_registry import (  # noqa: F401
     register_object,
     register_object_type,
 )
+from cogrid.core.when import When, when  # noqa: F401
 from cogrid.core.grid_objects import (  # noqa: F401
     Counter,
     Door,
@@ -66,6 +67,9 @@ __all__ = [
     "get_object_names",
     "object_to_idx",
     "idx_to_object",
+    # When descriptor
+    "When",
+    "when",
     # Concrete objects
     "Wall",
     "Floor",

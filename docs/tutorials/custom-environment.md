@@ -91,38 +91,37 @@ Each object on the grid is a `GridObj` subclass registered with the
 - `char`: Single ASCII character for layout strings. Must be unique within
   the scope.
 
-**Decorator parameters** declare static interaction properties that the engine
-uses to build lookup tables:
+**Capability class attributes** declare static interaction properties that
+the engine uses to build lookup tables. Use the `when()` descriptor (or
+plain `True` for `is_wall`) as a class attribute:
 
-```python
-@register_object_type(
-    object_id: str,
-    scope: str = "global",       # Namespace for this object
-    can_pickup: bool = False,     # Agent can pick this up (removes from grid)
-    can_overlap: bool = False,    # Agent can walk onto this cell
-    can_place_on: bool = False,   # Agent can place held item onto this
-    can_pickup_from: bool = False,# Agent can take an item from this (it stays)
-    is_wall: bool = False,        # Blocks movement
-)
-```
+| Attribute | Meaning |
+|-----------|---------|
+| `can_pickup = when()` | Agent can pick this up (removes from grid) |
+| `can_overlap = when()` | Agent can walk onto this cell |
+| `can_place_on = when()` | Agent can place held item onto this |
+| `can_pickup_from = when()` | Agent can take an item from this (it stays) |
+| `is_wall = True` | Blocks movement |
 
-The `scope` parameter namespaces your objects so their `char` and
-`object_id` values don't collide with objects from other environments.
-Choose a unique scope string for your environment (e.g., `"my_env"`).
+The `scope` parameter on the decorator namespaces your objects so their
+`char` and `object_id` values don't collide with objects from other
+environments. Choose a unique scope string for your environment (e.g.,
+`"my_env"`).
 
 **Overcooked example** -- a simple pickupable object:
 
 ```python
 # my_env/grid_objects.py
 from cogrid.core import grid_object, constants
-from cogrid.core.grid_object import register_object_type
+from cogrid.core.grid_object import register_object_type, when
 from cogrid.visualization.rendering import fill_coords, point_in_circle
 
-@register_object_type("onion", scope="overcooked", can_pickup=True)
+@register_object_type("onion", scope="overcooked")
 class Onion(grid_object.GridObj):
     object_id = "onion"
     color = constants.Colors.Yellow
     char = "o"
+    can_pickup = when()
 
     def render(self, tile_img):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
@@ -132,14 +131,12 @@ class Onion(grid_object.GridObj):
 receives a new item):
 
 ```python
-@register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
+@register_object_type("onion_stack", scope="overcooked")
 class OnionStack(grid_object.GridObj):
     object_id = "onion_stack"
     color = constants.Colors.Yellow
     char = "O"
-
-    def can_pickup_from(self, agent):
-        return True
+    can_pickup_from = when()
 
     def pick_up_from(self, agent):
         return Onion()  # Creates a new Onion each time
@@ -153,13 +150,13 @@ class OnionStack(grid_object.GridObj):
 classmethod does:
 
 ```python
-@register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
+@register_object_type("pot", scope="overcooked")
 class Pot(grid_object.GridObj):
     object_id = "pot"
     color = constants.Colors.Grey
     char = "U"
 
-    # ... OOP methods for rendering, can_place_on, etc. ...
+    # ... OOP methods for rendering, etc. ...
 
     @classmethod
     def build_tick_fn(cls):
@@ -592,23 +589,14 @@ in a dedicated setup module -- just make sure it runs before you call
 ## Step 9: Custom Agent Class (optional)
 
 The base `Agent` class handles movement, inventory, and direction. Subclass
-it only if you need custom `can_pickup` logic or additional agent state.
+it only if you need additional agent state (e.g., role tracking).
 
 ```python
 # my_env/agent.py
 from cogrid.core.agent import Agent
-from my_env import grid_objects
 
 class MyAgent(Agent):
-    def can_pickup(self, grid_object):
-        # Example: can only pick up from a Pot if holding a Plate
-        if isinstance(grid_object, grid_objects.Pot) and any(
-            isinstance(inv_obj, grid_objects.Plate)
-            for inv_obj in self.inventory
-        ):
-            return True
-
-        return len(self.inventory) < self.inventory_capacity
+    """Agent subclass with role support."""
 ```
 
 Pass the custom agent class via the `agent_class` parameter when registering
