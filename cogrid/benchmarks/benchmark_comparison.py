@@ -11,6 +11,7 @@ Run:
     python -m cogrid.benchmarks.benchmark_comparison
 """
 
+import math
 import statistics
 import time
 
@@ -33,6 +34,18 @@ SEED = 42
 def _fmt(steps_per_sec):
     """Format steps/sec with commas."""
     return f"{steps_per_sec:>12,.0f}"
+
+
+def _se(trials):
+    """Standard error of the mean."""
+    if len(trials) < 2:
+        return 0.0
+    return statistics.stdev(trials) / math.sqrt(len(trials))
+
+
+def _fmt_with_se(median, se):
+    """Format as 'median ± SE steps/sec'."""
+    return f"{median:>12,.0f} ± {se:>8,.0f}"
 
 
 def _run_trials(run_one_trial, n_trials=N_TRIALS):
@@ -132,7 +145,9 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     if batch_size == 1:
         jit_step = jax.jit(step_fn)
         jit_reset = jax.jit(reset_fn)
-        actions = jax.device_put(jnp.full((n_agents,), 6, dtype=jnp.int32), device)
+        actions = jax.device_put(
+            jnp.full((n_agents,), 6, dtype=jnp.int32), device
+        )
         key = jax.device_put(jax.random.key(SEED), device)
 
         # warmup (includes JIT compilation)
@@ -150,10 +165,13 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
                 s, *_ = jit_step(s, actions)
             s.agent_pos.block_until_ready()
             return n_steps / (time.perf_counter() - t0)
+
     else:
         v_step = jax.jit(jax.vmap(step_fn))
         v_reset = jax.jit(jax.vmap(reset_fn))
-        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
+        keys = jax.device_put(
+            jax.random.split(jax.random.key(0), batch_size), device
+        )
         batch_actions = jax.device_put(
             jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device
         )
@@ -219,6 +237,7 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
                 obs, st, *_ = step_jit(k_step, st, noop_actions)
             jax.tree.map(lambda x: x.block_until_ready(), obs)
             return n_steps / (time.perf_counter() - t0)
+
     else:
         v_reset = jax.jit(jax.vmap(env.reset))
         v_step = jax.jit(jax.vmap(env.step))
@@ -230,7 +249,9 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
         }
 
         # warmup
-        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
+        keys = jax.device_put(
+            jax.random.split(jax.random.key(0), batch_size), device
+        )
         obs, states = v_reset(keys)
         jax.tree.map(lambda x: x.block_until_ready(), obs)
         step_keys = jax.device_put(
@@ -299,8 +320,9 @@ def run_scaling_benchmark():
         try:
             trials = fn()
             med = statistics.median(trials)
+            se = _se(trials)
             results[key] = med
-            print(f"    {label + ':':<20s}{_fmt(med)} steps/sec")
+            print(f"    {label + ':':<20s}{_fmt_with_se(med, se)} steps/sec")
         except Exception as e:
             print(f"    {label + ':':<20s} SKIPPED ({type(e).__name__}: {e})")
     print()
@@ -317,7 +339,7 @@ def run_scaling_benchmark():
         # header
         header = f"  {'Batch':>10s}"
         for name in dev_names:
-            header += f"   {name.upper() + ' steps/s':>16s}"
+            header += f"   {name.upper() + ' steps/s':>24s}"
         print(header)
 
         for bs in BATCH_SIZES:
@@ -328,11 +350,12 @@ def run_scaling_benchmark():
                 try:
                     trials = bench_fn(bs, dev)
                     med = statistics.median(trials)
+                    se = _se(trials)
                     results[lib_key][dev_name][bs] = med
-                    row += f"   {_fmt(med)}"
+                    row += f"   {_fmt_with_se(med, se)}"
                 except Exception as e:
                     results[lib_key][dev_name][bs] = None
-                    row += f"   {'SKIP':>16s}"
+                    row += f"   {'SKIP':>24s}"
 
             print(row)
 
@@ -346,7 +369,9 @@ def run_scaling_benchmark():
 # ===================================================================
 
 
-def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png"):
+def plot_scaling(
+    results, output_path="cogrid/benchmarks/scaling_benchmark.png"
+):
     import matplotlib.pyplot as plt
 
     batch_sizes = results["batch_sizes"]
@@ -356,13 +381,13 @@ def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png")
 
     # Color families: CoGrid = blues, JaxMARL/overcooked_ai = oranges.
     # CPU vs GPU distinguished by marker shape and linestyle.
-    COGRID_DARK = "#1a5fb4"   # dark blue  — JAX GPU
-    COGRID_MED = "#4a90d9"    # mid blue   — JAX CPU
+    COGRID_DARK = "#1a5fb4"  # dark blue  — JAX GPU
+    COGRID_MED = "#4a90d9"  # mid blue   — JAX CPU
     COGRID_LIGHT = "#99c1f1"  # light blue — NumPy baseline
 
     JAXMARL_DARK = "#c64600"  # dark orange — JAX GPU
-    JAXMARL_MED = "#e5841a"   # mid orange  — JAX CPU
-    JAXMARL_LIGHT = "#f9b97a" # light orange — overcooked_ai baseline
+    JAXMARL_MED = "#e5841a"  # mid orange  — JAX CPU
+    JAXMARL_LIGHT = "#f9b97a"  # light orange — overcooked_ai baseline
 
     styles = [
         ("cogrid_jax", "cpu", "CoGrid JAX (CPU)", COGRID_MED, "o", "-"),
@@ -380,20 +405,27 @@ def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png")
         ys = [data[bs] for bs in xs]
         if xs:
             ax.plot(
-                xs, ys,
-                linestyle=ls, color=color, marker=marker, markersize=6,
-                label=label, linewidth=2,
+                xs,
+                ys,
+                linestyle=ls,
+                color=color,
+                marker=marker,
+                markersize=6,
+                label=label,
+                linewidth=2,
             )
 
     # numpy reference lines — same color families, lighter shades
     baselines = [
         ("cogrid_numpy", "CoGrid NumPy", COGRID_LIGHT),
-        ("overcooked_ai", "overcooked_ai", JAXMARL_LIGHT),
+        ("overcooked_ai", "Overcooked-AI", JAXMARL_LIGHT),
     ]
     for key, label, color in baselines:
         val = results.get(key)
         if val is not None:
-            ax.axhline(val, color=color, linestyle="-", linewidth=2.5, label=label)
+            ax.axhline(
+                val, color=color, linestyle="-", linewidth=2.5, label=label
+            )
 
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
@@ -411,6 +443,77 @@ def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png")
     plt.close(fig)
 
 
+def plot_scaling_pub(
+    results, output_path="cogrid/benchmarks/scaling_benchmark_pub.png"
+):
+    """Publication-ready plot: GPU-only JAX lines, transparent background."""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(
+        context="paper", style="whitegrid", palette="muted",
+        font="sans-serif", font_scale=1.2,
+    )
+
+    batch_sizes = results["batch_sizes"]
+    x_min, x_max = batch_sizes[0], batch_sizes[-1]
+
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
+
+    COGRID_JAX = "darkblue"
+    JAXMARL_JAX = "darkorange"
+    OVERCOOKED_AI = "darkred"
+    COGRID_NUMPY = "steelblue"
+
+    # --- JAX GPU lines (plotted first so legend order is set below) ---
+    gpu_data = results["cogrid_jax"].get("gpu", {})
+    xs = [bs for bs in batch_sizes if gpu_data.get(bs) is not None]
+    ys = [gpu_data[bs] for bs in xs]
+    if xs:
+        ax.plot(
+            xs, ys, linestyle="-", color=COGRID_JAX, marker="o",
+            markersize=6, linewidth=2, label="CoGrid (JAX)",
+        )
+
+    gpu_data = results["jaxmarl"].get("gpu", {})
+    xs = [bs for bs in batch_sizes if gpu_data.get(bs) is not None]
+    ys = [gpu_data[bs] for bs in xs]
+    if xs:
+        ax.plot(
+            xs, ys, linestyle="-", color=JAXMARL_JAX, marker="s",
+            markersize=6, linewidth=2, label="JaxMARL",
+        )
+
+    # --- Baselines as bounded horizontal lines ---
+    # Distinct dash patterns for colorblind accessibility.
+    val = results.get("overcooked_ai")
+    if val is not None:
+        ax.hlines(val, x_min, x_max, colors=OVERCOOKED_AI,
+                  linestyles=(0, (4, 2)), linewidth=2, label="Overcooked-AI")
+
+    val = results.get("cogrid_numpy")
+    if val is not None:
+        ax.hlines(val, x_min, x_max, colors=COGRID_NUMPY,
+                  linestyles=(0, (1, 1)), linewidth=2, label="CoGrid (NumPy)")
+
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
+    ax.set_xticks(batch_sizes)
+    ax.set_xticklabels([str(bs) for bs in batch_sizes], fontsize=12)
+    ax.set_xlabel("Number of Parallel Environments", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Total Throughput (steps/sec)", fontsize=14, fontweight="bold")
+    ax.tick_params(axis="y", labelsize=12)
+    ax.legend(frameon=True, loc="best", fontsize="small")
+    ax.grid(True, which="major", alpha=0.2)
+
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
+    plt.tight_layout(pad=2.5)
+    fig.savefig(output_path, format="png", dpi=300, transparent=True, bbox_inches="tight")
+    print(f"  Plot saved to {output_path}")
+    plt.close(fig)
+
+
 # ===================================================================
 # Entry point
 # ===================================================================
@@ -422,3 +525,8 @@ if __name__ == "__main__":
         plot_scaling(results)
     except Exception as e:
         print(f"  Plotting skipped ({type(e).__name__}: {e})")
+
+    try:
+        plot_scaling_pub(results)
+    except Exception as e:
+        print(f"  Pub plot skipped ({type(e).__name__}: {e})")
