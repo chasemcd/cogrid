@@ -76,6 +76,7 @@ def _setup_overcooked_config():
         n_agents=n_agents,
         type_ids=type_ids,
         action_pickup_drop_idx=4,
+        action_toggle_idx=5,
     )
 
     action_pickup_drop_idx = 4

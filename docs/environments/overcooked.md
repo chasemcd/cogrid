@@ -49,17 +49,19 @@ at init time using `make_ingredient_and_stack()` -- see
 
 ### Rewards
 
-| Reward | Coefficient | Scope | Description |
-|--------|-------------|-------|-------------|
-| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone. When orders are enabled, reward fires only for deliveries matching an active order. Per-recipe reward values are supported. |
-| Onion-in-pot | 0.1 | Individual | Place an onion into a pot with capacity |
-| Soup-in-dish | 0.3 | Individual | Pick up a finished soup from a pot with a plate |
-| ExpiredOrderPenalty | -5.0 | Common | Penalty when an active order expires (requires order queue) |
-| Tip bonus | configurable | Common | Bonus for fast delivery based on remaining order time (requires order queue, `tip_coefficient > 0`) |
+| Class | Coefficient | Scope | Description |
+|-------|-------------|-------|-------------|
+| `OnionSoupDeliveryReward` | 1.0 | Common | Simplest delivery: fires on pickup_drop + holds onion_soup + faces delivery_zone. Fixed coefficient, no recipe lookup. |
+| `DeliveryReward` | 1.0 | Common | Multi-recipe delivery: uses IS_DELIVERABLE table and per-recipe reward values. Fires for any valid delivery (no order gating). |
+| `OrderDeliveryReward` | 1.0 | Common | Extends `DeliveryReward` with order gating (fires only when a matching active order is consumed) and optional tip bonus proportional to remaining order time. |
+| `OnionInPotReward` | 0.1 | Individual | Place an onion into a pot with capacity (pickup_drop + holds onion + faces pot). |
+| `SoupInDishReward` | 0.3 | Individual | Pick up a finished soup from a pot with a plate (pickup_drop + holds plate + faces pot). |
+| `ExpiredOrderPenalty` | -5.0 | Common | Penalty when an active order expires (requires order queue). |
 
-By default, order-based rewards (tip bonus, expired penalty) are disabled.
-Enable them by configuring the order queue -- see [Order Queue](#order-queue)
-below.
+The default `cramped_room_config` uses `DeliveryReward` (no order gating).
+To enable order-based rewards (order gating, tip bonus, expired penalty),
+use `OrderDeliveryReward` and configure the order queue -- see
+[Order Queue](#order-queue) below.
 
 ## Available Layouts
 

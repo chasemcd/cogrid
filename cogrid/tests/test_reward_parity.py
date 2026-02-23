@@ -167,6 +167,7 @@ def test_reward_parity_delivery():
         "type_ids": _TYPE_IDS,
         "n_agents": N_AGENTS,
         "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
     }
 
     result_np, result_jax = _run_on_both_backends(
@@ -224,6 +225,7 @@ def test_reward_parity_onion_in_pot():
         "type_ids": _TYPE_IDS,
         "n_agents": N_AGENTS,
         "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
     }
 
     result_np, result_jax = _run_on_both_backends(
@@ -279,6 +281,7 @@ def test_reward_parity_soup_in_dish():
         "type_ids": _TYPE_IDS,
         "n_agents": N_AGENTS,
         "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
     }
 
     result_np, result_jax = _run_on_both_backends(
@@ -396,3 +399,118 @@ def test_reward_parity_compute_rewards():
     assert result_np[1] == pytest.approx(1.0, abs=1e-7), (
         f"Expected agent 1 combined reward ~1.0, got {result_np[1]}"
     )
+
+
+# ======================================================================
+# Test 5: InteractionReward with no conditions fires for every agent
+# ======================================================================
+
+
+def test_interaction_reward_no_conditions():
+    """InteractionReward with action=None, no holds/faces/overlaps fires for all agents."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    from cogrid.core.rewards import InteractionReward
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    class AlwaysReward(InteractionReward):
+        action = None
+
+    inst = AlwaysReward(coefficient=2.0)
+    sv = _dict_to_sv({})
+    actions = np.zeros(N_AGENTS, dtype=np.int32)
+    reward_config = {
+        "type_ids": _TYPE_IDS,
+        "n_agents": N_AGENTS,
+        "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
+    }
+    result = inst.compute(sv, sv, actions, reward_config)
+    result = np.array(result)
+
+    np.testing.assert_allclose(result, [2.0, 2.0], atol=1e-7)
+
+    _reset_backend_for_testing()
+
+
+# ======================================================================
+# Test 6: InteractionReward with overlaps fires only on matching cell
+# ======================================================================
+
+
+def test_interaction_reward_overlaps():
+    """InteractionReward with overlaps fires only when agent stands on that type."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    from cogrid.core.rewards import InteractionReward
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    class PotOverlapReward(InteractionReward):
+        action = None
+        overlaps = "pot"
+
+    # Agent 0 at (1,3) which has a pot, Agent 1 at (3,3) which is empty
+    otm = np.zeros((H, W), dtype=np.int32)
+    otm[1, 3] = _TYPE_IDS["pot"]
+
+    inst = PotOverlapReward(coefficient=5.0)
+    sv = _dict_to_sv({
+        "agent_pos": np.array([[1, 3], [3, 3]], dtype=np.int32),
+        "object_type_map": otm,
+    })
+    actions = np.zeros(N_AGENTS, dtype=np.int32)
+    reward_config = {
+        "type_ids": _TYPE_IDS,
+        "n_agents": N_AGENTS,
+        "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
+    }
+    result = np.array(inst.compute(sv, sv, actions, reward_config))
+
+    assert result[0] == pytest.approx(5.0, abs=1e-7), f"Agent 0 on pot should get 5.0, got {result[0]}"
+    assert result[1] == pytest.approx(0.0, abs=1e-7), f"Agent 1 not on pot should get 0.0, got {result[1]}"
+
+    _reset_backend_for_testing()
+
+
+# ======================================================================
+# Test 7: extra_condition hook correctly narrows the mask
+# ======================================================================
+
+
+def test_interaction_reward_extra_condition():
+    """extra_condition() hook correctly narrows the mask."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+    from cogrid.core.rewards import InteractionReward
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    class OnlyAgent1Reward(InteractionReward):
+        action = None
+
+        def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+            # Only agent index 1 gets the reward
+            agent_filter = np.array([False, True])
+            return mask & agent_filter
+
+    inst = OnlyAgent1Reward(coefficient=3.0)
+    sv = _dict_to_sv({})
+    actions = np.zeros(N_AGENTS, dtype=np.int32)
+    reward_config = {
+        "type_ids": _TYPE_IDS,
+        "n_agents": N_AGENTS,
+        "action_pickup_drop_idx": 4,
+        "action_toggle_idx": 5,
+    }
+    result = np.array(inst.compute(sv, sv, actions, reward_config))
+
+    assert result[0] == pytest.approx(0.0, abs=1e-7), f"Agent 0 should be filtered out, got {result[0]}"
+    assert result[1] == pytest.approx(3.0, abs=1e-7), f"Agent 1 should get 3.0, got {result[1]}"
+
+    _reset_backend_for_testing()

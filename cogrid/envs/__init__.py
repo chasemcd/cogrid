@@ -11,6 +11,8 @@ from cogrid.envs.overcooked.config import overcooked_interaction_fn
 from cogrid.envs.overcooked.rewards import (
     DeliveryReward,
     OnionInPotReward,
+    OnionSoupDeliveryReward,
+    OrderDeliveryReward,
     SoupInDishReward,
 )
 

@@ -65,22 +65,14 @@ layouts.register_layout(
 # layer just sums all reward instances -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
-from cogrid.core.rewards import Reward
+from cogrid.core.rewards import InteractionReward
 
 
-class GoalReward(Reward):
-    def compute(self, prev_state, state, actions, reward_config):
-        from cogrid.backend import xp
+class GoalReward(InteractionReward):
+    """Reward for standing on a goal cell."""
 
-        goal_id = reward_config["type_ids"].get("goal", -1)
-        n_agents = reward_config["n_agents"]
-        otm = state.object_type_map
-        rows = state.agent_pos[:, 0]
-        cols = state.agent_pos[:, 1]
-        on_goal = (otm[rows, cols] == goal_id).astype(xp.float32)
-        # Common reward: if any agent reaches the goal, all agents get +1.0
-        n_earners = xp.sum(on_goal)
-        return xp.full(n_agents, n_earners * 1.0, dtype=xp.float32)
+    action = None
+    overlaps = "goal"
 
 
 # -- 4. Termination function --------------------------------------------------
@@ -112,7 +104,7 @@ goal_config = {
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "features": ["agent_dir", "agent_position", "can_move_direction", "inventory"],
-    "rewards": [GoalReward()],
+    "rewards": [GoalReward(coefficient=1.0, common_reward=True)],
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,
     "scope": "global",

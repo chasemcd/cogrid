@@ -2105,7 +2105,7 @@ def test_delivery_reward_order_match_required():
         _build_type_ids,
         compile_recipes,
     )
-    from cogrid.envs.overcooked.rewards import DeliveryReward
+    from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2131,7 +2131,7 @@ def test_delivery_reward_order_match_required():
         "static_tables": static_tables,
     }
 
-    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+    delivery = OrderDeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_order_match_required:")
 
@@ -2368,7 +2368,7 @@ def test_delivery_reward_tip_bonus():
         _build_type_ids,
         compile_recipes,
     )
-    from cogrid.envs.overcooked.rewards import DeliveryReward
+    from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2387,7 +2387,7 @@ def test_delivery_reward_tip_bonus():
     dz_id = type_ids["delivery_zone"]
     n_agents = 1
 
-    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+    delivery = OrderDeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_tip_bonus:")
 

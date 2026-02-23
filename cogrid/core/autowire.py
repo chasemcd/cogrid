@@ -242,6 +242,7 @@ def build_reward_config(
     n_agents: int,
     type_ids: dict,
     action_pickup_drop_idx: int = 4,
+    action_toggle_idx: int = 5,
     static_tables: dict | None = None,
 ) -> dict:
     """Build reward_config from a list of Reward instances.
@@ -263,6 +264,7 @@ def build_reward_config(
         "type_ids": type_ids,
         "n_agents": n_agents,
         "action_pickup_drop_idx": action_pickup_drop_idx,
+        "action_toggle_idx": action_toggle_idx,
     }
     if static_tables is not None:
         result["static_tables"] = static_tables

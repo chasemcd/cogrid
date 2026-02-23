@@ -339,9 +339,62 @@ float32 array. Parameters like coefficients are passed via `__init__` and
 stored in `self.config`. Reward instances are listed explicitly in the env
 config `"rewards"` key -- no decorator or auto-discovery needed.
 
+### Pattern 1: Declarative interaction rewards (preferred)
+
+Most rewards follow a pattern: check an action, check what the agent holds,
+check what's ahead or underfoot, and apply a coefficient. The
+`InteractionReward` base class handles this declaratively -- just set class
+attributes for the conditions that must all be true:
+
 ```python
-# my_env/rewards.py
-from cogrid.backend import xp
+# Simple interaction -- just declare conditions:
+from cogrid.core.rewards import InteractionReward
+
+class OnionInPotReward(InteractionReward):
+    action = "pickup_drop"
+    holds = "onion"
+    faces = "pot"
+```
+
+Available class attributes (all conditions are AND'd, `None` means "don't check"):
+
+| Attribute | Type | Default | Meaning |
+|-----------|------|---------|---------|
+| `action` | `str` or `None` | **(required)** | `"pickup_drop"`, `"toggle"`, or `None` (no action filter) |
+| `holds` | `str` or `None` | `None` | Type name agent must hold |
+| `faces` | `str` or `None` | `None` | Type name in the forward cell |
+| `overlaps` | `str` or `None` | `None` | Type name agent must stand on |
+| `direction` | `int` or `None` | `None` | Direction agent must face (0=R,1=D,2=L,3=U) |
+
+Instance config (`coefficient`, `common_reward`) is passed via `__init__` kwargs.
+
+Override `extra_condition()` for domain-specific checks (pot capacity, timers):
+
+```python
+class OnionInPotReward(InteractionReward):
+    action = "pickup_drop"
+    holds = "onion"
+    faces = "pot"
+
+    def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        # ... check pot capacity, type compatibility ...
+        return mask & has_capacity & compatible
+```
+
+### Pattern 2: Position-based rewards (no action needed)
+
+```python
+class GoalReward(InteractionReward):
+    action = None
+    overlaps = "goal"
+```
+
+### Pattern 3: Complex rewards (use Reward directly)
+
+For rewards that don't fit the declarative pattern (e.g., state-diff based
+penalties, per-recipe lookups, multi-table joins), subclass `Reward` directly:
+
+```python
 from cogrid.core.rewards import Reward
 
 class DeliveryReward(Reward):
@@ -358,7 +411,8 @@ class DeliveryReward(Reward):
         actions : ndarray
             (n_agents,) int32 action indices.
         reward_config : dict
-            Contains "type_ids", "n_agents", "action_pickup_drop_idx".
+            Contains "type_ids", "n_agents", "action_pickup_drop_idx",
+            "action_toggle_idx".
 
         Returns
         -------
@@ -381,11 +435,14 @@ class DeliveryReward(Reward):
 Then add reward instances to the env config:
 
 ```python
-from my_env.rewards import DeliveryReward
+from my_env.rewards import OnionInPotReward, DeliveryReward
 
 my_config = {
     ...
-    "rewards": [DeliveryReward(coefficient=1.0, common_reward=True)],
+    "rewards": [
+        OnionInPotReward(coefficient=0.1),
+        DeliveryReward(coefficient=1.0, common_reward=True),
+    ],
 }
 ```
 

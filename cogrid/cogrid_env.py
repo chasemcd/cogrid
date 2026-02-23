@@ -161,6 +161,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             n_agents=self.config["num_agents"],
             type_ids=self._type_ids,
             action_pickup_drop_idx=self._action_pickup_drop_idx,
+            action_toggle_idx=self._action_toggle_idx,
             static_tables=self._scope_config.get("static_tables"),
         )
 
