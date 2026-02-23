@@ -9,6 +9,7 @@ from cogrid.envs import registry
 from cogrid.envs.overcooked import overcooked_grid_objects
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import overcooked_interaction_fn
+from cogrid.envs.overcooked.rewards import DeliveryReward, OnionInPotReward, SoupInDishReward
 
 # Map string action names to their integer indices for the cardinal action set.
 _ACTION_IDX = {action: idx for idx, action in enumerate(ActionSets.CardinalActions)}
@@ -47,6 +48,11 @@ N_agent_overcooked_config = {
         "can_move_direction",
         "layout_id",
         "environment_layout",
+    ],
+    "rewards": [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
     ],
     "scope": "overcooked",
     "interaction_fn": overcooked_interaction_fn,

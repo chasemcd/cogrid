@@ -39,7 +39,7 @@ def _setup_overcooked_config():
     import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.core.autowire import (
         build_feature_config_from_components,
-        build_reward_config_from_components,
+        build_reward_config,
         build_scope_config_from_components,
     )
     from cogrid.core.grid_object import build_lookup_tables
@@ -60,8 +60,19 @@ def _setup_overcooked_config():
 
     type_ids = scope_config["type_ids"]
 
-    reward_config = build_reward_config_from_components(
-        "overcooked",
+    from cogrid.envs.overcooked.rewards import (
+        DeliveryReward,
+        OnionInPotReward,
+        SoupInDishReward,
+    )
+
+    reward_instances = [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ]
+    reward_config = build_reward_config(
+        reward_instances,
         n_agents=n_agents,
         type_ids=type_ids,
         action_pickup_drop_idx=4,

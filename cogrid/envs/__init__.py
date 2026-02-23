@@ -8,6 +8,11 @@ from cogrid.core import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import overcooked_interaction_fn
+from cogrid.envs.overcooked.rewards import (
+    DeliveryReward,
+    OnionInPotReward,
+    SoupInDishReward,
+)
 
 layouts.register_layout(
     "overcooked_cramped_room_v0",
@@ -76,6 +81,11 @@ cramped_room_config = {
         "dist_to_other_players",
         "agent_position",
         "can_move_direction",
+    ],
+    "rewards": [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
     ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,

@@ -1938,7 +1938,7 @@ def test_delivery_reward_uses_is_deliverable():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -1957,6 +1957,8 @@ def test_delivery_reward_uses_is_deliverable():
         "static_tables": static_tables,
     }
 
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+
     print("test_delivery_reward_uses_is_deliverable:")
 
     # Agent holds onion_soup (deliverable), faces delivery zone
@@ -1973,9 +1975,7 @@ def test_delivery_reward_uses_is_deliverable():
     )
     actions = np.array([4], dtype=np.int32)
 
-    r = delivery_reward(
-        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r = delivery.compute(prev_state, prev_state, actions, reward_config)
     assert float(r[0]) > 0, f"Deliverable item should earn reward, got {float(r[0])}"
     print("  Deliverable item (onion_soup) earns reward: OK")
 
@@ -1989,9 +1989,7 @@ def test_delivery_reward_uses_is_deliverable():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_state2, prev_state2, actions, reward_config)
     assert float(r2[0]) == 0.0, f"Non-deliverable should get 0, got {float(r2[0])}"
     print("  Non-deliverable item (onion) gets zero: OK")
 
@@ -2013,7 +2011,7 @@ def test_delivery_reward_per_recipe_values():
         _build_type_ids,
         compile_recipes,
     )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2051,6 +2049,8 @@ def test_delivery_reward_per_recipe_values():
         "static_tables": static_tables,
     }
 
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+
     print("test_delivery_reward_per_recipe_values:")
 
     otm = np.zeros((5, 5), dtype=np.int32)
@@ -2067,9 +2067,7 @@ def test_delivery_reward_per_recipe_values():
         },
         n_agents=1,
     )
-    r = delivery_reward(
-        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r = delivery.compute(prev_state, prev_state, actions, reward_config)
     assert float(r[0]) == 30.0, f"Expected 30.0 for tomato_soup, got {float(r[0])}"
     print("  Tomato soup reward = 30.0: OK")
 
@@ -2083,9 +2081,7 @@ def test_delivery_reward_per_recipe_values():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_state2, prev_state2, actions, reward_config)
     assert float(r2[0]) == 20.0, f"Expected 20.0 for onion_soup, got {float(r2[0])}"
     print("  Onion soup reward = 20.0: OK")
 
@@ -2109,7 +2105,7 @@ def test_delivery_reward_order_match_required():
         _build_type_ids,
         compile_recipes,
     )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2134,6 +2130,8 @@ def test_delivery_reward_order_match_required():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
+
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_order_match_required:")
 
@@ -2165,7 +2163,7 @@ def test_delivery_reward_order_match_required():
         },
         n_agents=1,
     )
-    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config)
+    r = delivery.compute(prev_sv, curr_sv, actions, reward_config)
     assert float(r[0]) > 0, f"Matching order should earn reward, got {float(r[0])}"
     print("  Matching order -> reward fires: OK")
 
@@ -2192,9 +2190,7 @@ def test_delivery_reward_order_match_required():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_sv2, curr_sv2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_sv2, curr_sv2, actions, reward_config)
     assert float(r2[0]) == 0.0, f"No matching order should yield zero, got {float(r2[0])}"
     print("  No matching order -> zero reward: OK")
 
@@ -2214,14 +2210,14 @@ def test_expired_order_penalty():
     print("test_expired_order_penalty:")
 
     n_agents = 2
-    reward_config = {"n_agents": n_agents, "expired_order_penalty": -5.0}
+    reward_config = {"n_agents": n_agents}
 
     # prev_state: order_n_expired=0, state: order_n_expired=2
     prev_sv = _sv_from_dict({"order_n_expired": np.int32(0)}, n_agents=n_agents)
     curr_sv = _sv_from_dict({"order_n_expired": np.int32(2)}, n_agents=n_agents)
     actions = np.array([6, 6], dtype=np.int32)  # Noop
 
-    penalty = ExpiredOrderPenalty()
+    penalty = ExpiredOrderPenalty(penalty=-5.0)
     r = penalty.compute(prev_sv, curr_sv, actions, reward_config)
     expected = 2 * (-5.0)
     assert float(r[0]) == expected, f"Expected {expected}, got {float(r[0])}"
@@ -2247,7 +2243,7 @@ def test_delivery_reward_backward_compat_no_orders():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2265,6 +2261,8 @@ def test_delivery_reward_backward_compat_no_orders():
         "static_tables": static_tables,
     }
 
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+
     print("test_delivery_reward_backward_compat_no_orders:")
 
     otm = np.zeros((5, 5), dtype=np.int32)
@@ -2281,7 +2279,7 @@ def test_delivery_reward_backward_compat_no_orders():
         },
         n_agents=1,
     )
-    r = delivery_reward(prev_sv, prev_sv, actions, type_ids, n_agents, reward_config=reward_config)
+    r = delivery.compute(prev_sv, prev_sv, actions, reward_config)
     assert float(r[0]) > 0, f"No orders -> unconditional reward, got {float(r[0])}"
     print("  No order arrays -> reward fires unconditionally: OK")
 
@@ -2370,7 +2368,7 @@ def test_delivery_reward_tip_bonus():
         _build_type_ids,
         compile_recipes,
     )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2388,6 +2386,8 @@ def test_delivery_reward_tip_bonus():
     onion_soup_id = type_ids["onion_soup"]
     dz_id = type_ids["delivery_zone"]
     n_agents = 1
+
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_tip_bonus:")
 
@@ -2427,9 +2427,7 @@ def test_delivery_reward_tip_bonus():
         "static_tables": static_tables,
         "tip_coefficient": 10.0,
     }
-    r = delivery_reward(
-        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_with_tip
-    )
+    r = delivery.compute(prev_sv, curr_sv, actions, reward_config_with_tip)
     # Base recipe reward (20.0 for onion_soup) + tip (5.0) = 25.0
     expected_tip = 100.0 / 200.0 * 10.0  # 5.0
     base_reward = float(r[0]) - expected_tip
@@ -2449,9 +2447,7 @@ def test_delivery_reward_tip_bonus():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
-    r2 = delivery_reward(
-        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_no_tip
-    )
+    r2 = delivery.compute(prev_sv, curr_sv, actions, reward_config_no_tip)
     assert float(r2[0]) == base_reward, (
         f"Without tip_coefficient, reward should be {base_reward}, got {float(r2[0])}"
     )

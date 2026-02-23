@@ -1,9 +1,9 @@
 """Auto-wire scope and reward configuration from component registries.
 
 Reads component metadata populated by ``@register_object_type`` and
-``@register_reward_type`` and produces complete ``scope_config`` and
-``reward_config`` dicts matching the shapes consumed by
-``step_pipeline.step()``, ``layout_parser.parse_layout()``, and
+produces complete ``scope_config`` and ``reward_config`` dicts matching
+the shapes consumed by ``step_pipeline.step()``,
+``layout_parser.parse_layout()``, and
 ``interactions.process_interactions()``.
 
 Composes scope_config, reward_config, and feature_config automatically
@@ -237,32 +237,24 @@ def _build_extra_state_schema(scope: str, get_components_with_extra_state) -> di
     return dict(sorted(merged.items()))
 
 
-def build_reward_config_from_components(
-    scope: str,
+def build_reward_config(
+    reward_instances: list,
     n_agents: int,
     type_ids: dict,
     action_pickup_drop_idx: int = 4,
     static_tables: dict | None = None,
 ) -> dict:
-    """Build reward_config from registered Reward subclasses.
+    """Build reward_config from a list of Reward instances.
 
-    Composes a single ``compute_fn`` that sums all registered rewards.
+    Composes a single ``compute_fn`` that sums all reward instances.
     Each reward's ``compute()`` returns final (n_agents,) float32 values --
     the composition layer just sums them.
     """
-    from cogrid.core.component_registry import get_reward_types
-
-    # Collect reward metadata from scope-specific and global registries
-    reward_metas = get_reward_types(scope)
-    if scope != "global":
-        reward_metas = reward_metas + get_reward_types("global")
-
-    instances = [meta.cls() for meta in reward_metas]
 
     def compute_fn(prev_state, state, actions, reward_config):
-        """Composed reward function that sums all registered rewards."""
+        """Composed reward function that sums all reward instances."""
         total = xp.zeros(n_agents, dtype=xp.float32)
-        for inst in instances:
+        for inst in reward_instances:
             total = total + inst.compute(prev_state, state, actions, reward_config)
         return total
 

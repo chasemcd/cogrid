@@ -59,17 +59,15 @@ layouts.register_layout(
 )
 
 
-# -- 3. Register a Reward subclass ---------------------------------------------
+# -- 3. Define a Reward subclass ------------------------------------------------
 #
 # Reward.compute() returns final (n_agents,) rewards. The autowire
-# layer just sums all registered rewards -- coefficient weighting and
+# layer just sums all reward instances -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
 from cogrid.core.rewards import Reward
-from cogrid.core.component_registry import register_reward_type
 
 
-@register_reward_type("goal", scope="global")
 class GoalReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         from cogrid.backend import xp
@@ -114,7 +112,7 @@ goal_config = {
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "features": ["agent_dir", "agent_position", "can_move_direction", "inventory"],
-    "rewards": [],  # We use the Reward component pipeline, not the legacy one
+    "rewards": [GoalReward()],
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,
     "scope": "global",

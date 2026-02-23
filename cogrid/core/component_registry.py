@@ -1,9 +1,8 @@
-"""Component metadata registry for GridObject, Reward, and Feature type registration.
+"""Component metadata registry for GridObject and Feature type registration.
 
 Stores metadata about GridObject subclasses (discovered classmethods, static
-properties), Reward subclasses, and Feature subclasses. Populated at
-import time by the ``@register_object_type``, ``@register_reward_type``, and
-``@register_feature_type`` decorators.
+properties) and Feature subclasses. Populated at import time by the
+``@register_object_type`` and ``@register_feature_type`` decorators.
 
 This module must NOT import from ``cogrid.core.grid_object`` at module level
 to avoid circular imports. The decorator in grid_object.py uses a lazy import
@@ -54,15 +53,6 @@ class ComponentMetadata:
 
 
 @dataclass(frozen=True)
-class RewardMetadata:
-    """Metadata for a registered Reward subclass."""
-
-    scope: str
-    reward_id: str
-    cls: type
-
-
-@dataclass(frozen=True)
 class FeatureMetadata:
     """Metadata for a registered Feature subclass."""
 
@@ -78,7 +68,6 @@ class FeatureMetadata:
 # ---------------------------------------------------------------------------
 
 _COMPONENT_METADATA: dict[tuple[str, str], ComponentMetadata] = {}
-_REWARD_TYPE_REGISTRY: dict[tuple[str, str], RewardMetadata] = {}
 _FEATURE_TYPE_REGISTRY: dict[tuple[str, str], FeatureMetadata] = {}
 _PRE_COMPOSE_HOOKS: dict[str, callable] = {}
 _LAYOUT_INDEX_REGISTRY: dict[str, dict[str, int]] = {}
@@ -96,9 +85,6 @@ _EXPECTED_SIGNATURES: dict[str, list[str]] = {
     "build_static_tables": [],
     "build_render_sync_fn": [],
 }
-
-_EXPECTED_REWARD_COMPUTE_PARAMS = ["prev_state", "state", "actions", "reward_config"]
-
 
 def _validate_classmethod_signature(cls: type, method_name: str, method: Any) -> None:
     """Validate that *method* matches expected params.
@@ -121,22 +107,6 @@ def _validate_classmethod_signature(cls: type, method_name: str, method: Any) ->
             f"expected {expected}. "
             f"Ensure it is a @classmethod with signature "
             f"def {method_name}(cls)."
-        )
-
-
-def _validate_reward_compute_signature(cls: type) -> None:
-    """Validate ``cls.compute(self, prev_state, state, actions, reward_config)``."""
-    sig = inspect.signature(cls.compute)
-    params = list(sig.parameters.keys())
-
-    # Strip leading ``self``
-    if params and params[0] == "self":
-        params = params[1:]
-
-    if params != _EXPECTED_REWARD_COMPUTE_PARAMS:
-        raise TypeError(
-            f"{cls.__name__}.compute() has params {params} (after self), "
-            f"expected {_EXPECTED_REWARD_COMPUTE_PARAMS}."
         )
 
 
@@ -167,55 +137,6 @@ def register_component_metadata(
         methods=methods,
     )
     _COMPONENT_METADATA[(scope, object_id)] = meta
-
-
-def register_reward_type(
-    reward_id: str,
-    scope: str = "global",
-):
-    """Decorator that registers a Reward subclass.
-
-    Usage::
-
-        @register_reward_type("delivery", scope="overcooked")
-        class DeliveryReward(Reward):
-            def compute(self, prev_state, state, actions, reward_config):
-                ...
-                return rewards  # (n_agents,) float32
-    """
-
-    def decorator(cls):
-        # Must have a compute method
-        if not hasattr(cls, "compute") or not callable(getattr(cls, "compute")):
-            raise TypeError(
-                f"{cls.__name__} must define a callable 'compute' method "
-                f"to be registered as a reward type."
-            )
-
-        _validate_reward_compute_signature(cls)
-
-        key = (scope, reward_id)
-        if key in _REWARD_TYPE_REGISTRY:
-            existing = _REWARD_TYPE_REGISTRY[key]
-            # Allow re-registration from module reload (same class name and
-            # module). Reject genuinely different classes claiming the same ID.
-            same_class = existing.cls.__name__ == cls.__name__ and getattr(
-                existing.cls, "__module__", None
-            ) == getattr(cls, "__module__", None)
-            if not same_class:
-                raise ValueError(
-                    f"Duplicate reward type '{reward_id}' in scope '{scope}': "
-                    f"{existing.cls.__name__} and {cls.__name__}"
-                )
-
-        _REWARD_TYPE_REGISTRY[key] = RewardMetadata(
-            scope=scope,
-            reward_id=reward_id,
-            cls=cls,
-        )
-        return cls
-
-    return decorator
 
 
 def register_feature_type(feature_id: str, scope: str = "global"):
@@ -299,14 +220,6 @@ def get_all_components(scope: str = "global") -> list[ComponentMetadata]:
     return sorted(
         [m for m in _COMPONENT_METADATA.values() if m.scope == scope],
         key=lambda m: m.object_id,
-    )
-
-
-def get_reward_types(scope: str = "global") -> list[RewardMetadata]:
-    """Return all RewardMetadata entries for *scope*, sorted by reward_id."""
-    return sorted(
-        [m for m in _REWARD_TYPE_REGISTRY.values() if m.scope == scope],
-        key=lambda m: m.reward_id,
     )
 
 

@@ -56,7 +56,7 @@ my_project/
         __init__.py               # Triggers decorator registration
         grid_objects.py           # Grid objects (@register_object_type)
         config.py           # Interaction fn, tick fn, extra state builders
-        rewards.py                # Reward functions (@register_reward_type)
+        rewards.py                # Reward classes (Reward subclasses)
         features.py               # Feature extractors (@register_feature_type)
         agent.py                  # Custom Agent subclass (optional)
     train.py                      # Your training script
@@ -69,7 +69,6 @@ visible to the CoGrid engine:
 ```python
 # my_env/__init__.py
 from my_env import grid_objects  # noqa: F401 -- triggers @register_object_type
-from my_env import rewards       # noqa: F401 -- triggers @register_reward_type
 from my_env import features      # noqa: F401 -- triggers @register_feature_type
 ```
 
@@ -77,6 +76,8 @@ from my_env import features      # noqa: F401 -- triggers @register_feature_type
     You must `import my_env` (or the individual submodules) somewhere in your
     code **before** calling `registry.make()`. The decorators register
     components into CoGrid's global registries as a side effect of import.
+    Rewards don't need import-time registration -- they are passed as
+    instances in the config `"rewards"` list.
 
 
 ## Step 2: Define Grid Objects
@@ -333,15 +334,16 @@ traced values. This allows JAX to compile the function.
 
 ## Step 6: Define Reward Functions
 
-Reward functions are `Reward` subclasses registered with
-`@register_reward_type`. Each computes a `(n_agents,)` float32 array.
+Reward functions are `Reward` subclasses. Each computes a `(n_agents,)`
+float32 array. Parameters like coefficients are passed via `__init__` and
+stored in `self.config`. Reward instances are listed explicitly in the env
+config `"rewards"` key -- no decorator or auto-discovery needed.
 
 ```python
 # my_env/rewards.py
 from cogrid.backend import xp
-from cogrid.core.rewards import Reward, register_reward_type
+from cogrid.core.rewards import Reward
 
-@register_reward_type("delivery", scope="my_env")
 class DeliveryReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         """
@@ -365,6 +367,7 @@ class DeliveryReward(Reward):
         """
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
+        coefficient = self.config.get("coefficient", 1.0)
 
         # Check which agents delivered soup
         holds_soup = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
@@ -372,18 +375,31 @@ class DeliveryReward(Reward):
 
         # Shared reward: broadcast sum to all agents
         n_earners = xp.sum(earns_reward.astype(xp.float32))
-        return xp.full(n_agents, n_earners * 1.0, dtype=xp.float32)
+        return xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
+```
+
+Then add reward instances to the env config:
+
+```python
+from my_env.rewards import DeliveryReward
+
+my_config = {
+    ...
+    "rewards": [DeliveryReward(coefficient=1.0, common_reward=True)],
+}
 ```
 
 **Key details:**
 
 - `compute()` returns *final* `(n_agents,)` rewards. Apply any scaling or
   broadcasting (e.g., shared reward across all agents) inside `compute()`.
+- Parameters (coefficients, flags) are passed via `__init__(**kwargs)` and
+  accessed via `self.config`.
 - `prev_state` and `state` are `StateView` objects, not `EnvState`.
   `StateView` provides dot-access with scope-stripped extra state keys
   (e.g., `prev_state.pot_timer` instead of
   `prev_state.extra_state["my_env.pot_timer"]`).
-- Multiple rewards can be registered per scope. They are summed at step time.
+- Multiple reward instances can be listed in config. They are summed at step time.
 
 !!! tip "Advanced: Static Tables in Rewards"
     If your reward logic needs environment-specific lookup data (e.g.,
@@ -543,6 +559,7 @@ my_config = {
 | `num_agents` | Number of agents to place in the environment. |
 | `action_set` | `"cardinal_actions"` (up/down/left/right + pickup/toggle/noop) or `"rotation_actions"` (forward + rotate + pickup/toggle/noop). |
 | `features` | List of registered feature names to compose into observations. |
+| `rewards` | List of `Reward` instances (e.g. `[DeliveryReward(coefficient=1.0)]`). |
 | `grid` | Either `{"layout": "name"}` or `{"layout_fn": callable}`. |
 | `max_steps` | Steps before truncation. |
 | `scope` | Scope string for all component lookups. |
@@ -657,7 +674,7 @@ that register your grid objects, rewards, and features into CoGrid's engine.
 [ ] 5. If needed: declare extra_state_schema + extra_state_builder on a grid object
 [ ] 6. If needed: write tick function and register via build_tick_fn classmethod
 [ ] 7. If needed: write interaction function, pass via config["interaction_fn"]
-[ ] 8. Define rewards with @register_reward_type
+[ ] 8. Define Reward subclasses and add instances to config["rewards"]
 [ ] 9. Define features with @register_feature_type
 [ ] 10. Register layouts with layouts.register_layout()
 [ ] 11. Build config dict and register environment with registry.register()

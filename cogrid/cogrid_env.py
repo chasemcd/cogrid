@@ -133,7 +133,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
         from cogrid.core.autowire import (
-            build_reward_config_from_components,
+            build_reward_config,
             build_scope_config_from_components,
         )
         from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
@@ -155,8 +155,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._state = None
         self._feature_fn = None
 
-        self._reward_config = build_reward_config_from_components(
-            self.scope,
+        reward_instances = self.config.get("rewards", [])
+        self._reward_config = build_reward_config(
+            reward_instances,
             n_agents=self.config["num_agents"],
             type_ids=self._type_ids,
             action_pickup_drop_idx=self._action_pickup_drop_idx,
