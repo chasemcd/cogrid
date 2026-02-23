@@ -175,22 +175,23 @@ pytrees. This means they can flow through `jax.jit`, `jax.vmap`, and
 
 ## Component API
 
-CoGrid environments are assembled from three kinds of registered components:
-**grid objects**, **rewards**, and **features**. Each uses a decorator to
-register itself into a global registry, and the autowire layer discovers them
-at initialization time.
+CoGrid environments are assembled from three kinds of components:
+**grid objects**, **rewards**, and **features**. Objects and features use
+decorators to register into a global registry; rewards are `Reward` subclasses
+passed as instances in the environment config.
 
-### Registration Decorators
+### Registration
 
-| Decorator | Registers | Module |
+| Mechanism | Registers | Module |
 |-----------|-----------|--------|
 | `@register_object_type` | Grid object classes | `cogrid.core.grid_object` |
-| `@register_reward_type` | Reward subclasses | `cogrid.core.rewards` |
-| `@register_feature_type` | Feature subclasses | `cogrid.core.features` |
+| `@register_feature_type` | Feature extractors | `cogrid.core.features` |
+| `Reward` subclasses | Reward functions (in `config["rewards"]`) | `cogrid.core.rewards` |
 
-Each decorator takes an `object_id` (or reward/feature name) and an optional
+Each decorator takes an `object_id` (or feature name) and an optional
 `scope` parameter that namespaces the component to avoid collisions between
-environments.
+environments. Reward subclasses are not registered via decorators -- they are
+instantiated with config kwargs and listed in the environment config dict.
 
 ### Grid Object Classmethods
 

@@ -132,11 +132,11 @@ Changes to Markdown files are hot-reloaded automatically.
 New environments live in `cogrid/envs/your_env/` and follow the same pattern
 as the built-in environments (overcooked, search_rescue, goal_seeking).
 
-The component API provides three registration decorators:
+The component API provides two registration decorators and a subclassing pattern:
 
 - `@register_object_type` -- define grid objects with interaction behavior
-- `@register_reward_type` -- define reward functions that compose automatically
 - `@register_feature_type` -- define observation features
+- `Reward` subclasses -- define reward functions (instantiated and passed in `config["rewards"]`)
 
 For a complete walkthrough of building an environment from scratch, see the
 [Custom Environment Tutorial](tutorials/custom-environment.md).

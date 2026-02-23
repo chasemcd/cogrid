@@ -65,9 +65,10 @@ parallel API. Create an environment, reset it, and step through a loop:
 !!! note "Import side effects"
     You must `import cogrid.envs.overcooked` (or whichever environment module
     you want) **before** calling `registry.make()`. The import triggers
-    `@register_object_type`, `@register_reward_type`, and
-    `@register_feature_type` decorators that register components into CoGrid's
-    engine.
+    `@register_object_type` and `@register_feature_type` decorators that
+    register grid objects and features into CoGrid's engine. Reward subclasses
+    do not require decorator registration -- they are instantiated and passed
+    directly in the config `"rewards"` list.
 
 ## Understanding the Output
 
