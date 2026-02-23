@@ -61,26 +61,6 @@ class GridObj:
         self.placed_on_value: float | int = placed_on_value
         self.picked_up_from_value: float | int = picked_up_from_value
 
-    def can_overlap(self, agent: GridAgent) -> bool:
-        """Can an agent overlap with this object?"""
-        return False
-
-    def can_pickup(self, agent: GridAgent) -> bool:
-        """Can an agent pick this object up and store in inventory?"""
-        return False
-
-    def can_place_on(self, agent: GridAgent, cell: GridObj) -> bool:
-        """Can another object be placed on top of this object?
-
-        For example, a countertop that can't be walked through but can
-        have an item on top of it.
-        """
-        return False
-
-    def can_pickup_from(self, agent: GridAgent) -> bool:
-        """Can the agent pick up an object from this one?"""
-        return self.obj_placed_on is not None and self.obj_placed_on.can_pickup(agent=agent)
-
     def place_on(self, agent: GridAgent, cell: GridObj) -> None:
         """Place another object on top of this one."""
         self.obj_placed_on = cell

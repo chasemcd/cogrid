@@ -13,15 +13,19 @@ the finished dishes, and deliver them to a serving area for reward.
 
 ### Game Mechanics
 
-1. **Pick up ingredients** -- agents take onions (or tomatoes) from infinite
-   supply stacks.
-2. **Place in pot** -- ingredients are placed into a pot (capacity 3, same
-   ingredient type per pot).
-3. **Wait for cooking** -- once the pot is full, a 30-step cooking timer starts.
+1. **Pick up ingredients** -- agents take ingredients (onions, tomatoes, or
+   custom types) from infinite supply stacks.
+2. **Place in pot** -- ingredients are placed into a pot (capacity 3). The pot
+   accepts any combination of ingredients that matches a valid recipe prefix.
+3. **Wait for cooking** -- once the pot is full and matches a recipe, a
+   per-recipe cooking timer starts (default 30 steps for the built-in recipes).
 4. **Plate the soup** -- when the timer reaches zero the soup is ready; an agent
    holding a plate can pick it up from the pot.
 5. **Deliver** -- carry the plated soup to a delivery zone to earn the delivery
    reward.
+
+By default, the classic onion soup and tomato soup recipes are used. See
+[Recipe System](#recipe-system) below for custom recipes.
 
 ### Objects
 
@@ -39,13 +43,23 @@ the finished dishes, and deliver them to a serving area for reward.
 | DeliveryZone | `@` | Delivery area for serving soup |
 | Counter | `C` | Impassable counter surface |
 
+This is the default set. Custom ingredients and their stacks can be registered
+at init time using `make_ingredient_and_stack()` -- see
+[Custom Ingredients](#custom-ingredients) below.
+
 ### Rewards
 
 | Reward | Coefficient | Scope | Description |
 |--------|-------------|-------|-------------|
-| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone |
+| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone. When orders are enabled, reward fires only for deliveries matching an active order. Per-recipe reward values are supported. |
 | Onion-in-pot | 0.1 | Individual | Place an onion into a pot with capacity |
 | Soup-in-dish | 0.3 | Individual | Pick up a finished soup from a pot with a plate |
+| ExpiredOrderPenalty | -5.0 | Common | Penalty when an active order expires (requires order queue) |
+| Tip bonus | configurable | Common | Bonus for fast delivery based on remaining order time (requires order queue, `tip_coefficient > 0`) |
+
+By default, order-based rewards (tip bonus, expired penalty) are disabled.
+Enable them by configuring the order queue -- see [Order Queue](#order-queue)
+below.
 
 ## Available Layouts
 
@@ -58,6 +72,133 @@ the finished dishes, and deliver them to a serving area for reward.
 | `Overcooked-CounterCircuit-V0` | Counter Circuit | Large layout with central counter island |
 | `Overcooked-RandomizedLayout-V0` | Randomized | Randomly selects one of the five layouts each episode |
 | `Overcooked-CrampedRoom-SingleAgent-V0` | Cramped Room (1 agent) | Single-agent variant of Cramped Room |
+
+## Recipe System
+
+By default, Overcooked uses two built-in recipes -- onion soup and tomato soup.
+Recipes are defined as a list of dictionaries, each specifying the ingredients,
+result, cook time, and reward value:
+
+```python
+DEFAULT_RECIPES = [
+    {
+        "ingredients": ["onion", "onion", "onion"],
+        "result": "onion_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+    {
+        "ingredients": ["tomato", "tomato", "tomato"],
+        "result": "tomato_soup",
+        "cook_time": 30,
+        "reward": 20.0,
+    },
+]
+```
+
+Each recipe has four keys:
+
+- **`ingredients`** -- list of ingredient names (must be registered object types). Recipes can use mixed ingredients (e.g., `["onion", "onion", "tomato"]`).
+- **`result`** -- the name of the output object produced when the recipe is completed.
+- **`cook_time`** -- number of environment steps the pot takes to cook once full.
+- **`reward`** -- the delivery reward value for this recipe's output.
+
+At init time, `compile_recipes()` compiles the recipe list into fixed-shape
+lookup arrays that the interaction system uses for recipe matching during
+gameplay.
+
+!!! note "Config wiring status"
+    The recipe infrastructure supports arbitrary recipes, including
+    mixed-ingredient combinations. Full config-dict wiring (selecting recipes
+    via the environment config) is planned; currently, custom recipes require
+    calling `compile_recipes()` directly.
+
+## Order Queue
+
+By default, the order queue is disabled and delivery rewards work as in the
+original Overcooked -- any valid delivery earns a reward regardless of timing.
+
+When enabled, the order queue adds a timed order lifecycle:
+
+1. **Spawn** -- new orders appear at regular intervals, each requesting a specific recipe.
+2. **Countdown** -- each active order counts down every step.
+3. **Deliver** -- delivering the correct soup consumes the matching order and earns the delivery reward.
+4. **Expire** -- if the countdown reaches zero, the order expires and triggers the `ExpiredOrderPenalty`.
+
+The order queue is configured with a dictionary:
+
+```python
+order_config = {
+    "max_active": 3,          # Maximum concurrent orders
+    "spawn_interval": 40,     # Steps between new order spawns
+    "time_limit": 200,        # Steps before an order expires
+    "recipe_weights": [2.0, 1.0],  # Relative spawn frequency per recipe
+}
+```
+
+- **`max_active`** -- the maximum number of orders that can be active simultaneously.
+- **`spawn_interval`** -- how many steps to wait between spawning new orders.
+- **`time_limit`** -- how many steps an order lasts before it expires.
+- **`recipe_weights`** -- relative weights controlling how often each recipe is requested (uses deterministic round-robin, not random sampling).
+
+!!! note "Config wiring status"
+    The order queue infrastructure is complete. Full config-dict wiring is
+    planned; currently, enabling orders requires custom
+    `build_overcooked_extra_state` calls with an `order_config` dict.
+
+## Custom Ingredients
+
+New ingredient types and their corresponding stacks can be registered at
+runtime using `make_ingredient_and_stack()`. This must be called **before**
+environment creation so the new types are available when the interaction
+tables are built.
+
+```python
+from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
+from cogrid.core import constants
+
+# Must be called BEFORE environment creation
+Mushroom, MushroomStack = make_ingredient_and_stack(
+    ingredient_name="mushroom",
+    ingredient_char="m",
+    ingredient_color=constants.Colors.Brown,
+    stack_name="mushroom_stack",
+    stack_char="M",
+    scope="overcooked",
+)
+```
+
+The factory function creates both classes, registers them in the object
+registry, and returns the class references. The new ingredient can then be
+used in custom recipes, and the new stack can be placed in layout grids.
+
+Custom ingredients are automatically reflected in `OvercookedInventory`
+observations -- the feature dynamically discovers all pickupable types from
+the registry at compose time, so `obs_dim` adjusts to include any new
+ingredient types.
+
+## Order Observations
+
+The `OrderObservation` feature encodes the current state of active orders into
+the observation vector. Each active order is represented as a recipe type
+(one-hot encoded) plus a normalized time remaining value.
+
+- **Observation dimension:** `max_active * (n_recipes + 1)` (default: 3 orders x 3 values = 9).
+- **Per order:** `n_recipes` values for the recipe one-hot, plus 1 value for normalized time remaining (0.0 to 1.0).
+- **Global feature:** `per_agent = False` -- all agents receive the same order observation.
+- **Backward compatible:** returns zeros when the order queue is not configured.
+
+To include order observations in the feature set, add `"order_observation"` to
+the features list in the environment config:
+
+```python
+config = {
+    "features": [
+        # ... existing features ...
+        "order_observation",
+    ],
+}
+```
 
 ## Quick Start
 

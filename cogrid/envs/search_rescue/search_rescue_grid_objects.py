@@ -1,8 +1,10 @@
 """Search-and-rescue grid object types (items, obstacles, victims)."""
 
 from cogrid.core import constants, grid_object, typing
+from cogrid.core.grid_object_registry import register_object_type
 from cogrid.core.grid_utils import adjacent_positions
 from cogrid.core.roles import Roles
+from cogrid.core.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
@@ -11,22 +13,20 @@ from cogrid.visualization.rendering import (
 )
 
 
+@register_object_type("medkit", scope="search_rescue")
 class MedKit(grid_object.GridObj):
     """A medical kit that enables rescuing yellow victims."""
 
     object_id = "medkit"
     color = constants.Colors.LightPink
     char = "M"
+    can_pickup = when()
 
     def __init__(self, state=0):
         """Initialize with default state."""
         super().__init__(
             state=state,
         )
-
-    def can_pickup(self, agent: grid_object.GridAgent):
-        """Return True; medkits are always pickable."""
-        return True
 
     def render(self, tile_img):
         """Draw a red cross icon."""
@@ -36,25 +36,20 @@ class MedKit(grid_object.GridObj):
         fill_coords(tile_img, point_in_rect(0.2, 0.8, 0.4, 0.6), (255, 255, 255))
 
 
-grid_object.register_object(MedKit.object_id, MedKit, scope="search_rescue")
-
-
+@register_object_type("pickaxe", scope="search_rescue")
 class Pickaxe(grid_object.GridObj):
     """A tool that enables clearing rubble obstacles."""
 
     object_id = "pickaxe"
     color = constants.Colors.Grey
     char = "T"
+    can_pickup = when()
 
     def __init__(self, state=0):
         """Initialize with default state."""
         super().__init__(
             state=state,
         )
-
-    def can_pickup(self, agent: grid_object.GridAgent):
-        """Return True; pickaxes are always pickable."""
-        return True
 
     def render(self, tile_img):
         """Draw a pickaxe with brown handle and grey head."""
@@ -78,9 +73,7 @@ class Pickaxe(grid_object.GridObj):
         fill_coords(tile_img, tri_fn, self.color)
 
 
-grid_object.register_object(Pickaxe.object_id, Pickaxe, scope="search_rescue")
-
-
+@register_object_type("rubble", scope="search_rescue")
 class Rubble(grid_object.GridObj):
     """An obstacle that can be cleared by an Engineer or agent with Pickaxe."""
 
@@ -125,9 +118,7 @@ class Rubble(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
 
 
-grid_object.register_object(Rubble.object_id, Rubble, scope="search_rescue")
-
-
+@register_object_type("green_victim", scope="search_rescue")
 class GreenVictim(grid_object.GridObj):
     """A victim rescuable by any adjacent agent."""
 
@@ -157,9 +148,7 @@ class GreenVictim(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(GreenVictim.object_id, GreenVictim, scope="search_rescue")
-
-
+@register_object_type("purple_victim", scope="search_rescue")
 class PurpleVictim(grid_object.GridObj):
     """A victim rescuable by any adjacent agent (higher reward)."""
 
@@ -189,9 +178,7 @@ class PurpleVictim(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(PurpleVictim.object_id, PurpleVictim, scope="search_rescue")
-
-
+@register_object_type("yellow_victim", scope="search_rescue")
 class YellowVictim(grid_object.GridObj):
     """A victim rescuable only by a Medic or agent carrying a MedKit."""
 
@@ -228,9 +215,7 @@ class YellowVictim(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(YellowVictim.object_id, YellowVictim, scope="search_rescue")
-
-
+@register_object_type("red_victim", scope="search_rescue")
 class RedVictim(grid_object.GridObj):
     """A victim requiring two-agent cooperative rescue within a time window."""
 
@@ -278,4 +263,3 @@ class RedVictim(grid_object.GridObj):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
 
 
-grid_object.register_object(RedVictim.object_id, RedVictim, scope="search_rescue")

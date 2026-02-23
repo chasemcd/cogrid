@@ -73,14 +73,6 @@ class Agent:
             Directions.Right: "right",
         }[self.dir]
 
-    def can_pickup(self, grid_object: GridObj) -> bool:
-        """Return True if the agent has room in inventory."""
-        return len(self.inventory) < self.inventory_capacity
-
-    def pick_up_object(self, grid_object: GridObj):
-        """Add an object to the agent's inventory."""
-        self.inventory.append(grid_object)
-
     @property
     def agent_number(self) -> int:
         """Convert agent id to integer, beginning with 1.

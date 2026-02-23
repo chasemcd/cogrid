@@ -250,12 +250,13 @@ def register_feature_type(feature_id: str, scope: str = "global"):
         # the old GridObject convention of no params).
         sig = inspect.signature(cls.build_feature_fn)
         actual = list(sig.parameters.keys())
-        if actual != ["scope"]:
+        if actual not in (["scope"], ["scope", "env_config"]):
             raise TypeError(
                 f"{cls.__name__}.build_feature_fn() has params {actual}, "
-                f"expected ['scope']. "
+                f"expected ['scope'] or ['scope', 'env_config']. "
                 f"Ensure it is a @classmethod with signature "
-                f"def build_feature_fn(cls, scope)."
+                f"def build_feature_fn(cls, scope) or "
+                f"def build_feature_fn(cls, scope, env_config=None)."
             )
 
         # Check for duplicate registration
@@ -335,7 +336,7 @@ def get_components_with_extra_state(scope: str = "global") -> list[ComponentMeta
 def register_pre_compose_hook(scope: str, hook: callable) -> None:
     """Register a hook called before feature composition.
 
-    ``hook(layout_idx: int, scope: str) -> None``
+    ``hook(layout_idx: int, scope: str, env_config: dict | None = None) -> None``
     """
     _PRE_COMPOSE_HOOKS[scope] = hook
 

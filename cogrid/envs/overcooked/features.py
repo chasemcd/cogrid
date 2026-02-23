@@ -16,6 +16,15 @@ from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
 
 # ---------------------------------------------------------------------------
+# Order observation constants (defaults match _build_order_tables)
+# ---------------------------------------------------------------------------
+
+_ORDER_MAX_ACTIVE = 3
+_ORDER_N_RECIPES = 2  # DEFAULT_RECIPES has 2 recipes
+_ORDER_FEATURES_PER = _ORDER_N_RECIPES + 1  # recipe one-hot + normalized_time
+_ORDER_OBS_DIM = _ORDER_MAX_ACTIVE * _ORDER_FEATURES_PER  # 3 * 3 = 9
+
+# ---------------------------------------------------------------------------
 # Individual feature functions
 # ---------------------------------------------------------------------------
 
@@ -357,21 +366,115 @@ def environment_layout_feature(object_type_map, layout_type_ids, max_shape):
 # ---------------------------------------------------------------------------
 
 
-@register_feature_type("overcooked_inventory", scope="overcooked")
-class OvercookedInventory(Feature):
-    """One-hot inventory encoding feature."""
+@register_feature_type("order_observation", scope="overcooked")
+class OrderObservation(Feature):
+    """Encodes active orders as recipe one-hot + normalized time remaining.
 
-    per_agent = True
-    obs_dim = 5
+    Output: (_ORDER_OBS_DIM,) = max_active * (n_recipes + 1) = 9 by default.
+    Returns zeros when orders are not configured (backward compat).
+
+    When *env_config* is provided, ``"recipes"`` length and
+    ``"orders"["max_active"]`` override the defaults.
+    """
+
+    per_agent = False  # Orders are global state, same for all agents
+    obs_dim = _ORDER_OBS_DIM  # 9
 
     @classmethod
-    def build_feature_fn(cls, scope):
+    def compute_obs_dim(cls, scope, env_config=None):
+        """Return obs_dim from env_config recipe/order counts, or default."""
+        if env_config is not None:
+            n_recipes = len(env_config["recipes"]) if "recipes" in env_config else _ORDER_N_RECIPES
+            max_active = (
+                env_config["orders"].get("max_active", _ORDER_MAX_ACTIVE)
+                if "orders" in env_config
+                else _ORDER_MAX_ACTIVE
+            )
+            return max_active * (n_recipes + 1)
+        return cls.obs_dim
+
+    @classmethod
+    def build_feature_fn(cls, scope, env_config=None):
+        """Build order observation feature function."""
+        if env_config is not None and "recipes" in env_config:
+            n_recipes = len(env_config["recipes"])
+        else:
+            n_recipes = _ORDER_N_RECIPES
+
+        if env_config is not None and "orders" in env_config:
+            max_active = env_config["orders"].get("max_active", _ORDER_MAX_ACTIVE)
+            time_limit = xp.float32(env_config["orders"].get("time_limit", 200.0))
+        else:
+            max_active = _ORDER_MAX_ACTIVE
+            time_limit = xp.float32(200.0)
+
+        total_dim = max_active * (n_recipes + 1)
+
+        def fn(state):
+            order_recipe = getattr(state, "order_recipe", None)
+            if order_recipe is None:
+                return xp.zeros(total_dim, dtype=xp.float32)
+
+            order_timer = state.order_timer
+            active = order_recipe >= 0  # (max_active,) bool
+
+            parts = []
+            for i in range(max_active):
+                # Recipe type one-hot (n_recipes,)
+                recipe_onehot = xp.where(
+                    active[i],
+                    (xp.arange(n_recipes) == order_recipe[i]).astype(xp.float32),
+                    xp.zeros(n_recipes, dtype=xp.float32),
+                )
+                # Normalized time remaining (1,)
+                norm_time = xp.where(
+                    active[i],
+                    order_timer[i].astype(xp.float32) / time_limit,
+                    xp.float32(0.0),
+                )
+                parts.append(recipe_onehot)
+                parts.append(xp.array([norm_time], dtype=xp.float32))
+
+            return xp.concatenate(parts)
+
+        return fn
+
+
+_DEFAULT_PICKUPABLE_TYPES = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
+
+
+@register_feature_type("overcooked_inventory", scope="overcooked")
+class OvercookedInventory(Feature):
+    """One-hot inventory encoding feature.
+
+    Reads pickupable types from ``env_config["pickupable_types"]`` when
+    available, otherwise uses ``_DEFAULT_PICKUPABLE_TYPES``.  This
+    ensures the observation dimension is deterministic per config and
+    independent of the global component registry.
+    """
+
+    per_agent = True
+    obs_dim = len(_DEFAULT_PICKUPABLE_TYPES)  # 5
+
+    @classmethod
+    def compute_obs_dim(cls, scope, env_config=None):
+        """Return obs_dim from env_config pickupable_types, or default."""
+        if env_config is not None and "pickupable_types" in env_config:
+            return len(env_config["pickupable_types"])
+        return cls.obs_dim
+
+    @classmethod
+    def build_feature_fn(cls, scope, env_config=None):
         """Build the inventory feature function for the given scope."""
         from cogrid.core.grid_object import object_to_idx
 
-        inv_type_order = ["onion", "onion_soup", "plate", "tomato", "tomato_soup"]
+        if env_config is not None and "pickupable_types" in env_config:
+            pickupable_names = sorted(env_config["pickupable_types"])
+        else:
+            pickupable_names = sorted(_DEFAULT_PICKUPABLE_TYPES)
+
         inv_type_ids = xp.array(
-            [object_to_idx(name, scope=scope) for name in inv_type_order],
+            [object_to_idx(name, scope=scope) for name in pickupable_names],
             dtype=xp.int32,
         )
 
@@ -497,6 +600,7 @@ class ClosestObjects(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build closest-object feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         type_ids_and_ns = [
@@ -547,9 +651,7 @@ def object_type_masks_feature(object_type_map, object_state_map, type_ids):
 
     parts = []
     for type_id in type_ids:
-        mask = (
-            (object_type_map == type_id) | (object_state_map == type_id)
-        ).astype(xp.int32)
+        mask = ((object_type_map == type_id) | (object_state_map == type_id)).astype(xp.int32)
         if pad_h > 0 or pad_w > 0:
             mask = xp.pad(mask, ((0, pad_h), (0, pad_w)))
         parts.append(mask.ravel())
@@ -565,6 +667,7 @@ class ObjectTypeMasks(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope):
+        """Build object-type mask feature function."""
         from cogrid.core.grid_object import object_to_idx
 
         type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
@@ -687,9 +790,18 @@ from cogrid.core.component_registry import (  # noqa: E402
 )
 
 
-def _overcooked_pre_compose_hook(layout_idx: int, scope: str) -> None:
-    """Set LayoutID._layout_idx before feature composition."""
+def _overcooked_pre_compose_hook(layout_idx: int, scope: str, env_config=None) -> None:
+    """Set LayoutID._layout_idx and Pot config before feature composition."""
     LayoutID._layout_idx = layout_idx
+
+    from cogrid.envs.overcooked.overcooked_grid_objects import Pot
+
+    if env_config is not None:
+        Pot._recipes_config = env_config.get("recipes")
+        Pot._orders_config = env_config.get("orders")
+    else:
+        Pot._recipes_config = None
+        Pot._orders_config = None
 
 
 register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)

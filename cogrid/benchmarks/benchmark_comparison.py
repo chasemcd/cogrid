@@ -91,8 +91,8 @@ def bench_cogrid_numpy(n_steps=N_STEPS):
 
 
 def bench_overcooked_ai(n_steps=N_STEPS):
-    from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld, Action
     from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
+    from overcooked_ai_py.mdp.overcooked_mdp import Action, OvercookedGridworld
 
     mdp = OvercookedGridworld.from_layout_name("cramped_room")
     env = OvercookedEnv.from_mdp(mdp, horizon=400, info_level=0)
@@ -129,6 +129,7 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     """Returns list of steps/sec trials."""
     import jax
     import jax.numpy as jnp
+
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
@@ -451,8 +452,11 @@ def plot_scaling_pub(
     import seaborn as sns
 
     sns.set_theme(
-        context="paper", style="whitegrid", palette="muted",
-        font="sans-serif", font_scale=1.2,
+        context="paper",
+        style="whitegrid",
+        palette="muted",
+        font="sans-serif",
+        font_scale=1.2,
     )
 
     batch_sizes = results["batch_sizes"]
@@ -471,8 +475,14 @@ def plot_scaling_pub(
     ys = [gpu_data[bs] for bs in xs]
     if xs:
         ax.plot(
-            xs, ys, linestyle="-", color=COGRID_JAX, marker="o",
-            markersize=6, linewidth=2, label="CoGrid (JAX)",
+            xs,
+            ys,
+            linestyle="-",
+            color=COGRID_JAX,
+            marker="o",
+            markersize=6,
+            linewidth=2,
+            label="CoGrid (JAX)",
         )
 
     gpu_data = results["jaxmarl"].get("gpu", {})
@@ -480,28 +490,52 @@ def plot_scaling_pub(
     ys = [gpu_data[bs] for bs in xs]
     if xs:
         ax.plot(
-            xs, ys, linestyle="-", color=JAXMARL_JAX, marker="s",
-            markersize=6, linewidth=2, label="JaxMARL",
+            xs,
+            ys,
+            linestyle="-",
+            color=JAXMARL_JAX,
+            marker="s",
+            markersize=6,
+            linewidth=2,
+            label="JaxMARL",
         )
 
     # --- Baselines as bounded horizontal lines ---
     # Distinct dash patterns for colorblind accessibility.
     val = results.get("overcooked_ai")
     if val is not None:
-        ax.hlines(val, x_min, x_max, colors=OVERCOOKED_AI,
-                  linestyles=(0, (4, 2)), linewidth=2, label="Overcooked-AI")
+        ax.hlines(
+            val,
+            x_min,
+            x_max,
+            colors=OVERCOOKED_AI,
+            linestyles=(0, (4, 2)),
+            linewidth=2,
+            label="Overcooked-AI",
+        )
 
     val = results.get("cogrid_numpy")
     if val is not None:
-        ax.hlines(val, x_min, x_max, colors=COGRID_NUMPY,
-                  linestyles=(0, (1, 1)), linewidth=2, label="CoGrid (NumPy)")
+        ax.hlines(
+            val,
+            x_min,
+            x_max,
+            colors=COGRID_NUMPY,
+            linestyles=(0, (1, 1)),
+            linewidth=2,
+            label="CoGrid (NumPy)",
+        )
 
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
     ax.set_xticks(batch_sizes)
     ax.set_xticklabels([str(bs) for bs in batch_sizes], fontsize=12)
-    ax.set_xlabel("Number of Parallel Environments", fontsize=14, fontweight="bold")
-    ax.set_ylabel("Total Throughput (steps/sec)", fontsize=14, fontweight="bold")
+    ax.set_xlabel(
+        "Number of Parallel Environments", fontsize=14, fontweight="bold"
+    )
+    ax.set_ylabel(
+        "Total Throughput (steps/sec)", fontsize=14, fontweight="bold"
+    )
     ax.tick_params(axis="y", labelsize=12)
     ax.legend(frameon=True, loc="best", fontsize="small")
     ax.grid(True, which="major", alpha=0.2)
@@ -509,7 +543,13 @@ def plot_scaling_pub(
     fig.patch.set_alpha(0.0)
     ax.patch.set_alpha(0.0)
     plt.tight_layout(pad=2.5)
-    fig.savefig(output_path, format="png", dpi=300, transparent=True, bbox_inches="tight")
+    fig.savefig(
+        output_path,
+        format="png",
+        dpi=300,
+        transparent=True,
+        bbox_inches="tight",
+    )
     print(f"  Plot saved to {output_path}")
     plt.close(fig)
 

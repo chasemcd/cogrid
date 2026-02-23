@@ -22,17 +22,18 @@ import numpy as np
 # (for ASCII layouts), a color (for rendering), and boolean properties
 # that control how agents interact with it.
 
-from cogrid.core.grid_object import GridObj, register_object_type
+from cogrid.core.grid_object import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
 
 
-@register_object_type("goal", can_overlap=True)
+@register_object_type("goal")
 class Goal(GridObj):
     """A goal cell that agents can walk onto."""
 
     object_id = "goal"
     color = Colors.Green
     char = "g"
+    can_overlap = when()
 
     def __init__(self, **kwargs):
         super().__init__(state=0)
