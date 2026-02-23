@@ -17,7 +17,6 @@ from cogrid.visualization.rendering import (
 class MedKit(grid_object.GridObj):
     """A medical kit that enables rescuing yellow victims."""
 
-    object_id = "medkit"
     color = constants.Colors.LightPink
     char = "M"
     can_pickup = when()
@@ -40,7 +39,6 @@ class MedKit(grid_object.GridObj):
 class Pickaxe(grid_object.GridObj):
     """A tool that enables clearing rubble obstacles."""
 
-    object_id = "pickaxe"
     color = constants.Colors.Grey
     char = "T"
     can_pickup = when()
@@ -77,7 +75,6 @@ class Pickaxe(grid_object.GridObj):
 class Rubble(grid_object.GridObj):
     """An obstacle that can be cleared by an Engineer or agent with Pickaxe."""
 
-    object_id = "rubble"
     color = constants.Colors.Brown
     char = "X"
 
@@ -122,7 +119,6 @@ class Rubble(grid_object.GridObj):
 class GreenVictim(grid_object.GridObj):
     """A victim rescuable by any adjacent agent."""
 
-    object_id = "green_victim"
     color = constants.Colors.Green
     char = "G"
 
@@ -152,7 +148,6 @@ class GreenVictim(grid_object.GridObj):
 class PurpleVictim(grid_object.GridObj):
     """A victim rescuable by any adjacent agent (higher reward)."""
 
-    object_id = "purple_victim"
     color = constants.Colors.Purple
     char = "P"
 
@@ -182,7 +177,6 @@ class PurpleVictim(grid_object.GridObj):
 class YellowVictim(grid_object.GridObj):
     """A victim rescuable only by a Medic or agent carrying a MedKit."""
 
-    object_id = "yellow_victim"
     color = constants.Colors.Yellow
     char = "Y"
 
@@ -219,7 +213,6 @@ class YellowVictim(grid_object.GridObj):
 class RedVictim(grid_object.GridObj):
     """A victim requiring two-agent cooperative rescue within a time window."""
 
-    object_id = "red_victim"
     color = constants.Colors.Red
     char = "R"
 

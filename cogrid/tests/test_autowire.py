@@ -89,7 +89,6 @@ def test_type_ids_includes_global_and_scope_objects():
 
 @register_object_type("test_autowire_sym_obj", scope="test_sym_01")
 class _TestSymObj(GridObj):
-    object_id = "test_autowire_sym_obj"
     color = (0, 0, 0)
     char = "Z"
 
@@ -142,7 +141,6 @@ def test_symbol_table_includes_global_objects():
 
 @register_object_type("test_aw_schema_b", scope="test_schema_01")
 class _TestSchemaObjB(GridObj):
-    object_id = "test_aw_schema_b"
     color = (0, 0, 0)
     char = "7"
 
@@ -155,7 +153,6 @@ class _TestSchemaObjB(GridObj):
 
 @register_object_type("test_aw_schema_a", scope="test_schema_01")
 class _TestSchemaObjA(GridObj):
-    object_id = "test_aw_schema_a"
     color = (0, 0, 0)
     char = "8"
 

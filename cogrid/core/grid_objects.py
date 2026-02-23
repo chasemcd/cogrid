@@ -26,7 +26,6 @@ from cogrid.visualization.rendering import (
 class Wall(GridObj):
     """An impassable wall tile."""
 
-    object_id = "wall"
     color = constants.Colors.Grey
     char = "#"
     is_wall = True
@@ -44,7 +43,6 @@ class Wall(GridObj):
 class Floor(GridObj):
     """An empty floor tile that agents can walk over."""
 
-    object_id = "floor"
     color = constants.Colors.PaleBlue
     char = GridConstants.FreeSpace
     can_overlap = when()
@@ -60,7 +58,6 @@ class Floor(GridObj):
 class Counter(GridObj):
     """A counter surface that can hold one object on top."""
 
-    object_id = "counter"
     color = constants.Colors.LightBrown
     char = "C"
     can_place_on = when()
@@ -107,7 +104,6 @@ class Counter(GridObj):
 class Key(GridObj):
     """A key that can be picked up to unlock doors."""
 
-    object_id = "key"
     color = constants.Colors.Yellow
     char = "K"
     can_pickup = when()
@@ -134,7 +130,6 @@ class Key(GridObj):
 class Door(GridObj):
     """A door that can be open, closed, or locked (requires Key)."""
 
-    object_id = "door"
     color = constants.Colors.DarkGrey
     char = "D"
 

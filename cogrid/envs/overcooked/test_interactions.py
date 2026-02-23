@@ -1247,10 +1247,19 @@ def test_pickup_from_produces_config_driven():
         f"plate_stack should produce plate: {int(pfp[plate_stack_id])} != {plate_id}"
     )
 
-    # Verify no spurious mappings: all other entries should be 0
-    for i in range(len(pfp)):
-        if i not in (onion_stack_id, tomato_stack_id, plate_stack_id):
-            assert int(pfp[i]) == 0, f"Unexpected non-zero entry at index {i}: {int(pfp[i])}"
+    # Verify no spurious mappings among non-stack types.
+    # Other tests may register additional stacks in the same process,
+    # so we only check types whose name does NOT end with "_stack".
+    from cogrid.core.grid_object import get_object_names
+
+    names = get_object_names(scope=scope)
+    known_stacks = {onion_stack_id, tomato_stack_id, plate_stack_id}
+    for i, name in enumerate(names):
+        if i in known_stacks:
+            continue
+        if name is not None and name.endswith("_stack"):
+            continue  # skip stacks registered by other tests
+        assert int(pfp[i]) == 0, f"Unexpected non-zero entry at index {i} ({name}): {int(pfp[i])}"
 
     print("  Config-driven pickup_from_produces: PASSED")
 
@@ -1303,7 +1312,7 @@ def test_factory_registers_new_types():
     # Check if already registered (from a previous test run in the same process)
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
+        make_ingredient_and_stack("test_mushroom", "9", [139, 90, 43], "test_mushroom_stack", "0")
 
     # Verify both types are registered
     names = get_object_names(scope=scope)
@@ -1344,7 +1353,7 @@ def test_factory_stack_dispenses_item():
     # Register if not already done
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
+        make_ingredient_and_stack("test_mushroom", "9", [139, 90, 43], "test_mushroom_stack", "0")
 
     # Object-level check
     stack = make_object("test_mushroom_stack", scope=scope)

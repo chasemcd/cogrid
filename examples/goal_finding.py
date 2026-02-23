@@ -30,7 +30,6 @@ from cogrid.core.constants import Colors
 class Goal(GridObj):
     """A goal cell that agents can walk onto."""
 
-    object_id = "goal"
     color = Colors.Green
     char = "g"
     can_overlap = when()

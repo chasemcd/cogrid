@@ -16,7 +16,6 @@ from cogrid.visualization.rendering import (
 class Onion(grid_object.GridObj):
     """A single onion ingredient."""
 
-    object_id = "onion"
     color = constants.Colors.Yellow
     char = "o"
     can_pickup = when()
@@ -41,7 +40,6 @@ class Onion(grid_object.GridObj):
 class Tomato(grid_object.GridObj):
     """A single tomato ingredient."""
 
-    object_id = "tomato"
     color = constants.Colors.Red
     char = "t"
     can_pickup = when()
@@ -90,7 +88,6 @@ class _BaseStack(grid_object.GridObj):
 class OnionStack(_BaseStack):
     """An infinite pile of onions."""
 
-    object_id = "onion_stack"
     color = constants.Colors.Yellow
     char = "O"
     produces = "onion"
@@ -100,7 +97,6 @@ class OnionStack(_BaseStack):
 class TomatoStack(_BaseStack):
     """An infinite pile of tomatoes."""
 
-    object_id = "tomato_stack"
     color = constants.Colors.Red
     char = "T"
     produces = "tomato"
@@ -110,7 +106,6 @@ class TomatoStack(_BaseStack):
 class Pot(grid_object.GridObj):
     """A cooking pot that accepts ingredients and produces soup."""
 
-    object_id = "pot"
     color = constants.Colors.Grey
     char = "U"
     cooking_time: int = 30  # env steps to cook a soup
@@ -282,7 +277,6 @@ class Pot(grid_object.GridObj):
 class PlateStack(_BaseStack):
     """An infinite stack of plates for picking up soup."""
 
-    object_id = "plate_stack"
     color = constants.Colors.White
     char = "="
     produces = "plate"
@@ -327,7 +321,6 @@ def make_ingredient_and_stack(
         ingredient_name.title().replace("_", ""),
         (grid_object.GridObj,),
         {
-            "object_id": ingredient_name,
             "color": ingredient_color,
             "char": ingredient_char,
             "can_pickup": when(),
@@ -350,7 +343,6 @@ def make_ingredient_and_stack(
         stack_name.title().replace("_", ""),
         (_BaseStack,),
         {
-            "object_id": stack_name,
             "color": ingredient_color,
             "char": stack_char,
             "produces": ingredient_name,
@@ -366,7 +358,6 @@ def make_ingredient_and_stack(
 class Plate(grid_object.GridObj):
     """A plate used to serve completed soups."""
 
-    object_id = "plate"
     color = constants.Colors.White
     char = "P"
     can_pickup = when()
@@ -393,7 +384,6 @@ class Plate(grid_object.GridObj):
 class DeliveryZone(grid_object.GridObj):
     """A zone where agents deliver completed soups for reward."""
 
-    object_id = "delivery_zone"
     color = constants.Colors.Green
     char = "@"
 
@@ -414,7 +404,6 @@ class DeliveryZone(grid_object.GridObj):
 class OnionSoup(grid_object.GridObj):
     """A completed onion soup, ready for delivery."""
 
-    object_id = "onion_soup"
     color = constants.Colors.LightBrown
     char = "S"
     can_pickup = when()
@@ -447,7 +436,6 @@ class OnionSoup(grid_object.GridObj):
 class TomatoSoup(grid_object.GridObj):
     """A completed tomato soup, ready for delivery."""
 
-    object_id = "tomato_soup"
     color = constants.Colors.Red
     char = "!"
     can_pickup = when()
