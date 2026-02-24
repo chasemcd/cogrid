@@ -77,43 +77,41 @@ use `OrderDeliveryReward` and configure the order queue -- see
 
 ## Recipe System
 
-By default, Overcooked uses two built-in recipes -- onion soup and tomato soup.
-Recipes are defined as a list of dictionaries, each specifying the ingredients,
-result, cook time, and reward value:
+Recipes are declared directly on the Pot class using the `Container` and
+`Recipe` dataclasses from `cogrid.core.containers`:
 
 ```python
-DEFAULT_RECIPES = [
-    {
-        "ingredients": ["onion", "onion", "onion"],
-        "result": "onion_soup",
-        "cook_time": 30,
-        "reward": 20.0,
-    },
-    {
-        "ingredients": ["tomato", "tomato", "tomato"],
-        "result": "tomato_soup",
-        "cook_time": 30,
-        "reward": 20.0,
-    },
-]
+from cogrid.core.containers import Container, Recipe
+from cogrid.core.grid_object import register_object_type, GridObj
+
+@register_object_type("pot", scope="overcooked")
+class Pot(GridObj):
+    container = Container(capacity=3, pickup_requires="plate")
+    recipes = [
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=1.0),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30, reward=1.0),
+    ]
 ```
 
-Each recipe has four keys:
+The autowire system reads these descriptors and auto-generates all the
+array-level code: interaction branches, tick handler, extra state, static
+tables, and render sync. No manual `interaction_fn` or `build_tick_fn` needed.
+
+Each `Recipe` has four fields:
 
 - **`ingredients`** -- list of ingredient names (must be registered object types). Recipes can use mixed ingredients (e.g., `["onion", "onion", "tomato"]`).
 - **`result`** -- the name of the output object produced when the recipe is completed.
 - **`cook_time`** -- number of environment steps the pot takes to cook once full.
 - **`reward`** -- the delivery reward value for this recipe's output.
 
+The `Container` dataclass declares container behavior:
+
+- **`capacity`** -- maximum number of items the container can hold.
+- **`pickup_requires`** -- object type(s) the agent must hold to pick up from the container (e.g., `"plate"`). `None` means empty hands.
+
 At init time, `compile_recipes()` compiles the recipe list into fixed-shape
 lookup arrays that the interaction system uses for recipe matching during
 gameplay.
-
-!!! note "Config wiring status"
-    The recipe infrastructure supports arbitrary recipes, including
-    mixed-ingredient combinations. Full config-dict wiring (selecting recipes
-    via the environment config) is planned; currently, custom recipes require
-    calling `compile_recipes()` directly.
 
 ## Order Queue
 
@@ -143,10 +141,16 @@ order_config = {
 - **`time_limit`** -- how many steps an order lasts before it expires.
 - **`recipe_weights`** -- relative weights controlling how often each recipe is requested (uses deterministic round-robin, not random sampling).
 
-!!! note "Config wiring status"
-    The order queue infrastructure is complete. Full config-dict wiring is
-    planned; currently, enabling orders requires custom
-    `build_overcooked_extra_state` calls with an `order_config` dict.
+To enable the order queue, initialize order arrays with `build_order_extra_state`
+and compose the `order_queue_tick` with the auto-generated container tick:
+
+```python
+from cogrid.envs.overcooked.config import build_order_extra_state, order_queue_tick
+
+order_config = {"max_active": 3, "spawn_interval": 40, "time_limit": 200}
+order_extra = build_order_extra_state(order_config)
+# Merge into the environment's extra_state at reset time
+```
 
 ## Custom Ingredients
 

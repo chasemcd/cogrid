@@ -193,10 +193,32 @@ Each decorator takes an `object_id` (or feature name) and an optional
 environments. Reward subclasses are not registered via decorators -- they are
 instantiated with config kwargs and listed in the environment config dict.
 
+### Declarative Descriptors
+
+For stateful objects that hold items, cook recipes, and produce outputs (e.g.,
+a cooking pot), use `Container` and `Recipe` class attributes. The autowire
+layer reads these and auto-generates all array-level code (extra state, tick
+handler, interaction branches, static tables, render sync):
+
+```python
+from cogrid.core.containers import Container, Recipe
+
+@register_object_type("pot", scope="overcooked")
+class Pot(GridObj):
+    container = Container(capacity=3, pickup_requires="plate")
+    recipes = [
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30),
+    ]
+```
+
+Other declarative attributes include `produces` (for dispensers/stacks) and
+`consumes_on_place` (for objects like delivery zones where placed items vanish).
+
 ### Grid Object Classmethods
 
-Grid objects can declare behavior through classmethods that the autowire layer
-discovers and wires into the step pipeline:
+For fully custom behavior beyond the Container/Recipe pattern, grid objects can
+declare behavior through classmethods that the autowire layer discovers and
+wires into the step pipeline:
 
 | Classmethod | Returns | Purpose |
 |-------------|---------|---------|
@@ -211,12 +233,14 @@ discovers and wires into the step pipeline:
 At environment initialization, the autowire layer:
 
 1. Scans the object registry for all objects in the environment's scope
-2. Collects classmethods (`build_tick_fn`, `extra_state_schema`, etc.)
-3. Builds a `scope_config` dict containing tick handlers, interaction tables,
-   type ID mappings, and static lookup tables (from `build_static_tables()`
-   classmethods -- e.g., recipe arrays, deliverable-item sets)
-4. Builds a `reward_config` from registered reward components
-5. Builds a `feature_config` by composing registered feature functions
+2. Reads `Container`/`Recipe` descriptors and auto-generates extra state,
+   tick handlers, interaction branches, static tables, and render syncs
+3. Collects classmethods (`build_tick_fn`, `extra_state_schema`, etc.)
+   for objects using the manual classmethod pattern
+4. Composes everything into a `scope_config` dict containing tick handlers,
+   interaction function, type ID mappings, and static lookup tables
+5. Builds a `reward_config` from registered reward components
+6. Builds a `feature_config` by composing registered feature functions
 
 The resulting configs are closed over by `build_step_fn` and `build_reset_fn`,
 producing pure functions that capture all environment logic. On the JAX

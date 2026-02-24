@@ -9,7 +9,7 @@ CoGrid is a library for creating grid-based multi-agent environments for reinfor
 ## Key Features
 
 - **Multi-agent support** -- multiple agents with independent observation and action spaces via the PettingZoo ParallelEnv interface
-- **Pluggable component API** -- objects and features are registered via `@register_object_type` and `@register_feature_type` decorators. Rewards are `Reward` subclasses passed as instances in the environment config. Object classmethods (`build_tick_fn`, `build_interaction_fn`, `build_render_sync_fn`, etc.) wire behavior into the step pipeline.
+- **Pluggable component API** -- objects and features are registered via `@register_object_type` and `@register_feature_type` decorators. Rewards are `Reward` subclasses passed as instances in the environment config. Stateful objects use declarative `Container`/`Recipe` descriptors; the autowire system auto-generates all array-level code.
 - **JAX backend** -- JIT compilation and `vmap` batching for high-throughput simulation
 - **PettingZoo ParallelEnv interface** -- standard multi-agent API compatible with existing RL libraries
 
