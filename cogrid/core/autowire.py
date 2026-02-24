@@ -79,12 +79,25 @@ def build_scope_config_from_components(
     tick_handler, and render_sync automatically from GridObject classmethods
     registered in the given scope (plus global).
 
+    Components with ``container`` metadata auto-generate extra_state,
+    tick, render_sync, static_tables, and interaction_fn.  Components
+    with ``consumes_on_place=True`` auto-generate consume branches in
+    the interaction_fn.
+
     Pass-through kwargs override auto-composed handlers.
     """
     from cogrid.core.component_registry import (
         get_all_components,
         get_components_with_extra_state,
+        get_container_components,
         get_tickable_components,
+    )
+    from cogrid.core.containers import (
+        build_container_extra_state_builder,
+        build_container_extra_state_schema,
+        build_container_render_sync,
+        build_container_static_tables,
+        build_container_tick_fn,
     )
     from cogrid.core.grid_object import (
         build_guard_tables,
@@ -95,6 +108,12 @@ def build_scope_config_from_components(
 
     # -- Collect all components for this scope (reused below) --
     all_components = get_all_components(scope)
+
+    # -- Discover container and consumes_on_place components --
+    container_components = get_container_components(scope)
+    consume_components = [
+        m for m in all_components if m.properties.get("consumes_on_place", False)
+    ]
 
     # -- type_ids: map object names to integer indices --
     type_ids = {
@@ -109,18 +128,43 @@ def build_scope_config_from_components(
     # -- extra_state_schema: merged from all components, scope-prefixed, sorted --
     extra_state_schema = _build_extra_state_schema(scope, get_components_with_extra_state)
 
+    # Auto-generate extra_state_schema from container metadata
+    for meta in container_components:
+        cm = meta.container_meta
+        container_schema = build_container_extra_state_schema(
+            meta.object_id, cm["container"]
+        )
+        for key, val in container_schema.items():
+            extra_state_schema[f"{scope}.{key}"] = val
+    extra_state_schema = dict(sorted(extra_state_schema.items()))
+
     # -- static_tables: CAN_PICKUP, CAN_OVERLAP, etc. from build_lookup_tables --
     static_tables = build_lookup_tables(scope=scope)
 
     # -- Compose tick_handler from tickable components (if not overridden) --
-    if tick_handler is None:
-        tickable = get_tickable_components(scope)
-        if len(tickable) == 1:
-            tick_handler = tickable[0].methods["build_tick_fn"]()
-        elif len(tickable) > 1:
-            tick_fns = [m.methods["build_tick_fn"]() for m in tickable]
+    all_tick_fns = []
 
-            def _composed_tick(state, scope_config, _fns=tick_fns):
+    if tick_handler is None:
+        # Classmethod-based tick functions
+        tickable = get_tickable_components(scope)
+        for m in tickable:
+            all_tick_fns.append(m.methods["build_tick_fn"]())
+
+        # Auto-generated tick functions from container metadata
+        for meta in container_components:
+            # Skip if this component already has a classmethod tick
+            if meta.has_tick:
+                continue
+            cm = meta.container_meta
+            all_tick_fns.append(
+                build_container_tick_fn(meta.object_id, cm["container"], scope)
+            )
+
+        if len(all_tick_fns) == 1:
+            tick_handler = all_tick_fns[0]
+        elif len(all_tick_fns) > 1:
+
+            def _composed_tick(state, scope_config, _fns=all_tick_fns):
                 for fn in _fns:
                     state = fn(state, scope_config)
                 return state
@@ -129,20 +173,35 @@ def build_scope_config_from_components(
 
     # -- Compose extra_state_builder from components --
     extra_state_builder = None
+    builder_fns = []
+
+    # Classmethod-based builders
     builders = [m for m in all_components if "extra_state_builder" in m.methods]
-    if builders:
-        builder_fns = [m.methods["extra_state_builder"]() for m in builders]
-        if len(builder_fns) == 1:
-            extra_state_builder = builder_fns[0]
-        else:
+    for m in builders:
+        builder_fns.append(m.methods["extra_state_builder"]())
 
-            def _composed_builder(parsed_arrays, scope=scope, _fns=builder_fns):
-                merged = {}
-                for fn in _fns:
-                    merged.update(fn(parsed_arrays, scope))
-                return merged
+    # Auto-generated builders from container metadata
+    for meta in container_components:
+        if "extra_state_builder" in meta.methods:
+            continue  # already added above
+        cm = meta.container_meta
+        builder_fns.append(
+            build_container_extra_state_builder(
+                meta.object_id, cm["container"], cm["recipes"], scope
+            )
+        )
 
-            extra_state_builder = _composed_builder
+    if len(builder_fns) == 1:
+        extra_state_builder = builder_fns[0]
+    elif len(builder_fns) > 1:
+
+        def _composed_builder(parsed_arrays, scope=scope, _fns=builder_fns):
+            merged = {}
+            for fn in _fns:
+                merged.update(fn(parsed_arrays, scope))
+            return merged
+
+        extra_state_builder = _composed_builder
 
     # -- Merge component-specific static_tables --
     for meta in all_components:
@@ -150,26 +209,70 @@ def build_scope_config_from_components(
             extra_tables = meta.methods["build_static_tables"]()
             static_tables.update(extra_tables)
 
+    # Auto-generate static_tables from container metadata
+    for meta in container_components:
+        if meta.has_static_tables:
+            continue  # already merged above
+        cm = meta.container_meta
+        extra_tables = build_container_static_tables(
+            meta.object_id, cm["container"], cm["recipes"], scope
+        )
+        static_tables.update(extra_tables)
+
     # -- Build 2D guard tables for pickup_from / place_on conditions --
     guard_tables = build_guard_tables(scope=scope)
     static_tables.update(guard_tables)
 
+    # -- Add consume type IDs to static_tables for backward compat --
+    for meta in consume_components:
+        static_tables[f"{meta.object_id}_id"] = object_to_idx(
+            meta.object_id, scope=scope
+        )
+
     # -- Compose render_sync from components (global + scope) --
-    render_sync = None
+    render_fns = []
     global_renderers = [m for m in get_all_components("global") if m.has_render_sync]
     scope_renderers = [m for m in all_components if m.has_render_sync] if scope != "global" else []
     all_renderers = global_renderers + scope_renderers
-    if all_renderers:
-        render_fns = [m.methods["build_render_sync_fn"]() for m in all_renderers]
-        if len(render_fns) == 1:
-            render_sync = render_fns[0]
-        else:
+    for m in all_renderers:
+        render_fns.append(m.methods["build_render_sync_fn"]())
 
-            def _composed_render_sync(grid, env_state, scope, _fns=render_fns):
-                for fn in _fns:
-                    fn(grid, env_state, scope)
+    # Auto-generated render_sync from container metadata
+    for meta in container_components:
+        if meta.has_render_sync:
+            continue  # already added above
+        render_fns.append(build_container_render_sync(meta.object_id, scope))
 
-            render_sync = _composed_render_sync
+    render_sync = None
+    if len(render_fns) == 1:
+        render_sync = render_fns[0]
+    elif len(render_fns) > 1:
+
+        def _composed_render_sync(grid, env_state, scope, _fns=render_fns):
+            for fn in _fns:
+                fn(grid, env_state, scope)
+
+        render_sync = _composed_render_sync
+
+    # -- Auto-generate interaction_fn from container + consume components --
+    interaction_fn = None
+    if container_components or consume_components:
+        from cogrid.core.interactions import compose_interaction_fn
+
+        container_specs = []
+        for meta in container_components:
+            cm = meta.container_meta
+            container_specs.append({
+                "object_id": meta.object_id,
+                "container": cm["container"],
+                "recipes": cm["recipes"],
+            })
+
+        consume_type_ids = [
+            object_to_idx(m.object_id, scope=scope) for m in consume_components
+        ]
+
+        interaction_fn = compose_interaction_fn(container_specs, consume_type_ids, scope)
 
     return {
         "scope": scope,
@@ -182,6 +285,7 @@ def build_scope_config_from_components(
         "extra_state_schema": extra_state_schema,
         "extra_state_builder": extra_state_builder,
         "render_sync": render_sync,
+        "interaction_fn": interaction_fn,
     }
 
 

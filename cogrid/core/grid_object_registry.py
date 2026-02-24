@@ -79,7 +79,9 @@ def register_object(object_id: str, obj_class: GridObj, scope: str = "global") -
     OBJECT_REGISTRY[scope][object_id] = obj_class
 
 
-_CAPABILITY_ATTRS = frozenset({"can_pickup", "can_overlap", "can_place_on", "can_pickup_from", "is_wall"})
+_CAPABILITY_ATTRS = frozenset(
+    {"can_pickup", "can_overlap", "can_place_on", "can_pickup_from", "is_wall", "consumes_on_place"}
+)
 
 
 def register_object_type(
@@ -110,8 +112,27 @@ def register_object_type(
             get_all_components,
             register_component_metadata,
         )
+        from cogrid.core.containers import Container
+        from cogrid.core.when import When, when
 
-        from cogrid.core.when import When
+        # --- Auto-generate when() from Container + Recipe descriptors ---
+        container = getattr(cls, "container", None)
+        recipes = getattr(cls, "recipes", None)
+
+        if isinstance(container, Container):
+            # Auto-generate can_place_on from recipe ingredients (if not explicit)
+            if "can_place_on" not in cls.__dict__ and recipes:
+                all_ingredients = sorted(
+                    {ing for r in recipes for ing in r.ingredients}
+                )
+                cls.can_place_on = when(agent_holding=all_ingredients)
+
+            # Auto-generate can_pickup_from from pickup_requires (if not explicit)
+            if "can_pickup_from" not in cls.__dict__:
+                if container.pickup_requires is not None:
+                    cls.can_pickup_from = when(agent_holding=container.pickup_requires)
+                else:
+                    cls.can_pickup_from = when()
 
         # Scan class for capability attributes (When instances or plain bool True)
         properties = {}
@@ -149,6 +170,14 @@ def register_object_type(
                 _validate_classmethod_signature(cls, method_name, method)
                 discovered[method_name] = method
 
+        # Build container metadata for autowire
+        container_meta = None
+        if isinstance(container, Container):
+            container_meta = {
+                "container": container,
+                "recipes": list(recipes) if recipes else [],
+            }
+
         # Store component metadata in the registry
         register_component_metadata(
             scope=scope,
@@ -156,6 +185,7 @@ def register_object_type(
             cls=cls,
             properties=properties,
             methods=discovered,
+            container_meta=container_meta,
         )
 
         return cls

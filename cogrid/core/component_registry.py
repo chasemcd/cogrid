@@ -30,6 +30,7 @@ class ComponentMetadata:
     char: str
     properties: dict[str, bool]
     methods: dict[str, Any] = field(default_factory=dict)
+    container_meta: dict | None = None
 
     @property
     def has_tick(self) -> bool:
@@ -50,6 +51,11 @@ class ComponentMetadata:
     def has_render_sync(self) -> bool:
         """True if this component provides a render sync function."""
         return "build_render_sync_fn" in self.methods
+
+    @property
+    def has_container(self) -> bool:
+        """True if this component declares a Container descriptor."""
+        return self.container_meta is not None
 
 
 @dataclass(frozen=True)
@@ -121,6 +127,7 @@ def register_component_metadata(
     cls: type,
     properties: dict[str, bool],
     methods: dict[str, Any],
+    container_meta: dict | None = None,
 ) -> None:
     """Store :class:`ComponentMetadata` for a GridObject subclass.
 
@@ -135,6 +142,7 @@ def register_component_metadata(
         char=cls.char,
         properties=properties,
         methods=methods,
+        container_meta=container_meta,
     )
     _COMPONENT_METADATA[(scope, object_id)] = meta
 
@@ -239,6 +247,11 @@ def get_tickable_components(scope: str = "global") -> list[ComponentMetadata]:
 def get_components_with_extra_state(scope: str = "global") -> list[ComponentMetadata]:
     """Return components that have an ``extra_state_schema`` classmethod."""
     return [m for m in get_all_components(scope) if m.has_extra_state]
+
+
+def get_container_components(scope: str = "global") -> list[ComponentMetadata]:
+    """Return components that declare a ``Container`` descriptor."""
+    return [m for m in get_all_components(scope) if m.has_container]
 
 
 # ---------------------------------------------------------------------------
