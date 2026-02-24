@@ -63,10 +63,10 @@ class DeliveryReward(Reward):
 
     Use OrderDeliveryReward if you need order matching and tip bonuses.
 
-    Parameters:
-        coefficient: Reward scaling factor (default 1.0). Used as uniform
-                     reward when per-recipe tables are absent.
-        common_reward: If True, all agents receive the reward (default True).
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 1.0). Used as uniform
+          reward when per-recipe tables are absent.
+        - ``common_reward``: If True, all agents receive the reward (default True).
     """
 
     def compute(self, prev_state, state, actions, reward_config):
@@ -140,9 +140,9 @@ class OrderDeliveryReward(DeliveryReward):
     Falls back to base DeliveryReward behavior (no gating, no tip) when
     order_recipe is not present in state (orders disabled).
 
-    Parameters:
-        coefficient: Reward scaling factor (default 1.0).
-        common_reward: If True, all agents receive the reward (default True).
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 1.0).
+        - ``common_reward``: If True, all agents receive the reward (default True).
     """
 
     def compute(self, prev_state, state, actions, reward_config):
@@ -202,9 +202,9 @@ class OnionInPotReward(InteractionReward):
     AND the pot has capacity (< 3 ingredients) and contains only onions
     or empty slots (type compatibility).
 
-    Parameters:
-        coefficient: Reward scaling factor (default 0.1).
-        common_reward: If True, all agents receive the reward (default False).
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 0.1).
+        - ``common_reward``: If True, all agents receive the reward (default False).
     """
 
     action = "pickup_drop"
@@ -241,9 +241,9 @@ class SoupInDishReward(InteractionReward):
     Triggers when: agent performs pickup_drop + holds plate + faces pot,
     AND the pot is ready (timer == 0, meaning cooking is complete).
 
-    Parameters:
-        coefficient: Reward scaling factor (default 0.3).
-        common_reward: If True, all agents receive the reward (default False).
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 0.3).
+        - ``common_reward``: If True, all agents receive the reward (default False).
     """
 
     action = "pickup_drop"
@@ -275,8 +275,8 @@ class ExpiredOrderPenalty(Reward):
     vs state.order_n_expired. Returns zero when orders are disabled
     (no order_n_expired in state).
 
-    Parameters:
-        penalty: Penalty value per expired order (default -5.0).
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``penalty``: Penalty value per expired order (default -5.0).
     """
 
     def compute(self, prev_state, state, actions, reward_config):
