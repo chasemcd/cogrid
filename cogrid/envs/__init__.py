@@ -7,7 +7,6 @@ from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
-from cogrid.envs.overcooked.config import overcooked_interaction_fn
 from cogrid.envs.overcooked.rewards import (
     DeliveryReward,
     OnionInPotReward,
@@ -96,22 +95,7 @@ cramped_room_config = {
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
     "scope": "overcooked",
-    "interaction_fn": overcooked_interaction_fn,
     "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
-    "recipes": [
-        {
-            "ingredients": ["onion", "onion", "onion"],
-            "result": "onion_soup",
-            "cook_time": 30,
-            "reward": 1.0,
-        },
-        {
-            "ingredients": ["tomato", "tomato", "tomato"],
-            "result": "tomato_soup",
-            "cook_time": 30,
-            "reward": 1.0,
-        },
-    ],
 }
 
 registry.register(

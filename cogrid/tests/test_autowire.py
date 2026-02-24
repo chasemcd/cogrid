@@ -497,7 +497,6 @@ def test_build_feature_config_returns_callable():
 
     # Build a state from a real Overcooked environment
     from cogrid.cogrid_env import CoGridEnv
-    from cogrid.envs.overcooked.config import overcooked_interaction_fn
 
     env = CoGridEnv(
         config={
@@ -507,7 +506,6 @@ def test_build_feature_config_returns_callable():
             "max_steps": 10,
             "action_set": "cardinal_actions",
             "features": _OVERCOOKED_FEATURES,
-            "interaction_fn": overcooked_interaction_fn,
             "grid": {"layout": "overcooked_cramped_room_v0"},
         }
     )

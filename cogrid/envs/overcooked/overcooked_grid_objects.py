@@ -101,10 +101,6 @@ class Pot(grid_object.GridObj):
 
     capacity: int = 3  # backward compat alias for container.capacity
 
-    # Kept for order queue backward compat (set by pre-compose hook)
-    _recipes_config = None
-    _orders_config = None
-
     def __init__(self, state: int = 0, **kwargs):
         """Initialize pot with empty contents and default timer."""
         super().__init__(state=state)

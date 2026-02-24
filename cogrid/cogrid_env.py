@@ -138,9 +138,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
         from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
 
-        # Run pre-compose hook before scope config so that config-driven
-        # class attributes (e.g. Pot._recipes_config) are set before
-        # build_static_tables reads them.
+        # Run pre-compose hook before scope config (e.g. to set layout index).
         pre_hook = get_pre_compose_hook(self.scope)
         if pre_hook is not None:
             _layout_idx = get_layout_index(self.scope, self.current_layout_id)
