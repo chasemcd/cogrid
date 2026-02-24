@@ -14,9 +14,9 @@ from cogrid.core.grid_object_base import GridObj
 # IDs and characters across environments.
 OBJECT_REGISTRY: dict[str, dict[str, GridObj]] = {}
 
-# Maps (scope, object_id) -> dict of static boolean properties for lookup table generation.
-# Populated by the @register_object_type decorator.
-_OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict[str, bool]] = {}
+# Maps (scope, object_id) -> dict of static properties for lookup table generation.
+# Values are True, False, or When instances. Populated by @register_object_type.
+_OBJECT_TYPE_PROPERTIES: dict[tuple[str, str], dict] = {}
 
 # Known classmethod names to scan for during component registration.
 _COMPONENT_METHODS = frozenset(
@@ -118,7 +118,7 @@ def register_object_type(
         for attr in _CAPABILITY_ATTRS:
             val = getattr(cls, attr, None)
             if isinstance(val, When):
-                properties[attr] = True
+                properties[attr] = val  # preserve When for guard table generation
             elif val is True:
                 properties[attr] = True
             else:
@@ -245,6 +245,80 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
     tables["pickup_from_produces"] = pickup_from_produces
 
     return tables
+
+
+def build_guard_tables(scope: str = "global") -> dict[str, np.ndarray]:
+    """Build 2D guard tables for pickup_from and place_on interactions.
+
+    Returns ``(n_types, n_types + 1)`` int32 arrays where:
+    - Row = forward cell type ID
+    - Column 0 = agent has empty hands (inv_item == -1)
+    - Columns 1..n = agent holds type ID ``col - 1``
+
+    A cell value of 1 means the interaction is allowed for that
+    (forward_type, held_item) pair.
+
+    When conditions determine which columns are set:
+    - Bare ``when()`` (no conditions): pickup_from defaults to column 0
+      (empty hands); place_on defaults to columns 1..n (any held item).
+    - ``when(agent_holding="plate")``: sets only the plate column.
+    - ``when(agent_holding=["onion", "tomato"])``: sets those columns.
+    """
+    from cogrid.core.when import When
+
+    type_names = get_object_names(scope=scope)
+    n_types = len(type_names)
+    n_cols = n_types + 1  # col 0 = empty hands, cols 1..n = held type IDs
+
+    pickup_from_guard = np.zeros((n_types, n_cols), dtype=np.int32)
+    place_on_guard = np.zeros((n_types, n_cols), dtype=np.int32)
+
+    for idx, name in enumerate(type_names):
+        if name is None or name == "free_space" or name.startswith("agent_"):
+            continue
+
+        props = _OBJECT_TYPE_PROPERTIES.get((scope, name))
+        if props is None:
+            props = _OBJECT_TYPE_PROPERTIES.get(("global", name))
+        if props is None:
+            continue
+
+        # --- can_pickup_from ---
+        pf_val = props.get("can_pickup_from", False)
+        if pf_val is not False and pf_val is not None:
+            if isinstance(pf_val, When) and pf_val.has_conditions:
+                for held_name in pf_val.conditions["agent_holding"]:
+                    if held_name not in type_names:
+                        raise ValueError(
+                            f"when(agent_holding={held_name!r}) on {name!r}: "
+                            f"{held_name!r} is not a registered type in scope {scope!r}"
+                        )
+                    col = type_names.index(held_name) + 1
+                    pickup_from_guard[idx, col] = 1
+            else:
+                # Bare when() or True: default = empty hands only (col 0)
+                pickup_from_guard[idx, 0] = 1
+
+        # --- can_place_on ---
+        po_val = props.get("can_place_on", False)
+        if po_val is not False and po_val is not None:
+            if isinstance(po_val, When) and po_val.has_conditions:
+                for held_name in po_val.conditions["agent_holding"]:
+                    if held_name not in type_names:
+                        raise ValueError(
+                            f"when(agent_holding={held_name!r}) on {name!r}: "
+                            f"{held_name!r} is not a registered type in scope {scope!r}"
+                        )
+                    col = type_names.index(held_name) + 1
+                    place_on_guard[idx, col] = 1
+            else:
+                # Bare when() or True: default = any held item (cols 1..n)
+                place_on_guard[idx, 1:] = 1
+
+    return {
+        "PICKUP_FROM_GUARD": pickup_from_guard,
+        "PLACE_ON_GUARD": place_on_guard,
+    }
 
 
 def get_registered_object_ids(scope: str = "global") -> list[str]:

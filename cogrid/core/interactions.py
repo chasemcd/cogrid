@@ -12,9 +12,9 @@ Key functions:
 Generic branch functions (shared signature ``(handled, ctx) -> (cond, updates, new_handled)``):
 
 - ``branch_pickup`` -- pick up a loose object from the grid
-- ``branch_pickup_from`` -- unified pickup from stacks and counters (CAN_PICKUP_FROM)
+- ``branch_pickup_from`` -- unified pickup from stacks and counters (PICKUP_FROM_GUARD)
 - ``branch_drop_on_empty`` -- drop held item on an empty cell
-- ``branch_place_on`` -- place held item on a CAN_PLACE_ON surface
+- ``branch_place_on`` -- place held item on a PLACE_ON_GUARD surface
 
 - ``merge_branch_results`` -- apply accumulated branch results via sparse xp.where
 """
@@ -37,8 +37,17 @@ from cogrid.backend.array_ops import set_at, set_at_2d
 # Standard ctx keys used by core branches:
 #   base_ok, fwd_type, fwd_r, fwd_c, inv_item, agent_idx,
 #   agent_inv, object_type_map, object_state_map,
-#   CAN_PICKUP, CAN_PICKUP_FROM, CAN_PLACE_ON, pickup_from_produces
+#   CAN_PICKUP, PICKUP_FROM_GUARD, PLACE_ON_GUARD, pickup_from_produces
 # ======================================================================
+
+
+def _held_col(inv_item):
+    """Map inventory item to guard table column index.
+
+    Column 0 = empty hands (inv_item == -1).
+    Columns 1..n = held type ID + 1.
+    """
+    return xp.where(inv_item == -1, 0, inv_item + 1)
 
 
 def branch_pickup(handled, ctx):
@@ -62,15 +71,15 @@ def branch_pickup(handled, ctx):
 
 
 def branch_pickup_from(handled, ctx):
-    """Unified pickup from stacks and counters (CAN_PICKUP_FROM objects).
+    """Unified pickup from stacks and counters (PICKUP_FROM_GUARD objects).
 
     For stacks (pickup_from_produces[fwd_type] > 0): dispense produced item,
     grid unchanged (infinite supply).
     For counters (pickup_from_produces[fwd_type] == 0): pick up item stored
     in object_state_map, clear counter state.
 
-    Conditions: forward cell is CAN_PICKUP_FROM, hand is empty,
-    and either stack produces something or counter has an item.
+    Conditions: forward cell passes PICKUP_FROM_GUARD for the agent's held
+    item, and either stack produces something or counter has an item.
     """
     fwd_type = ctx["fwd_type"]
     pickup_from_produces = ctx["pickup_from_produces"]
@@ -81,12 +90,12 @@ def branch_pickup_from(handled, ctx):
     item = xp.where(produced > 0, produced, state_item)
 
     has_item = item > 0
+    held_c = _held_col(ctx["inv_item"])
     cond = (
         ~handled
         & ctx["base_ok"]
         & (fwd_type > 0)
-        & (ctx["CAN_PICKUP_FROM"][fwd_type] == 1)
-        & (ctx["inv_item"] == -1)
+        & (ctx["PICKUP_FROM_GUARD"][fwd_type, held_c] == 1)
         & has_item
     )
 
@@ -115,21 +124,22 @@ def branch_drop_on_empty(handled, ctx):
 
 
 def branch_place_on(handled, ctx):
-    """Place a held item on a CAN_PLACE_ON surface (counter, etc.).
+    """Place a held item on a PLACE_ON_GUARD surface (counter, etc.).
 
     Items are stored in object_state_map (the surface stays in object_type_map).
-    Conditions: forward cell is CAN_PLACE_ON, hand not empty, surface is empty (state == 0).
+    Conditions: forward cell passes PLACE_ON_GUARD for agent's held item,
+    surface is empty (state == 0).
     Effects: item stored in object_state_map, inventory cleared.
     """
     fwd_type = ctx["fwd_type"]
     inv_item = ctx["inv_item"]
     counter_empty = ctx["object_state_map"][ctx["fwd_r"], ctx["fwd_c"]] == 0
+    held_c = _held_col(inv_item)
     cond = (
         ~handled
         & ctx["base_ok"]
         & (fwd_type > 0)
-        & (ctx["CAN_PLACE_ON"][fwd_type] == 1)
-        & (inv_item != -1)
+        & (ctx["PLACE_ON_GUARD"][fwd_type, held_c] == 1)
         & counter_empty
     )
     osm = set_at_2d(ctx["object_state_map"], ctx["fwd_r"], ctx["fwd_c"], inv_item)
@@ -184,6 +194,41 @@ _GENERIC_BRANCHES = [
 
 
 # ======================================================================
+# Fallback guard table helper
+# ======================================================================
+
+
+def _default_guard_tables(lookup_tables):
+    """Synthesize 2D guard tables from 1D arrays for backward compatibility.
+
+    Used by envs that go through ``process_interactions`` without the
+    autowire path (which calls ``build_guard_tables`` automatically).
+
+    For ``PICKUP_FROM_GUARD``: sets column 0 (empty hands) wherever
+    ``CAN_PICKUP_FROM`` is 1.
+    For ``PLACE_ON_GUARD``: sets columns 1..n (any held item) wherever
+    ``CAN_PLACE_ON`` is 1.
+    """
+    import numpy as np
+
+    can_pf = lookup_tables["CAN_PICKUP_FROM"]
+    can_po = lookup_tables["CAN_PLACE_ON"]
+    n_types = can_pf.shape[0]
+    n_cols = n_types + 1
+
+    pf_guard = np.zeros((n_types, n_cols), dtype=np.int32)
+    po_guard = np.zeros((n_types, n_cols), dtype=np.int32)
+
+    for i in range(n_types):
+        if int(can_pf[i]) == 1:
+            pf_guard[i, 0] = 1  # empty hands
+        if int(can_po[i]) == 1:
+            po_guard[i, 1:] = 1  # any held item
+
+    return {"PICKUP_FROM_GUARD": pf_guard, "PLACE_ON_GUARD": po_guard}
+
+
+# ======================================================================
 # Top-level interaction processor
 # ======================================================================
 
@@ -192,7 +237,7 @@ def process_interactions(
     state,  # EnvState
     actions,  # (n_agents,) int32
     interaction_fn,  # callable or None
-    lookup_tables,  # dict with CAN_PICKUP, CAN_OVERLAP, CAN_PLACE_ON, CAN_PICKUP_FROM
+    lookup_tables,  # dict with CAN_PICKUP, CAN_OVERLAP, etc.
     scope_config,  # scope config dict (passed through to interaction_fn)
     dir_vec_table,  # (4, 2) int32
     action_pickup_drop_idx,  # int -- index of PickupDrop action
@@ -232,6 +277,16 @@ def process_interactions(
             state = interaction_fn(state, i, fwd_r[i], fwd_c[i], base_ok[i], scope_config)
     else:
         # Generic scope: use core branch functions.
+        # Resolve guard tables: prefer scope_config, fall back to 1D synthesis.
+        st = scope_config.get("static_tables", {}) if scope_config else {}
+        if "PICKUP_FROM_GUARD" in st:
+            pf_guard = st["PICKUP_FROM_GUARD"]
+            po_guard = st["PLACE_ON_GUARD"]
+        else:
+            fallback = _default_guard_tables(lookup_tables)
+            pf_guard = fallback["PICKUP_FROM_GUARD"]
+            po_guard = fallback["PLACE_ON_GUARD"]
+
         agent_inv = state.agent_inv
         object_type_map = state.object_type_map
         object_state_map = state.object_state_map
@@ -251,8 +306,8 @@ def process_interactions(
                 "object_type_map": object_type_map,
                 "object_state_map": object_state_map,
                 "CAN_PICKUP": lookup_tables["CAN_PICKUP"],
-                "CAN_PICKUP_FROM": lookup_tables["CAN_PICKUP_FROM"],
-                "CAN_PLACE_ON": lookup_tables["CAN_PLACE_ON"],
+                "PICKUP_FROM_GUARD": pf_guard,
+                "PLACE_ON_GUARD": po_guard,
                 "pickup_from_produces": lookup_tables["pickup_from_produces"],
             }
 

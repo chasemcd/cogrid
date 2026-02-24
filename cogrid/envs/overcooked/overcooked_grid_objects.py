@@ -20,16 +20,9 @@ class Onion(grid_object.GridObj):
     char = "o"
     can_pickup = when()
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(
-            state=0,
-            inventory_value=0.0,
-        )
+        super().__init__(state=0)
 
     def render(self, tile_img):
         """Draw a yellow circle."""
@@ -44,16 +37,9 @@ class Tomato(grid_object.GridObj):
     char = "t"
     can_pickup = when()
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(
-            state=0,
-            inventory_value=0.0,
-        )
+        super().__init__(state=0)
 
     def render(self, tile_img):
         """Draw a red circle."""
@@ -70,12 +56,6 @@ class _BaseStack(grid_object.GridObj):
     produces: str = None
     scope: str = "overcooked"
     can_pickup_from = when()
-
-    def pick_up_from(self, agent) -> grid_object.GridObj:
-        """Dispense a fresh instance of the produced item."""
-        from cogrid.core.grid_object import make_object
-
-        return make_object(self.produces, scope=self.scope)
 
     def render(self, tile_img):
         """Draw three stacked circles using self.color."""
@@ -111,56 +91,16 @@ class Pot(grid_object.GridObj):
     cooking_time: int = 30  # env steps to cook a soup
     _recipes_config = None  # set by pre-compose hook from env_config
     _orders_config = None  # set by pre-compose hook from env_config
+    can_pickup_from = when(agent_holding="plate")
+    can_place_on = when(agent_holding=["onion", "tomato"])
 
-    def __init__(
-        self,
-        state: int = 0,
-        capacity: int = 3,
-        legal_contents: list[grid_object.GridObj] = [Onion, Tomato],
-        *args,
-        **kwargs,
-    ):
-        """Initialize pot with capacity and legal ingredient types."""
-        super().__init__(state=state, picked_up_from_value=0.0, placed_on_value=0.0)
+    capacity: int = 3
 
+    def __init__(self, state: int = 0, **kwargs):
+        """Initialize pot with empty contents and default timer."""
+        super().__init__(state=state)
         self.objects_in_pot: list[grid_object.GridObj] = []
-        self.capacity: int = capacity
         self.cooking_timer: int = self.cooking_time
-        self.legal_contents: list[grid_object.GridObj] = legal_contents
-
-    def pick_up_from(self, agent: grid_object.GridAgent) -> grid_object.GridObj:
-        """Remove soup from pot, consume agent's plate, return soup object."""
-        # if all ingredients are tomatoes, return TomatoSoup
-        soup = OnionSoup()
-        if all([isinstance(grid_obj, Tomato) for grid_obj in self.objects_in_pot]):
-            soup = TomatoSoup()
-
-        self.objects_in_pot = []
-        self.cooking_timer = self.cooking_time
-        agent.inventory.pop(0)
-        return soup
-
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
-        """Add an ingredient to the pot."""
-        self.objects_in_pot.append(cell)
-
-    @property
-    def is_cooking(self) -> None:
-        """True when pot is full and timer has not reached zero."""
-        return len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0
-
-    def tick(self) -> None:
-        """Update cooking time if the pot is full."""
-        if len(self.objects_in_pot) == self.capacity and self.cooking_timer > 0:
-            self.cooking_timer -= 1
-            self.state += 100
-
-        self.state = len(self.objects_in_pot) + len(self.objects_in_pot) * self.cooking_timer
-
-    @property
-    def dish_ready(self) -> bool:
-        """True when cooking timer has reached zero."""
-        return self.cooking_timer == 0
 
     def render(self, tile_img):
         """Draw pot circle with ingredient dots and timer text."""
@@ -328,7 +268,7 @@ def make_ingredient_and_stack(
     )
 
     def _ingredient_init(self, *args, **kwargs):
-        grid_object.GridObj.__init__(self, state=0, inventory_value=0.0)
+        grid_object.GridObj.__init__(self, state=0)
 
     def _ingredient_render(self, tile_img):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
@@ -362,18 +302,9 @@ class Plate(grid_object.GridObj):
     char = "P"
     can_pickup = when()
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(
-            state=0,
-            toggle_value=0,
-            inventory_value=0.0,
-            overlap_value=0,
-        )
+        super().__init__(state=0)
 
     def render(self, tile_img):
         """Draw a white circle."""
@@ -386,18 +317,11 @@ class DeliveryZone(grid_object.GridObj):
 
     color = constants.Colors.Green
     char = "@"
+    can_place_on = when(agent_holding=["onion_soup", "tomato_soup"])
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(state=0, toggle_value=0.0, placed_on_value=0.0)
-
-    def place_on(self, agent: grid_object.GridAgent, cell: grid_object.GridObj) -> None:
-        """Accept delivery (no-op; reward handled by reward system)."""
-        del cell
+        super().__init__(state=0)
 
 
 @register_object_type("onion_soup", scope="overcooked")
@@ -408,16 +332,9 @@ class OnionSoup(grid_object.GridObj):
     char = "S"
     can_pickup = when()
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(
-            state=0,
-            inventory_value=0.0,
-        )
+        super().__init__(state=0)
 
     def render(self, tile_img):
         """Draw a plate with soup inside."""
@@ -440,16 +357,9 @@ class TomatoSoup(grid_object.GridObj):
     char = "!"
     can_pickup = when()
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         """Initialize with default state."""
-        super().__init__(
-            state=0,
-            inventory_value=0.0,
-        )
+        super().__init__(state=0)
 
     def render(self, tile_img):
         """Draw a plate with soup inside."""

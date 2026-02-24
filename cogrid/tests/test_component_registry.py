@@ -342,7 +342,7 @@ def test_search_rescue_objects_have_metadata():
 
     meta = get_component_metadata("medkit", scope="search_rescue")
     assert meta is not None, "medkit should have ComponentMetadata"
-    assert meta.properties.get("can_pickup") is True
+    assert meta.properties.get("can_pickup")
 
     meta2 = get_component_metadata("rubble", scope="search_rescue")
     assert meta2 is not None, "rubble should have ComponentMetadata"

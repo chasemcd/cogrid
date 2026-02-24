@@ -131,6 +131,7 @@ from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 from cogrid.core.grid_object import get_object_names, object_to_idx
 from cogrid.core.interactions import (
+    _held_col,
     branch_drop_on_empty,
     branch_pickup,
     branch_pickup_from,
@@ -722,6 +723,8 @@ def _branch_pickup_from_pot(handled, ctx):
     # Output item comes from the matched recipe.
     soup_type = ctx["recipe_result"][matched_idx]
 
+    held_c = _held_col(ctx["inv_item"])
+    guard_ok = ctx["PICKUP_FROM_GUARD"][ctx["fwd_type"], held_c] == 1
     cond = (
         ~handled
         & ctx["base_ok"]
@@ -729,7 +732,7 @@ def _branch_pickup_from_pot(handled, ctx):
         & ctx["has_pot_match"]
         & has_contents
         & is_ready
-        & (ctx["inv_item"] == ctx["plate_id"])
+        & guard_ok
         & has_recipe_match
     )
 
@@ -784,7 +787,8 @@ def _branch_place_on_pot(handled, ctx):
     recipe_cooking_time = ctx["recipe_cooking_time"]
 
     is_pot = fwd_type == ctx["pot_id"]
-    is_legal = ctx["legal_pot_ingredients"][inv_item] == 1
+    held_c = _held_col(inv_item)
+    guard_ok = ctx["PLACE_ON_GUARD"][fwd_type, held_c] == 1
     n_items_in_pot = xp.sum(pot_contents[pot_idx] != -1)
     has_capacity = n_items_in_pot < max_ingredients
 
@@ -814,7 +818,7 @@ def _branch_place_on_pot(handled, ctx):
         & (inv_item != -1)
         & is_pot
         & ctx["has_pot_match"]
-        & is_legal
+        & guard_ok
         & has_capacity
         & any_recipe_accepts
     )
@@ -868,8 +872,9 @@ def _branch_place_on_delivery(handled, ctx):
     inv_item = ctx["inv_item"]
 
     is_dz = fwd_type == ctx["delivery_zone_id"]
-    is_deliverable = ctx["IS_DELIVERABLE"][inv_item] == 1
-    cond = ~handled & ctx["base_ok"] & (inv_item != -1) & is_dz & is_deliverable
+    held_c = _held_col(inv_item)
+    guard_ok = ctx["PLACE_ON_GUARD"][fwd_type, held_c] == 1
+    cond = ~handled & ctx["base_ok"] & (inv_item != -1) & is_dz & guard_ok
     inv = set_at(ctx["agent_inv"], (ctx["agent_idx"], 0), -1)
     updates = {"agent_inv": inv}
 
@@ -967,14 +972,14 @@ def overcooked_interaction_body(
 
         Property arrays (indexed by type ID):
             CAN_PICKUP[type_id]          -> 1 if pickupable
-            CAN_PICKUP_FROM[type_id]     -> 1 if can pick from (stacks + pot)
-            CAN_PLACE_ON[type_id]        -> 1 if can place items on
             pickup_from_produces[type_id] -> produced type ID (0 if N/A)
-            legal_pot_ingredients[type_id] -> 1 if can go in pot
+
+        Guard tables (2D, indexed by [fwd_type, held_col]):
+            PICKUP_FROM_GUARD[fwd_type, held_col] -> 1 if pickup allowed
+            PLACE_ON_GUARD[fwd_type, held_col]    -> 1 if place allowed
 
         Scalar type IDs:
-            pot_id, plate_id, tomato_id, onion_soup_id,
-            tomato_soup_id, delivery_zone_id
+            pot_id, delivery_zone_id
 
         Constants:
             cooking_time = 30  (ticks to cook a full pot)
@@ -988,15 +993,10 @@ def overcooked_interaction_body(
     """
     # --- Unpack static tables ---
     CAN_PICKUP = static_tables["CAN_PICKUP"]
-    CAN_PICKUP_FROM = static_tables["CAN_PICKUP_FROM"]
-    CAN_PLACE_ON = static_tables["CAN_PLACE_ON"]
+    PICKUP_FROM_GUARD = static_tables["PICKUP_FROM_GUARD"]
+    PLACE_ON_GUARD = static_tables["PLACE_ON_GUARD"]
     pickup_from_produces = static_tables["pickup_from_produces"]
-    legal_pot_ingredients = static_tables["legal_pot_ingredients"]
     pot_id = static_tables["pot_id"]
-    plate_id = static_tables["plate_id"]
-    tomato_id = static_tables["tomato_id"]
-    onion_soup_id = static_tables["onion_soup_id"]
-    tomato_soup_id = static_tables["tomato_soup_id"]
     delivery_zone_id = static_tables["delivery_zone_id"]
     cooking_time = static_tables["cooking_time"]
 
@@ -1026,22 +1026,16 @@ def overcooked_interaction_body(
         "pot_idx": pot_idx,
         "has_pot_match": has_pot_match,
         "CAN_PICKUP": CAN_PICKUP,
-        "CAN_PICKUP_FROM": CAN_PICKUP_FROM,
-        "CAN_PLACE_ON": CAN_PLACE_ON,
+        "PICKUP_FROM_GUARD": PICKUP_FROM_GUARD,
+        "PLACE_ON_GUARD": PLACE_ON_GUARD,
         "pickup_from_produces": pickup_from_produces,
-        "legal_pot_ingredients": legal_pot_ingredients,
         "pot_id": pot_id,
-        "plate_id": plate_id,
-        "tomato_id": tomato_id,
-        "onion_soup_id": onion_soup_id,
-        "tomato_soup_id": tomato_soup_id,
         "delivery_zone_id": delivery_zone_id,
         "cooking_time": cooking_time,
         "recipe_ingredients": static_tables["recipe_ingredients"],
         "recipe_result": static_tables["recipe_result"],
         "recipe_cooking_time": static_tables["recipe_cooking_time"],
         "max_ingredients": static_tables["max_ingredients"],
-        "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
     }
 
     # Add order arrays to ctx when orders are enabled
@@ -1130,14 +1124,17 @@ def _build_static_tables(scope, itables, type_ids, recipe_tables=None, order_tab
         merged into the returned dict. When None or disabled,
         ``order_enabled`` is set to False.
     """
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.grid_object import build_guard_tables, build_lookup_tables
 
     lookup = build_lookup_tables(scope=scope)
+    guard = build_guard_tables(scope=scope)
 
     tables = {
         "CAN_PICKUP": lookup["CAN_PICKUP"],
         "CAN_PICKUP_FROM": lookup["CAN_PICKUP_FROM"],
         "CAN_PLACE_ON": lookup["CAN_PLACE_ON"],
+        "PICKUP_FROM_GUARD": guard["PICKUP_FROM_GUARD"],
+        "PLACE_ON_GUARD": guard["PLACE_ON_GUARD"],
         "pickup_from_produces": lookup["pickup_from_produces"],
         "legal_pot_ingredients": (
             recipe_tables["legal_pot_ingredients"]

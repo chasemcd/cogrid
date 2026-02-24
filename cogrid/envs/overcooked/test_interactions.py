@@ -81,55 +81,28 @@ def test_interaction_parity():
     pt_empty = np.array([30], dtype=np.int32)
     pp_dummy = np.array([[0, 0]], dtype=np.int32)
 
-    # ---- Test 1: overcooked_tick parity with Pot.tick() ----
-    print("Parity test 1: overcooked_tick vs Pot.tick()")
+    # ---- Test 1: overcooked_tick produces correct timer/state values ----
+    print("Parity test 1: overcooked_tick correctness")
 
-    from cogrid.envs.overcooked.overcooked_grid_objects import Onion, Pot
-
-    # Empty pot
-    pot_obj = Pot(capacity=3)
+    # Empty pot — timer and state should stay unchanged
     pc = np.array([[-1, -1, -1]], dtype=np.int32)
     pt = np.array([30], dtype=np.int32)
-
-    pot_obj.tick()
     _, new_pt, new_ps = overcooked_tick(pc, pt)
-    assert pot_obj.cooking_timer == int(new_pt[0]), (
-        f"Empty pot timer mismatch: obj={pot_obj.cooking_timer} arr={int(new_pt[0])}"
-    )
-    assert pot_obj.state == int(new_ps[0]), (
-        f"Empty pot state mismatch: obj={pot_obj.state} arr={int(new_ps[0])}"
-    )
+    assert int(new_pt[0]) == 30, f"Empty pot timer should stay 30, got {int(new_pt[0])}"
+    assert int(new_ps[0]) == 0, f"Empty pot state should be 0, got {int(new_ps[0])}"
 
-    # Partially filled pot
-    pot_obj2 = Pot(capacity=3)
-    pot_obj2.objects_in_pot = [Onion(), Onion()]
+    # Partially filled pot — timer should not decrement
     pc2 = np.array([[onion_id, onion_id, -1]], dtype=np.int32)
     pt2 = np.array([30], dtype=np.int32)
-
-    pot_obj2.tick()
     _, new_pt2, new_ps2 = overcooked_tick(pc2, pt2)
-    assert pot_obj2.cooking_timer == int(new_pt2[0]), (
-        f"Partial pot timer mismatch: obj={pot_obj2.cooking_timer} arr={int(new_pt2[0])}"
-    )
-    assert pot_obj2.state == int(new_ps2[0]), (
-        f"Partial pot state mismatch: obj={pot_obj2.state} arr={int(new_ps2[0])}"
-    )
+    assert int(new_pt2[0]) == 30, f"Partial pot timer should stay 30, got {int(new_pt2[0])}"
 
-    # Full pot -- cooking cycle
-    pot_obj3 = Pot(capacity=3)
-    pot_obj3.objects_in_pot = [Onion(), Onion(), Onion()]
+    # Full pot — cooking cycle: timer should decrement each tick until 0
     pc3 = np.array([[onion_id, onion_id, onion_id]], dtype=np.int32)
     pt3 = np.array([30], dtype=np.int32)
-
-    for _ in range(35):  # more than needed to fully cook
-        pot_obj3.tick()
+    for step in range(35):
         _, pt3, ps3 = overcooked_tick(pc3, pt3)
-        assert pot_obj3.cooking_timer == int(pt3[0]), (
-            f"Cooking timer mismatch at step: obj={pot_obj3.cooking_timer} arr={int(pt3[0])}"
-        )
-        assert pot_obj3.state == int(ps3[0]), (
-            f"Cooking state mismatch at step: obj={pot_obj3.state} arr={int(ps3[0])}"
-        )
+    assert int(pt3[0]) == 0, f"Full pot timer should be 0 after 35 ticks, got {int(pt3[0])}"
 
     print("  PASSED")
 
@@ -605,22 +578,16 @@ def test_at_most_one_branch_fires():
                 "pot_idx": pot_idx,
                 "has_pot_match": has_pot_match,
                 "CAN_PICKUP": static_tables["CAN_PICKUP"],
-                "CAN_PICKUP_FROM": static_tables["CAN_PICKUP_FROM"],
-                "CAN_PLACE_ON": static_tables["CAN_PLACE_ON"],
+                "PICKUP_FROM_GUARD": static_tables["PICKUP_FROM_GUARD"],
+                "PLACE_ON_GUARD": static_tables["PLACE_ON_GUARD"],
                 "pickup_from_produces": static_tables["pickup_from_produces"],
-                "legal_pot_ingredients": static_tables["legal_pot_ingredients"],
                 "pot_id": static_tables["pot_id"],
-                "plate_id": static_tables["plate_id"],
-                "tomato_id": static_tables["tomato_id"],
-                "onion_soup_id": static_tables["onion_soup_id"],
-                "tomato_soup_id": static_tables["tomato_soup_id"],
                 "delivery_zone_id": static_tables["delivery_zone_id"],
                 "cooking_time": static_tables["cooking_time"],
                 "recipe_ingredients": static_tables["recipe_ingredients"],
                 "recipe_result": static_tables["recipe_result"],
                 "recipe_cooking_time": static_tables["recipe_cooking_time"],
                 "max_ingredients": static_tables["max_ingredients"],
-                "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
             }
 
             # Run branches with handled accumulation (as the real orchestrator does)
@@ -1281,10 +1248,9 @@ def test_stack_subclasses_are_thin():
         assert issubclass(cls, _BaseStack), f"{cls.__name__} should extend _BaseStack"
 
         # Verify NO method overrides in the subclass __dict__
-        for method_name in ("pick_up_from", "render"):
-            assert method_name not in cls.__dict__, (
-                f"{cls.__name__} should NOT define its own {method_name}"
-            )
+        assert "render" not in cls.__dict__, (
+            f"{cls.__name__} should NOT define its own render"
+        )
 
         # Verify produces is set to a non-None string
         assert isinstance(cls.produces, str) and cls.produces is not None, (
@@ -1355,12 +1321,11 @@ def test_factory_stack_dispenses_item():
     if "test_mushroom" not in names:
         make_ingredient_and_stack("test_mushroom", "9", [139, 90, 43], "test_mushroom_stack", "0")
 
-    # Object-level check
+    # Verify stack class has correct produces attr
     stack = make_object("test_mushroom_stack", scope=scope)
     assert stack.can_pickup_from, "Stack should allow pickup"
-    item = stack.pick_up_from(None)
-    assert item.object_id == "test_mushroom", (
-        f"Dispensed item should be test_mushroom, got {item.object_id}"
+    assert stack.produces == "test_mushroom", (
+        f"Stack.produces should be 'test_mushroom', got {stack.produces}"
     )
 
     # Branch 2B integration check: rebuild tables and verify entry

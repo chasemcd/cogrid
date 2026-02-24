@@ -87,6 +87,7 @@ def build_scope_config_from_components(
         get_tickable_components,
     )
     from cogrid.core.grid_object import (
+        build_guard_tables,
         build_lookup_tables,
         get_object_names,
         object_to_idx,
@@ -148,6 +149,10 @@ def build_scope_config_from_components(
         if meta.has_static_tables:
             extra_tables = meta.methods["build_static_tables"]()
             static_tables.update(extra_tables)
+
+    # -- Build 2D guard tables for pickup_from / place_on conditions --
+    guard_tables = build_guard_tables(scope=scope)
+    static_tables.update(guard_tables)
 
     # -- Compose render_sync from components (global + scope) --
     render_sync = None

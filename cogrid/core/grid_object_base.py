@@ -33,16 +33,8 @@ class GridObj:
     color: str | tuple = None
     char: str = None
 
-    def __init__(
-        self,
-        state: int = 0,
-        toggle_value: float = 0,
-        inventory_value: float = 0,
-        overlap_value: float = 0,
-        placed_on_value: float = 0,
-        picked_up_from_value: float = 0,
-    ):
-        """Initialize grid object with state and interaction reward values."""
+    def __init__(self, state: int = 0):
+        """Initialize grid object with state."""
         self.uuid: str = str(uuid.uuid4())
 
         self.state: int = state
@@ -54,28 +46,6 @@ class GridObj:
         self.init_pos: tuple[int, int] | None = None
         self.pos: tuple[int, int] | None = None
 
-        # defines rewards for holding/toggling/overlapping
-        self.toggle_value: float | int = toggle_value
-        self.inventory_value: float | int = inventory_value
-        self.overlap_value: float | int = overlap_value
-        self.placed_on_value: float | int = placed_on_value
-        self.picked_up_from_value: float | int = picked_up_from_value
-
-    def place_on(self, agent: GridAgent, cell: GridObj) -> None:
-        """Place another object on top of this one."""
-        self.obj_placed_on = cell
-        self.state = hash(cell.__class__.__name__) % (2**31 - 1)
-
-    def pick_up_from(self, agent: GridAgent) -> GridObj:
-        """Remove and return the object placed on top of this one."""
-        assert self.obj_placed_on is not None, (
-            f"Picking up from but there's no object placed on {self.object_id}"
-        )
-        cell = self.obj_placed_on
-        self.obj_placed_on = None
-        self.state = 0
-        return cell
-
     def see_behind(self, agent: GridAgent) -> bool:
         """Can the agent see through this object?"""
         return True
@@ -83,14 +53,6 @@ class GridObj:
     def visible(self) -> bool:
         """Return True if this object is visible to agents."""
         return True
-
-    def toggle(self, env, agent: GridAgent = None) -> bool:
-        """Trigger/Toggle an action this object performs.
-
-        Some toggles are conditioned on the environment and require
-        specific conditions to be met.
-        """
-        return False
 
     def encode(self, encode_char=True, scope: str = "global"):
         """Encode this object as a (char/idx, extra, state) tuple."""
@@ -137,12 +99,6 @@ class GridObj:
     def tick(self):
         """Advance time-dependent state (overridden by objects like pots)."""
         pass
-
-    def _remove_from_grid(self, grid):
-        """Remove this object from the grid at its current position."""
-        cell = grid.get(*self.pos)
-        assert self is cell
-        grid.set(*self.pos, None)
 
 
 def _is_str(chk):

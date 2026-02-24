@@ -143,18 +143,6 @@ class Door(GridObj):
         """Return True only when the door is open."""
         return self.is_open
 
-    def toggle(self, env, agent: GridAgent) -> bool:
-        """Unlock (if agent has Key) or open/close the door."""
-        if self.is_locked:
-            if any([isinstance(obj, Key) for obj in agent.inventory]):
-                self.is_locked = False
-                self.is_open = True
-                return True
-            return False
-
-        self.is_open = not self.is_open
-        return True
-
     def encode(self, encode_char=False):
         """Encode the door as a 3-tuple of integers."""
         # State, 0: open, 1: closed, 2: locked

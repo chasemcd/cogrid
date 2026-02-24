@@ -1,9 +1,7 @@
 """Search-and-rescue grid object types (items, obstacles, victims)."""
 
-from cogrid.core import constants, grid_object, typing
+from cogrid.core import constants, grid_object
 from cogrid.core.grid_object_registry import register_object_type
-from cogrid.core.grid_utils import adjacent_positions
-from cogrid.core.roles import Roles
 from cogrid.core.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
@@ -23,9 +21,7 @@ class MedKit(grid_object.GridObj):
 
     def __init__(self, state=0):
         """Initialize with default state."""
-        super().__init__(
-            state=state,
-        )
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a red cross icon."""
@@ -45,9 +41,7 @@ class Pickaxe(grid_object.GridObj):
 
     def __init__(self, state=0):
         """Initialize with default state."""
-        super().__init__(
-            state=state,
-        )
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a pickaxe with brown handle and grey head."""
@@ -79,34 +73,12 @@ class Rubble(grid_object.GridObj):
     char = "X"
 
     def __init__(self, state=0):
-        """Initialize with toggle reward for clearing."""
-        super().__init__(
-            state=state,
-            toggle_value=0.05,  # reward for clearing rubble
-        )
+        """Initialize with default state."""
+        super().__init__(state=state)
 
     def see_behind(self) -> bool:
         """Return False; rubble blocks visibility."""
         return False
-
-    def toggle(self, env, agent=None) -> bool:
-        """Clear rubble if the toggling agent is an Engineer or holds a Pickaxe."""
-        assert agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
-        toggling_agent_is_engineer = (
-            any([isinstance(obj, Pickaxe) for obj in agent.inventory])
-            or agent.role == Roles.Engineer
-        )
-
-        assert toggling_agent_is_adjacent, "Rubble toggled by non-adjacent agent."
-
-        toggle_success = toggling_agent_is_engineer
-
-        if toggle_success:
-            self._remove_from_grid(env.grid)
-
-        return toggle_success
 
     def render(self, tile_img):
         """Draw three brown circles representing rubble pile."""
@@ -123,21 +95,8 @@ class GreenVictim(grid_object.GridObj):
     char = "G"
 
     def __init__(self, state=0):
-        """Initialize with toggle reward for rescuing."""
-        super().__init__(
-            state=state,
-            toggle_value=0.1,  # 0.1 reward for rescuing
-        )
-
-    def toggle(self, env, agent=None) -> bool:
-        """Rescue the victim if any agent is adjacent."""
-        assert agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "GreenVictim toggled by non-adjacent agent."
-
-        self._remove_from_grid(env.grid)
-        return toggling_agent_is_adjacent
+        """Initialize with default state."""
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a green circle."""
@@ -152,21 +111,8 @@ class PurpleVictim(grid_object.GridObj):
     char = "P"
 
     def __init__(self, state=0):
-        """Initialize with toggle reward for rescuing."""
-        super().__init__(
-            state=state,
-            toggle_value=0.2,
-        )
-
-    def toggle(self, env, agent=None) -> bool:
-        """Rescue the victim if any agent is adjacent."""
-        assert agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
-        assert toggling_agent_is_adjacent, "PurpleVictim toggled by non-adjacent agent."
-
-        self._remove_from_grid(env.grid)
-        return toggling_agent_is_adjacent
+        """Initialize with default state."""
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a purple circle."""
@@ -181,28 +127,8 @@ class YellowVictim(grid_object.GridObj):
     char = "Y"
 
     def __init__(self, state=0):
-        """Initialize with toggle reward for rescuing."""
-        super().__init__(
-            state=state,
-            toggle_value=0.2,
-        )
-
-    def toggle(self, env, agent=None) -> bool:
-        """Rescue the victim if a Medic or MedKit-holding agent is adjacent."""
-        assert agent
-        adj_positions = [*adjacent_positions(*self.pos)]
-        toggling_agent_is_adjacent = tuple(agent.pos) in adj_positions
-        toggling_agent_is_medic = (
-            any([isinstance(obj, MedKit) for obj in agent.inventory]) or agent.role == Roles.Medic
-        )
-
-        assert toggling_agent_is_adjacent, "YellowVictim toggled by non-adjacent agent."
-
-        toggle_success = toggling_agent_is_medic
-
-        if toggle_success:
-            self._remove_from_grid(env.grid)
-        return toggle_success
+        """Initialize with default state."""
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a yellow circle."""
@@ -217,42 +143,9 @@ class RedVictim(grid_object.GridObj):
     char = "R"
 
     def __init__(self, state=0):
-        """Initialize with countdown timer for cooperative rescue."""
-        super().__init__(
-            state=state,
-        )
-        self.toggle_countdown = 0
-        self.first_toggle_agent_id: typing.AgentID = None
-
-    def tick(self):
-        """Decrement toggle countdown each timestep and update state."""
-        if self.toggle_countdown > 0:
-            self.toggle_countdown -= 1
-        self.state = self.toggle_countdown
-
-    def toggle(self, env, agent) -> bool:
-        """Start or complete a cooperative rescue.
-
-        First toggle by a MedKit-holder starts a 30-step countdown.
-        A second toggle by a different agent within the window completes rescue.
-        """
-        if self.toggle_countdown == 0:
-            toggling_agent_has_medkit = any([isinstance(obj, MedKit) for obj in agent.inventory])
-
-            if toggling_agent_has_medkit:
-                self.first_toggle_agent = agent.agent_id
-                self.toggle_countdown = 30
-
-            return True
-
-        if self.toggle_countdown > 0 and agent.agent_id != self.first_toggle_agent:
-            self._remove_from_grid(env.grid)
-            return True
-
-        return False
+        """Initialize with default state."""
+        super().__init__(state=state)
 
     def render(self, tile_img):
         """Draw a red circle."""
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
-
-
