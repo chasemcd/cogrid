@@ -458,10 +458,12 @@ def test_interaction_reward_overlaps():
     otm[1, 3] = _TYPE_IDS["pot"]
 
     inst = PotOverlapReward(coefficient=5.0)
-    sv = _dict_to_sv({
-        "agent_pos": np.array([[1, 3], [3, 3]], dtype=np.int32),
-        "object_type_map": otm,
-    })
+    sv = _dict_to_sv(
+        {
+            "agent_pos": np.array([[1, 3], [3, 3]], dtype=np.int32),
+            "object_type_map": otm,
+        }
+    )
     actions = np.zeros(N_AGENTS, dtype=np.int32)
     reward_config = {
         "type_ids": _TYPE_IDS,
@@ -471,8 +473,12 @@ def test_interaction_reward_overlaps():
     }
     result = np.array(inst.compute(sv, sv, actions, reward_config))
 
-    assert result[0] == pytest.approx(5.0, abs=1e-7), f"Agent 0 on pot should get 5.0, got {result[0]}"
-    assert result[1] == pytest.approx(0.0, abs=1e-7), f"Agent 1 not on pot should get 0.0, got {result[1]}"
+    assert result[0] == pytest.approx(5.0, abs=1e-7), (
+        f"Agent 0 on pot should get 5.0, got {result[0]}"
+    )
+    assert result[1] == pytest.approx(0.0, abs=1e-7), (
+        f"Agent 1 not on pot should get 0.0, got {result[1]}"
+    )
 
     _reset_backend_for_testing()
 
@@ -510,7 +516,9 @@ def test_interaction_reward_extra_condition():
     }
     result = np.array(inst.compute(sv, sv, actions, reward_config))
 
-    assert result[0] == pytest.approx(0.0, abs=1e-7), f"Agent 0 should be filtered out, got {result[0]}"
+    assert result[0] == pytest.approx(0.0, abs=1e-7), (
+        f"Agent 0 should be filtered out, got {result[0]}"
+    )
     assert result[1] == pytest.approx(3.0, abs=1e-7), f"Agent 1 should get 3.0, got {result[1]}"
 
     _reset_backend_for_testing()

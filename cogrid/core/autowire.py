@@ -111,9 +111,7 @@ def build_scope_config_from_components(
 
     # -- Discover container and consumes_on_place components --
     container_components = get_container_components(scope)
-    consume_components = [
-        m for m in all_components if m.properties.get("consumes_on_place", False)
-    ]
+    consume_components = [m for m in all_components if m.properties.get("consumes_on_place", False)]
 
     # -- type_ids: map object names to integer indices --
     type_ids = {
@@ -131,9 +129,7 @@ def build_scope_config_from_components(
     # Auto-generate extra_state_schema from container metadata
     for meta in container_components:
         cm = meta.container_meta
-        container_schema = build_container_extra_state_schema(
-            meta.object_id, cm["container"]
-        )
+        container_schema = build_container_extra_state_schema(meta.object_id, cm["container"])
         for key, val in container_schema.items():
             extra_state_schema[f"{scope}.{key}"] = val
     extra_state_schema = dict(sorted(extra_state_schema.items()))
@@ -156,9 +152,7 @@ def build_scope_config_from_components(
             if meta.has_tick:
                 continue
             cm = meta.container_meta
-            all_tick_fns.append(
-                build_container_tick_fn(meta.object_id, cm["container"], scope)
-            )
+            all_tick_fns.append(build_container_tick_fn(meta.object_id, cm["container"], scope))
 
         if len(all_tick_fns) == 1:
             tick_handler = all_tick_fns[0]
@@ -225,9 +219,7 @@ def build_scope_config_from_components(
 
     # -- Add consume type IDs to static_tables for backward compat --
     for meta in consume_components:
-        static_tables[f"{meta.object_id}_id"] = object_to_idx(
-            meta.object_id, scope=scope
-        )
+        static_tables[f"{meta.object_id}_id"] = object_to_idx(meta.object_id, scope=scope)
 
     # -- Compose render_sync from components (global + scope) --
     render_fns = []
@@ -262,15 +254,15 @@ def build_scope_config_from_components(
         container_specs = []
         for meta in container_components:
             cm = meta.container_meta
-            container_specs.append({
-                "object_id": meta.object_id,
-                "container": cm["container"],
-                "recipes": cm["recipes"],
-            })
+            container_specs.append(
+                {
+                    "object_id": meta.object_id,
+                    "container": cm["container"],
+                    "recipes": cm["recipes"],
+                }
+            )
 
-        consume_type_ids = [
-            object_to_idx(m.object_id, scope=scope) for m in consume_components
-        ]
+        consume_type_ids = [object_to_idx(m.object_id, scope=scope) for m in consume_components]
 
         interaction_fn = compose_interaction_fn(container_specs, consume_type_ids, scope)
 

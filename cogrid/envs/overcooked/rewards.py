@@ -217,9 +217,7 @@ class OnionInPotReward(InteractionReward):
 
         # Match each agent's forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(
-            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2
-        )
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
         pot_idx = xp.argmax(pos_match, axis=1)
 
         # Check pot has room (fewer than 3 non-empty slots)
@@ -256,9 +254,7 @@ class SoupInDishReward(InteractionReward):
         """Narrow mask to pots that are done cooking."""
         # Match each agent's forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(
-            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2
-        )
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
         pot_idx = xp.argmax(pos_match, axis=1)
 
         # Check pot is done cooking (timer == 0 means ready to serve)

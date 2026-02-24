@@ -92,6 +92,7 @@ _EXPECTED_SIGNATURES: dict[str, list[str]] = {
     "build_render_sync_fn": [],
 }
 
+
 def _validate_classmethod_signature(cls: type, method_name: str, method: Any) -> None:
     """Validate that *method* matches expected params.
 

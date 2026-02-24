@@ -209,9 +209,7 @@ def branch_pickup_from_container(handled, ctx):
     _SORT_HIGH = xp.int32(2147483647)
     raw = pot_contents[pot_idx]
     sort_buf = xp.where(raw == -1, _SORT_HIGH, raw)
-    sorted_contents = xp.where(
-        xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf)
-    )
+    sorted_contents = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
     matches = xp.all(sorted_contents[None, :] == ctx["recipe_ingredients"], axis=1)
     matched_idx = xp.argmax(matches)
     has_recipe_match = xp.any(matches)
@@ -270,9 +268,7 @@ def branch_place_on_container(handled, ctx):
     _SORT_HIGH = xp.int32(2147483647)
     would_be = set_at(pot_contents[pot_idx], first_empty_slot, inv_item)
     sort_buf = xp.where(would_be == -1, _SORT_HIGH, would_be)
-    sorted_would_be = xp.where(
-        xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf)
-    )
+    sorted_would_be = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
     n_would_be = n_items + 1
 
     # Prefix match
@@ -346,12 +342,8 @@ def branch_place_on_consume(handled, ctx):
         first_match = xp.argmax(order_is_match)
         consume = cond & has_match
 
-        new_order_recipe = xp.where(
-            consume, set_at(order_recipe, first_match, -1), order_recipe
-        )
-        new_order_timer = xp.where(
-            consume, set_at(order_timer, first_match, 0), order_timer
-        )
+        new_order_recipe = xp.where(consume, set_at(order_recipe, first_match, -1), order_recipe)
+        new_order_timer = xp.where(consume, set_at(order_timer, first_match, 0), order_timer)
         updates["order_recipe"] = new_order_recipe
         updates["order_timer"] = new_order_timer
 
@@ -447,9 +439,7 @@ def compose_interaction_fn(container_specs, consume_type_ids, scope):
             "recipe_ingredients": static_tables.get(
                 "recipe_ingredients", xp.zeros((0, 1), dtype=xp.int32)
             ),
-            "recipe_result": static_tables.get(
-                "recipe_result", xp.zeros((0,), dtype=xp.int32)
-            ),
+            "recipe_result": static_tables.get("recipe_result", xp.zeros((0,), dtype=xp.int32)),
             "recipe_cooking_time": static_tables.get(
                 "recipe_cooking_time", xp.zeros((0,), dtype=xp.int32)
             ),

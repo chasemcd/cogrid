@@ -266,12 +266,13 @@ def test_interaction_tables_default_none():
 
 def test_reward_config_has_required_keys():
     """build_reward_config returns a dict with required keys."""
-    config = build_reward_config(
-        [], n_agents=2, type_ids={}, action_pickup_drop_idx=4
-    )
+    config = build_reward_config([], n_agents=2, type_ids={}, action_pickup_drop_idx=4)
     required_keys = {
-        "compute_fn", "type_ids", "n_agents",
-        "action_pickup_drop_idx", "action_toggle_idx",
+        "compute_fn",
+        "type_ids",
+        "n_agents",
+        "action_pickup_drop_idx",
+        "action_toggle_idx",
     }
     assert required_keys == set(config.keys()), (
         f"Missing keys: {required_keys - set(config.keys())}, "
@@ -286,9 +287,7 @@ def test_reward_config_has_required_keys():
 
 def test_reward_config_compute_fn_callable():
     """reward_config['compute_fn'] is callable."""
-    config = build_reward_config(
-        [], n_agents=2, type_ids={}, action_pickup_drop_idx=4
-    )
+    config = build_reward_config([], n_agents=2, type_ids={}, action_pickup_drop_idx=4)
     assert callable(config["compute_fn"])
 
 
@@ -299,9 +298,7 @@ def test_reward_config_compute_fn_callable():
 
 def test_reward_config_no_rewards_returns_zeros():
     """With no reward instances, compute_fn returns zeros."""
-    config = build_reward_config(
-        [], n_agents=2, type_ids={}, action_pickup_drop_idx=4
-    )
+    config = build_reward_config([], n_agents=2, type_ids={}, action_pickup_drop_idx=4)
     result = config["compute_fn"](
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
     )
@@ -377,7 +374,9 @@ def test_reward_config_multiple_rewards_sum():
     """Multiple reward instances are summed."""
     config = build_reward_config(
         [_TestRewardMultiA(), _TestRewardMultiB()],
-        n_agents=2, type_ids={}, action_pickup_drop_idx=4,
+        n_agents=2,
+        type_ids={},
+        action_pickup_drop_idx=4,
     )
     result = config["compute_fn"](
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config
@@ -407,7 +406,9 @@ def test_reward_config_passes_reward_config_to_compute():
     # With "marker" in type_ids -> should return [1, 1]
     config_with = build_reward_config(
         [_TestRewardPassthrough()],
-        n_agents=2, type_ids={"marker": 99}, action_pickup_drop_idx=4,
+        n_agents=2,
+        type_ids={"marker": 99},
+        action_pickup_drop_idx=4,
     )
     result_with = config_with["compute_fn"](
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config_with
@@ -417,7 +418,9 @@ def test_reward_config_passes_reward_config_to_compute():
     # Without "marker" in type_ids -> should return [0, 0]
     config_without = build_reward_config(
         [_TestRewardPassthrough()],
-        n_agents=2, type_ids={}, action_pickup_drop_idx=4,
+        n_agents=2,
+        type_ids={},
+        action_pickup_drop_idx=4,
     )
     result_without = config_without["compute_fn"](
         prev_state={}, state={}, actions=np.zeros(2, dtype=np.int32), reward_config=config_without

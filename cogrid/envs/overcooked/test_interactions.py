@@ -721,21 +721,29 @@ def test_recipe_validation_errors():
         ),
         (
             "unknown result",
-            [Recipe(
-                ["onion", "onion", "onion"],
-                result="nonexistent_soup", cook_time=30, reward=20.0,
-            )],
+            [
+                Recipe(
+                    ["onion", "onion", "onion"],
+                    result="nonexistent_soup",
+                    cook_time=30,
+                    reward=20.0,
+                )
+            ],
         ),
         (
             "duplicate sorted ingredients",
             [
                 Recipe(
                     ["onion", "onion", "onion"],
-                    result="onion_soup", cook_time=30, reward=20.0,
+                    result="onion_soup",
+                    cook_time=30,
+                    reward=20.0,
                 ),
                 Recipe(
                     ["onion", "onion", "onion"],
-                    result="tomato_soup", cook_time=30, reward=15.0,
+                    result="tomato_soup",
+                    cook_time=30,
+                    reward=15.0,
                 ),
             ],
         ),
@@ -765,7 +773,9 @@ def test_custom_recipe_compilation():
     # 2 onions + 1 tomato, deliberately unsorted
     custom_recipe = Recipe(
         ["onion", "tomato", "onion"],
-        result="onion_soup", cook_time=20, reward=15.0,
+        result="onion_soup",
+        cook_time=20,
+        reward=15.0,
     )
     tables = compile_recipes([custom_recipe], scope)
 
@@ -1189,9 +1199,7 @@ def test_stack_subclasses_are_thin():
         assert issubclass(cls, _BaseStack), f"{cls.__name__} should extend _BaseStack"
 
         # Verify NO method overrides in the subclass __dict__
-        assert "render" not in cls.__dict__, (
-            f"{cls.__name__} should NOT define its own render"
-        )
+        assert "render" not in cls.__dict__, f"{cls.__name__} should NOT define its own render"
 
         # Verify produces is set to a non-None string
         assert isinstance(cls.produces, str) and cls.produces is not None, (

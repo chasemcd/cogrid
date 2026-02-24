@@ -4,9 +4,11 @@ Usage::
 
     from cogrid.core.when import when
 
+
     @register_object_type("onion", scope="overcooked")
     class Onion(GridObj):
         can_pickup = when()
+
 
     @register_object_type("pot", scope="overcooked")
     class Pot(GridObj):
@@ -31,6 +33,7 @@ class When:
     """
 
     def __init__(self, **conditions):
+        """Initialize with optional conditions (e.g., agent_holding)."""
         unsupported = set(conditions) - SUPPORTED_CONDITIONS
         if unsupported:
             raise ValueError(
@@ -44,8 +47,7 @@ class When:
                 conditions["agent_holding"] = [ah]
             elif not isinstance(ah, list) or not all(isinstance(s, str) for s in ah):
                 raise TypeError(
-                    "agent_holding must be a str or list[str], "
-                    f"got {type(ah).__name__}"
+                    f"agent_holding must be a str or list[str], got {type(ah).__name__}"
                 )
         self.conditions = conditions
 
@@ -55,9 +57,11 @@ class When:
         return bool(self.conditions)
 
     def __bool__(self) -> bool:
+        """Always True so truthiness checks pass."""
         return True
 
     def __repr__(self) -> str:
+        """Return a readable representation."""
         if not self.conditions:
             return "when()"
         args = ", ".join(f"{k}={v!r}" for k, v in self.conditions.items())

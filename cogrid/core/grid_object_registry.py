@@ -100,6 +100,7 @@ def register_object_type(
         class Onion(GridObj):
             can_pickup = when()
 
+
         @register_object_type("wall")
         class Wall(GridObj):
             is_wall = True
@@ -122,9 +123,7 @@ def register_object_type(
         if isinstance(container, Container):
             # Auto-generate can_place_on from recipe ingredients (if not explicit)
             if "can_place_on" not in cls.__dict__ and recipes:
-                all_ingredients = sorted(
-                    {ing for r in recipes for ing in r.ingredients}
-                )
+                all_ingredients = sorted({ing for r in recipes for ing in r.ingredients})
                 cls.can_place_on = when(agent_holding=all_ingredients)
 
             # Auto-generate can_pickup_from from pickup_requires (if not explicit)

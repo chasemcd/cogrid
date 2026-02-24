@@ -48,6 +48,7 @@ class Reward:
                 ...
                 return rewards  # (n_agents,) float32
 
+
         config = {
             "rewards": [DeliveryReward(coefficient=1.0, common_reward=True)],
         }
@@ -96,16 +97,17 @@ class InteractionReward(Reward):
             holds = "onion"
             faces = "pot"
 
+
         class GoalReward(InteractionReward):
             action = None
             overlaps = "goal"
     """
 
     action = _UNSET  # subclasses MUST set to "pickup_drop", "toggle", or None
-    holds = None     # type name agent must hold
-    faces = None     # type name in forward cell
+    holds = None  # type name agent must hold
+    faces = None  # type name in forward cell
     overlaps = None  # type name agent stands on
-    direction = None # direction agent must face (0-3)
+    direction = None  # direction agent must face (0-3)
 
     def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
         """Override to add conditions beyond the declarative attributes.
