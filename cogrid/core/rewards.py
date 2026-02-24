@@ -54,6 +54,7 @@ class Reward:
     """
 
     def __init__(self, **kwargs):
+        """Store config kwargs for use in compute()."""
         self.config = kwargs
 
     def compute(self, prev_state, state, actions, reward_config):
@@ -114,6 +115,7 @@ class InteractionReward(Reward):
         return mask
 
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute (n_agents,) float32 rewards from declarative conditions."""
         if self.action is _UNSET:
             raise TypeError(
                 f"{type(self).__name__} must set action to 'pickup_drop', 'toggle', or None"

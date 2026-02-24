@@ -24,8 +24,11 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.rewards import InteractionReward, Reward, _compute_fwd_positions
-
+from cogrid.core.rewards import (
+    InteractionReward,
+    Reward,
+    _compute_fwd_positions,
+)
 
 # ---------------------------------------------------------------------------
 # Simple declarative reward: onion soup delivery
@@ -67,6 +70,7 @@ class DeliveryReward(Reward):
     """
 
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery rewards using IS_DELIVERABLE and per-recipe amounts."""
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
         action_pickup_drop_idx = reward_config["action_pickup_drop_idx"]
@@ -142,6 +146,7 @@ class OrderDeliveryReward(DeliveryReward):
     """
 
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery rewards gated on order consumption with tip bonus."""
         # Get base delivery reward from parent (fires for any valid delivery)
         base_rewards = super().compute(prev_state, state, actions, reward_config)
 
@@ -207,6 +212,7 @@ class OnionInPotReward(InteractionReward):
     faces = "pot"
 
     def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        """Narrow mask to pots with capacity and compatible contents."""
         type_ids = reward_config["type_ids"]
 
         # Match each agent's forward position to a pot index
@@ -247,6 +253,7 @@ class SoupInDishReward(InteractionReward):
     faces = "pot"
 
     def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        """Narrow mask to pots that are done cooking."""
         # Match each agent's forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
         pos_match = xp.all(
@@ -277,6 +284,7 @@ class ExpiredOrderPenalty(Reward):
     """
 
     def compute(self, prev_state, state, actions, reward_config):
+        """Compute penalty for newly expired orders this step."""
         # Check if order system is active
         prev_expired = getattr(prev_state, "order_n_expired", None)
         if prev_expired is None:
