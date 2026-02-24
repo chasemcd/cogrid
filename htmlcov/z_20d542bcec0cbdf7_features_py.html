@@ -54,8 +54,8 @@
             </div>
         </aside>
         <h2>
-            <span class="text">331 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">322<span class="text"> run</span></button>
+            <span class="text">325 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">316<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">9<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_20d542bcec0cbdf7_overcooked_grid_objects_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-02-19 14:31 +0000
+            created at 2026-02-24 20:53 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -873,31 +873,22 @@
     <p class="pln"><span class="n"><a id="t791" href="#t791">791</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t792" href="#t792">792</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t793" href="#t793">793</a></span><span class="t"><span class="key">def</span> <span class="nam">_overcooked_pre_compose_hook</span><span class="op">(</span><span class="nam">layout_idx</span><span class="op">:</span> <span class="nam">int</span><span class="op">,</span> <span class="nam">scope</span><span class="op">:</span> <span class="nam">str</span><span class="op">,</span> <span class="nam">env_config</span><span class="op">=</span><span class="key">None</span><span class="op">)</span> <span class="op">-></span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t794" href="#t794">794</a></span><span class="t">    <span class="str">"""Set LayoutID._layout_idx and Pot config before feature composition."""</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t794" href="#t794">794</a></span><span class="t">    <span class="str">"""Set LayoutID._layout_idx before feature composition."""</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t795" href="#t795">795</a></span><span class="t">    <span class="nam">LayoutID</span><span class="op">.</span><span class="nam">_layout_idx</span> <span class="op">=</span> <span class="nam">layout_idx</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t796" href="#t796">796</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t797" href="#t797">797</a></span><span class="t">    <span class="key">from</span> <span class="nam">cogrid</span><span class="op">.</span><span class="nam">envs</span><span class="op">.</span><span class="nam">overcooked</span><span class="op">.</span><span class="nam">overcooked_grid_objects</span> <span class="key">import</span> <span class="nam">Pot</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t798" href="#t798">798</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t799" href="#t799">799</a></span><span class="t">    <span class="key">if</span> <span class="nam">env_config</span> <span class="key">is</span> <span class="key">not</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t800" href="#t800">800</a></span><span class="t">        <span class="nam">Pot</span><span class="op">.</span><span class="nam">_recipes_config</span> <span class="op">=</span> <span class="nam">env_config</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"recipes"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t801" href="#t801">801</a></span><span class="t">        <span class="nam">Pot</span><span class="op">.</span><span class="nam">_orders_config</span> <span class="op">=</span> <span class="nam">env_config</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"orders"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t802" href="#t802">802</a></span><span class="t">    <span class="key">else</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t803" href="#t803">803</a></span><span class="t">        <span class="nam">Pot</span><span class="op">.</span><span class="nam">_recipes_config</span> <span class="op">=</span> <span class="key">None</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t804" href="#t804">804</a></span><span class="t">        <span class="nam">Pot</span><span class="op">.</span><span class="nam">_orders_config</span> <span class="op">=</span> <span class="key">None</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t805" href="#t805">805</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t806" href="#t806">806</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t807" href="#t807">807</a></span><span class="t"><span class="nam">register_pre_compose_hook</span><span class="op">(</span><span class="str">"overcooked"</span><span class="op">,</span> <span class="nam">_overcooked_pre_compose_hook</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t808" href="#t808">808</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t809" href="#t809">809</a></span><span class="t"><span class="nam">register_layout_indices</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t810" href="#t810">810</a></span><span class="t">    <span class="str">"overcooked"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t811" href="#t811">811</a></span><span class="t">    <span class="op">{</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t812" href="#t812">812</a></span><span class="t">        <span class="str">"overcooked_cramped_room_v0"</span><span class="op">:</span> <span class="num">0</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t813" href="#t813">813</a></span><span class="t">        <span class="str">"overcooked_asymmetric_advantages_v0"</span><span class="op">:</span> <span class="num">1</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t814" href="#t814">814</a></span><span class="t">        <span class="str">"overcooked_coordination_ring_v0"</span><span class="op">:</span> <span class="num">2</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t815" href="#t815">815</a></span><span class="t">        <span class="str">"overcooked_forced_coordination_v0"</span><span class="op">:</span> <span class="num">3</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t816" href="#t816">816</a></span><span class="t">        <span class="str">"overcooked_counter_circuit_v0"</span><span class="op">:</span> <span class="num">4</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t817" href="#t817">817</a></span><span class="t">    <span class="op">}</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t818" href="#t818">818</a></span><span class="t"><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t797" href="#t797">797</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t798" href="#t798">798</a></span><span class="t"><span class="nam">register_pre_compose_hook</span><span class="op">(</span><span class="str">"overcooked"</span><span class="op">,</span> <span class="nam">_overcooked_pre_compose_hook</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t799" href="#t799">799</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t800" href="#t800">800</a></span><span class="t"><span class="nam">register_layout_indices</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t801" href="#t801">801</a></span><span class="t">    <span class="str">"overcooked"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t802" href="#t802">802</a></span><span class="t">    <span class="op">{</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t803" href="#t803">803</a></span><span class="t">        <span class="str">"overcooked_cramped_room_v0"</span><span class="op">:</span> <span class="num">0</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t804" href="#t804">804</a></span><span class="t">        <span class="str">"overcooked_asymmetric_advantages_v0"</span><span class="op">:</span> <span class="num">1</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t805" href="#t805">805</a></span><span class="t">        <span class="str">"overcooked_coordination_ring_v0"</span><span class="op">:</span> <span class="num">2</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t806" href="#t806">806</a></span><span class="t">        <span class="str">"overcooked_forced_coordination_v0"</span><span class="op">:</span> <span class="num">3</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t807" href="#t807">807</a></span><span class="t">        <span class="str">"overcooked_counter_circuit_v0"</span><span class="op">:</span> <span class="num">4</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t808" href="#t808">808</a></span><span class="t">    <span class="op">}</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t809" href="#t809">809</a></span><span class="t"><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -907,7 +898,7 @@
             <a class="nav" href="z_20d542bcec0cbdf7_overcooked_grid_objects_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-02-19 14:31 +0000
+            created at 2026-02-24 20:53 +0000
         </p>
     </div>
 </footer>
