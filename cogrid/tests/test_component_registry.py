@@ -1,12 +1,11 @@
-"""Comprehensive tests for the Phase 10 component registration infrastructure.
+"""Comprehensive tests for the component registration infrastructure.
 
 Covers:
-- ComponentMetadata and RewardMetadata frozen dataclasses
+- ComponentMetadata frozen dataclass
 - Classmethod discovery via @register_object_type decorator
 - Signature validation (rejects instance methods and wrong params)
 - Duplicate char detection within scope
-- Reward registration via @register_reward_type decorator
-- Query API (all components, tickable, extra_state, rewards)
+- Query API (all components, tickable, extra_state)
 - Backward compatibility with existing objects and old-style register_object()
 """
 
@@ -14,13 +13,10 @@ import pytest
 
 from cogrid.core.component_registry import (
     ComponentMetadata,
-    RewardMetadata,
     get_all_components,
     get_component_metadata,
     get_components_with_extra_state,
-    get_reward_types,
     get_tickable_components,
-    register_reward_type,
 )
 from cogrid.core.grid_object import GridObj, register_object_type
 from cogrid.core.rewards import Reward
@@ -63,27 +59,7 @@ def test_component_metadata_dataclass():
 
 
 # ---------------------------------------------------------------------------
-# 2. RewardMetadata dataclass
-# ---------------------------------------------------------------------------
-
-
-def test_reward_metadata_dataclass():
-    """RewardMetadata is frozen and all fields accessible."""
-    meta = RewardMetadata(
-        scope="test_rm_1",
-        reward_id="rew_a",
-        cls=object,
-    )
-    with pytest.raises(AttributeError):
-        meta.scope = "other"
-
-    assert meta.scope == "test_rm_1"
-    assert meta.reward_id == "rew_a"
-    assert meta.cls is object
-
-
-# ---------------------------------------------------------------------------
-# 3. register_object_type discovers classmethods
+# 2. register_object_type discovers classmethods
 # ---------------------------------------------------------------------------
 
 
@@ -331,76 +307,7 @@ def test_reward_base_class():
 
 
 # ---------------------------------------------------------------------------
-# 15. register_reward_type basic
-# ---------------------------------------------------------------------------
-
-
-def test_register_reward_type_basic():
-    """Registering an Reward subclass makes it retrievable via get_reward_types."""
-
-    @register_reward_type("test_rew_basic", scope="test_phase10_rew_basic")
-    class _BasicReward(Reward):
-        def compute(self, prev_state, state, actions, reward_config):
-            return None
-
-    rewards = get_reward_types(scope="test_phase10_rew_basic")
-    assert len(rewards) == 1
-    assert rewards[0].reward_id == "test_rew_basic"
-    assert rewards[0].cls is _BasicReward
-
-
-# ---------------------------------------------------------------------------
-# 16. register_reward_type missing compute raises
-# ---------------------------------------------------------------------------
-
-
-def test_register_reward_type_missing_compute_raises():
-    """Class without compute() method cannot be registered as reward type."""
-    with pytest.raises(TypeError, match="compute"):
-
-        @register_reward_type("test_rew_nocompute", scope="test_phase10_rew_nocompute")
-        class _NoComputeReward:
-            pass
-
-
-# ---------------------------------------------------------------------------
-# 18. register_reward_type wrong compute signature raises
-# ---------------------------------------------------------------------------
-
-
-def test_register_reward_type_wrong_compute_signature_raises():
-    """Class with wrong compute() signature raises TypeError."""
-    with pytest.raises(TypeError, match="compute"):
-
-        @register_reward_type("test_rew_wrongsig", scope="test_phase10_rew_wrongsig")
-        class _WrongSigReward(Reward):
-            def compute(self, wrong_params):
-                return None
-
-
-# ---------------------------------------------------------------------------
-# 19. register_reward_type duplicate raises
-# ---------------------------------------------------------------------------
-
-
-def test_register_reward_type_duplicate_raises():
-    """Duplicate (scope, reward_id) raises ValueError."""
-
-    @register_reward_type("test_rew_dup", scope="test_phase10_rew_dup")
-    class _Dup1(Reward):
-        def compute(self, prev_state, state, actions, reward_config):
-            return None
-
-    with pytest.raises(ValueError, match="Duplicate reward type"):
-
-        @register_reward_type("test_rew_dup", scope="test_phase10_rew_dup")
-        class _Dup2(Reward):
-            def compute(self, prev_state, state, actions, reward_config):
-                return None
-
-
-# ---------------------------------------------------------------------------
-# 20. Existing objects backward compat
+# 15. Existing objects backward compat
 # ---------------------------------------------------------------------------
 
 
@@ -429,15 +336,13 @@ def test_existing_objects_backward_compat():
 # ---------------------------------------------------------------------------
 
 
-def test_old_register_object_no_metadata():
-    """Search rescue objects (old-style register_object) return None from metadata query."""
-    # Ensure search_rescue objects are imported / registered
+def test_search_rescue_objects_have_metadata():
+    """Search rescue objects registered via @register_object_type have metadata."""
     from cogrid.envs.search_rescue import search_rescue_grid_objects  # noqa: F401
 
     meta = get_component_metadata("medkit", scope="search_rescue")
-    assert meta is None, (
-        "Old-style register_object() classes should not appear in ComponentMetadata"
-    )
+    assert meta is not None, "medkit should have ComponentMetadata"
+    assert meta.properties.get("can_pickup")
 
     meta2 = get_component_metadata("rubble", scope="search_rescue")
-    assert meta2 is None
+    assert meta2 is not None, "rubble should have ComponentMetadata"

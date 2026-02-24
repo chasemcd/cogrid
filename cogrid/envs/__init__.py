@@ -7,69 +7,68 @@ from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
-from cogrid.envs.overcooked.config import overcooked_interaction_fn
+from cogrid.envs.overcooked.rewards import (
+    DeliveryReward,
+    OnionInPotReward,
+    SoupInDishReward,
+)
+from cogrid.envs.overcooked.rewards import (
+    OnionSoupDeliveryReward as OnionSoupDeliveryReward,
+)
+from cogrid.envs.overcooked.rewards import (
+    OrderDeliveryReward as OrderDeliveryReward,
+)
 
 layouts.register_layout(
     "overcooked_cramped_room_v0",
     [
-        "#######",
-        "#CCUCC#",
-        "#O   O#",
-        "#C   C#",
-        "#C=C@C#",
-        "#######",
+        "CCUCC",
+        "O   O",
+        "C   C",
+        "C=C@C",
     ],
 )
 
 layouts.register_layout(
     "overcooked_asymmetric_advantages_v0",
     [
-        "###########",
-        "#CCCCCCCCC#",
-        "#O C@COC @#",
-        "#C   U   C#",
-        "#C   U   C#",
-        "#CCC=C=CCC#",
-        "###########",
+        "CCCCCCCCC",
+        "O C@COC @",
+        "C   U   C",
+        "C   U   C",
+        "CCC=C=CCC",
     ],
 )
 
 layouts.register_layout(
     "overcooked_coordination_ring_v0",
     [
-        "#######",
-        "#CCCUC#",
-        "#C   U#",
-        "#= C C#",
-        "#O   C#",
-        "#CO@CC#",
-        "#######",
+        "CCCUC",
+        "C   U",
+        "= C C",
+        "O   C",
+        "CO@CC",
     ],
 )
 
 layouts.register_layout(
     "overcooked_forced_coordination_v0",
     [
-        "#######",
-        "#CCCUC#",
-        "#O+C U#",
-        "#O C C#",
-        "#= C+C#",
-        "#CCC@C#",
-        "#######",
+        "CCCUC",
+        "O+C U",
+        "O C C",
+        "= C+C",
     ],
 )
 
 layouts.register_layout(
     "overcooked_counter_circuit_v0",
     [
-        "##########",
-        "#CCCUUCCC#",
-        "#C      C#",
-        "#= CCCC @#",
-        "#C      C#",
-        "#CCCOOCCC#",
-        "##########",
+        "CCCUUCCC",
+        "C      C",
+        "= CCCC @",
+        "C      C",
+        "CCCOOCCC",
     ],
 )
 
@@ -88,25 +87,15 @@ cramped_room_config = {
         "agent_position",
         "can_move_direction",
     ],
+    "rewards": [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
     "scope": "overcooked",
-    "interaction_fn": overcooked_interaction_fn,
     "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
-    "recipes": [
-        {
-            "ingredients": ["onion", "onion", "onion"],
-            "result": "onion_soup",
-            "cook_time": 30,
-            "reward": 1.0,
-        },
-        {
-            "ingredients": ["tomato", "tomato", "tomato"],
-            "result": "tomato_soup",
-            "cook_time": 30,
-            "reward": 1.0,
-        },
-    ],
 }
 
 registry.register(

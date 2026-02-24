@@ -14,6 +14,7 @@ All public names are re-exported here so existing imports continue to work:
     from cogrid.core import grid_object; grid_object.OBJECT_REGISTRY  # still works
 """
 
+from cogrid.core.containers import Container, Recipe  # noqa: F401
 from cogrid.core.grid_object_base import (  # noqa: F401
     GridAgent,
     GridObj,
@@ -24,6 +25,7 @@ from cogrid.core.grid_object_registry import (  # noqa: F401
     _COMPONENT_METHODS,
     _OBJECT_TYPE_PROPERTIES,
     OBJECT_REGISTRY,
+    build_guard_tables,
     build_lookup_tables,
     get_object_char,
     get_object_class,
@@ -43,6 +45,7 @@ from cogrid.core.grid_objects import (  # noqa: F401
     Key,
     Wall,
 )
+from cogrid.core.when import When, when  # noqa: F401
 
 __all__ = [
     # Base classes and helpers
@@ -59,6 +62,7 @@ __all__ = [
     "get_object_class",
     "register_object",
     "register_object_type",
+    "build_guard_tables",
     "build_lookup_tables",
     "get_registered_object_ids",
     "get_object_char",
@@ -66,6 +70,12 @@ __all__ = [
     "get_object_names",
     "object_to_idx",
     "idx_to_object",
+    # When descriptor
+    "When",
+    "when",
+    # Container / Recipe
+    "Container",
+    "Recipe",
     # Concrete objects
     "Wall",
     "Floor",

@@ -1,11 +1,12 @@
 """Overcooked-specific reward functions.
 
-These reward functions operate on state dictionaries instead of Grid objects.
+These reward classes operate on state dictionaries instead of Grid objects.
 They are specific to the Overcooked environment because they reference
 Overcooked types: pot, onion_soup, delivery_zone, plate, onion.
 
-Each reward function has the signature:
-    reward_fn(prev_state, state, actions, type_ids, n_agents, ...) -> ndarray of shape (n_agents,)
+Each Reward subclass's compute() returns ndarray of shape (n_agents,).
+Parameters (coefficient, common_reward, etc.) are passed via __init__
+and stored in self.config.
 
 State dicts contain:
     agent_pos:        (n_agents, 2) int32 -- [row, col]
@@ -23,90 +24,155 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.rewards import Reward, register_reward_type
+from cogrid.core.rewards import (
+    InteractionReward,
+    Reward,
+    _compute_fwd_positions,
+)
+
+# ---------------------------------------------------------------------------
+# Simple declarative reward: onion soup delivery
+# ---------------------------------------------------------------------------
 
 
-def _compute_fwd_positions(prev_state):
-    """Compute forward positions, clipped indices, bounds mask, and forward type IDs."""
-    # Direction vector table: Right=0, Down=1, Left=2, Up=3
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+class OnionSoupDeliveryReward(InteractionReward):
+    """Reward when an agent delivers onion soup to a delivery zone.
 
-    fwd_pos = prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]  # (n_agents, 2)
-    H, W = prev_state.object_type_map.shape
-    fwd_r = xp.clip(fwd_pos[:, 0], 0, H - 1)
-    fwd_c = xp.clip(fwd_pos[:, 1], 0, W - 1)
-    in_bounds = (
-        (fwd_pos[:, 0] >= 0) & (fwd_pos[:, 0] < H) & (fwd_pos[:, 1] >= 0) & (fwd_pos[:, 1] < W)
-    )
-    fwd_types = prev_state.object_type_map[fwd_r, fwd_c]  # (n_agents,)
-
-    return fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types
-
-
-def delivery_reward(
-    prev_state,
-    state,
-    actions,
-    type_ids,
-    n_agents,
-    coefficient=1.0,
-    common_reward=True,
-    action_pickup_drop_idx=4,
-    reward_config=None,
-):
-    """Order-aware delivery reward with IS_DELIVERABLE lookup, per-recipe values, and tip bonus.
-
-    When static_tables are available:
-      - Uses IS_DELIVERABLE lookup instead of hardcoded onion_soup check
-      - Uses per-recipe reward values from recipe_reward array
-    When orders are enabled (order_recipe exists in state):
-      - Delivery reward fires only when a matching active order was consumed
-      - Tip bonus proportional to remaining time on consumed order
-    When orders are disabled or static_tables are absent:
-      - Falls back to original behavior (backward compatible)
+    Triggers when: agent performs pickup_drop + holds onion_soup + faces delivery_zone.
+    This is the simplest delivery reward -- fixed coefficient, no recipe lookup,
+    no order gating. Use DeliveryReward for multi-recipe support or
+    OrderDeliveryReward for order-gated delivery with tip bonus.
     """
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
 
-    is_interact = actions == action_pickup_drop_idx  # (n_agents,)
+    action = "pickup_drop"
+    holds = "onion_soup"
+    faces = "delivery_zone"
 
-    # --- Determine which agents hold a deliverable item ---
-    static_tables = reward_config.get("static_tables", {}) if reward_config is not None else {}
-    is_deliverable_table = static_tables.get("IS_DELIVERABLE", None)
-    if is_deliverable_table is not None:
-        holds_deliverable = is_deliverable_table[prev_state.agent_inv[:, 0]] == 1
-    else:
-        # Backward compat fallback
-        holds_deliverable = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
 
-    faces_delivery = fwd_types == type_ids["delivery_zone"]  # (n_agents,)
-    earns_delivery = is_interact & holds_deliverable & faces_delivery & in_bounds  # (n_agents,)
+# ---------------------------------------------------------------------------
+# Multi-recipe delivery reward (no order gating)
+# ---------------------------------------------------------------------------
 
-    # --- Per-recipe reward amounts ---
-    recipe_result = static_tables.get("recipe_result", None)
-    recipe_reward_arr = static_tables.get("recipe_reward", None)
-    if recipe_result is not None and recipe_reward_arr is not None:
-        delivered_type = prev_state.agent_inv[:, 0]  # (n_agents,)
-        match = delivered_type[:, None] == recipe_result[None, :]  # (n_agents, n_recipes)
-        recipe_idx = xp.argmax(match, axis=1)  # (n_agents,)
-        per_agent_reward = recipe_reward_arr[recipe_idx]  # (n_agents,) float32
-    else:
-        per_agent_reward = xp.full(n_agents, coefficient, dtype=xp.float32)
 
-    # --- Order matching and tip bonus ---
-    tip_coefficient = (
-        reward_config.get("tip_coefficient", 0.0) if reward_config is not None else 0.0
-    )
-    prev_order = getattr(prev_state, "order_recipe", None)
-    if prev_order is not None:
-        # Orders are enabled -- check if a matching order was consumed this step
+class DeliveryReward(Reward):
+    """Reward for delivering any deliverable item to a delivery zone.
+
+    Supports multiple recipe types via IS_DELIVERABLE and per-recipe reward
+    amounts from static_tables. Does NOT gate on active orders -- fires
+    whenever a valid delivery occurs.
+
+    Use OrderDeliveryReward if you need order matching and tip bonuses.
+
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 1.0). Used as uniform
+          reward when per-recipe tables are absent.
+        - ``common_reward``: If True, all agents receive the reward (default True).
+    """
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery rewards using IS_DELIVERABLE and per-recipe amounts."""
+        type_ids = reward_config["type_ids"]
+        n_agents = reward_config["n_agents"]
+        action_pickup_drop_idx = reward_config["action_pickup_drop_idx"]
+        coefficient = self.config.get("coefficient", 1.0)
+        common_reward = self.config.get("common_reward", True)
+
+        # Step 1: compute each agent's forward cell position and type
+        fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+
+        # Step 2: check which agents performed the pickup_drop action
+        is_interact = actions == action_pickup_drop_idx  # (n_agents,)
+
+        # Step 3: check which agents hold a deliverable item
+        # IS_DELIVERABLE is a boolean lookup table indexed by type_id
+        static_tables = reward_config.get("static_tables", {})
+        is_deliverable_table = static_tables.get("IS_DELIVERABLE", None)
+        if is_deliverable_table is not None:
+            holds_deliverable = is_deliverable_table[prev_state.agent_inv[:, 0]] == 1
+        else:
+            # Backward compat: only onion_soup is deliverable
+            holds_deliverable = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
+
+        # Step 4: check which agents face a delivery zone
+        faces_delivery = fwd_types == type_ids["delivery_zone"]  # (n_agents,)
+
+        # Step 5: combine all conditions into a single delivery mask
+        earns_delivery = is_interact & holds_deliverable & faces_delivery & in_bounds
+
+        # Step 6: determine per-agent reward amounts from recipe tables
+        # recipe_result maps recipe index -> result type_id
+        # recipe_reward maps recipe index -> reward value
+        recipe_result = static_tables.get("recipe_result", None)
+        recipe_reward_arr = static_tables.get("recipe_reward", None)
+        if recipe_result is not None and recipe_reward_arr is not None:
+            delivered_type = prev_state.agent_inv[:, 0]  # (n_agents,)
+            # Match each agent's held type to a recipe result
+            match = delivered_type[:, None] == recipe_result[None, :]  # (n_agents, n_recipes)
+            recipe_idx = xp.argmax(match, axis=1)  # (n_agents,)
+            per_agent_reward = recipe_reward_arr[recipe_idx]  # (n_agents,) float32
+        else:
+            # No recipe tables: use uniform coefficient
+            per_agent_reward = xp.full(n_agents, coefficient, dtype=xp.float32)
+
+        # Step 7: apply reward with optional broadcast to all agents
+        if common_reward:
+            total = xp.sum(earns_delivery.astype(xp.float32) * per_agent_reward)
+            rewards = xp.full(n_agents, total, dtype=xp.float32)
+        else:
+            rewards = earns_delivery.astype(xp.float32) * per_agent_reward
+
+        return rewards
+
+
+# ---------------------------------------------------------------------------
+# Order-gated delivery reward with tip bonus
+# ---------------------------------------------------------------------------
+
+
+class OrderDeliveryReward(DeliveryReward):
+    """Delivery reward gated on active order consumption, with optional tip bonus.
+
+    Extends DeliveryReward by:
+    1. Only firing when a matching active order was consumed this step
+       (detected via prev_state.order_recipe vs state.order_recipe diff).
+    2. Adding a time-based tip bonus proportional to remaining order time.
+
+    Falls back to base DeliveryReward behavior (no gating, no tip) when
+    order_recipe is not present in state (orders disabled).
+
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 1.0).
+        - ``common_reward``: If True, all agents receive the reward (default True).
+    """
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute delivery rewards gated on order consumption with tip bonus."""
+        # Get base delivery reward from parent (fires for any valid delivery)
+        base_rewards = super().compute(prev_state, state, actions, reward_config)
+
+        # Check if order system is active
+        prev_order = getattr(prev_state, "order_recipe", None)
+        if prev_order is None:
+            # Orders disabled: fall back to base behavior (no gating)
+            return base_rewards
+
+        # Detect which orders were consumed this step:
+        # an order slot that was active (recipe >= 0) and is now inactive (recipe == -1)
         was_active = prev_order >= 0  # (max_active,)
         now_inactive = state.order_recipe == -1  # (max_active,)
-        consumed = was_active & now_inactive  # orders consumed this step
+        consumed = was_active & now_inactive
         any_consumed = xp.any(consumed)
 
-        # Tip bonus: use prev timer of consumed order
+        # Gate: only reward if at least one order was consumed
+        order_mask = xp.where(any_consumed, xp.float32(1.0), xp.float32(0.0))
+
+        # Tip bonus: proportional to remaining time on the consumed order
+        # tip = (remaining_time / time_limit) * tip_coefficient
+        static_tables = reward_config.get("static_tables", {})
+        tip_coefficient = reward_config.get("tip_coefficient", 0.0)
         order_time_limit = static_tables.get("order_time_limit", None)
         if order_time_limit is not None and tip_coefficient > 0.0:
+            # Use the timer of the first consumed order slot
             consumed_idx = xp.argmax(consumed)
             remaining_time = prev_state.order_timer[consumed_idx]
             tip = xp.where(
@@ -119,214 +185,113 @@ def delivery_reward(
         else:
             tip = xp.float32(0.0)
 
-        # Only reward if order was consumed
-        order_mask = xp.where(any_consumed, xp.float32(1.0), xp.float32(0.0))
-    else:
-        # No orders: always reward (backward compat)
-        order_mask = xp.float32(1.0)
-        tip = xp.float32(0.0)
-
-    # --- Apply reward ---
-    if common_reward:
-        total = xp.sum(earns_delivery.astype(xp.float32) * per_agent_reward)
-        total = total * order_mask + tip
-        rewards = xp.full(n_agents, total, dtype=xp.float32)
-    else:
-        rewards = earns_delivery.astype(xp.float32) * per_agent_reward * order_mask + tip
-
-    return rewards
-
-
-def onion_in_pot_reward(
-    prev_state,
-    state,
-    actions,
-    type_ids,
-    n_agents,
-    coefficient=0.1,
-    common_reward=False,
-    action_pickup_drop_idx=4,
-):
-    """Reward for placing an onion into a pot with capacity. Fully vectorized."""
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
-
-    is_interact = actions == action_pickup_drop_idx
-    holds_onion = prev_state.agent_inv[:, 0] == type_ids["onion"]
-    faces_pot = fwd_types == type_ids["pot"]
-
-    # Array-based pot position matching:
-    # For each agent, check which pot (if any) their forward position matches.
-    # fwd_pos[:, :] is (n_agents, 2), pot_positions is (n_pots, 2)
-    agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2) clipped
-    pot_positions = prev_state.pot_positions  # (n_pots, 2)
-
-    # pos_match[i, j] = True iff agent i faces pot j
-    pos_match = xp.all(
-        pot_positions[None, :, :] == agent_fwd[:, None, :],
-        axis=2,
-    )  # (n_agents, n_pots)
-    facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,) -- index of matched pot
-
-    # Check pot capacity and type compatibility for each agent's matched pot.
-    # pot_contents[pot_idx] gives (n_agents, 3) -- the contents of each agent's pot.
-    pot_row = prev_state.pot_contents[pot_idx]  # (n_agents, 3)
-    n_filled = xp.sum(pot_row != -1, axis=1)  # (n_agents,)
-    has_capacity = n_filled < 3
-
-    # Same-type check: all non-empty slots must be onion (or empty)
-    is_onion_or_empty = (pot_row == -1) | (pot_row == type_ids["onion"])
-    compatible = xp.all(is_onion_or_empty, axis=1)  # (n_agents,)
-
-    earns_reward = (
-        is_interact
-        & holds_onion
-        & faces_pot
-        & in_bounds
-        & facing_any_pot
-        & has_capacity
-        & compatible
-    )
-
-    if common_reward:
-        n_earners = xp.sum(earns_reward.astype(xp.float32))
-        rewards = xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
-    else:
-        rewards = earns_reward.astype(xp.float32) * coefficient
-
-    return rewards
-
-
-def soup_in_dish_reward(
-    prev_state,
-    state,
-    actions,
-    type_ids,
-    n_agents,
-    coefficient=0.3,
-    common_reward=False,
-    action_pickup_drop_idx=4,
-):
-    """Reward for picking up a ready soup from a pot with a plate. Fully vectorized."""
-    fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
-
-    is_interact = actions == action_pickup_drop_idx
-    holds_plate = prev_state.agent_inv[:, 0] == type_ids["plate"]
-    faces_pot = fwd_types == type_ids["pot"]
-
-    # Array-based pot position matching
-    agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)  # (n_agents, 2)
-    pot_positions = prev_state.pot_positions  # (n_pots, 2)
-
-    pos_match = xp.all(
-        pot_positions[None, :, :] == agent_fwd[:, None, :],
-        axis=2,
-    )  # (n_agents, n_pots)
-    facing_any_pot = xp.any(pos_match, axis=1)  # (n_agents,)
-    pot_idx = xp.argmax(pos_match, axis=1)  # (n_agents,)
-
-    # Check pot is ready: timer == 0
-    pot_timer_vals = prev_state.pot_timer[pot_idx]  # (n_agents,)
-    pot_ready = pot_timer_vals == 0
-
-    earns_reward = is_interact & holds_plate & faces_pot & in_bounds & facing_any_pot & pot_ready
-
-    if common_reward:
-        n_earners = xp.sum(earns_reward.astype(xp.float32))
-        rewards = xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
-    else:
-        rewards = earns_reward.astype(xp.float32) * coefficient
-
-    return rewards
+        # Apply order gate and add tip to every agent's reward
+        n_agents = reward_config["n_agents"]
+        return base_rewards * order_mask + xp.full(n_agents, tip, dtype=xp.float32)
 
 
 # ---------------------------------------------------------------------------
-# Reward subclasses (registered for autowire composition)
+# Onion-in-pot reward
 # ---------------------------------------------------------------------------
-# Each compute() returns final (n_agents,) rewards with coefficient and
-# broadcasting already applied. The autowire layer just sums them.
 
 
-@register_reward_type("delivery", scope="overcooked")
-class DeliveryReward(Reward):
-    """Reward for delivering soup to a delivery zone.
+class OnionInPotReward(InteractionReward):
+    """Reward for placing an onion into a pot via pickup_drop action.
 
-    Uses IS_DELIVERABLE lookup, per-recipe reward values, and order-aware
-    gating when orders are enabled. Falls back to original behavior when
-    static_tables or orders are not available.
+    Triggers when: agent performs pickup_drop + holds onion + faces pot,
+    AND the pot has capacity (< 3 ingredients) and contains only onions
+    or empty slots (type compatibility).
+
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 0.1).
+        - ``common_reward``: If True, all agents receive the reward (default False).
     """
 
-    def compute(self, prev_state, state, actions, reward_config):
-        """Compute delivery reward for the current step."""
-        return delivery_reward(
-            prev_state,
-            state,
-            actions,
-            reward_config["type_ids"],
-            reward_config["n_agents"],
-            coefficient=1.0,
-            common_reward=True,
-            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
-            reward_config=reward_config,
-        )
+    action = "pickup_drop"
+    holds = "onion"
+    faces = "pot"
+
+    def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        """Narrow mask to pots with capacity and compatible contents."""
+        type_ids = reward_config["type_ids"]
+
+        # Match each agent's forward position to a pot index
+        agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pot_idx = xp.argmax(pos_match, axis=1)
+
+        # Check pot has room (fewer than 3 non-empty slots)
+        pot_row = prev_state.pot_contents[pot_idx]
+        has_capacity = xp.sum(pot_row != -1, axis=1) < 3
+
+        # Check pot only contains onions or empty slots (no mixed recipes)
+        compatible = xp.all((pot_row == -1) | (pot_row == type_ids["onion"]), axis=1)
+
+        return mask & xp.any(pos_match, axis=1) & has_capacity & compatible
 
 
-@register_reward_type("onion_in_pot", scope="overcooked")
-class OnionInPotReward(Reward):
-    """Reward for placing an onion into a pot."""
-
-    def compute(self, prev_state, state, actions, reward_config):
-        """Compute onion-in-pot reward for the current step."""
-        return onion_in_pot_reward(
-            prev_state,
-            state,
-            actions,
-            reward_config["type_ids"],
-            reward_config["n_agents"],
-            coefficient=0.1,
-            common_reward=False,
-            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
-        )
+# ---------------------------------------------------------------------------
+# Soup-in-dish reward
+# ---------------------------------------------------------------------------
 
 
-@register_reward_type("soup_in_dish", scope="overcooked")
-class SoupInDishReward(Reward):
-    """Reward for picking up completed soup from a pot."""
+class SoupInDishReward(InteractionReward):
+    """Reward for picking up completed soup from a pot via pickup_drop action.
 
-    def compute(self, prev_state, state, actions, reward_config):
-        """Compute soup-in-dish reward for the current step."""
-        return soup_in_dish_reward(
-            prev_state,
-            state,
-            actions,
-            reward_config["type_ids"],
-            reward_config["n_agents"],
-            coefficient=0.3,
-            common_reward=False,
-            action_pickup_drop_idx=reward_config["action_pickup_drop_idx"],
-        )
+    Triggers when: agent performs pickup_drop + holds plate + faces pot,
+    AND the pot is ready (timer == 0, meaning cooking is complete).
+
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``coefficient``: Reward scaling factor (default 0.3).
+        - ``common_reward``: If True, all agents receive the reward (default False).
+    """
+
+    action = "pickup_drop"
+    holds = "plate"
+    faces = "pot"
+
+    def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        """Narrow mask to pots that are done cooking."""
+        # Match each agent's forward position to a pot index
+        agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pot_idx = xp.argmax(pos_match, axis=1)
+
+        # Check pot is done cooking (timer == 0 means ready to serve)
+        pot_ready = prev_state.pot_timer[pot_idx] == 0
+
+        return mask & xp.any(pos_match, axis=1) & pot_ready
 
 
-@register_reward_type("expired_order_penalty", scope="overcooked")
+# ---------------------------------------------------------------------------
+# Expired order penalty
+# ---------------------------------------------------------------------------
+
+
 class ExpiredOrderPenalty(Reward):
     """Penalty for expired orders (common reward -- all agents penalized).
 
-    Uses prev/curr diff on order_n_expired to detect newly expired orders
-    this step. Returns zero when orders are disabled (no order_n_expired
-    in state).
+    Detects newly expired orders by diffing prev_state.order_n_expired
+    vs state.order_n_expired. Returns zero when orders are disabled
+    (no order_n_expired in state).
+
+    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
+        - ``penalty``: Penalty value per expired order (default -5.0).
     """
 
     def compute(self, prev_state, state, actions, reward_config):
-        """Compute expired order penalty for the current step."""
+        """Compute penalty for newly expired orders this step."""
+        # Check if order system is active
         prev_expired = getattr(prev_state, "order_n_expired", None)
         if prev_expired is None:
             return xp.zeros(reward_config["n_agents"], dtype=xp.float32)
 
+        # Count how many orders expired this step
         curr_expired = state.order_n_expired
         newly_expired = curr_expired - prev_expired  # scalar int32
 
         n_agents = reward_config["n_agents"]
-        penalty = reward_config.get("expired_order_penalty", -5.0)
+        penalty = self.config.get("penalty", -5.0)
 
-        # Broadcast to all agents (common penalty)
+        # Broadcast penalty to all agents (shared responsibility)
         return xp.full(n_agents, newly_expired.astype(xp.float32) * penalty, dtype=xp.float32)

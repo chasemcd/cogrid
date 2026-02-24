@@ -49,17 +49,19 @@ at init time using `make_ingredient_and_stack()` -- see
 
 ### Rewards
 
-| Reward | Coefficient | Scope | Description |
-|--------|-------------|-------|-------------|
-| Delivery | 1.0 | Common | Deliver a plated soup to a delivery zone. When orders are enabled, reward fires only for deliveries matching an active order. Per-recipe reward values are supported. |
-| Onion-in-pot | 0.1 | Individual | Place an onion into a pot with capacity |
-| Soup-in-dish | 0.3 | Individual | Pick up a finished soup from a pot with a plate |
-| ExpiredOrderPenalty | -5.0 | Common | Penalty when an active order expires (requires order queue) |
-| Tip bonus | configurable | Common | Bonus for fast delivery based on remaining order time (requires order queue, `tip_coefficient > 0`) |
+| Class | Coefficient | Scope | Description |
+|-------|-------------|-------|-------------|
+| `OnionSoupDeliveryReward` | 1.0 | Common | Simplest delivery: fires on pickup_drop + holds onion_soup + faces delivery_zone. Fixed coefficient, no recipe lookup. |
+| `DeliveryReward` | 1.0 | Common | Multi-recipe delivery: uses IS_DELIVERABLE table and per-recipe reward values. Fires for any valid delivery (no order gating). |
+| `OrderDeliveryReward` | 1.0 | Common | Extends `DeliveryReward` with order gating (fires only when a matching active order is consumed) and optional tip bonus proportional to remaining order time. |
+| `OnionInPotReward` | 0.1 | Individual | Place an onion into a pot with capacity (pickup_drop + holds onion + faces pot). |
+| `SoupInDishReward` | 0.3 | Individual | Pick up a finished soup from a pot with a plate (pickup_drop + holds plate + faces pot). |
+| `ExpiredOrderPenalty` | -5.0 | Common | Penalty when an active order expires (requires order queue). |
 
-By default, order-based rewards (tip bonus, expired penalty) are disabled.
-Enable them by configuring the order queue -- see [Order Queue](#order-queue)
-below.
+The default `cramped_room_config` uses `DeliveryReward` (no order gating).
+To enable order-based rewards (order gating, tip bonus, expired penalty),
+use `OrderDeliveryReward` and configure the order queue -- see
+[Order Queue](#order-queue) below.
 
 ## Available Layouts
 
@@ -75,43 +77,41 @@ below.
 
 ## Recipe System
 
-By default, Overcooked uses two built-in recipes -- onion soup and tomato soup.
-Recipes are defined as a list of dictionaries, each specifying the ingredients,
-result, cook time, and reward value:
+Recipes are declared directly on the Pot class using the `Container` and
+`Recipe` dataclasses from `cogrid.core.containers`:
 
 ```python
-DEFAULT_RECIPES = [
-    {
-        "ingredients": ["onion", "onion", "onion"],
-        "result": "onion_soup",
-        "cook_time": 30,
-        "reward": 20.0,
-    },
-    {
-        "ingredients": ["tomato", "tomato", "tomato"],
-        "result": "tomato_soup",
-        "cook_time": 30,
-        "reward": 20.0,
-    },
-]
+from cogrid.core.containers import Container, Recipe
+from cogrid.core.grid_object import register_object_type, GridObj
+
+@register_object_type("pot", scope="overcooked")
+class Pot(GridObj):
+    container = Container(capacity=3, pickup_requires="plate")
+    recipes = [
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=1.0),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30, reward=1.0),
+    ]
 ```
 
-Each recipe has four keys:
+The autowire system reads these descriptors and auto-generates all the
+array-level code: interaction branches, tick handler, extra state, static
+tables, and render sync. No manual `interaction_fn` or `build_tick_fn` needed.
+
+Each `Recipe` has four fields:
 
 - **`ingredients`** -- list of ingredient names (must be registered object types). Recipes can use mixed ingredients (e.g., `["onion", "onion", "tomato"]`).
 - **`result`** -- the name of the output object produced when the recipe is completed.
 - **`cook_time`** -- number of environment steps the pot takes to cook once full.
 - **`reward`** -- the delivery reward value for this recipe's output.
 
+The `Container` dataclass declares container behavior:
+
+- **`capacity`** -- maximum number of items the container can hold.
+- **`pickup_requires`** -- object type(s) the agent must hold to pick up from the container (e.g., `"plate"`). `None` means empty hands.
+
 At init time, `compile_recipes()` compiles the recipe list into fixed-shape
 lookup arrays that the interaction system uses for recipe matching during
 gameplay.
-
-!!! note "Config wiring status"
-    The recipe infrastructure supports arbitrary recipes, including
-    mixed-ingredient combinations. Full config-dict wiring (selecting recipes
-    via the environment config) is planned; currently, custom recipes require
-    calling `compile_recipes()` directly.
 
 ## Order Queue
 
@@ -141,10 +141,16 @@ order_config = {
 - **`time_limit`** -- how many steps an order lasts before it expires.
 - **`recipe_weights`** -- relative weights controlling how often each recipe is requested (uses deterministic round-robin, not random sampling).
 
-!!! note "Config wiring status"
-    The order queue infrastructure is complete. Full config-dict wiring is
-    planned; currently, enabling orders requires custom
-    `build_overcooked_extra_state` calls with an `order_config` dict.
+To enable the order queue, initialize order arrays with `build_order_extra_state`
+and compose the `order_queue_tick` with the auto-generated container tick:
+
+```python
+from cogrid.envs.overcooked.config import build_order_extra_state, order_queue_tick
+
+order_config = {"max_active": 3, "spawn_interval": 40, "time_limit": 200}
+order_extra = build_order_extra_state(order_config)
+# Merge into the environment's extra_state at reset time
+```
 
 ## Custom Ingredients
 

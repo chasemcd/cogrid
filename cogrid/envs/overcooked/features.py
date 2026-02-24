@@ -791,17 +791,8 @@ from cogrid.core.component_registry import (  # noqa: E402
 
 
 def _overcooked_pre_compose_hook(layout_idx: int, scope: str, env_config=None) -> None:
-    """Set LayoutID._layout_idx and Pot config before feature composition."""
+    """Set LayoutID._layout_idx before feature composition."""
     LayoutID._layout_idx = layout_idx
-
-    from cogrid.envs.overcooked.overcooked_grid_objects import Pot
-
-    if env_config is not None:
-        Pot._recipes_config = env_config.get("recipes")
-        Pot._orders_config = env_config.get("orders")
-    else:
-        Pot._recipes_config = None
-        Pot._orders_config = None
 
 
 register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)

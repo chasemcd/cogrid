@@ -55,8 +55,8 @@ my_project/
     my_env/
         __init__.py               # Triggers decorator registration
         grid_objects.py           # Grid objects (@register_object_type)
-        config.py           # Interaction fn, tick fn, extra state builders
-        rewards.py                # Reward functions (@register_reward_type)
+        config.py           # Custom interaction fn, extra state builders (if needed)
+        rewards.py                # Reward classes (Reward subclasses)
         features.py               # Feature extractors (@register_feature_type)
         agent.py                  # Custom Agent subclass (optional)
     train.py                      # Your training script
@@ -69,7 +69,6 @@ visible to the CoGrid engine:
 ```python
 # my_env/__init__.py
 from my_env import grid_objects  # noqa: F401 -- triggers @register_object_type
-from my_env import rewards       # noqa: F401 -- triggers @register_reward_type
 from my_env import features      # noqa: F401 -- triggers @register_feature_type
 ```
 
@@ -77,6 +76,8 @@ from my_env import features      # noqa: F401 -- triggers @register_feature_type
     You must `import my_env` (or the individual submodules) somewhere in your
     code **before** calling `registry.make()`. The decorators register
     components into CoGrid's global registries as a side effect of import.
+    Rewards don't need import-time registration -- they are passed as
+    instances in the config `"rewards"` list.
 
 
 ## Step 2: Define Grid Objects
@@ -91,106 +92,116 @@ Each object on the grid is a `GridObj` subclass registered with the
 - `char`: Single ASCII character for layout strings. Must be unique within
   the scope.
 
-**Decorator parameters** declare static interaction properties that the engine
-uses to build lookup tables:
+**Capability class attributes** declare static interaction properties that
+the engine uses to build lookup tables. Use the `when()` descriptor (or
+plain `True` for `is_wall`) as a class attribute:
 
-```python
-@register_object_type(
-    object_id: str,
-    scope: str = "global",       # Namespace for this object
-    can_pickup: bool = False,     # Agent can pick this up (removes from grid)
-    can_overlap: bool = False,    # Agent can walk onto this cell
-    can_place_on: bool = False,   # Agent can place held item onto this
-    can_pickup_from: bool = False,# Agent can take an item from this (it stays)
-    is_wall: bool = False,        # Blocks movement
-)
-```
+| Attribute | Meaning |
+|-----------|---------|
+| `can_pickup = when()` | Agent can pick this up (removes from grid) |
+| `can_overlap = when()` | Agent can walk onto this cell |
+| `can_place_on = when()` | Agent can place held item onto this |
+| `can_pickup_from = when()` | Agent can take an item from this (it stays) |
+| `produces = "item_name"` | What a dispenser/stack creates on pickup_from |
+| `consumes_on_place = True` | Item vanishes when placed on this (e.g., delivery zone) |
+| `container = Container(...)` | Declares a stateful container (see below) |
+| `recipes = [Recipe(...)]` | Recipes the container can cook (see below) |
+| `is_wall = True` | Blocks movement |
 
-The `scope` parameter namespaces your objects so their `char` and
-`object_id` values don't collide with objects from other environments.
-Choose a unique scope string for your environment (e.g., `"my_env"`).
+The `scope` parameter on the decorator namespaces your objects so their
+`char` and `object_id` values don't collide with objects from other
+environments. Choose a unique scope string for your environment (e.g.,
+`"my_env"`).
 
 **Overcooked example** -- a simple pickupable object:
 
 ```python
 # my_env/grid_objects.py
 from cogrid.core import grid_object, constants
-from cogrid.core.grid_object import register_object_type
+from cogrid.core.grid_object import register_object_type, when
 from cogrid.visualization.rendering import fill_coords, point_in_circle
 
-@register_object_type("onion", scope="overcooked", can_pickup=True)
+@register_object_type("onion", scope="overcooked")
 class Onion(grid_object.GridObj):
     object_id = "onion"
     color = constants.Colors.Yellow
     char = "o"
+    can_pickup = when()
 
     def render(self, tile_img):
         fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
 ```
 
 **Overcooked example** -- an infinite dispenser (stays on the grid, agent
-receives a new item):
+receives a new item). Set the `produces` class attribute to the object ID
+of the item dispensed:
 
 ```python
-@register_object_type("onion_stack", scope="overcooked", can_pickup_from=True)
-class OnionStack(grid_object.GridObj):
-    object_id = "onion_stack"
+class _BaseStack(grid_object.GridObj):
+    produces: str = None      # Object ID to dispense
+    can_pickup_from = when()
+
+@register_object_type("onion_stack", scope="overcooked")
+class OnionStack(_BaseStack):
     color = constants.Colors.Yellow
     char = "O"
-
-    def can_pickup_from(self, agent):
-        return True
-
-    def pick_up_from(self, agent):
-        return Onion()  # Creates a new Onion each time
-
-    def render(self, tile_img):
-        ...
+    produces = "onion"        # Agent receives a new Onion on pickup_from
 ```
 
-**Overcooked example** -- a complex stateful object with component classmethods
-(the Pot). This is the most advanced pattern; see Steps 3-5 for what each
-classmethod does:
+**Overcooked example** -- a stateful container object (the Pot). For objects
+that hold items, cook recipes, and produce outputs, use the `Container` and
+`Recipe` declarative descriptors. The autowire system auto-generates all
+array-level code (extra state, tick handler, interaction branches, static
+tables, render sync):
 
 ```python
-@register_object_type("pot", scope="overcooked", can_place_on=True, can_pickup_from=True)
+from cogrid.core.containers import Container, Recipe
+
+@register_object_type("pot", scope="overcooked")
 class Pot(grid_object.GridObj):
-    object_id = "pot"
     color = constants.Colors.Grey
     char = "U"
 
-    # ... OOP methods for rendering, can_place_on, etc. ...
+    container = Container(capacity=3, pickup_requires="plate")
+    recipes = [
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30),
+    ]
+    # Auto-generated by autowire:
+    #   can_place_on = when(agent_holding=["onion", "tomato"])
+    #   can_pickup_from = when(agent_holding="plate")
+    #   extra_state_schema, extra_state_builder, tick_fn, render_sync, static_tables
+```
 
+For objects that need fully custom behavior beyond the Container/Recipe
+pattern, use component classmethods instead (see Steps 3-5):
+
+```python
+@register_object_type("my_object", scope="my_env")
+class MyObject(grid_object.GridObj):
     @classmethod
     def build_tick_fn(cls):
-        """Return a (state, scope_config) -> state function for per-step updates."""
-        from my_env.config import my_tick_fn
-        return my_tick_fn
+        """Return a (state, scope_config) -> state function."""
+        ...
 
     @classmethod
     def extra_state_schema(cls):
         """Declare extra state arrays this object needs."""
-        return {
-            "pot_contents": {"shape": ("n_pots", 3), "dtype": "int32"},
-            "pot_timer":    {"shape": ("n_pots",),    "dtype": "int32"},
-            "pot_positions": {"shape": ("n_pots", 2), "dtype": "int32"},
-        }
+        ...
 
     @classmethod
     def extra_state_builder(cls):
-        """Return a function that initializes extra state from the parsed layout."""
-        from my_env.config import build_extra_state
-        return build_extra_state
+        """Return a function that initializes extra state."""
+        ...
 
     @classmethod
     def build_static_tables(cls):
-        """Return dict of additional lookup arrays for interaction logic."""
-        from my_env.config import build_static_tables
-        return build_static_tables()
+        """Return dict of additional lookup arrays."""
+        ...
 
     @classmethod
     def build_render_sync_fn(cls):
-        """Return a function that syncs array state back to GridObj for rendering."""
+        """Return a function that syncs array state to GridObj for rendering."""
         ...
 ```
 
@@ -274,9 +285,20 @@ The generic engine handles basic interactions automatically:
 - **drop**: Agent drops held item onto an empty cell.
 - **place_on**: Agent places held item onto a target (if `can_place_on`).
 
-If your environment needs custom interaction logic beyond these four (e.g.,
-conditional placement, state machine transitions, item transformation), write
-a custom interaction function.
+Additionally, the autowire system auto-generates interaction branches for:
+
+- **Container/Recipe objects**: Placing ingredients into containers, picking up
+  cooked results (e.g., the Pot). See Step 2.
+- **Consume-on-place objects**: Items that vanish when placed (e.g.,
+  `consumes_on_place = True` on DeliveryZone).
+
+**Most environments do not need a custom interaction function.** The built-in
+branches plus the Container/Recipe auto-generation cover pickup, drop, place,
+container fill/cook/serve, and consume-on-place patterns.
+
+If your environment needs interaction logic beyond these patterns (e.g.,
+multi-step crafting, conditional state machine transitions), you can write
+a custom interaction function and pass it via `config["interaction_fn"]`:
 
 **Signature:**
 
@@ -306,28 +328,9 @@ def my_interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_config):
     ...
 ```
 
-**Overcooked example** -- the Overcooked interaction function dispatches to
-7 branches:
-
-```text
-Agent presses PickupDrop while facing a cell
-|
-+-- Agent has empty inventory?
-|   +-- Cell has a pickupable object?      -> PICKUP (remove from grid)
-|   +-- Cell is a stack/dispenser?          -> PICKUP_FROM (get new item)
-|   +-- Cell is a pot with cooked soup      -> (rejected: needs plate)
-|       and agent has plate?
-|
-+-- Agent is holding an item?
-    +-- Cell is empty?                      -> DROP (place on grid)
-    +-- Cell is a pot with capacity?        -> PLACE_ON_POT (add ingredient)
-    +-- Cell is a delivery zone?            -> PLACE_ON_DELIVERY (deliver soup)
-    +-- Cell is an empty counter?           -> PLACE_ON_COUNTER (store item)
-```
-
-The interaction function is passed directly in the config dict (Step 8), *not*
-discovered from a classmethod. This keeps scope-wide orchestration logic
-explicit and separate from individual object definitions.
+When `config["interaction_fn"]` is provided, it fully overrides the
+auto-generated function. When omitted, autowire composes an interaction
+function from the registered component capabilities.
 
 **JAX compatibility**: All branches must compute results unconditionally using
 `xp.where(condition, branch_result, fallback)` -- no Python `if/else` on
@@ -336,15 +339,69 @@ traced values. This allows JAX to compile the function.
 
 ## Step 6: Define Reward Functions
 
-Reward functions are `Reward` subclasses registered with
-`@register_reward_type`. Each computes a `(n_agents,)` float32 array.
+Reward functions are `Reward` subclasses. Each computes a `(n_agents,)`
+float32 array. Parameters like coefficients are passed via `__init__` and
+stored in `self.config`. Reward instances are listed explicitly in the env
+config `"rewards"` key -- no decorator or auto-discovery needed.
+
+### Pattern 1: Declarative interaction rewards (preferred)
+
+Most rewards follow a pattern: check an action, check what the agent holds,
+check what's ahead or underfoot, and apply a coefficient. The
+`InteractionReward` base class handles this declaratively -- just set class
+attributes for the conditions that must all be true:
 
 ```python
-# my_env/rewards.py
-from cogrid.backend import xp
-from cogrid.core.rewards import Reward, register_reward_type
+# Simple interaction -- just declare conditions:
+from cogrid.core.rewards import InteractionReward
 
-@register_reward_type("delivery", scope="my_env")
+class OnionInPotReward(InteractionReward):
+    action = "pickup_drop"
+    holds = "onion"
+    faces = "pot"
+```
+
+Available class attributes (all conditions are AND'd, `None` means "don't check"):
+
+| Attribute | Type | Default | Meaning |
+|-----------|------|---------|---------|
+| `action` | `str` or `None` | **(required)** | `"pickup_drop"`, `"toggle"`, or `None` (no action filter) |
+| `holds` | `str` or `None` | `None` | Type name agent must hold |
+| `faces` | `str` or `None` | `None` | Type name in the forward cell |
+| `overlaps` | `str` or `None` | `None` | Type name agent must stand on |
+| `direction` | `int` or `None` | `None` | Direction agent must face (0=R,1=D,2=L,3=U) |
+
+Instance config (`coefficient`, `common_reward`) is passed via `__init__` kwargs.
+
+Override `extra_condition()` for domain-specific checks (pot capacity, timers):
+
+```python
+class OnionInPotReward(InteractionReward):
+    action = "pickup_drop"
+    holds = "onion"
+    faces = "pot"
+
+    def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+        # ... check pot capacity, type compatibility ...
+        return mask & has_capacity & compatible
+```
+
+### Pattern 2: Position-based rewards (no action needed)
+
+```python
+class GoalReward(InteractionReward):
+    action = None
+    overlaps = "goal"
+```
+
+### Pattern 3: Complex rewards (use Reward directly)
+
+For rewards that don't fit the declarative pattern (e.g., state-diff based
+penalties, per-recipe lookups, multi-table joins), subclass `Reward` directly:
+
+```python
+from cogrid.core.rewards import Reward
+
 class DeliveryReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
         """
@@ -359,7 +416,8 @@ class DeliveryReward(Reward):
         actions : ndarray
             (n_agents,) int32 action indices.
         reward_config : dict
-            Contains "type_ids", "n_agents", "action_pickup_drop_idx".
+            Contains "type_ids", "n_agents", "action_pickup_drop_idx",
+            "action_toggle_idx".
 
         Returns
         -------
@@ -368,6 +426,7 @@ class DeliveryReward(Reward):
         """
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
+        coefficient = self.config.get("coefficient", 1.0)
 
         # Check which agents delivered soup
         holds_soup = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
@@ -375,18 +434,34 @@ class DeliveryReward(Reward):
 
         # Shared reward: broadcast sum to all agents
         n_earners = xp.sum(earns_reward.astype(xp.float32))
-        return xp.full(n_agents, n_earners * 1.0, dtype=xp.float32)
+        return xp.full(n_agents, n_earners * coefficient, dtype=xp.float32)
+```
+
+Then add reward instances to the env config:
+
+```python
+from my_env.rewards import OnionInPotReward, DeliveryReward
+
+my_config = {
+    ...
+    "rewards": [
+        OnionInPotReward(coefficient=0.1),
+        DeliveryReward(coefficient=1.0, common_reward=True),
+    ],
+}
 ```
 
 **Key details:**
 
 - `compute()` returns *final* `(n_agents,)` rewards. Apply any scaling or
   broadcasting (e.g., shared reward across all agents) inside `compute()`.
+- Parameters (coefficients, flags) are passed via `__init__(**kwargs)` and
+  accessed via `self.config`.
 - `prev_state` and `state` are `StateView` objects, not `EnvState`.
   `StateView` provides dot-access with scope-stripped extra state keys
   (e.g., `prev_state.pot_timer` instead of
   `prev_state.extra_state["my_env.pot_timer"]`).
-- Multiple rewards can be registered per scope. They are summed at step time.
+- Multiple reward instances can be listed in config. They are summed at step time.
 
 !!! tip "Advanced: Static Tables in Rewards"
     If your reward logic needs environment-specific lookup data (e.g.,
@@ -520,8 +595,6 @@ layouts.register_layout(
 **Environment config dict** -- declares everything the engine needs:
 
 ```python
-from my_env.config import my_interaction_fn
-
 my_config = {
     "name": "my_env",                        # Human-readable name
     "num_agents": 2,                          # Number of agents
@@ -534,7 +607,6 @@ my_config = {
     "grid": {"layout": "my_layout_v0"},       # Layout to use
     "max_steps": 1000,                        # Truncation limit
     "scope": "my_env",                        # Scope for component lookup
-    "interaction_fn": my_interaction_fn,       # Custom interaction (optional)
 }
 ```
 
@@ -546,10 +618,11 @@ my_config = {
 | `num_agents` | Number of agents to place in the environment. |
 | `action_set` | `"cardinal_actions"` (up/down/left/right + pickup/toggle/noop) or `"rotation_actions"` (forward + rotate + pickup/toggle/noop). |
 | `features` | List of registered feature names to compose into observations. |
+| `rewards` | List of `Reward` instances (e.g. `[DeliveryReward(coefficient=1.0)]`). |
 | `grid` | Either `{"layout": "name"}` or `{"layout_fn": callable}`. |
 | `max_steps` | Steps before truncation. |
 | `scope` | Scope string for all component lookups. |
-| `interaction_fn` | Custom interaction function (optional, see Step 5). |
+| `interaction_fn` | Custom interaction function (optional -- overrides auto-generated one, see Step 5). |
 | `terminated_fn` | Custom termination function (optional, see below). |
 
 **Register the environment:**
@@ -592,23 +665,14 @@ in a dedicated setup module -- just make sure it runs before you call
 ## Step 9: Custom Agent Class (optional)
 
 The base `Agent` class handles movement, inventory, and direction. Subclass
-it only if you need custom `can_pickup` logic or additional agent state.
+it only if you need additional agent state (e.g., role tracking).
 
 ```python
 # my_env/agent.py
 from cogrid.core.agent import Agent
-from my_env import grid_objects
 
 class MyAgent(Agent):
-    def can_pickup(self, grid_object):
-        # Example: can only pick up from a Pot if holding a Plate
-        if isinstance(grid_object, grid_objects.Pot) and any(
-            isinstance(inv_obj, grid_objects.Plate)
-            for inv_obj in self.inventory
-        ):
-            return True
-
-        return len(self.inventory) < self.inventory_capacity
+    """Agent subclass with role support."""
 ```
 
 Pass the custom agent class via the `agent_class` parameter when registering
@@ -668,8 +732,8 @@ that register your grid objects, rewards, and features into CoGrid's engine.
 [ ] 4. Define grid objects with @register_object_type (unique chars per scope)
 [ ] 5. If needed: declare extra_state_schema + extra_state_builder on a grid object
 [ ] 6. If needed: write tick function and register via build_tick_fn classmethod
-[ ] 7. If needed: write interaction function, pass via config["interaction_fn"]
-[ ] 8. Define rewards with @register_reward_type
+[ ] 7. If needed: write interaction function (Container/Recipe handles most cases)
+[ ] 8. Define Reward subclasses and add instances to config["rewards"]
 [ ] 9. Define features with @register_feature_type
 [ ] 10. Register layouts with layouts.register_layout()
 [ ] 11. Build config dict and register environment with registry.register()
@@ -680,10 +744,26 @@ that register your grid objects, rewards, and features into CoGrid's engine.
 ```
 
 
-## Component Classmethod Reference
+## Component Reference
+
+### Declarative Descriptors (preferred for stateful objects)
+
+For objects that hold items, cook recipes, and produce outputs, use class
+attributes instead of classmethods. The autowire system auto-generates all
+the array-level code:
+
+| Attribute | Type | Purpose |
+|-----------|------|---------|
+| `container = Container(capacity, pickup_requires)` | `Container` | Declares a stateful container |
+| `recipes = [Recipe(...)]` | `list[Recipe]` | Recipes the container can cook |
+| `produces = "item_name"` | `str` | What a dispenser creates on pickup_from |
+| `consumes_on_place = True` | `bool` | Item vanishes when placed (e.g., delivery zone) |
+
+### Component Classmethods (for fully custom behavior)
 
 These classmethods can be defined on any `@register_object_type` class. They
 are discovered automatically by the decorator and wired into the step pipeline.
+Use these when the Container/Recipe pattern does not cover your needs.
 
 | Classmethod | Signature of returned value | Purpose |
 |-------------|---------------------------|---------|

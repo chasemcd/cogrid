@@ -133,14 +133,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
         from cogrid.core.autowire import (
-            build_reward_config_from_components,
+            build_reward_config,
             build_scope_config_from_components,
         )
         from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
 
-        # Run pre-compose hook before scope config so that config-driven
-        # class attributes (e.g. Pot._recipes_config) are set before
-        # build_static_tables reads them.
+        # Run pre-compose hook before scope config (e.g. to set layout index).
         pre_hook = get_pre_compose_hook(self.scope)
         if pre_hook is not None:
             _layout_idx = get_layout_index(self.scope, self.current_layout_id)
@@ -155,11 +153,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._state = None
         self._feature_fn = None
 
-        self._reward_config = build_reward_config_from_components(
-            self.scope,
+        reward_instances = self.config.get("rewards", [])
+        self._reward_config = build_reward_config(
+            reward_instances,
             n_agents=self.config["num_agents"],
             type_ids=self._type_ids,
             action_pickup_drop_idx=self._action_pickup_drop_idx,
+            action_toggle_idx=self._action_toggle_idx,
             static_tables=self._scope_config.get("static_tables"),
         )
 
