@@ -272,8 +272,10 @@ def my_tick_fn(state, scope_config):
 ```
 
 Register it by returning it from `build_tick_fn` on a grid object class
-(Step 2). Only one tick function per scope is supported -- if multiple objects
-define `build_tick_fn`, the last one discovered wins.
+(Step 2). Multiple objects can define `build_tick_fn` -- autowire composes
+them into a single tick handler that calls each function sequentially.
+Container/Recipe objects get an auto-generated tick function for free (timer
+decrement), so you only need `build_tick_fn` for custom tick logic.
 
 
 ## Step 5: Write the Interaction Function (if needed)

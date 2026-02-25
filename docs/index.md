@@ -47,9 +47,9 @@ If you use CoGrid in your research, please cite the following paper:
 ## Navigation
 
 - [Getting Started](getting-started.md) -- installation and first steps
-- [Architecture](concepts/architecture.md) -- backend, EnvState, component API, step pipeline
-- [Custom Environment](tutorials/custom-environment.md) -- build your own environment
-- [JAX Backend](tutorials/jax-backend.md) -- JIT, vmap, functional API
-- [Environments](environments/overcooked.md) -- Overcooked, Search & Rescue, Goal Seeking
-- [API Reference](reference/cogrid/index.md) -- auto-generated from source
-- [Contributing](contributing.md) -- how to contribute
+- [Custom Environment](custom-environment.md) -- build your own environment
+- [Advanced Patterns](advanced-patterns.md) -- tick functions, interactions, extra state, features
+- [JAX Reference](jax-reference.md) -- JIT, vmap, functional API
+- [Overcooked](overcooked.md) -- cooperative cooking environment
+- [API Reference](api-reference.md) -- module documentation
+- [Contributing Guide](https://github.com/chasemcd/cogrid/blob/main/CONTRIBUTING.md) -- how to contribute

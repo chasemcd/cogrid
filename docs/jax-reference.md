@@ -12,18 +12,30 @@ Install CoGrid with JAX support:
 pip install cogrid[jax]
 ```
 
-Switch to the JAX backend **before** creating any environment:
+Switch to the JAX backend using either approach:
 
-```python
-from cogrid.backend import set_backend
+=== "Via `make()` (recommended)"
 
-set_backend("jax")
-```
+    ```python
+    from cogrid.envs import registry
 
-!!! warning "Backend must be set first"
-    `set_backend("jax")` must be called before any call to `registry.make()`.
+    env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
+    ```
+
+=== "Via `set_backend()`"
+
+    ```python
+    from cogrid.backend import set_backend
+
+    set_backend("jax")
+    # All subsequent make() calls use JAX automatically
+    ```
+
+!!! warning "One backend per process"
     The first environment created locks the backend for the entire process.
-    Attempting to mix backends raises a `RuntimeError`.
+    Attempting to mix backends (e.g., creating one environment with
+    `backend="jax"` and another with `backend="numpy"`) raises a
+    `RuntimeError`.
 
 ## Functional API
 
@@ -47,12 +59,10 @@ side effects. This makes them compatible with JAX's transformation system.
 ```python
 import jax
 import jax.numpy as jnp
-from cogrid.backend import set_backend
 from cogrid.envs import registry
 import cogrid.envs.overcooked  # register components
 
-set_backend("jax")
-env = registry.make("Overcooked-CrampedRoom-V0")
+env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
 
 # Must call reset() once to build the pipeline
 obs, info = env.reset(seed=42)
@@ -161,12 +171,10 @@ execute simultaneously on GPU/TPU.
 ```python
 import jax
 import jax.numpy as jnp
-from cogrid.backend import set_backend
 from cogrid.envs import registry
 import cogrid.envs.overcooked
 
-set_backend("jax")
-env = registry.make("Overcooked-CrampedRoom-V0")
+env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
 obs, info = env.reset(seed=42)
 
 n_envs = 1024
