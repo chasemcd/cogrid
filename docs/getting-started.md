@@ -48,12 +48,10 @@ parallel API. Create an environment, reset it, and step through a loop:
 
     ```python
     import jax
-    from cogrid.backend import set_backend
     from cogrid.envs import registry
     import cogrid.envs.overcooked
 
-    set_backend("jax")
-    env = registry.make("Overcooked-CrampedRoom-V0")
+    env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     obs, info = env.reset(seed=42)
 
     # Use the functional API for JIT/vmap
@@ -83,23 +81,23 @@ After calling `env.step(actions)`, you get five return values:
 | `info` | `dict[AgentID, dict]` | Per-agent auxiliary information |
 
 **Observations** are flat arrays composed from registered
-[Feature](tutorials/custom-environment.md#step-7-define-feature-extractors)
+[Feature](custom-environment.md#step-7-define-feature-extractors)
 functions. Each feature contributes a segment of the array, concatenated in
 the order listed in the environment config. For example, the Overcooked
 environments compose `agent_dir`, `agent_position`, and inventory features
 into a single flat vector per agent.
 
 **Rewards** are summed across all registered
-[Reward](tutorials/custom-environment.md#step-6-define-reward-functions)
+[Reward](custom-environment.md#step-6-define-reward-functions)
 components. Each `Reward.compute()` returns an `(n_agents,)` float32 array;
 the engine sums them and converts to per-agent floats.
 
 ## What's Next
 
-- **[Architecture](concepts/architecture.md)** -- Understand the xp backend
-  system, EnvState, component API, and step pipeline.
-- **[Custom Environment Tutorial](tutorials/custom-environment.md)** -- Create
+- **[Custom Environment Tutorial](custom-environment.md)** -- Create
   your own environment with grid objects, rewards, and features.
-- **[JAX Backend Tutorial](tutorials/jax-backend.md)** -- Use JIT compilation
+- **[Advanced Patterns](advanced-patterns.md)** -- Tick functions, interactions,
+  extra state, and feature extractors in depth.
+- **[JAX Reference](jax-reference.md)** -- Use JIT compilation
   and vmap batching for high-performance training.
-- **[API Reference](reference/cogrid/index.md)** -- Full auto-generated API documentation.
+- **[API Reference](api-reference.md)** -- API documentation.

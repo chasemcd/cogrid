@@ -211,7 +211,7 @@ class MyObject(grid_object.GridObj):
     a shared base class and factory function instead of writing each one
     manually. The Overcooked environment provides `make_ingredient_and_stack()`
     which registers both an ingredient class and its stack class from a
-    single call. See the [Overcooked docs](../environments/overcooked.md#custom-ingredients)
+    single call. See the [Overcooked docs](overcooked.md#custom-ingredients)
     for an example.
 
 
@@ -471,7 +471,7 @@ my_config = {
     `reward_config["static_tables"]`. Static tables are built at init
     time by `build_static_tables()` classmethods on grid objects and
     flow through the autowire layer into reward_config automatically.
-    See the [Overcooked docs](../environments/overcooked.md#recipe-system)
+    See the [Overcooked docs](overcooked.md#recipe-system)
     for how per-recipe rewards use this pattern.
 
 
@@ -527,7 +527,7 @@ class MyInventory(Feature):
 environment-wide state that all agents share, such as active orders or
 global timers. The Overcooked `OrderObservation` feature is an example:
 it encodes the current order queue state identically for every agent.
-See the [Overcooked docs](../environments/overcooked.md#order-observations)
+See the [Overcooked docs](overcooked.md#order-observations)
 for details.
 
 **Composition order** (automatic):

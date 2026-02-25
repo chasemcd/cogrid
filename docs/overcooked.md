@@ -7,7 +7,7 @@ Overcooked is a cooperative multi-agent cooking environment based on
 kitchen and must coordinate to pick up ingredients, cook soups in pots, plate
 the finished dishes, and deliver them to a serving area for reward.
 
-![Overcooked Cramped Room](../assets/images/overcooked_grid.png){ width="60%" }
+![Overcooked Cramped Room](assets/images/overcooked_grid.png){ width="60%" }
 
 ## Environment Details
 
@@ -222,9 +222,8 @@ while env.agents:
 
 ## Links
 
-- [Custom Environment Tutorial](../tutorials/custom-environment.md) -- how
+- [Custom Environment Tutorial](custom-environment.md) -- how
   Overcooked is built using the component API
-- [JAX Backend Tutorial](../tutorials/jax-backend.md) -- training Overcooked
+- [JAX Reference](jax-reference.md) -- training Overcooked
   agents with JAX and vmap
-- [API Reference: cogrid.envs.overcooked](../reference/cogrid/envs/overcooked/index.md) --
-  module documentation
+- [API Reference](api-reference.md) -- API documentation
