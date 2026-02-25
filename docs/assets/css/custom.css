@@ -1,0 +1,75 @@
+/* Tabbed content (pymdownx.tabbed alternate_style) */
+.tabbed-set {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+.tabbed-set > input {
+  display: none;
+}
+
+.tabbed-set label {
+  display: inline-block;
+  padding: 0.6em 1em;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+  border-bottom: 2px solid transparent;
+  color: #666;
+}
+
+.tabbed-set label:hover {
+  color: #333;
+}
+
+.tabbed-set > input:checked + label {
+  color: #2980b9;
+  border-bottom-color: #2980b9;
+}
+
+.tabbed-content {
+  padding: 0.5em 1em;
+}
+
+/* Navigation card grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1em;
+  margin: 1em 0;
+}
+
+.card-grid a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.card-grid .card {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 1em 1.2em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.card-grid .card:hover {
+  border-color: #2980b9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card-grid .card h3 {
+  margin: 0 0 0.4em;
+  font-size: 1.05em;
+}
+
+.card-grid .card p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
