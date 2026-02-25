@@ -29,6 +29,7 @@ For GPU support, see the [JAX installation guide](https://jax.readthedocs.io/en/
         actions = {a: env.action_space(a).sample() for a in env.agents}
         obs, rewards, terminateds, truncateds, info = env.step(actions)
         # obs: dict[str, ndarray], rewards: dict[str, float]
+        print(rewards)
     ```
 
 === "JAX"
