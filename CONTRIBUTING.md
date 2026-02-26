@@ -130,7 +130,7 @@ Changes to Markdown files are hot-reloaded automatically.
 ## Creating a New Environment
 
 New environments live in `cogrid/envs/your_env/` and follow the same pattern
-as the built-in environments (overcooked, search_rescue, goal_seeking).
+as the built-in Overcooked environment.
 
 The component API provides two registration decorators and a subclassing pattern:
 
