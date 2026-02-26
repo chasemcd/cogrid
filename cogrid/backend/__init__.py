@@ -14,9 +14,9 @@ module, even if ``set_backend()`` was called after the initial import
 of this package.
 """
 
-from cogrid.backend._dispatch import get_backend, set_backend
+from cogrid.backend._dispatch import get_backend, is_backend_set, set_backend
 
-__all__ = ["xp", "set_backend", "get_backend"]
+__all__ = ["xp", "set_backend", "get_backend", "is_backend_set"]
 
 
 def __getattr__(name: str):

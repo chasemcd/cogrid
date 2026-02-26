@@ -9,7 +9,7 @@ from gymnasium import spaces
 from cogrid import constants
 
 # Vectorized components
-from cogrid.backend import set_backend
+from cogrid.backend import get_backend, set_backend
 from cogrid.core import actions as grid_actions
 from cogrid.core import agent, directions, grid, grid_object, grid_utils, layouts, typing
 from cogrid.core.agent import create_agent_arrays
@@ -42,19 +42,24 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         config: dict,
         render_mode: str | None = None,
         agent_class: agent.Agent | None = None,
-        backend: str = "numpy",
+        backend: str | None = None,
         **kwargs,
     ):
         """Initialize the CoGrid environment.
 
         The first environment created sets the global backend; subsequent
         envs must use the same backend or a RuntimeError is raised.
+
+        If ``backend`` is None, the already-set backend is used (defaulting
+        to ``"numpy"`` if ``set_backend()`` was never called). If ``backend``
+        is provided explicitly, it is forwarded to ``set_backend()``.
         """
         super().__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
-        set_backend(backend)
-        self._backend = backend
+        if backend is not None:
+            set_backend(backend)
+        self._backend = backend if backend is not None else get_backend()
         self.config = config
         self.name = config["name"]
         self.cumulative_score = 0
