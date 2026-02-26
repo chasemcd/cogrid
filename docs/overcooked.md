@@ -1,84 +1,28 @@
 # Overcooked
 
-## Overview
-
-Overcooked is a cooperative multi-agent cooking environment based on
-[Carroll et al. (2019)](https://arxiv.org/abs/1910.05789). Two agents share a
-kitchen and must coordinate to pick up ingredients, cook soups in pots, plate
-the finished dishes, and deliver them to a serving area for reward.
+Cooperative multi-agent cooking: pick up ingredients, cook soups, plate, and deliver for reward.
 
 ![Overcooked Cramped Room](assets/images/overcooked_grid.png){ width="60%" }
 
-## Environment Details
+**Objects**
 
-### Game Mechanics
+| Char | Name |
+|------|------|
+| `O` | OnionStack |
+| `T` | TomatoStack |
+| `o` | Onion |
+| `t` | Tomato |
+| `U` | Pot |
+| `=` | PlateStack |
+| `P` | Plate |
+| `S` | OnionSoup |
+| `!` | TomatoSoup |
+| `@` | DeliveryZone |
+| `C` | Counter |
 
-1. **Pick up ingredients** -- agents take ingredients (onions, tomatoes, or
-   custom types) from infinite supply stacks.
-2. **Place in pot** -- ingredients are placed into a pot (capacity 3). The pot
-   accepts any combination of ingredients that matches a valid recipe prefix.
-3. **Wait for cooking** -- once the pot is full and matches a recipe, a
-   per-recipe cooking timer starts (default 30 steps for the built-in recipes).
-4. **Plate the soup** -- when the timer reaches zero the soup is ready; an agent
-   holding a plate can pick it up from the pot.
-5. **Deliver** -- carry the plated soup to a delivery zone to earn the delivery
-   reward.
+**Recipes**
 
-By default, the classic onion soup and tomato soup recipes are used. See
-[Recipe System](#recipe-system) below for custom recipes.
-
-### Objects
-
-| Object | Char | Description |
-|--------|------|-------------|
-| OnionStack | `O` | Infinite supply of onions |
-| TomatoStack | `T` | Infinite supply of tomatoes |
-| Onion | `o` | A single onion ingredient |
-| Tomato | `t` | A single tomato ingredient |
-| Pot | `U` | Cooking pot (capacity 3, 30-step timer) |
-| PlateStack | `=` | Infinite supply of plates |
-| Plate | `P` | A plate for carrying soup |
-| OnionSoup | `S` | Completed onion soup |
-| TomatoSoup | `!` | Completed tomato soup |
-| DeliveryZone | `@` | Delivery area for serving soup |
-| Counter | `C` | Impassable counter surface |
-
-This is the default set. Custom ingredients and their stacks can be registered
-at init time using `make_ingredient_and_stack()` -- see
-[Custom Ingredients](#custom-ingredients) below.
-
-### Rewards
-
-| Class | Coefficient | Scope | Description |
-|-------|-------------|-------|-------------|
-| `OnionSoupDeliveryReward` | 1.0 | Common | Simplest delivery: fires on pickup_drop + holds onion_soup + faces delivery_zone. Fixed coefficient, no recipe lookup. |
-| `DeliveryReward` | 1.0 | Common | Multi-recipe delivery: uses IS_DELIVERABLE table and per-recipe reward values. Fires for any valid delivery (no order gating). |
-| `OrderDeliveryReward` | 1.0 | Common | Extends `DeliveryReward` with order gating (fires only when a matching active order is consumed) and optional tip bonus proportional to remaining order time. |
-| `OnionInPotReward` | 0.1 | Individual | Place an onion into a pot with capacity (pickup_drop + holds onion + faces pot). |
-| `SoupInDishReward` | 0.3 | Individual | Pick up a finished soup from a pot with a plate (pickup_drop + holds plate + faces pot). |
-| `ExpiredOrderPenalty` | -5.0 | Common | Penalty when an active order expires (requires order queue). |
-
-The default `cramped_room_config` uses `DeliveryReward` (no order gating).
-To enable order-based rewards (order gating, tip bonus, expired penalty),
-use `OrderDeliveryReward` and configure the order queue -- see
-[Order Queue](#order-queue) below.
-
-## Available Layouts
-
-| Environment ID | Layout | Description |
-|----------------|--------|-------------|
-| `Overcooked-CrampedRoom-V0` | Cramped Room | Small 5x5 kitchen, tight coordination required |
-| `Overcooked-AsymmetricAdvantages-V0` | Asymmetric Advantages | Asymmetric access to ingredients and delivery |
-| `Overcooked-CoordinationRing-V0` | Coordination Ring | Circular layout requiring movement coordination |
-| `Overcooked-ForcedCoordination-V0` | Forced Coordination | Agents have fixed spawn points and must pass items |
-| `Overcooked-CounterCircuit-V0` | Counter Circuit | Large layout with central counter island |
-| `Overcooked-RandomizedLayout-V0` | Randomized | Randomly selects one of the five layouts each episode |
-| `Overcooked-CrampedRoom-SingleAgent-V0` | Cramped Room (1 agent) | Single-agent variant of Cramped Room |
-
-## Recipe System
-
-Recipes are declared directly on the Pot class using the `Container` and
-`Recipe` dataclasses from `cogrid.core.containers`:
+Recipes are declared on the `Pot` class using `Container` and `Recipe` descriptors. The autowire system reads these and auto-generates all interaction branches, tick handlers, extra state, and static tables -- no manual wiring needed.
 
 ```python
 from cogrid.core.containers import Container, Recipe
@@ -93,77 +37,110 @@ class Pot(GridObj):
     ]
 ```
 
-The autowire system reads these descriptors and auto-generates all the
-array-level code: interaction branches, tick handler, extra state, static
-tables, and render sync. No manual `interaction_fn` or `build_tick_fn` needed.
+- **`Recipe.ingredients`** -- ingredient names that fill the pot (can be mixed, e.g. `["onion", "onion", "tomato"]`).
+- **`Recipe.result`** -- output object type produced when cooking finishes.
+- **`Recipe.cook_time`** -- steps the pot cooks once full (default 30).
+- **`Recipe.reward`** -- delivery reward value for this recipe's output.
+- **`Container.capacity`** -- max items the pot holds.
+- **`Container.pickup_requires`** -- what the agent must hold to pick up from the pot (e.g. `"plate"`).
 
-Each `Recipe` has four fields:
+**Layouts**
 
-- **`ingredients`** -- list of ingredient names (must be registered object types). Recipes can use mixed ingredients (e.g., `["onion", "onion", "tomato"]`).
-- **`result`** -- the name of the output object produced when the recipe is completed.
-- **`cook_time`** -- number of environment steps the pot takes to cook once full.
-- **`reward`** -- the delivery reward value for this recipe's output.
-
-The `Container` dataclass declares container behavior:
-
-- **`capacity`** -- maximum number of items the container can hold.
-- **`pickup_requires`** -- object type(s) the agent must hold to pick up from the container (e.g., `"plate"`). `None` means empty hands.
-
-At init time, `compile_recipes()` compiles the recipe list into fixed-shape
-lookup arrays that the interaction system uses for recipe matching during
-gameplay.
-
-## Order Queue
-
-By default, the order queue is disabled and delivery rewards work as in the
-original Overcooked -- any valid delivery earns a reward regardless of timing.
-
-When enabled, the order queue adds a timed order lifecycle:
-
-1. **Spawn** -- new orders appear at regular intervals, each requesting a specific recipe.
-2. **Countdown** -- each active order counts down every step.
-3. **Deliver** -- delivering the correct soup consumes the matching order and earns the delivery reward.
-4. **Expire** -- if the countdown reaches zero, the order expires and triggers the `ExpiredOrderPenalty`.
-
-The order queue is configured with a dictionary:
+| Environment ID | Layout |
+|----------------|--------|
+| `Overcooked-CrampedRoom-V0` | Cramped Room |
+| `Overcooked-AsymmetricAdvantages-V0` | Asymmetric Advantages |
+| `Overcooked-CoordinationRing-V0` | Coordination Ring |
+| `Overcooked-ForcedCoordination-V0` | Forced Coordination |
+| `Overcooked-CounterCircuit-V0` | Counter Circuit |
+| `Overcooked-CrampedRoom-SingleAgent-V0` | Cramped Room (1 agent) |
 
 ```python
-order_config = {
-    "max_active": 3,          # Maximum concurrent orders
-    "spawn_interval": 40,     # Steps between new order spawns
-    "time_limit": 200,        # Steps before an order expires
-    "recipe_weights": [2.0, 1.0],  # Relative spawn frequency per recipe
+env = registry.make("Overcooked-CrampedRoom-V0")
+```
+
+**Layout config**
+
+Each layout is a config dict passed to `CoGridEnv`. The Cramped Room config:
+
+```python
+from cogrid.envs.overcooked.rewards import DeliveryReward, OnionInPotReward, SoupInDishReward
+
+cramped_room_config = {
+    "name": "overcooked",                 # scope name for component registry
+    "num_agents": 2,                      # cooperative two-player
+    "action_set": "cardinal_actions",     # up/down/left/right + interact
+    "features": [                         # observation vector components
+        "agent_dir",                      # facing direction
+        "overcooked_inventory",           # one-hot held item
+        "next_to_counter",               # cardinal adjacency to counters
+        "next_to_pot",                    # pot adjacency + status encoding
+        "object_type_masks",             # binary spatial masks for 7 types
+        "ordered_pot_features",          # per-pot contents/timer/distance
+        "dist_to_other_players",         # delta to partner
+        "agent_position",                # grid coordinates
+        "can_move_direction",            # passable neighbor cells
+    ],
+    "rewards": [                          # reward functions composed each step
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ],
+    "grid": {"layout": "overcooked_cramped_room_v0"},  # ASCII layout ID
+    "max_steps": 1000,                    # episode length
+    "scope": "overcooked",               # component registry scope
+    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
 }
 ```
 
-- **`max_active`** -- the maximum number of orders that can be active simultaneously.
-- **`spawn_interval`** -- how many steps to wait between spawning new orders.
-- **`time_limit`** -- how many steps an order lasts before it expires.
-- **`recipe_weights`** -- relative weights controlling how often each recipe is requested (uses deterministic round-robin, not random sampling).
+Different layouts swap `grid.layout`; different gameplay swaps `rewards` and `features`. The single-agent variant sets `num_agents: 1`.
 
-To enable the order queue, initialize order arrays with `build_order_extra_state`
-and compose the `order_queue_tick` with the auto-generated container tick:
+**Rewards**
+
+| Class | Coefficient | Description |
+|-------|-------------|-------------|
+| `DeliveryReward` | 1.0 | Multi-recipe delivery via IS_DELIVERABLE table (common) |
+| `OrderDeliveryReward` | 1.0 | Delivery gated on active orders with optional tip bonus (common) |
+| `OnionSoupDeliveryReward` | 1.0 | Simple onion-soup-only delivery (common) |
+| `OnionInPotReward` | 0.1 | Place an onion into a pot with capacity (individual) |
+| `SoupInDishReward` | 0.3 | Pick up finished soup from pot with a plate (individual) |
+| `ExpiredOrderPenalty` | -5.0 | Penalty when an active order expires (common) |
+
+**Order queue**
+
+By default the order queue is disabled -- any valid delivery earns a reward. When enabled, orders spawn at intervals, count down, and expire with a penalty.
+
+```python
+order_config = {
+    "max_active": 3,          # max concurrent orders
+    "spawn_interval": 40,     # steps between spawns
+    "time_limit": 200,        # steps before expiry
+    "recipe_weights": [2.0, 1.0],  # relative spawn frequency per recipe
+}
+```
+
+- **`max_active`** -- maximum simultaneous orders.
+- **`spawn_interval`** -- steps between new order spawns.
+- **`time_limit`** -- steps before an order expires.
+- **`recipe_weights`** -- deterministic round-robin weights (e.g. `[2.0, 1.0]` spawns recipe 0 twice per recipe 1).
+
+Enable by initializing order arrays with `build_order_extra_state` and composing `order_queue_tick` with the auto-generated container tick. Use `OrderDeliveryReward` and `ExpiredOrderPenalty` in the rewards list.
 
 ```python
 from cogrid.envs.overcooked.config import build_order_extra_state, order_queue_tick
 
-order_config = {"max_active": 3, "spawn_interval": 40, "time_limit": 200}
 order_extra = build_order_extra_state(order_config)
-# Merge into the environment's extra_state at reset time
+# Merge into environment extra_state at reset time
 ```
 
-## Custom Ingredients
+**Custom ingredients**
 
-New ingredient types and their corresponding stacks can be registered at
-runtime using `make_ingredient_and_stack()`. This must be called **before**
-environment creation so the new types are available when the interaction
-tables are built.
+New ingredient + stack pairs are registered at runtime with `make_ingredient_and_stack()`. Must be called before environment creation so interaction tables include the new types.
 
 ```python
 from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
 from cogrid.core import constants
 
-# Must be called BEFORE environment creation
 Mushroom, MushroomStack = make_ingredient_and_stack(
     ingredient_name="mushroom",
     ingredient_char="m",
@@ -174,56 +151,19 @@ Mushroom, MushroomStack = make_ingredient_and_stack(
 )
 ```
 
-The factory function creates both classes, registers them in the object
-registry, and returns the class references. The new ingredient can then be
-used in custom recipes, and the new stack can be placed in layout grids.
+`OvercookedInventory` observations auto-adjust -- the feature dynamically discovers all pickupable types from the registry at compose time.
 
-Custom ingredients are automatically reflected in `OvercookedInventory`
-observations -- the feature dynamically discovers all pickupable types from
-the registry at compose time, so `obs_dim` adjusts to include any new
-ingredient types.
+**Order observations**
 
-## Order Observations
+The `OrderObservation` feature encodes active orders into the observation vector.
 
-The `OrderObservation` feature encodes the current state of active orders into
-the observation vector. Each active order is represented as a recipe type
-(one-hot encoded) plus a normalized time remaining value.
+- **Dimension:** `max_active * (n_recipes + 1)` (default: 3 * 3 = 9).
+- **Per order:** recipe one-hot (`n_recipes`) + normalized time remaining (0.0--1.0).
+- **Global:** `per_agent = False` -- all agents see the same order state.
+- **Backward compatible:** returns zeros when orders are not configured.
 
-- **Observation dimension:** `max_active * (n_recipes + 1)` (default: 3 orders x 3 values = 9).
-- **Per order:** `n_recipes` values for the recipe one-hot, plus 1 value for normalized time remaining (0.0 to 1.0).
-- **Global feature:** `per_agent = False` -- all agents receive the same order observation.
-- **Backward compatible:** returns zeros when the order queue is not configured.
-
-To include order observations in the feature set, add `"order_observation"` to
-the features list in the environment config:
+Add `"order_observation"` to the features list:
 
 ```python
-config = {
-    "features": [
-        # ... existing features ...
-        "order_observation",
-    ],
-}
+config["features"].append("order_observation")
 ```
-
-## Quick Start
-
-```python
-from cogrid.envs import registry
-import cogrid.envs.overcooked
-
-env = registry.make("Overcooked-CrampedRoom-V0")
-obs, info = env.reset(seed=42)
-
-while env.agents:
-    actions = {a: env.action_space.sample() for a in env.agents}
-    obs, rewards, terminateds, truncateds, info = env.step(actions)
-```
-
-## Links
-
-- [Custom Environment Tutorial](custom-environment.md) -- how
-  Overcooked is built using the component API
-- [JAX Reference](jax-reference.md) -- training Overcooked
-  agents with JAX and vmap
-- [API Reference](api-reference.md) -- API documentation
