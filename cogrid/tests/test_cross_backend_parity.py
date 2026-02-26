@@ -366,7 +366,7 @@ def test_eager_vs_jit():
     rng_key = jax.random.key(42)
 
     # --- Reset comparison ---
-    state_eager, obs_eager = reset_fn_eager(
+    obs_eager, state_eager, _ = reset_fn_eager(
         rng_key,
         layout_arrays=layout_arrays,
         spawn_positions=spawn_positions,
@@ -376,7 +376,7 @@ def test_eager_vs_jit():
         action_set="cardinal",
     )
 
-    state_jit, obs_jit = reset_fn(rng_key)
+    obs_jit, state_jit, _ = reset_fn(rng_key)
 
     np.testing.assert_array_equal(
         np.array(obs_eager), np.array(obs_jit), err_msg="Reset: obs mismatch between eager and JIT"
@@ -390,7 +390,7 @@ def test_eager_vs_jit():
     for step_i in range(10):
         actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
 
-        state_e, obs_e, rew_e, term_e, trunc_e, _ = step_fn_eager(
+        obs_e, state_e, rew_e, term_e, trunc_e, _ = step_fn_eager(
             state_e,
             actions,
             scope_config=scope_config,
@@ -402,7 +402,7 @@ def test_eager_vs_jit():
             max_steps=max_steps,
         )
 
-        state_j, obs_j, rew_j, term_j, trunc_j, _ = step_fn(state_j, actions)
+        obs_j, state_j, rew_j, term_j, trunc_j, _ = step_fn(state_j, actions)
 
         np.testing.assert_array_equal(
             np.array(obs_e),
@@ -458,8 +458,8 @@ def test_step_determinism():
     actions = jnp.array([0, 3], dtype=jnp.int32)  # Up, Right
 
     # Call step twice with same state and actions
-    state1, obs1, rew1, term1, trunc1, _ = step_fn(state, actions)
-    state2, obs2, rew2, term2, trunc2, _ = step_fn(state, actions)
+    obs1, state1, rew1, term1, trunc1, _ = step_fn(state, actions)
+    obs2, state2, rew2, term2, trunc2, _ = step_fn(state, actions)
 
     np.testing.assert_array_equal(
         np.array(obs1), np.array(obs2), err_msg="Determinism: obs differ between identical calls"
@@ -556,7 +556,7 @@ def test_rewards_eager_vs_jit():
     # Run one step to get a prev_state and current state
     step_fn = env.jax_step
     actions = jnp.array([0, 1], dtype=jnp.int32)
-    new_state, _, _, _, _, _ = step_fn(state, actions)
+    _, new_state, _, _, _, _ = step_fn(state, actions)
 
     prev_sv = envstate_to_dict(state)
     curr_sv = envstate_to_dict(new_state)

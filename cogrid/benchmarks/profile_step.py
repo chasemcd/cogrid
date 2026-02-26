@@ -74,7 +74,7 @@ def profile_phases():
     reset_fn = env.jax_reset
 
     jit_reset = jax.jit(reset_fn)
-    state, _ = jit_reset(key)
+    _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
     # Get closed-over config from the env
@@ -224,11 +224,11 @@ def profile_phases():
     # --- Phase: Full step ---
     jit_step = jax.jit(step_fn)
     for _ in range(N_WARMUP):
-        s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(state, actions)
         s.agent_pos.block_until_ready()
     t0 = time.perf_counter()
     for _ in range(N_STEPS):
-        s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(state, actions)
     s.agent_pos.block_until_ready()
     full_rate = N_STEPS / (time.perf_counter() - t0)
     print(f"  Full step:     {full_rate:>12,.0f} calls/sec")
@@ -264,7 +264,7 @@ def hlo_analysis():
     reset_fn = env.jax_reset
 
     jit_reset = jax.jit(reset_fn)
-    state, _ = jit_reset(key)
+    _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
     lowered = jax.jit(step_fn).lower(state, actions)
@@ -277,7 +277,7 @@ def hlo_analysis():
 
     # vmapped
     v_step = jax.jit(jax.vmap(step_fn))
-    batch_state, _ = jax.jit(jax.vmap(reset_fn))(jax.random.split(key, 4))
+    _, batch_state, _ = jax.jit(jax.vmap(reset_fn))(jax.random.split(key, 4))
     batch_state.agent_pos.block_until_ready()
     batch_actions = jnp.full((4, n_agents), 6, dtype=jnp.int32)
 
@@ -364,7 +364,7 @@ def profile_per_feature():
 
     env, key, actions, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
-    state, _ = jit_reset(key)
+    _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
     envstate_to_dict(state)
 
@@ -445,7 +445,7 @@ def profile_interaction_detail():
     """Profile interaction sub-costs."""
     env, key, actions, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
-    state, _ = jit_reset(key)
+    _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
     scope_config = env._scope_config

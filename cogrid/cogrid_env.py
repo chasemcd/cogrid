@@ -409,7 +409,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             rng = seed if seed is not None else 42
 
-        self._env_state, obs_arr = self._reset_fn(rng)
+        obs_arr, self._env_state, _ = self._reset_fn(rng)
 
         obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
 
@@ -457,7 +457,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         # Delegate to the unified step pipeline
-        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = (
+        obs_arr, self._env_state, rewards_arr, terminateds_arr, truncateds_arr, infos = (
             self._step_fn(self._env_state, actions_arr)
         )
 
@@ -647,7 +647,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_step(self):
         """Raw JIT-compiled step function for direct JIT/vmap usage.
 
-        ``(EnvState, actions) -> (EnvState, obs, rewards, terminateds, truncateds, infos)``
+        ``(EnvState, actions) -> (obs, EnvState, rewards, terminateds, truncateds, infos)``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_step is only available with backend='jax'")
@@ -659,7 +659,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_reset(self):
         """Raw JIT-compiled reset function for direct JIT/vmap usage.
 
-        ``(rng_key) -> (EnvState, obs)``
+        ``(rng_key) -> (obs, EnvState, infos)``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_reset is only available with backend='jax'")

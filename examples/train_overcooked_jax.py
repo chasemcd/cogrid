@@ -93,8 +93,8 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
     Args:
         config: Hyperparameter dict.
-        step_fn: CoGrid step -- (state, actions) -> (state, obs, rewards, terms, truncs, infos).
-        reset_fn: CoGrid reset -- (rng) -> (state, obs).
+        step_fn: CoGrid step -- (state, actions) -> (obs, state, rewards, terms, truncs, infos).
+        reset_fn: CoGrid reset -- (rng) -> (obs, state, infos).
         n_agents: Number of agents per env.
         n_actions: Number of discrete actions.
         obs_dim: Flat observation size per agent.
@@ -130,7 +130,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
         # ---- Init envs (vmapped) ----
         rng, reset_rng = jax.random.split(rng)
-        env_state, obs = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
+        obs, env_state, _ = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
         # obs: (NUM_ENVS, n_agents, obs_dim)
 
         # Episode return tracking per env (summed across agents)
@@ -154,7 +154,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
                 env_actions = action.reshape(num_envs, n_agents)
 
                 # Step all envs in parallel
-                new_state, new_obs, rewards, terms, truncs, _ = jax.vmap(step_fn)(
+                new_obs, new_state, rewards, terms, truncs, _ = jax.vmap(step_fn)(
                     env_state, env_actions
                 )
 
@@ -169,7 +169,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                 # Auto-reset done envs
                 rng, reset_rng = jax.random.split(rng)
-                reset_state, reset_obs = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
+                reset_obs, reset_state, _ = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
 
                 def _select(reset_val, step_val):
                     shape = (num_envs,) + (1,) * (reset_val.ndim - 1)
@@ -353,7 +353,7 @@ if __name__ == "__main__":
     # Infer obs dim from a sample observation.
     # Observation features are auto-discovered from Feature subclasses
     # registered to the scope via autowire.
-    _, test_obs = reset_fn(jax.random.key(0))
+    test_obs, _, _ = reset_fn(jax.random.key(0))
     obs_dim = test_obs.shape[-1]
     print(f"Training IPPO: {n_agents} agents, {n_actions} actions, obs_dim={obs_dim}")
     print(f"  {config['NUM_ENVS']} parallel envs, {config['TOTAL_TIMESTEPS']:.0f} total timesteps")

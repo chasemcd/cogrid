@@ -153,14 +153,14 @@ def test_vmap_reset_shapes(layout):
     n_agents = env.config["num_agents"]
 
     # Get obs_dim from a single-env reset
-    single_state, single_obs = reset_fn(jax.random.key(99))
+    single_obs, single_state, _ = reset_fn(jax.random.key(99))
     obs_dim = single_obs.shape[-1]
 
     # Create batch of PRNG keys
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
 
     # Batched reset
-    batched_state, batched_obs = jax.vmap(reset_fn)(keys)
+    batched_obs, batched_state, _ = jax.vmap(reset_fn)(keys)
 
     # Observation shape: (BATCH_SIZE, n_agents, obs_dim)
     assert batched_obs.shape == (BATCH_SIZE, n_agents, obs_dim), (
@@ -212,18 +212,18 @@ def test_vmap_step_shapes(layout):
     n_agents = env.config["num_agents"]
 
     # Get obs_dim from single-env
-    single_state, single_obs = reset_fn(jax.random.key(99))
+    single_obs, single_state, _ = reset_fn(jax.random.key(99))
     obs_dim = single_obs.shape[-1]
 
     # Batched reset
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
-    batched_state, _ = jax.vmap(reset_fn)(keys)
+    _, batched_state, _ = jax.vmap(reset_fn)(keys)
 
     # Batched actions: all noop (zeros)
     batched_actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
 
     # Batched step
-    new_state, obs, rew, terminateds, truncateds, infos = jax.vmap(step_fn)(
+    obs, new_state, rew, terminateds, truncateds, infos = jax.vmap(step_fn)(
         batched_state, batched_actions
     )
 
@@ -283,14 +283,14 @@ def test_vmap_reset_parity(layout):
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
 
     # Batched reset
-    batched_state, batched_obs = jax.vmap(reset_fn)(keys)
+    batched_obs, batched_state, _ = jax.vmap(reset_fn)(keys)
 
     # Sample indices to spot-check
     sample_indices = _get_sample_indices()
 
     for i in sample_indices:
         # Single-env reset with the same key
-        single_state, single_obs = reset_fn(keys[i])
+        single_obs, single_state, _ = reset_fn(keys[i])
 
         # Compare observations
         np.testing.assert_array_equal(
@@ -334,7 +334,7 @@ def test_vmap_step_parity(layout):
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
 
     # Batched reset
-    batched_state, _ = jax.vmap(reset_fn)(keys)
+    _, batched_state, _ = jax.vmap(reset_fn)(keys)
 
     # Generate N_PARITY_STEPS batches of random actions
     rng = np.random.default_rng(123)
@@ -346,7 +346,7 @@ def test_vmap_step_parity(layout):
     # Step through all steps with vmapped step
     vmapped_step = jax.vmap(step_fn)
     for step_i in range(N_PARITY_STEPS):
-        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
+        batched_obs, batched_state, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
             batched_state, actions_list[step_i]
         )
 
@@ -355,11 +355,11 @@ def test_vmap_step_parity(layout):
 
     for i in sample_indices:
         # Run single-env trajectory with the same key and actions
-        single_state, _ = reset_fn(keys[i])
+        _, single_state, _ = reset_fn(keys[i])
 
         for step_i in range(N_PARITY_STEPS):
             single_actions = actions_list[step_i][i]
-            single_state, single_obs, single_rew, single_term, single_trunc, _ = step_fn(
+            single_obs, single_state, single_rew, single_term, single_trunc, _ = step_fn(
                 single_state, single_actions
             )
 
@@ -436,7 +436,7 @@ def test_vmap_jit_composition():
 
     # Batched reset
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
-    batched_state, batched_obs = vmapped_reset(keys)
+    batched_obs, batched_state, _ = vmapped_reset(keys)
 
     # Verify shapes after reset
     assert batched_obs.shape[0] == BATCH_SIZE, (
@@ -446,7 +446,7 @@ def test_vmap_jit_composition():
     # Run 3 steps
     for step_i in range(3):
         actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
-        batched_state, batched_obs, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
+        batched_obs, batched_state, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
             batched_state, actions
         )
 
