@@ -9,27 +9,47 @@
   display: none;
 }
 
-.tabbed-set label {
+.tabbed-labels {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tabbed-labels > label {
   display: inline-block;
   padding: 0.6em 1em;
   cursor: pointer;
   font-weight: bold;
   font-size: 0.9em;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   color: #666;
 }
 
-.tabbed-set label:hover {
+.tabbed-labels > label:hover {
   color: #333;
-}
-
-.tabbed-set > input:checked + label {
-  color: #2980b9;
-  border-bottom-color: #2980b9;
 }
 
 .tabbed-content {
   padding: 0.5em 1em;
+}
+
+.tabbed-content > .tabbed-block {
+  display: none;
+}
+
+/* Show active tab label and content panel */
+.tabbed-set > input:nth-child(1):checked ~ .tabbed-labels > :nth-child(1),
+.tabbed-set > input:nth-child(2):checked ~ .tabbed-labels > :nth-child(2),
+.tabbed-set > input:nth-child(3):checked ~ .tabbed-labels > :nth-child(3),
+.tabbed-set > input:nth-child(4):checked ~ .tabbed-labels > :nth-child(4) {
+  color: #2980b9;
+  border-bottom-color: #2980b9;
+}
+
+.tabbed-set > input:nth-child(1):checked ~ .tabbed-content > :nth-child(1),
+.tabbed-set > input:nth-child(2):checked ~ .tabbed-content > :nth-child(2),
+.tabbed-set > input:nth-child(3):checked ~ .tabbed-content > :nth-child(3),
+.tabbed-set > input:nth-child(4):checked ~ .tabbed-content > :nth-child(4) {
+  display: block;
 }
 
 /* Navigation card grid */
@@ -43,6 +63,11 @@
 .card-grid a {
   text-decoration: none;
   color: inherit;
+  display: flex;
+}
+
+.card-grid .card {
+  flex: 1;
 }
 
 .card-grid .card {
