@@ -77,6 +77,11 @@ def get_backend() -> str:
     return _backend_name
 
 
+def is_backend_set() -> bool:
+    """Return True if the backend has been explicitly set."""
+    return _backend_set
+
+
 def _reset_backend_for_testing() -> None:
     """Reset global backend state for test isolation.
 

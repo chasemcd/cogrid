@@ -30,7 +30,7 @@ the complete workflow: fork, install, develop, test, and submit.
 
     This installs the package in editable mode along with test tools (pytest,
     ruff), documentation tools (mkdocs, mkdocstrings), and all core
-    dependencies. See the [Getting Started](getting-started.md) guide for
+    dependencies. See the [Getting Started](https://cogrid.readthedocs.io) guide for
     basic installation options.
 
 ## Development Workflow
@@ -71,9 +71,9 @@ pytest tests/
 pytest tests/ -k jax
 ```
 
-!!! tip "JAX requirement"
-    JAX tests require Python 3.11+ and JAX >= 0.5.x. Install the JAX extras
-    with `pip install -e ".[jax]"` before running JAX-specific tests.
+> **Tip: JAX requirement**
+> JAX tests require Python 3.11+ and JAX >= 0.5.x. Install the JAX extras
+> with `pip install -e ".[jax]"` before running JAX-specific tests.
 
 ## Code Style
 
@@ -130,7 +130,7 @@ Changes to Markdown files are hot-reloaded automatically.
 ## Creating a New Environment
 
 New environments live in `cogrid/envs/your_env/` and follow the same pattern
-as the built-in environments (overcooked, search_rescue, goal_seeking).
+as the built-in Overcooked environment.
 
 The component API provides two registration decorators and a subclassing pattern:
 
@@ -139,9 +139,9 @@ The component API provides two registration decorators and a subclassing pattern
 - `Reward` subclasses -- define reward functions (instantiated and passed in `config["rewards"]`)
 
 For a complete walkthrough of building an environment from scratch, see the
-[Custom Environment Tutorial](tutorials/custom-environment.md).
+[Custom Environment Tutorial](https://cogrid.readthedocs.io).
 
-!!! note "No environment-specific logic in core"
-    All environment-specific behavior must be implemented through the component
-    API. The core engine (`cogrid/core/` and `cogrid/cogrid_env.py`) must remain
-    environment-agnostic.
+> **Note: No environment-specific logic in core**
+> All environment-specific behavior must be implemented through the component
+> API. The core engine (`cogrid/core/` and `cogrid/cogrid_env.py`) must remain
+> environment-agnostic.

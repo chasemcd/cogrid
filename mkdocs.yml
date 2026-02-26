@@ -7,11 +7,15 @@ theme:
   name: readthedocs
   logo: assets/images/cogrid_logo_nobg.png
 
+extra_css:
+  - assets/css/custom.css
+
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -20,24 +24,24 @@ markdown_extensions:
 
 plugins:
   - search
-  - gen-files:
-      scripts:
-        - scripts/gen_ref_pages.py
-  - literate-nav:
-      nav_file: SUMMARY.md
-  - section-index
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [.]
-          options:
-            docstring_style: google
-            docstring_section_style: table
-            show_source: true
-            show_root_heading: true
-            show_symbol_type_heading: true
-            show_symbol_type_toc: true
-            members_order: source
+  # - gen-files:
+  #     scripts:
+  #       - scripts/gen_ref_pages.py
+  # - literate-nav:
+  #     nav_file: SUMMARY.md
+  # - section-index
+  # - mkdocstrings:
+  #     handlers:
+  #       python:
+  #         paths: [.]
+  #         options:
+  #           docstring_style: google
+  #           docstring_section_style: table
+  #           show_source: true
+  #           show_root_heading: true
+  #           show_symbol_type_heading: true
+  #           show_symbol_type_toc: true
+  #           members_order: source
 
 validation:
   nav:
@@ -53,14 +57,8 @@ validation:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Concepts:
-    - Architecture: concepts/architecture.md
-  - Tutorials:
-    - Custom Environment: tutorials/custom-environment.md
-    - JAX Backend: tutorials/jax-backend.md
-  - Environments:
-    - Overcooked: environments/overcooked.md
-    - Search & Rescue: environments/search-rescue.md
-    - Goal Seeking: environments/goal-seeking.md
-  - API Reference: reference/
-  - Contributing: contributing.md
+  - Custom Environment: custom-environment.md
+  - Advanced Patterns: advanced-patterns.md
+  - JAX Reference: jax-reference.md
+  - Overcooked: overcooked.md
+  - API Reference: api-reference.md
