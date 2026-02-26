@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_0bf32f7d1eca442d_typing_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-02-26 21:54 +0000
+            created at 2026-02-26 23:03 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -102,7 +102,7 @@
     <p class="pln"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t"><span class="str">- :func:`build_step_fn` -- init-time factory: closes over static config,</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t"><span class="str">  returns ``(state, actions) -> ...`` closure (auto-JIT on JAX).</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t"><span class="str">- :func:`build_reset_fn` -- init-time factory: closes over layout config,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t"><span class="str">  returns ``(rng) -> (state, obs)`` closure (auto-JIT on JAX).</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t"><span class="str">  returns ``(rng) -> (obs, state, infos)`` closure (auto-JIT on JAX).</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t24" href="#t24">24</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t"><span class="str">Usage::</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -211,7 +211,7 @@
     <p class="pln"><span class="n"><a id="t129" href="#t129">129</a></span><span class="t"><span class="str">    (4) interactions, (5) observations, (6) rewards, (7) terminateds/</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t130" href="#t130">130</a></span><span class="t"><span class="str">    truncateds, (8) stop_gradient (JAX only).</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t131" href="#t131">131</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t132" href="#t132">132</a></span><span class="t"><span class="str">    Returns ``(state, obs, rewards, terminateds, truncateds, infos)``.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t132" href="#t132">132</a></span><span class="t"><span class="str">    Returns ``(obs, state, rewards, terminateds, truncateds, infos)``.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t133" href="#t133">133</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t134" href="#t134">134</a></span><span class="t">    <span class="com"># a. Capture prev_state before ANY mutations (zero-cost, immutable)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t135" href="#t135">135</a></span><span class="t">    <span class="nam">prev_state</span> <span class="op">=</span> <span class="nam">state</span>&nbsp;</span><span class="r"></span></p>
@@ -284,7 +284,7 @@
     <p class="run run2"><span class="n"><a id="t202" href="#t202">202</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t203" href="#t203">203</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t204" href="#t204">204</a></span><span class="t">    <span class="com"># k. Return</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t205" href="#t205">205</a></span><span class="t">    <span class="key">return</span> <span class="nam">state</span><span class="op">,</span> <span class="nam">obs</span><span class="op">,</span> <span class="nam">rewards</span><span class="op">,</span> <span class="nam">terminateds</span><span class="op">,</span> <span class="nam">truncateds</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t205" href="#t205">205</a></span><span class="t">    <span class="key">return</span> <span class="nam">obs</span><span class="op">,</span> <span class="nam">state</span><span class="op">,</span> <span class="nam">rewards</span><span class="op">,</span> <span class="nam">terminateds</span><span class="op">,</span> <span class="nam">truncateds</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t206" href="#t206">206</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t207" href="#t207">207</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t208" href="#t208">208</a></span><span class="t"><span class="key">def</span> <span class="nam">reset</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
@@ -301,7 +301,7 @@
     <p class="pln"><span class="n"><a id="t219" href="#t219">219</a></span><span class="t">    <span class="str">"""Build initial EnvState from pre-computed layout arrays.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t220" href="#t220">220</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t221" href="#t221">221</a></span><span class="t"><span class="str">    Layout data is pre-computed at init time; this function only</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t222" href="#t222">222</a></span><span class="t"><span class="str">    randomizes agent initial directions. Returns ``(state, obs)``.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t222" href="#t222">222</a></span><span class="t"><span class="str">    randomizes agent initial directions. Returns ``(obs, state, infos)``.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t223" href="#t223">223</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t224" href="#t224">224</a></span><span class="t">    <span class="com"># Backend-specific RNG for random initial directions</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t225" href="#t225">225</a></span><span class="t">    <span class="nam">key</span><span class="op">,</span> <span class="nam">agent_dir</span> <span class="op">=</span> <span class="nam">_backend_rng</span><span class="op">(</span><span class="nam">rng</span><span class="op">,</span> <span class="str">"directions"</span><span class="op">,</span> <span class="nam">n_agents</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -358,7 +358,7 @@
     <p class="pln"><span class="n"><a id="t276" href="#t276">276</a></span><span class="t">    <span class="com"># Stop gradient (JAX only, no-op on numpy)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t277" href="#t277">277</a></span><span class="t">    <span class="op">(</span><span class="nam">obs</span><span class="op">,</span><span class="op">)</span> <span class="op">=</span> <span class="nam">_maybe_stop_gradient</span><span class="op">(</span><span class="nam">obs</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t278" href="#t278">278</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t279" href="#t279">279</a></span><span class="t">    <span class="key">return</span> <span class="nam">state</span><span class="op">,</span> <span class="nam">obs</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t279" href="#t279">279</a></span><span class="t">    <span class="key">return</span> <span class="nam">obs</span><span class="op">,</span> <span class="nam">state</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t280" href="#t280">280</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t281" href="#t281">281</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t282" href="#t282">282</a></span><span class="t"><span class="key">def</span> <span class="nam">build_step_fn</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
@@ -374,7 +374,7 @@
     <p class="run run2"><span class="n"><a id="t292" href="#t292">292</a></span><span class="t"><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t293" href="#t293">293</a></span><span class="t">    <span class="str">"""Close over static config and return a step function.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t294" href="#t294">294</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t295" href="#t295">295</a></span><span class="t"><span class="str">    ``(state, actions) -> (state, obs, rewards, terminateds, truncateds, infos)``</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t295" href="#t295">295</a></span><span class="t"><span class="str">    ``(state, actions) -> (obs, state, rewards, terminateds, truncateds, infos)``</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t296" href="#t296">296</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t297" href="#t297">297</a></span><span class="t"><span class="str">    Auto-JIT on JAX backend unless ``jit_compile=False``.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t298" href="#t298">298</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
@@ -408,7 +408,7 @@
     <p class="run run2"><span class="n"><a id="t326" href="#t326">326</a></span><span class="t"><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t327" href="#t327">327</a></span><span class="t">    <span class="str">"""Close over layout config and return a reset function.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t328" href="#t328">328</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t329" href="#t329">329</a></span><span class="t"><span class="str">    ``(rng) -> (state, obs)``</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t329" href="#t329">329</a></span><span class="t"><span class="str">    ``(rng) -> (obs, state, infos)``</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t330" href="#t330">330</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t331" href="#t331">331</a></span><span class="t"><span class="str">    Auto-JIT on JAX backend unless ``jit_compile=False``.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t332" href="#t332">332</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
@@ -435,7 +435,7 @@
             <a class="nav" href="z_0bf32f7d1eca442d_typing_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-02-26 21:54 +0000
+            created at 2026-02-26 23:03 +0000
         </p>
     </div>
 </footer>
