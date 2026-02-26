@@ -47,3 +47,6 @@ For GPU support, see the [JAX installation guide](https://jax.readthedocs.io/en/
     state, obs, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
     # rewards: ndarray (n_agents,)
     ```
+
+!!! tip ""
+    **Next: [Custom Environment](custom-environment.md)**

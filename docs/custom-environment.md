@@ -131,3 +131,6 @@ registry.register(
     ```
 
 For a full-featured example of these patterns, see the [Overcooked environment source](https://github.com/chasemcd/cogrid/tree/main/cogrid/envs/overcooked).
+
+!!! tip ""
+    **Next: [Advanced Patterns](advanced-patterns.md)**
