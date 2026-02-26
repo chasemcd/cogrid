@@ -26,7 +26,7 @@ pip install cogrid
 
     for _ in range(100):
         actions = {a: env.action_space(a).sample() for a in env.agents}
-        obs, rewards, terms, truncs, info = env.step(actions)
+        obs, rewards, terminateds, truncateds, info = env.step(actions)
     ```
 
 === "JAX"
@@ -42,7 +42,7 @@ pip install cogrid
 
     for _ in range(100):
         actions = jax.numpy.array([0, 3], dtype=jax.numpy.int32)
-        state, obs, rewards, terms, truncs, info = env.jax_step(state, actions)
+        state, obs, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
     ```
 
 ## Key Features

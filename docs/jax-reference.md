@@ -26,7 +26,7 @@ key = jax.random.key(0)
 state, obs = env.jax_reset(key)  # obs: (n_agents, obs_dim)
 
 actions = jnp.array([0, 3], dtype=jnp.int32)  # Up, Right
-state, obs, rewards, terms, truncs, info = env.jax_step(state, actions)
+state, obs, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
 # rewards: (n_agents,)
 ```
 
@@ -49,7 +49,7 @@ total_reward = jnp.float32(0.0)
 for step_i in range(5):
     action_key, subkey = jax.random.split(action_key)
     actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)  # (n_envs, n_agents)
-    states, obs, rewards, terms, truncs, info = batched_step(states, actions)
+    states, obs, rewards, terminateds, truncateds, info = batched_step(states, actions)
     total_reward += rewards.sum()
 
 print(f"Total reward across {n_envs} envs: {float(total_reward):.1f}")
