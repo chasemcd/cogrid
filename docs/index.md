@@ -22,9 +22,9 @@ pip install cogrid
     import cogrid.envs.overcooked  # register components
 
     env = registry.make("Overcooked-CrampedRoom-V0")
-    obs, info = env.reset(seed=42)
+    obs, info = env.reset(seed=0)
 
-    while env.agents:
+    for _ in range(100):
         actions = {a: env.action_space(a).sample() for a in env.agents}
         obs, rewards, terms, truncs, info = env.step(actions)
     ```
@@ -37,6 +37,7 @@ pip install cogrid
     import cogrid.envs.overcooked
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
+    env.reset(seed=0)
     state, obs = env.jax_reset(jax.random.key(0))
 
     for _ in range(100):
