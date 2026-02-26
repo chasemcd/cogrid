@@ -140,20 +140,20 @@ def benchmark_jax_single(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS):
     actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
 
     # Warmup: reset + N_WARMUP_STEPS step calls with block_until_ready
-    state, _ = reset_fn(jax.random.key(SEED))
+    _, state, _ = reset_fn(jax.random.key(SEED))
     state.agent_pos.block_until_ready()
     for _ in range(N_WARMUP_STEPS):
-        state, obs, rew, term, trunc, info = step_fn(state, actions)
+        obs, state, rew, term, trunc, info = step_fn(state, actions)
         state.agent_pos.block_until_ready()
 
     trials = []
     for _ in range(n_trials):
-        state, _ = reset_fn(jax.random.key(SEED))
+        _, state, _ = reset_fn(jax.random.key(SEED))
         state.agent_pos.block_until_ready()
 
         t0 = time.perf_counter()
         for _ in range(n_steps):
-            state, obs, rew, term, trunc, info = step_fn(state, actions)
+            obs, state, rew, term, trunc, info = step_fn(state, actions)
         state.agent_pos.block_until_ready()  # CRITICAL: wait for async dispatch
         t1 = time.perf_counter()
 
@@ -185,22 +185,22 @@ def benchmark_jax_vmap(n_steps=N_BENCHMARK_STEPS, n_trials=N_TRIALS, batch_size=
     batched_actions = jnp.full((batch_size, n_agents), 6, dtype=jnp.int32)
 
     # Warmup: call vmapped_reset + N_WARMUP_STEPS vmapped_step calls
-    batched_state, _ = vmapped_reset(keys)
+    _, batched_state, _ = vmapped_reset(keys)
     batched_state.agent_pos.block_until_ready()
     for _ in range(N_WARMUP_STEPS):
-        batched_state, b_obs, b_rew, b_term, b_trunc, b_info = vmapped_step(
+        b_obs, batched_state, b_rew, b_term, b_trunc, b_info = vmapped_step(
             batched_state, batched_actions
         )
         batched_state.agent_pos.block_until_ready()
 
     trials = []
     for _ in range(n_trials):
-        batched_state, _ = vmapped_reset(keys)
+        _, batched_state, _ = vmapped_reset(keys)
         batched_state.agent_pos.block_until_ready()
 
         t0 = time.perf_counter()
         for _ in range(n_steps):
-            batched_state, b_obs, b_rew, b_term, b_trunc, b_info = vmapped_step(
+            b_obs, batched_state, b_rew, b_term, b_trunc, b_info = vmapped_step(
                 batched_state, batched_actions
             )
         batched_state.agent_pos.block_until_ready()  # CRITICAL: wait for async dispatch

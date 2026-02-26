@@ -42,9 +42,9 @@ For GPU support, see the [JAX installation guide](https://jax.readthedocs.io/en/
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=0)  # builds JIT-compiled functions
 
-    state, obs = env.jax_reset(jax.random.key(0))  # obs: ndarray (n_agents, obs_dim)
+    obs, state, info = env.jax_reset(jax.random.key(0))  # obs: ndarray (n_agents, obs_dim)
     actions = jax.numpy.array([0, 3], dtype=jax.numpy.int32)
-    state, obs, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
+    obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
     # rewards: ndarray (n_agents,)
     ```
 

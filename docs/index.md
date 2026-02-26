@@ -38,11 +38,11 @@ pip install cogrid
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=0)
-    state, obs = env.jax_reset(jax.random.key(0))
+    obs, state, info = env.jax_reset(jax.random.key(0))
 
     for _ in range(100):
         actions = jax.numpy.array([0, 3], dtype=jax.numpy.int32)
-        state, obs, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
+        obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
     ```
 
 ## Key Features

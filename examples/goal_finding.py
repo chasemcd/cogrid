@@ -182,9 +182,9 @@ def run_jax():
     reset_fn = env.jax_reset  # JIT-compiled reset function
 
     key = jax.random.key(0)
-    state, obs = reset_fn(key)
+    obs, state, _ = reset_fn(key)
     actions = jnp.array([0, 3], dtype=jnp.int32)  # Agent 0: Up, Agent 1: Right
-    state, obs, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
+    obs, state, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
     print(f"Functional API -- reward: {rew}, terms: {terminateds_arr}, truncs: {truncateds_arr}")
     print()
 
@@ -195,7 +195,7 @@ def run_jax():
     batched_reset = jax.jit(jax.vmap(reset_fn))
     batched_step = jax.jit(jax.vmap(step_fn))
 
-    batched_state, batched_obs = batched_reset(keys)
+    batched_obs, batched_state, _ = batched_reset(keys)
     print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs.shape}")
 
     # Run 50 steps across all 1024 envs with random cardinal actions
@@ -205,7 +205,7 @@ def run_jax():
     for _ in range(n_steps):
         action_key, subkey = jax.random.split(action_key)
         batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
-        batched_state, batched_obs, batched_rew, *_ = batched_step(batched_state, batched_actions)
+        batched_obs, batched_state, batched_rew, *_ = batched_step(batched_state, batched_actions)
         total_reward += batched_rew.sum()
 
     total_reward /= n_envs
