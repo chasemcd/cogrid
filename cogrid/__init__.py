@@ -1,6 +1,6 @@
 """CoGrid: Multi-agent grid-world environments for reinforcement learning."""
 
-__version__ = "0.0.16"
+__version__ = "0.1.0"
 
 
 def make(environment_id: str, **kwargs):
