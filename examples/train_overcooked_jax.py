@@ -169,7 +169,9 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                 # Auto-reset done envs
                 rng, reset_rng = jax.random.split(rng)
-                reset_obs, reset_state, _ = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
+                reset_obs, reset_state, _ = jax.vmap(reset_fn)(
+                    jax.random.split(reset_rng, num_envs)
+                )
 
                 def _select(reset_val, step_val):
                     shape = (num_envs,) + (1,) * (reset_val.ndim - 1)
