@@ -146,9 +146,7 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     if batch_size == 1:
         jit_step = jax.jit(step_fn)
         jit_reset = jax.jit(reset_fn)
-        actions = jax.device_put(
-            jnp.full((n_agents,), 6, dtype=jnp.int32), device
-        )
+        actions = jax.device_put(jnp.full((n_agents,), 6, dtype=jnp.int32), device)
         key = jax.device_put(jax.random.key(SEED), device)
 
         # warmup (includes JIT compilation)
@@ -170,12 +168,8 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     else:
         v_step = jax.jit(jax.vmap(step_fn))
         v_reset = jax.jit(jax.vmap(reset_fn))
-        keys = jax.device_put(
-            jax.random.split(jax.random.key(0), batch_size), device
-        )
-        batch_actions = jax.device_put(
-            jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device
-        )
+        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
+        batch_actions = jax.device_put(jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device)
 
         # warmup
         _, bs, _ = v_reset(keys)
@@ -213,9 +207,7 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
     if batch_size == 1:
         step_jit = jax.jit(env.step)
         reset_jit = jax.jit(env.reset)
-        noop_actions = {
-            agent: jax.device_put(jnp.int32(4), device) for agent in agents
-        }
+        noop_actions = {agent: jax.device_put(jnp.int32(4), device) for agent in agents}
 
         # warmup
         key = jax.device_put(jax.random.key(SEED), device)
@@ -243,21 +235,15 @@ def bench_jaxmarl(batch_size, device, n_steps=N_STEPS):
         v_reset = jax.jit(jax.vmap(env.reset))
         v_step = jax.jit(jax.vmap(env.step))
         noop_actions = {
-            agent: jax.device_put(
-                jnp.full(batch_size, 4, dtype=jnp.int32), device
-            )
+            agent: jax.device_put(jnp.full(batch_size, 4, dtype=jnp.int32), device)
             for agent in agents
         }
 
         # warmup
-        keys = jax.device_put(
-            jax.random.split(jax.random.key(0), batch_size), device
-        )
+        keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
         obs, states = v_reset(keys)
         jax.tree.map(lambda x: x.block_until_ready(), obs)
-        step_keys = jax.device_put(
-            jax.random.split(jax.random.key(1), batch_size), device
-        )
+        step_keys = jax.device_put(jax.random.split(jax.random.key(1), batch_size), device)
         for _ in range(N_WARMUP):
             obs, states, *_ = v_step(step_keys, states, noop_actions)
             jax.tree.map(lambda x: x.block_until_ready(), obs)
@@ -296,9 +282,7 @@ def run_scaling_benchmark():
         pass
     has_gpu = "gpu" in devices
 
-    device_names = ", ".join(
-        f"{name} ({dev.device_kind})" for name, dev in devices.items()
-    )
+    device_names = ", ".join(f"{name} ({dev.device_kind})" for name, dev in devices.items())
     print("Overcooked Cramped Room -- Scaling Benchmark")
     print(f"  Devices: {device_names}")
     print()
@@ -354,7 +338,7 @@ def run_scaling_benchmark():
                     se = _se(trials)
                     results[lib_key][dev_name][bs] = med
                     row += f"   {_fmt_with_se(med, se)}"
-                except Exception as e:
+                except Exception:
                     results[lib_key][dev_name][bs] = None
                     row += f"   {'SKIP':>24s}"
 
@@ -370,9 +354,7 @@ def run_scaling_benchmark():
 # ===================================================================
 
 
-def plot_scaling(
-    results, output_path="cogrid/benchmarks/scaling_benchmark.png"
-):
+def plot_scaling(results, output_path="cogrid/benchmarks/scaling_benchmark.png"):
     import matplotlib.pyplot as plt
 
     batch_sizes = results["batch_sizes"]
@@ -424,9 +406,7 @@ def plot_scaling(
     for key, label, color in baselines:
         val = results.get(key)
         if val is not None:
-            ax.axhline(
-                val, color=color, linestyle="-", linewidth=2.5, label=label
-            )
+            ax.axhline(val, color=color, linestyle="-", linewidth=2.5, label=label)
 
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
@@ -444,9 +424,7 @@ def plot_scaling(
     plt.close(fig)
 
 
-def plot_scaling_pub(
-    results, output_path="cogrid/benchmarks/scaling_benchmark_pub.png"
-):
+def plot_scaling_pub(results, output_path="cogrid/benchmarks/scaling_benchmark_pub.png"):
     """Publication-ready plot: GPU-only JAX lines, transparent background."""
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -530,12 +508,8 @@ def plot_scaling_pub(
     ax.set_yscale("log")
     ax.set_xticks(batch_sizes)
     ax.set_xticklabels([str(bs) for bs in batch_sizes], fontsize=12)
-    ax.set_xlabel(
-        "Number of Parallel Environments", fontsize=14, fontweight="bold"
-    )
-    ax.set_ylabel(
-        "Total Throughput (steps/sec)", fontsize=14, fontweight="bold"
-    )
+    ax.set_xlabel("Number of Parallel Environments", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Total Throughput (steps/sec)", fontsize=14, fontweight="bold")
     ax.tick_params(axis="y", labelsize=12)
     ax.legend(frameon=True, loc="best", fontsize="small")
     ax.grid(True, which="major", alpha=0.2)

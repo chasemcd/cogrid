@@ -323,7 +323,15 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
     return train
 
 
-def visualize_policy(network, params, env_id, max_steps=1000, gif_path="examples/episode.gif", fps=30, seed=0):
+def visualize_policy(
+    network,
+    params,
+    env_id,
+    max_steps=1000,
+    gif_path="examples/episode.gif",
+    fps=30,
+    seed=0,
+):
     """Roll out trained policy greedily and save as GIF."""
     import imageio
 

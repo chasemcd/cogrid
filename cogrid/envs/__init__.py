@@ -7,19 +7,6 @@ from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
-from cogrid.envs.overcooked.rewards import (
-    DeliveryReward,
-    OnionInPotReward,
-    OrderGatedIngredientInPotReward,
-    OrderGatedSoupInDishReward,
-    SoupInDishReward,
-)
-from cogrid.envs.overcooked.rewards import (
-    OnionSoupDeliveryReward as OnionSoupDeliveryReward,
-)
-from cogrid.envs.overcooked.rewards import (
-    OrderDeliveryReward as OrderDeliveryReward,
-)
 from cogrid.envs.overcooked.config import (
     _build_order_tables,
     build_order_extra_state,
@@ -27,7 +14,22 @@ from cogrid.envs.overcooked.config import (
     order_queue_tick,
 )
 from cogrid.envs.overcooked.rewards import (
+    DeliveryReward,
+    OnionInPotReward,
+    OrderGatedIngredientInPotReward,
+    SoupInDishReward,
+)
+from cogrid.envs.overcooked.rewards import (
     ExpiredOrderPenalty as ExpiredOrderPenalty,
+)
+from cogrid.envs.overcooked.rewards import (
+    OnionSoupDeliveryReward as OnionSoupDeliveryReward,
+)
+from cogrid.envs.overcooked.rewards import (
+    OrderDeliveryReward as OrderDeliveryReward,
+)
+from cogrid.envs.overcooked.rewards import (
+    OrderGatedSoupInDishReward as OrderGatedSoupInDishReward,
 )
 
 layouts.register_layout(
@@ -106,7 +108,13 @@ cramped_room_config = {
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
     "scope": "overcooked",
-    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+    "pickupable_types": [
+        "onion",
+        "onion_soup",
+        "plate",
+        "tomato",
+        "tomato_soup",
+    ],
 }
 
 registry.register(
@@ -168,12 +176,16 @@ layouts.register_layout(
         "CUCCUCC",
         "O+    T",
         "=     C",
-        "T    +O",
+        "C    +C",
         "CCC@CCC",
     ],
 )
 
-_order_cfg = {"spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05}, "max_active": 3, "time_limit": 100}
+_order_cfg = {
+    "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},
+    "max_active": 3,
+    "time_limit": 100,
+}
 _order_tables = _build_order_tables(_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
 
 mixed_kitchen_config = {
@@ -196,12 +208,18 @@ mixed_kitchen_config = {
         OrderDeliveryReward(coefficient=1.0, common_reward=True),
         OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
         # OrderGatedSoupInDishReward(coefficient=0.3, common_reward=False),
-        ExpiredOrderPenalty(penalty=-2.0),
+        ExpiredOrderPenalty(penalty=-0.5),
     ],
     "grid": {"layout": "overcooked_mixed_kitchen_v0"},
     "max_steps": 4000,
     "scope": "overcooked",
-    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+    "pickupable_types": [
+        "onion",
+        "onion_soup",
+        "plate",
+        "tomato",
+        "tomato_soup",
+    ],
     "orders": _order_cfg,
     "tick_fn": order_queue_tick,
     "extra_static_tables": _order_tables,
@@ -225,7 +243,11 @@ layouts.register_layout(
     ],
 )
 
-_od_order_cfg = {"spawn_probs": {"onion_soup": 0.017, "tomato_soup": 0.017}, "max_active": 2, "time_limit": 200}
+_od_order_cfg = {
+    "spawn_probs": {"onion_soup": 0.017, "tomato_soup": 0.017},
+    "max_active": 2,
+    "time_limit": 200,
+}
 _od_order_tables = _build_order_tables(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
 
 order_delivery_config = {

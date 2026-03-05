@@ -303,9 +303,7 @@ class OrderGatedIngredientInPotReward(Reward):
 
         # Match forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(
-            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2
-        )
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
         pot_idx = xp.argmax(pos_match, axis=1)
         pot_row = prev_state.pot_contents[pot_idx]
 
@@ -327,13 +325,12 @@ class OrderGatedIngredientInPotReward(Reward):
             if recipe_result is not None:
                 # Map ingredient -> recipe: find which recipe produces onion_soup / tomato_soup
                 onion_recipe = xp.argmax((recipe_result == type_ids["onion_soup"]).astype(xp.int32))
-                tomato_recipe = xp.argmax((recipe_result == type_ids["tomato_soup"]).astype(xp.int32))
+                tomato_match = (recipe_result == type_ids["tomato_soup"]).astype(xp.int32)
+                tomato_recipe = xp.argmax(tomato_match)
                 target_recipe = xp.where(holds_onion, onion_recipe, tomato_recipe)
 
                 # Check if any active order slot matches the target recipe
-                has_order = xp.any(
-                    prev_order[None, :] == target_recipe[:, None], axis=1
-                )
+                has_order = xp.any(prev_order[None, :] == target_recipe[:, None], axis=1)
                 mask = mask & has_order
 
         if common_reward:
@@ -377,9 +374,7 @@ class OrderGatedSoupInDishReward(Reward):
 
         # Match forward position to a pot and check readiness
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(
-            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2
-        )
+        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
         pot_idx = xp.argmax(pos_match, axis=1)
         pot_ready = prev_state.pot_timer[pot_idx] == 0
 
@@ -400,9 +395,7 @@ class OrderGatedSoupInDishReward(Reward):
                 pot_recipe = xp.argmax(matches.astype(xp.int32), axis=1)
 
                 # Check if any active order matches
-                has_order = xp.any(
-                    prev_order[None, :] == pot_recipe[:, None], axis=1
-                )
+                has_order = xp.any(prev_order[None, :] == pot_recipe[:, None], axis=1)
                 mask = mask & has_order
 
         if common_reward:

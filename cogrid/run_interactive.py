@@ -2,10 +2,10 @@
 
 import numpy as np
 
+import cogrid.envs  # noqa: F401 -- triggers layout/env registration
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import typing
 from cogrid.core.actions import Actions
-import cogrid.envs  # noqa: F401 -- triggers layout/env registration
 from cogrid.envs import registry
 
 try:
