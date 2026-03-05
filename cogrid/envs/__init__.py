@@ -119,9 +119,7 @@ cramped_room_config = {
 
 registry.register(
     "Overcooked-CrampedRoom-V0",
-    functools.partial(
-        CoGridEnv, config=cramped_room_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=cramped_room_config, agent_class=OvercookedAgent),
 )
 
 asymmetric_adv_config = copy.deepcopy(cramped_room_config)
@@ -129,9 +127,7 @@ asymmetric_adv_config["grid"]["layout"] = "overcooked_asymmetric_advantages_v0"
 
 registry.register(
     "Overcooked-AsymmetricAdvantages-V0",
-    functools.partial(
-        CoGridEnv, config=asymmetric_adv_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=asymmetric_adv_config, agent_class=OvercookedAgent),
 )
 
 coordination_ring_config = copy.deepcopy(cramped_room_config)
@@ -139,15 +135,11 @@ coordination_ring_config["grid"]["layout"] = "overcooked_coordination_ring_v0"
 
 registry.register(
     "Overcooked-CoordinationRing-V0",
-    functools.partial(
-        CoGridEnv, config=coordination_ring_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=coordination_ring_config, agent_class=OvercookedAgent),
 )
 
 forced_coordination_config = copy.deepcopy(cramped_room_config)
-forced_coordination_config["grid"][
-    "layout"
-] = "overcooked_forced_coordination_v0"
+forced_coordination_config["grid"]["layout"] = "overcooked_forced_coordination_v0"
 
 registry.register(
     "Overcooked-ForcedCoordination-V0",
@@ -163,9 +155,7 @@ counter_circuit_config["grid"]["layout"] = "overcooked_counter_circuit_v0"
 
 registry.register(
     "Overcooked-CounterCircuit-V0",
-    functools.partial(
-        CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=counter_circuit_config, agent_class=OvercookedAgent),
 )
 
 
@@ -196,9 +186,7 @@ _order_cfg = {
     "max_active": 3,
     "time_limit": 200,
 }
-_order_tables = _build_order_tables(
-    _order_cfg, recipe_results=["onion_soup", "tomato_soup"]
-)
+_order_tables = _build_order_tables(_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
 
 mixed_kitchen_config = {
     "name": "overcooked",
@@ -235,17 +223,13 @@ mixed_kitchen_config = {
     "orders": _order_cfg,
     "tick_fn": order_queue_tick,
     "extra_static_tables": _order_tables,
-    "extra_state_init_fn": functools.partial(
-        build_order_extra_state, _order_cfg
-    ),
+    "extra_state_init_fn": functools.partial(build_order_extra_state, _order_cfg),
     "render_hud_fn": build_order_hud_fn(_order_cfg),
 }
 
 registry.register(
     "Overcooked-MixedKitchen-V0",
-    functools.partial(
-        CoGridEnv, config=mixed_kitchen_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=mixed_kitchen_config, agent_class=OvercookedAgent),
 )
 
 layouts.register_layout(
@@ -264,9 +248,7 @@ _od_order_cfg = {
     "max_active": 2,
     "time_limit": 200,
 }
-_od_order_tables = _build_order_tables(
-    _od_order_cfg, recipe_results=["onion_soup", "tomato_soup"]
-)
+_od_order_tables = _build_order_tables(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
 
 order_delivery_config = {
     "name": "overcooked",
@@ -290,17 +272,13 @@ order_delivery_config = {
     "orders": _od_order_cfg,
     "tick_fn": order_queue_tick,
     "extra_static_tables": _od_order_tables,
-    "extra_state_init_fn": functools.partial(
-        build_order_extra_state, _od_order_cfg
-    ),
+    "extra_state_init_fn": functools.partial(build_order_extra_state, _od_order_cfg),
     "render_hud_fn": build_order_hud_fn(_od_order_cfg),
 }
 
 registry.register(
     "Overcooked-OrderDelivery-V0",
-    functools.partial(
-        CoGridEnv, config=order_delivery_config, agent_class=OvercookedAgent
-    ),
+    functools.partial(CoGridEnv, config=order_delivery_config, agent_class=OvercookedAgent),
 )
 
 
