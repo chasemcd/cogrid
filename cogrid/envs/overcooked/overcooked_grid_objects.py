@@ -128,6 +128,24 @@ class Pot(grid_object.GridObj):
         return (char, extra_state_encoding, state)
 
 
+@register_object_type("onion_soup_stack", scope="overcooked")
+class OnionSoupStack(_BaseStack):
+    """An infinite dispenser of pre-made onion soups."""
+
+    color = constants.Colors.LightBrown
+    char = "1"
+    produces = "onion_soup"
+
+
+@register_object_type("tomato_soup_stack", scope="overcooked")
+class TomatoSoupStack(_BaseStack):
+    """An infinite dispenser of pre-made tomato soups."""
+
+    color = constants.Colors.Red
+    char = "2"
+    produces = "tomato_soup"
+
+
 @register_object_type("plate_stack", scope="overcooked")
 class PlateStack(_BaseStack):
     """An infinite stack of plates for picking up soup."""

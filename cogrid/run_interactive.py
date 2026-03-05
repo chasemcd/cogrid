@@ -5,6 +5,7 @@ import numpy as np
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.core import typing
 from cogrid.core.actions import Actions
+import cogrid.envs  # noqa: F401 -- triggers layout/env registration
 from cogrid.envs import registry
 
 try:
@@ -184,7 +185,7 @@ if __name__ == "__main__":
         "--env-id",
         type=str,
         help="environment to load",
-        default="search_rescue",
+        default="Overcooked-CrampedRoom-V0",
     )
     parser.add_argument(
         "--seed",
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     def env_creator(render_mode: str | None = None, render_message="") -> CoGridEnv:
         """Create an Overcooked environment instance."""
         return registry.make(
-            "Overcooked-CrampedRoom-V0",
+            args.env_id,
             highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,

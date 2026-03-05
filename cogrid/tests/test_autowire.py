@@ -462,8 +462,8 @@ def test_build_feature_config_overcooked():
     assert "obs_dim" in config
     assert "feature_names" in config
 
-    # obs_dim: 8 per-agent(61) * 2 agents = 122, + 3 global(539+5+462) = 1128
-    assert config["obs_dim"] == 1128, f"Expected obs_dim=1128, got {config['obs_dim']}"
+    # obs_dim: 8 per-agent(61) * 2 agents = 122, + 3 global(770+7+462) = 1361
+    assert config["obs_dim"] == 1361, f"Expected obs_dim=1361, got {config['obs_dim']}"
 
     # 8 per-agent + 3 global = 11 features
     assert len(config["feature_names"]) == 11, (
@@ -516,7 +516,7 @@ def test_build_feature_config_returns_callable():
     state_view = envstate_to_dict(env._env_state)
 
     result = feature_fn(state_view, agent_idx=0)
-    assert result.shape == (1128,), f"Expected shape (1128,), got {result.shape}"
+    assert result.shape == (1361,), f"Expected shape (1361,), got {result.shape}"
     assert result.dtype == np.float32, f"Expected dtype float32, got {result.dtype}"
 
     # Reset LayoutID

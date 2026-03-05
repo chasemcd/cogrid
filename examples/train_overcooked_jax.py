@@ -323,12 +323,44 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
     return train
 
 
+def visualize_policy(network, params, env_id, max_steps=1000, gif_path="examples/episode.gif", fps=30, seed=0):
+    """Roll out trained policy greedily and save as GIF."""
+    import imageio
+
+    env = cogrid.make(env_id, render_mode="rgb_array", backend="jax")
+    obs, info = env.reset(seed=seed)
+    frames = [env.render()]
+
+    for _ in range(max_steps):
+        obs_array = jnp.stack([obs[a] for a in env.agents])  # (n_agents, obs_dim)
+        logits, _ = network.apply(params, obs_array)
+        actions_arr = jnp.argmax(logits, axis=-1)
+        actions = {a: int(actions_arr[i]) for i, a in enumerate(env.agents)}
+
+        obs, rewards, terms, truncs, info = env.step(actions)
+        frames.append(env.render())
+
+        if any(terms.values()) or any(truncs.values()):
+            break
+
+    env.close()
+
+    # Stamp a 2px step-progress bar at the bottom of each frame so the GIF
+    # encoder keeps every frame (GIF deduplicates identical images).
+    for i, frame in enumerate(frames):
+        fill = max(1, int((i / len(frames)) * frame.shape[1]))
+        frame[-2:, :fill] = [60, 60, 60]
+
+    imageio.mimsave(gif_path, frames, fps=fps, loop=0)
+    print(f"Saved {len(frames)}-frame GIF to {gif_path}")
+
+
 if __name__ == "__main__":
     config = {
         "LR": 2.5e-4,
         "NUM_ENVS": 32,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 5_000_000,
+        "TOTAL_TIMESTEPS": 50_000_000,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 4,
         "GAMMA": 0.99,
@@ -343,7 +375,7 @@ if __name__ == "__main__":
     }
 
     # Build CoGrid env (JAX backend) to get pure step/reset functions
-    env = cogrid.make("Overcooked-CrampedRoom-V0", backend="jax")
+    env = cogrid.make("Overcooked-MixedKitchen-V0", backend="jax")
     env.reset(seed=config["SEED"])
 
     # Extract pure JAX functions (already JIT-compiled)
@@ -418,3 +450,8 @@ if __name__ == "__main__":
         print("Saved learning curve to examples/overcooked_training.png")
     except ImportError:
         pass
+
+    # Visualize trained policy as a GIF
+    network = ActorCritic(n_actions, activation=config["ACTIVATION"])
+    params = out["runner_state"][0].params
+    visualize_policy(network, params, "Overcooked-MixedKitchen-V0")

@@ -13,7 +13,6 @@ This module contains only order-queue-specific code:
 """
 
 from cogrid.backend import xp
-from cogrid.backend.array_ops import set_at
 
 
 def build_order_extra_state(order_config):
@@ -22,8 +21,7 @@ def build_order_extra_state(order_config):
     Parameters
     ----------
     order_config : dict
-        Must contain ``"max_active"``. Optionally ``"spawn_interval"``
-        (default 40).
+        Must contain ``"max_active"``.
 
     Returns:
     -------
@@ -33,33 +31,29 @@ def build_order_extra_state(order_config):
     import numpy as _np
 
     max_active = order_config["max_active"]
-    spawn_interval = order_config.get("spawn_interval", 40)
     return {
         "overcooked.order_recipe": _np.full((max_active,), -1, dtype=_np.int32),
         "overcooked.order_timer": _np.zeros((max_active,), dtype=_np.int32),
-        "overcooked.order_spawn_counter": _np.int32(spawn_interval),
-        "overcooked.order_recipe_counter": _np.int32(0),
         "overcooked.order_n_expired": _np.int32(0),
     }
 
 
 def order_queue_tick(state, scope_config):
-    """Advance order timers: countdown, expiry, and spawning.
+    """Advance order timers: countdown, expiry, and probabilistic spawning.
+
+    Each step, for every empty order slot, independently samples from a
+    categorical distribution over ``{no_order, recipe_0, recipe_1, ...}``
+    using per-recipe spawn probabilities from ``order_spawn_probs``.
 
     Skips silently if no order arrays are present in extra_state.
-    Designed to be composed with the auto-generated container tick::
-
-        def my_tick(state, scope_config):
-            state = autowired_tick(state, scope_config)  # pot timers
-            state = order_queue_tick(state, scope_config)  # orders
-            return state
 
     Parameters
     ----------
     state : EnvState
         Current state with optional order arrays in extra_state.
     scope_config : dict
-        Must contain ``"static_tables"`` with order config arrays.
+        Must contain ``"static_tables"`` with ``order_spawn_probs``,
+        ``order_time_limit``, and ``order_max_active``.
 
     Returns:
     -------
@@ -67,6 +61,8 @@ def order_queue_tick(state, scope_config):
         Updated state (unchanged if no order arrays present).
     """
     import dataclasses
+
+    from cogrid.backend._dispatch import get_backend
 
     if "overcooked.order_recipe" not in state.extra_state:
         return state
@@ -76,14 +72,11 @@ def order_queue_tick(state, scope_config):
 
     order_recipe = new_extra["overcooked.order_recipe"]
     order_timer = new_extra["overcooked.order_timer"]
-    order_spawn_counter = new_extra["overcooked.order_spawn_counter"]
-    order_recipe_counter = new_extra["overcooked.order_recipe_counter"]
     order_n_expired = new_extra["overcooked.order_n_expired"]
 
-    order_spawn_interval = static_tables["order_spawn_interval"]
     order_time_limit = static_tables["order_time_limit"]
-    order_spawn_cycle = static_tables["order_spawn_cycle"]
-    cycle_len = order_spawn_cycle.shape[0]
+    spawn_probs = static_tables["order_spawn_probs"]  # (n_recipes,)
+    max_active = order_recipe.shape[0]
 
     # (1) Decrement active order timers
     active = order_recipe != -1
@@ -95,85 +88,132 @@ def order_queue_tick(state, scope_config):
     new_order_timer = xp.where(expired, 0, new_order_timer)
     order_n_expired = order_n_expired + xp.sum(expired).astype(xp.int32)
 
-    # (3) Spawn: decrement counter, check for spawn
-    new_counter = order_spawn_counter - xp.int32(1)
-    should_spawn = new_counter <= 0
+    # (3) Probabilistic spawn per empty slot
+    cdf = xp.cumsum(spawn_probs)  # (n_recipes,)
+
+    if get_backend() == "jax":
+        import jax
+
+        key, subkey = jax.random.split(state.rng_key)
+        rolls = jax.random.uniform(subkey, shape=(max_active,))
+    else:
+        import numpy as _np
+
+        rolls = xp.array(_np.random.default_rng().uniform(size=(max_active,)), dtype=xp.float32)
+        key = state.rng_key
+
+    # hit[i, r] = True if slot i's roll falls in recipe r's CDF bucket
+    hit = rolls[:, None] < cdf[None, :]  # (max_active, n_recipes)
+    any_hit = xp.any(hit, axis=1)  # did this slot spawn?
+    sampled_recipe = xp.argmax(hit.astype(xp.int32), axis=1)
+
     empty = order_recipe == -1
-    has_empty = xp.any(empty)
-    first_empty = xp.argmax(empty)
-    spawn_now = should_spawn & has_empty
+    spawn_mask = empty & any_hit
 
-    new_recipe_idx = order_spawn_cycle[order_recipe_counter % cycle_len]
-    order_recipe = xp.where(
-        spawn_now,
-        set_at(order_recipe, first_empty, new_recipe_idx),
-        order_recipe,
-    )
-    new_order_timer = xp.where(
-        spawn_now,
-        set_at(new_order_timer, first_empty, order_time_limit),
-        new_order_timer,
-    )
-
-    # Reset counter on spawn attempt (even if no empty slot)
-    new_counter = xp.where(should_spawn, xp.int32(order_spawn_interval), new_counter)
-    # Increment recipe counter only when actually spawned
-    new_recipe_counter = xp.where(spawn_now, order_recipe_counter + 1, order_recipe_counter)
+    order_recipe = xp.where(spawn_mask, sampled_recipe, order_recipe)
+    new_order_timer = xp.where(spawn_mask, order_time_limit, new_order_timer)
 
     new_extra["overcooked.order_recipe"] = order_recipe
     new_extra["overcooked.order_timer"] = new_order_timer
-    new_extra["overcooked.order_spawn_counter"] = new_counter
-    new_extra["overcooked.order_recipe_counter"] = new_recipe_counter
     new_extra["overcooked.order_n_expired"] = order_n_expired
 
-    return dataclasses.replace(state, extra_state=new_extra)
+    return dataclasses.replace(state, extra_state=new_extra, rng_key=key)
 
 
-def _build_order_tables(order_config, n_recipes):
+def _build_order_tables(order_config, recipe_results):
     """Build order queue static tables from config dict.
 
     Parameters
     ----------
     order_config : dict or None
-        If None, orders are disabled. Otherwise contains:
-        ``spawn_interval`` (default 40), ``max_active`` (default 3),
-        ``time_limit`` (default 200), ``recipe_weights`` (default uniform).
-    n_recipes : int
-        Number of recipes (for default uniform weights).
+        If None, orders are disabled. Otherwise must contain
+        ``spawn_probs`` (dict mapping result name to probability),
+        ``max_active`` (default 3), ``time_limit`` (default 200).
+    recipe_results : list[str]
+        Ordered list of recipe result names (e.g. ``["onion_soup", "tomato_soup"]``)
+        matching the recipe index ordering from ``Pot.recipes``.
 
     Returns:
     -------
     dict
         Keys: ``order_enabled``, and when enabled also
-        ``order_spawn_interval``, ``order_max_active``,
-        ``order_time_limit``, ``order_spawn_cycle``.
+        ``order_spawn_probs``, ``order_max_active``, ``order_time_limit``.
     """
     import numpy as _np
 
     if order_config is None:
         return {"order_enabled": False}
 
-    spawn_interval = order_config.get("spawn_interval", 40)
     max_active = order_config.get("max_active", 3)
     time_limit = order_config.get("time_limit", 200)
-    recipe_weights = order_config.get("recipe_weights", None)
+    spawn_probs_dict = order_config["spawn_probs"]
 
-    if recipe_weights is None:
-        recipe_weights = [1.0] * n_recipes
+    n_recipes = len(recipe_results)
+    spawn_probs = _np.zeros(n_recipes, dtype=_np.float32)
+    for name, prob in spawn_probs_dict.items():
+        idx = recipe_results.index(name)
+        spawn_probs[idx] = prob
 
-    # Build deterministic spawn cycle from weights.
-    # Normalize to integers: [2.0, 1.0] -> [2, 1] -> cycle [0, 0, 1]
-    weights = _np.array(recipe_weights, dtype=_np.float32)
-    int_weights = _np.round(weights / weights.min()).astype(_np.int32)
-    cycle = []
-    for i, w in enumerate(int_weights):
-        cycle.extend([i] * int(w))
-    spawn_cycle = _np.array(cycle, dtype=_np.int32)
+    assert _np.all(spawn_probs >= 0), "All spawn probabilities must be >= 0"
+    assert float(_np.sum(spawn_probs)) <= 1.0 + 1e-6, (
+        f"spawn_probs must sum to <= 1.0, got {float(_np.sum(spawn_probs))}"
+    )
 
     return {
         "order_enabled": True,
-        "order_spawn_interval": _np.int32(spawn_interval),
+        "order_spawn_probs": spawn_probs,
         "order_max_active": _np.int32(max_active),
         "order_time_limit": _np.int32(time_limit),
-        "order_spawn_cycle": spawn_cycle,
     }
+
+
+# ---------------------------------------------------------------------------
+# Order queue HUD rendering
+# ---------------------------------------------------------------------------
+
+# Recipe index → display color (RGB).
+_RECIPE_COLORS = [
+    (255, 200, 50),  # recipe 0 (onion soup) – golden yellow
+    (220, 50, 50),  # recipe 1 (tomato soup) – red
+]
+_EMPTY_COLOR = (80, 80, 80)
+_BG_COLOR = (50, 50, 50)
+_URGENT_COLOR = (255, 80, 80)
+
+
+def build_order_hud_fn(order_config):
+    """Return a HUD function that extracts order bar specs from env state.
+
+    The returned function has signature::
+
+        hud_fn(env_state, scope_config) -> list[dict] | None
+
+    Each dict has keys ``progress`` (0-1 float), ``color`` (RGB tuple),
+    and ``bg_color`` (RGB tuple).
+    """
+    time_limit = order_config.get("time_limit", 200)
+
+    def hud_fn(env_state, scope_config):
+        import numpy as _np
+
+        extra = env_state.extra_state
+        order_recipe = extra.get("overcooked.order_recipe")
+        if order_recipe is None:
+            return None
+
+        order_timer = extra["overcooked.order_timer"]
+        bars = []
+        for i in range(len(order_recipe)):
+            recipe_idx = int(_np.array(order_recipe[i]))
+            timer = int(_np.array(order_timer[i]))
+            if recipe_idx < 0:
+                bars.append({"progress": 0, "color": _EMPTY_COLOR, "bg_color": _BG_COLOR})
+            else:
+                progress = timer / time_limit
+                color = _RECIPE_COLORS[recipe_idx % len(_RECIPE_COLORS)]
+                if progress < 0.2:
+                    color = _URGENT_COLOR
+                bars.append({"progress": progress, "color": color, "bg_color": _BG_COLOR})
+        return bars
+
+    return hud_fn

@@ -817,7 +817,7 @@ def test_layout_id_parity():
     result = fn({})
     expected = layout_id_feature(0)
     np.testing.assert_array_equal(result, expected)
-    assert result.shape == (5,)
+    assert result.shape == (7,)
     assert result.dtype == np.int32
 
     # Test with overridden _layout_idx = 3
@@ -826,7 +826,7 @@ def test_layout_id_parity():
     result = fn({})
     expected = layout_id_feature(3)
     np.testing.assert_array_equal(result, expected)
-    assert result.shape == (5,)
+    assert result.shape == (7,)
     assert result.dtype == np.int32
 
     # Reset to default
@@ -891,9 +891,9 @@ def test_all_overcooked_features_registered():
 
     # 3 global features
     global_features = {
-        "layout_id": 5,
+        "layout_id": 7,
         "environment_layout": 462,
-        "object_type_masks": 539,
+        "object_type_masks": 770,
     }
 
     for feat_id, expected_dim in per_agent_features.items():

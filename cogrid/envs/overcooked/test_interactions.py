@@ -1308,8 +1308,6 @@ def _make_state_with_orders(
     pot_positions,
     order_recipe=None,
     order_timer=None,
-    order_spawn_counter=None,
-    order_recipe_counter=None,
     order_n_expired=None,
 ):
     """Build a minimal EnvState with optional order arrays for testing."""
@@ -1327,8 +1325,6 @@ def _make_state_with_orders(
     if order_recipe is not None:
         extra_state["overcooked.order_recipe"] = order_recipe
         extra_state["overcooked.order_timer"] = order_timer
-        extra_state["overcooked.order_spawn_counter"] = order_spawn_counter
-        extra_state["overcooked.order_recipe_counter"] = order_recipe_counter
         extra_state["overcooked.order_n_expired"] = order_n_expired
     return EnvState(
         agent_pos=agent_pos,
@@ -1349,10 +1345,10 @@ def _make_state_with_orders(
 
 
 def test_order_tick_lifecycle():
-    """Test order tick mechanics: spawn, countdown, expiry, re-spawn.
+    """Test order tick mechanics: probabilistic spawn, countdown, expiry.
 
-    Uses spawn_interval=5, max_active=2, time_limit=10, uniform weights
-    over 2 recipes.
+    Uses spawn_probs summing to 1.0 (guaranteed spawn each tick per empty slot)
+    with max_active=2, time_limit=10.
     """
     import numpy as np
 
@@ -1364,15 +1360,14 @@ def test_order_tick_lifecycle():
 
     scope = "overcooked"
     order_config = {
-        "spawn_interval": 5,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 2,
         "time_limit": 10,
-        "recipe_weights": [1.0, 1.0],
     }
 
     # Build scope config with order tables
     scope_cfg = build_scope_config_from_components(scope)
-    order_tables = _build_order_tables(order_config, n_recipes=2)
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     scope_cfg["static_tables"].update(order_tables)
     tick_handler = scope_cfg["tick_handler"]
 
@@ -1396,11 +1391,9 @@ def test_order_tick_lifecycle():
     pc = np.array([[-1, -1, -1]], dtype=np.int32)
     pt = np.array([30], dtype=np.int32)
 
-    # Order arrays: empty queue, counter starts at 5
+    # Order arrays: empty queue
     order_recipe = np.full((2,), -1, dtype=np.int32)
     order_timer = np.zeros((2,), dtype=np.int32)
-    order_spawn_counter = np.int32(5)
-    order_recipe_counter = np.int32(0)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1414,54 +1407,36 @@ def test_order_tick_lifecycle():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
     print("Order tick lifecycle test:")
 
-    # Phase A: 5 ticks -> first order spawns
-    for i in range(5):
-        state = composed_tick(state, scope_cfg)
+    # Phase A: 1 tick with p=1.0 -> both slots should spawn immediately
+    state = composed_tick(state, scope_cfg)
 
     or_ = state.extra_state["overcooked.order_recipe"]
     ot_ = state.extra_state["overcooked.order_timer"]
-    osc = state.extra_state["overcooked.order_spawn_counter"]
-    assert int(or_[0]) == 0, f"Phase A: first order should be recipe 0, got {int(or_[0])}"
-    assert int(ot_[0]) == 10, f"Phase A: first order timer should be 10, got {int(ot_[0])}"
-    assert int(osc) == 5, f"Phase A: spawn counter should reset to 5, got {int(osc)}"
-    print("  Phase A (first spawn after 5 ticks): OK")
+    assert int(or_[0]) in (0, 1), f"Phase A: slot 0 should have a recipe, got {int(or_[0])}"
+    assert int(or_[1]) in (0, 1), f"Phase A: slot 1 should have a recipe, got {int(or_[1])}"
+    assert int(ot_[0]) == 10, f"Phase A: slot 0 timer should be 10, got {int(ot_[0])}"
+    assert int(ot_[1]) == 10, f"Phase A: slot 1 timer should be 10, got {int(ot_[1])}"
+    print("  Phase A (immediate spawn with p=1.0): OK")
 
-    # Phase B: 5 more ticks -> second order spawns, first timer decrements
-    for i in range(5):
+    # Phase B: 10 more ticks -> both orders expire (timers go from 10 to 0)
+    for i in range(10):
         state = composed_tick(state, scope_cfg)
 
-    or_ = state.extra_state["overcooked.order_recipe"]
-    ot_ = state.extra_state["overcooked.order_timer"]
-    assert int(or_[1]) == 1, f"Phase B: second order should be recipe 1, got {int(or_[1])}"
-    assert int(ot_[1]) == 10, f"Phase B: second order timer should be 10, got {int(ot_[1])}"
-    assert int(ot_[0]) == 5, f"Phase B: first order timer should be 5, got {int(ot_[0])}"
-    print("  Phase B (second spawn, first countdown): OK")
-
-    # Phase C: 5 more ticks -> first order expires (timer was 5)
-    for i in range(5):
-        state = composed_tick(state, scope_cfg)
-
-    or_ = state.extra_state["overcooked.order_recipe"]
-    ot_ = state.extra_state["overcooked.order_timer"]
     one = state.extra_state["overcooked.order_n_expired"]
-    assert int(or_[0]) != -1 or int(one) >= 1, (
-        f"Phase C: first order should have expired. or_[0]={int(or_[0])}, n_expired={int(one)}"
-    )
-    # The first order expired at tick 10 (timer went from 5 to 0).
-    # But a new spawn also happened at tick 15 (counter reset at tick 10, then -5 again).
-    # The new spawn fills the first empty slot (slot 0 since it expired).
-    print(f"  Phase C (expiry + re-spawn): n_expired={int(one)}, or_={[int(x) for x in or_]}")
+    assert int(one) >= 2, f"Phase B: expected at least 2 expired orders, got {int(one)}"
+    print(f"  Phase B (expiry after 10 ticks): n_expired={int(one)}")
 
-    # Phase D: Verify we've had at least one expiry
-    assert int(one) >= 1, f"Phase D: expected at least 1 expired order, got {int(one)}"
-    print("  Phase D (expiry tracked): OK")
+    # Phase C: After expiry, re-spawning should fill empty slots again
+    or_ = state.extra_state["overcooked.order_recipe"]
+    # With p=1.0, expired slots should be re-filled in the same tick they expire
+    assert int(or_[0]) in (0, 1), f"Phase C: slot 0 should re-spawn, got {int(or_[0])}"
+    assert int(or_[1]) in (0, 1), f"Phase C: slot 1 should re-spawn, got {int(or_[1])}"
+    print("  Phase C (re-spawn after expiry): OK")
 
     print("  PASSED")
 
@@ -1483,14 +1458,14 @@ def test_order_delivery_consumes_order():
     PICKUP_DROP = 4
 
     order_config = {
-        "spawn_interval": 1,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 3,
         "time_limit": 1000,
     }
 
     # Build scope_config with order tables
     scope_cfg = build_scope_config_from_components(scope)
-    order_tables = _build_order_tables(order_config, n_recipes=2)
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     scope_cfg["static_tables"].update(order_tables)
     interaction_fn = scope_cfg["interaction_fn"]
     tables = build_lookup_tables(scope=scope)
@@ -1515,8 +1490,6 @@ def test_order_delivery_consumes_order():
     # Inject active order: recipe 0 = onion_soup
     order_recipe = np.array([0, -1, -1], dtype=np.int32)
     order_timer = np.array([100, 0, 0], dtype=np.int32)
-    order_spawn_counter = np.int32(10)
-    order_recipe_counter = np.int32(1)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1530,8 +1503,6 @@ def test_order_delivery_consumes_order():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
@@ -1572,13 +1543,13 @@ def test_order_delivery_without_matching_order():
     PICKUP_DROP = 4
 
     order_config = {
-        "spawn_interval": 1,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 3,
         "time_limit": 1000,
     }
 
     scope_cfg = build_scope_config_from_components(scope)
-    order_tables = _build_order_tables(order_config, n_recipes=2)
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     scope_cfg["static_tables"].update(order_tables)
     interaction_fn = scope_cfg["interaction_fn"]
     tables = build_lookup_tables(scope=scope)
@@ -1602,8 +1573,6 @@ def test_order_delivery_without_matching_order():
     # No active orders
     order_recipe = np.array([-1, -1, -1], dtype=np.int32)
     order_timer = np.array([0, 0, 0], dtype=np.int32)
-    order_spawn_counter = np.int32(10)
-    order_recipe_counter = np.int32(0)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1617,8 +1586,6 @@ def test_order_delivery_without_matching_order():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
@@ -1947,8 +1914,8 @@ def test_delivery_reward_order_match_required():
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 1000}
-    order_tables = _build_order_tables(order_config, n_recipes=2)
+    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 1000}
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     static_tables = dict(scope_cfg["static_tables"])
     static_tables.update(order_tables)
 
@@ -2152,33 +2119,36 @@ def test_order_config_validation():
 
     print("Order config validation test:")
 
+    recipe_results = ["onion_soup", "tomato_soup"]
+
     # Case 1: None -> disabled
-    result = _build_order_tables(None, 2)
+    result = _build_order_tables(None, recipe_results)
     assert result == {"order_enabled": False}, f"Expected disabled, got {result}"
     print("  None config -> disabled: OK")
 
-    # Case 2: Valid config with defaults
-    result = _build_order_tables({"spawn_interval": 10, "max_active": 5, "time_limit": 100}, 2)
+    # Case 2: Valid config with spawn_probs
+    result = _build_order_tables(
+        {"spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05}, "max_active": 5, "time_limit": 100},
+        recipe_results,
+    )
     assert result["order_enabled"] is True
-    assert int(result["order_spawn_interval"]) == 10
     assert int(result["order_max_active"]) == 5
     assert int(result["order_time_limit"]) == 100
-    assert len(result["order_spawn_cycle"]) == 2, (
-        "Uniform weights over 2 recipes should give cycle of length 2, "
-        f"got {len(result['order_spawn_cycle'])}"
-    )
-    assert list(result["order_spawn_cycle"]) == [0, 1]
-    print("  Valid config with uniform weights: OK")
+    probs = result["order_spawn_probs"]
+    assert abs(float(probs[0]) - 0.05) < 1e-6, f"onion_soup prob should be 0.05, got {float(probs[0])}"
+    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    print("  Valid config with spawn_probs: OK")
 
-    # Case 3: Weighted config
+    # Case 3: Asymmetric probs
     result = _build_order_tables(
-        {"spawn_interval": 10, "max_active": 5, "time_limit": 100, "recipe_weights": [2.0, 1.0]},
-        2,
+        {"spawn_probs": {"onion_soup": 0.1, "tomato_soup": 0.05}, "max_active": 3, "time_limit": 100},
+        recipe_results,
     )
     assert result["order_enabled"] is True
-    cycle = list(result["order_spawn_cycle"])
-    assert cycle == [0, 0, 1], f"Weights [2.0, 1.0] should give cycle [0, 0, 1], got {cycle}"
-    print("  Weighted config [2.0, 1.0] -> cycle [0, 0, 1]: OK")
+    probs = result["order_spawn_probs"]
+    assert abs(float(probs[0]) - 0.1) < 1e-6, f"onion_soup prob should be 0.1, got {float(probs[0])}"
+    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    print("  Asymmetric probs: OK")
 
     print("  PASSED")
 
@@ -2199,8 +2169,8 @@ def test_delivery_reward_tip_bonus():
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 200}
-    order_tables = _build_order_tables(order_config, n_recipes=2)
+    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 200}
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     static_tables = dict(scope_cfg["static_tables"])
     static_tables.update(order_tables)
 
