@@ -9,7 +9,7 @@ from gymnasium import spaces
 from cogrid import constants
 
 # Vectorized components
-from cogrid.backend import set_backend
+from cogrid.backend import get_backend, set_backend
 from cogrid.core import actions as grid_actions
 from cogrid.core import agent, directions, grid, grid_object, grid_utils, layouts, typing
 from cogrid.core.agent import create_agent_arrays
@@ -42,19 +42,24 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         config: dict,
         render_mode: str | None = None,
         agent_class: agent.Agent | None = None,
-        backend: str = "numpy",
+        backend: str | None = None,
         **kwargs,
     ):
         """Initialize the CoGrid environment.
 
         The first environment created sets the global backend; subsequent
         envs must use the same backend or a RuntimeError is raised.
+
+        If ``backend`` is None, the already-set backend is used (defaulting
+        to ``"numpy"`` if ``set_backend()`` was never called). If ``backend``
+        is provided explicitly, it is forwarded to ``set_backend()``.
         """
         super().__init__()
         self._np_random: np.random.Generator | None = None  # set in reset()
 
-        set_backend(backend)
-        self._backend = backend
+        if backend is not None:
+            set_backend(backend)
+        self._backend = backend if backend is not None else get_backend()
         self.config = config
         self.name = config["name"]
         self.cumulative_score = 0
@@ -133,14 +138,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._lookup_tables = build_lookup_tables(scope=self.scope)
 
         from cogrid.core.autowire import (
-            build_reward_config_from_components,
+            build_reward_config,
             build_scope_config_from_components,
         )
         from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
 
-        # Run pre-compose hook before scope config so that config-driven
-        # class attributes (e.g. Pot._recipes_config) are set before
-        # build_static_tables reads them.
+        # Run pre-compose hook before scope config (e.g. to set layout index).
         pre_hook = get_pre_compose_hook(self.scope)
         if pre_hook is not None:
             _layout_idx = get_layout_index(self.scope, self.current_layout_id)
@@ -149,17 +152,49 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._scope_config = build_scope_config_from_components(self.scope)
         if "interaction_fn" in self.config:
             self._scope_config["interaction_fn"] = self.config["interaction_fn"]
+
+        # Config-level tick composition (appended after auto-generated tick)
+        if "tick_fn" in self.config:
+            base_tick = self._scope_config.get("tick_handler")
+            user_tick = self.config["tick_fn"]
+            if base_tick is not None:
+                def _composed_tick(state, scope_config, _b=base_tick, _u=user_tick):
+                    return _u(_b(state, scope_config), scope_config)
+                self._scope_config["tick_handler"] = _composed_tick
+            else:
+                self._scope_config["tick_handler"] = user_tick
+
+        # Merge extra static tables from config
+        if "extra_static_tables" in self.config:
+            self._scope_config.setdefault("static_tables", {}).update(
+                self.config["extra_static_tables"]
+            )
+
+        # Compose extra_state_init_fn with auto-generated extra_state_builder
+        extra_init_fn = self.config.get("extra_state_init_fn")
+        if extra_init_fn is not None:
+            base_builder = self._scope_config.get("extra_state_builder")
+            def _composed_builder(parsed_state, scope, _base=base_builder, _fn=extra_init_fn):
+                merged = {}
+                if _base is not None:
+                    merged.update(_base(parsed_state, scope))
+                merged.update(_fn())
+                return merged
+            self._scope_config["extra_state_builder"] = _composed_builder
+
         self._type_ids = self._scope_config["type_ids"]
         self._interaction_tables = self._scope_config.get("interaction_tables")
 
         self._state = None
         self._feature_fn = None
 
-        self._reward_config = build_reward_config_from_components(
-            self.scope,
+        reward_instances = self.config.get("rewards", [])
+        self._reward_config = build_reward_config(
+            reward_instances,
             n_agents=self.config["num_agents"],
             type_ids=self._type_ids,
             action_pickup_drop_idx=self._action_pickup_drop_idx,
+            action_toggle_idx=self._action_toggle_idx,
             static_tables=self._scope_config.get("static_tables"),
         )
 
@@ -190,7 +225,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             st = self._scope_config["static_tables"]
             for key in st:
                 if isinstance(st[key], _np.ndarray):
-                    st[key] = jnp.array(st[key], dtype=jnp.int32)
+                    dtype = jnp.float32 if _np.issubdtype(st[key].dtype, _np.floating) else jnp.int32
+                    st[key] = jnp.array(st[key], dtype=dtype)
 
         if self._scope_config.get("interaction_tables") is not None:
             import numpy as _np
@@ -404,7 +440,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             rng = seed if seed is not None else 42
 
-        self._env_state, obs_arr = self._reset_fn(rng)
+        obs_arr, self._env_state, _ = self._reset_fn(rng)
 
         obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
 
@@ -452,7 +488,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
 
         # Delegate to the unified step pipeline
-        self._env_state, obs_arr, rewards_arr, terminateds_arr, truncateds_arr, infos = (
+        obs_arr, self._env_state, rewards_arr, terminateds_arr, truncateds_arr, infos = (
             self._step_fn(self._env_state, actions_arr)
         )
 
@@ -642,7 +678,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_step(self):
         """Raw JIT-compiled step function for direct JIT/vmap usage.
 
-        ``(EnvState, actions) -> (EnvState, obs, rewards, terminateds, truncateds, infos)``
+        ``(EnvState, actions) -> (obs, EnvState, rewards, terminateds, truncateds, infos)``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_step is only available with backend='jax'")
@@ -654,7 +690,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_reset(self):
         """Raw JIT-compiled reset function for direct JIT/vmap usage.
 
-        ``(rng_key) -> (EnvState, obs)``
+        ``(rng_key) -> (obs, EnvState, infos)``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_reset is only available with backend='jax'")
@@ -913,10 +949,40 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self.metadata.get("agent_pov", None),
         )
 
+        # Build HUD bar data from config hook (e.g., order queue bars)
+        hud_bars = None
+        render_hud_fn = self.config.get("render_hud_fn")
+        if render_hud_fn is not None and self._env_state is not None:
+            hud_bars = render_hud_fn(self._env_state, self._scope_config)
+
         if self.render_mode == "human":
-            self._renderer.render_human(img, self.cumulative_score, self.render_message)
+            self._renderer.render_human(
+                img, self.cumulative_score, self.render_message, hud_bars=hud_bars
+            )
         elif self.render_mode == "rgb_array":
+            if hud_bars:
+                img = self._composite_hud_bars(img, hud_bars)
             return img
+
+    @staticmethod
+    def _composite_hud_bars(img: np.ndarray, hud_bars: list[dict]) -> np.ndarray:
+        """Draw HUD bars above the grid image and return the composited array."""
+        bar_height = 4
+        bar_gap = 2
+        bar_area_h = len(hud_bars) * (bar_height + bar_gap) + bar_gap
+        h, w, c = img.shape
+        out = np.full((h + bar_area_h, w, c), 255, dtype=np.uint8)
+        out[bar_area_h:] = img
+        for i, bar in enumerate(hud_bars):
+            y = bar_gap + i * (bar_height + bar_gap)
+            progress = bar.get("progress", 0)
+            color = np.array(bar.get("color", (80, 80, 80)), dtype=np.uint8)
+            bg_color = np.array(bar.get("bg_color", (50, 50, 50)), dtype=np.uint8)
+            out[y : y + bar_height, :] = bg_color
+            if progress > 0:
+                fill_w = max(1, int(progress * w))
+                out[y : y + bar_height, :fill_w] = color
+        return out
 
     def close(self):
         """Close the renderer if active."""

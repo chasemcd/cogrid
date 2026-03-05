@@ -152,18 +152,18 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
         key = jax.device_put(jax.random.key(SEED), device)
 
         # warmup (includes JIT compilation)
-        state, _ = jit_reset(key)
+        _, state, _ = jit_reset(key)
         state.agent_pos.block_until_ready()
         for _ in range(N_WARMUP):
-            state, *_ = jit_step(state, actions)
+            _, state, *_ = jit_step(state, actions)
             state.agent_pos.block_until_ready()
 
         def trial():
-            s, _ = jit_reset(key)
+            _, s, _ = jit_reset(key)
             s.agent_pos.block_until_ready()
             t0 = time.perf_counter()
             for _ in range(n_steps):
-                s, *_ = jit_step(s, actions)
+                _, s, *_ = jit_step(s, actions)
             s.agent_pos.block_until_ready()
             return n_steps / (time.perf_counter() - t0)
 
@@ -178,18 +178,18 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
         )
 
         # warmup
-        bs, _ = v_reset(keys)
+        _, bs, _ = v_reset(keys)
         bs.agent_pos.block_until_ready()
         for _ in range(N_WARMUP):
-            bs, *_ = v_step(bs, batch_actions)
+            _, bs, *_ = v_step(bs, batch_actions)
             bs.agent_pos.block_until_ready()
 
         def trial():
-            s, _ = v_reset(keys)
+            _, s, _ = v_reset(keys)
             s.agent_pos.block_until_ready()
             t0 = time.perf_counter()
             for _ in range(n_steps):
-                s, *_ = v_step(s, batch_actions)
+                _, s, *_ = v_step(s, batch_actions)
             s.agent_pos.block_until_ready()
             return (n_steps * batch_size) / (time.perf_counter() - t0)
 

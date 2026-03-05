@@ -26,7 +26,6 @@ from cogrid.visualization.rendering import (
 class Wall(GridObj):
     """An impassable wall tile."""
 
-    object_id = "wall"
     color = constants.Colors.Grey
     char = "#"
     is_wall = True
@@ -44,7 +43,6 @@ class Wall(GridObj):
 class Floor(GridObj):
     """An empty floor tile that agents can walk over."""
 
-    object_id = "floor"
     color = constants.Colors.PaleBlue
     char = GridConstants.FreeSpace
     can_overlap = when()
@@ -60,7 +58,6 @@ class Floor(GridObj):
 class Counter(GridObj):
     """A counter surface that can hold one object on top."""
 
-    object_id = "counter"
     color = constants.Colors.LightBrown
     char = "C"
     can_place_on = when()
@@ -107,7 +104,6 @@ class Counter(GridObj):
 class Key(GridObj):
     """A key that can be picked up to unlock doors."""
 
-    object_id = "key"
     color = constants.Colors.Yellow
     char = "K"
     can_pickup = when()
@@ -134,7 +130,6 @@ class Key(GridObj):
 class Door(GridObj):
     """A door that can be open, closed, or locked (requires Key)."""
 
-    object_id = "door"
     color = constants.Colors.DarkGrey
     char = "D"
 
@@ -147,18 +142,6 @@ class Door(GridObj):
     def see_behind(self, agent: GridAgent) -> bool:
         """Return True only when the door is open."""
         return self.is_open
-
-    def toggle(self, env, agent: GridAgent) -> bool:
-        """Unlock (if agent has Key) or open/close the door."""
-        if self.is_locked:
-            if any([isinstance(obj, Key) for obj in agent.inventory]):
-                self.is_locked = False
-                self.is_open = True
-                return True
-            return False
-
-        self.is_open = not self.is_open
-        return True
 
     def encode(self, encode_char=False):
         """Encode the door as a 3-tuple of integers."""

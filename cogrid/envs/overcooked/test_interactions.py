@@ -11,7 +11,6 @@ Run with::
 
 from cogrid.core.autowire import build_scope_config_from_components
 from cogrid.core.interactions import process_interactions
-from cogrid.envs.overcooked.config import overcooked_interaction_fn, overcooked_tick
 
 
 def _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pot_contents, pot_timer, pot_positions):
@@ -62,7 +61,8 @@ def test_interaction_parity():
     scope = "overcooked"
     tables = build_lookup_tables(scope=scope)
     scope_cfg = build_scope_config_from_components(scope)
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    interaction_fn = scope_cfg["interaction_fn"]
+    tick_handler = scope_cfg["tick_handler"]
     type_ids = scope_cfg["type_ids"]
     dir_vec = get_dir_vec_table()
 
@@ -81,55 +81,43 @@ def test_interaction_parity():
     pt_empty = np.array([30], dtype=np.int32)
     pp_dummy = np.array([[0, 0]], dtype=np.int32)
 
-    # ---- Test 1: overcooked_tick parity with Pot.tick() ----
-    print("Parity test 1: overcooked_tick vs Pot.tick()")
+    # ---- Test 1: tick_handler produces correct timer/state values ----
+    print("Parity test 1: tick_handler correctness")
 
-    from cogrid.envs.overcooked.overcooked_grid_objects import Onion, Pot
-
-    # Empty pot
-    pot_obj = Pot(capacity=3)
+    # Empty pot -- timer and state should stay unchanged
     pc = np.array([[-1, -1, -1]], dtype=np.int32)
     pt = np.array([30], dtype=np.int32)
+    pp = np.array([[2, 4]], dtype=np.int32)
+    otm_t = np.zeros((7, 7), dtype=np.int32)
+    osm_t = np.zeros((7, 7), dtype=np.int32)
+    otm_t[2, 4] = pot_id
+    agent_pos_t = np.array([[0, 0]], dtype=np.int32)
+    agent_dir_t = np.array([0], dtype=np.int32)
+    agent_inv_t = np.array([[-1]], dtype=np.int32)
 
-    pot_obj.tick()
-    _, new_pt, new_ps = overcooked_tick(pc, pt)
-    assert pot_obj.cooking_timer == int(new_pt[0]), (
-        f"Empty pot timer mismatch: obj={pot_obj.cooking_timer} arr={int(new_pt[0])}"
-    )
-    assert pot_obj.state == int(new_ps[0]), (
-        f"Empty pot state mismatch: obj={pot_obj.state} arr={int(new_ps[0])}"
-    )
+    state = _make_state(agent_pos_t, agent_dir_t, agent_inv_t, otm_t, osm_t, pc, pt, pp)
+    state = tick_handler(state, scope_cfg)
+    new_pt = state.extra_state["overcooked.pot_timer"]
+    new_ps = state.object_state_map[2, 4]
+    assert int(new_pt[0]) == 30, f"Empty pot timer should stay 30, got {int(new_pt[0])}"
+    assert int(new_ps) == 0, f"Empty pot state should be 0, got {int(new_ps)}"
 
-    # Partially filled pot
-    pot_obj2 = Pot(capacity=3)
-    pot_obj2.objects_in_pot = [Onion(), Onion()]
+    # Partially filled pot -- timer should not decrement
     pc2 = np.array([[onion_id, onion_id, -1]], dtype=np.int32)
     pt2 = np.array([30], dtype=np.int32)
+    state = _make_state(agent_pos_t, agent_dir_t, agent_inv_t, otm_t, osm_t, pc2, pt2, pp)
+    state = tick_handler(state, scope_cfg)
+    new_pt2 = state.extra_state["overcooked.pot_timer"]
+    assert int(new_pt2[0]) == 30, f"Partial pot timer should stay 30, got {int(new_pt2[0])}"
 
-    pot_obj2.tick()
-    _, new_pt2, new_ps2 = overcooked_tick(pc2, pt2)
-    assert pot_obj2.cooking_timer == int(new_pt2[0]), (
-        f"Partial pot timer mismatch: obj={pot_obj2.cooking_timer} arr={int(new_pt2[0])}"
-    )
-    assert pot_obj2.state == int(new_ps2[0]), (
-        f"Partial pot state mismatch: obj={pot_obj2.state} arr={int(new_ps2[0])}"
-    )
-
-    # Full pot -- cooking cycle
-    pot_obj3 = Pot(capacity=3)
-    pot_obj3.objects_in_pot = [Onion(), Onion(), Onion()]
+    # Full pot -- cooking cycle: timer should decrement each tick until 0
     pc3 = np.array([[onion_id, onion_id, onion_id]], dtype=np.int32)
     pt3 = np.array([30], dtype=np.int32)
-
-    for _ in range(35):  # more than needed to fully cook
-        pot_obj3.tick()
-        _, pt3, ps3 = overcooked_tick(pc3, pt3)
-        assert pot_obj3.cooking_timer == int(pt3[0]), (
-            f"Cooking timer mismatch at step: obj={pot_obj3.cooking_timer} arr={int(pt3[0])}"
-        )
-        assert pot_obj3.state == int(ps3[0]), (
-            f"Cooking state mismatch at step: obj={pot_obj3.state} arr={int(ps3[0])}"
-        )
+    state = _make_state(agent_pos_t, agent_dir_t, agent_inv_t, otm_t, osm_t, pc3, pt3, pp)
+    for step in range(35):
+        state = tick_handler(state, scope_cfg)
+    pt3_out = state.extra_state["overcooked.pot_timer"]
+    assert int(pt3_out[0]) == 0, f"Full pot timer should be 0 after 35 ticks, got {int(pt3_out[0])}"
 
     print("  PASSED")
 
@@ -149,7 +137,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         actions_arr,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -180,7 +168,7 @@ def test_interaction_parity():
         state = process_interactions(
             state,
             actions_arr,
-            overcooked_interaction_fn,
+            interaction_fn,
             tables,
             scope_cfg,
             dir_vec,
@@ -195,9 +183,13 @@ def test_interaction_parity():
 
     assert int(np.sum(pc[0] != -1)) == 3, f"Pot should have 3 items: {pc[0]}"
 
-    # Step B: Cook for 30 ticks
+    # Step B: Cook for 30 ticks via tick_handler
+    empty_inv = np.array([[-1]], dtype=np.int32)
+    state = _make_state(agent_pos, agent_dir, empty_inv, otm, osm, pc, pt, pp)
     for _ in range(30):
-        _, pt, ps = overcooked_tick(pc, pt)
+        state = tick_handler(state, scope_cfg)
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
     assert int(pt[0]) == 0, f"Pot should be done: {pt[0]}"
 
     # Step C: Pickup with plate
@@ -207,7 +199,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         actions_arr,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -239,7 +231,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -262,7 +254,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -292,7 +284,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -316,7 +308,7 @@ def test_interaction_parity():
     state2 = process_interactions(
         state2,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -348,7 +340,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -378,7 +370,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -404,7 +396,7 @@ def test_interaction_parity():
     state = process_interactions(
         state,
         actions2,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -437,12 +429,31 @@ def test_at_most_one_branch_fires():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401 -- trigger environment registration
-    from cogrid.envs.overcooked.config import _BRANCHES
+    from cogrid.core.interactions import (
+        branch_drop_on_empty,
+        branch_pickup,
+        branch_pickup_from,
+        branch_pickup_from_container,
+        branch_place_on,
+        branch_place_on_consume,
+        branch_place_on_container,
+    )
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
     static_tables = scope_cfg["static_tables"]
+
+    # Build branch list matching compose_interaction_fn order
+    _BRANCHES = [
+        branch_pickup,
+        branch_pickup_from_container,
+        branch_pickup_from,
+        branch_drop_on_empty,
+        branch_place_on_container,
+        branch_place_on_consume,
+        branch_place_on,
+    ]
 
     # All type IDs for random forward cell generation
     all_type_ids = [type_ids[n] for n in type_ids]
@@ -589,7 +600,7 @@ def test_at_most_one_branch_fires():
             pot_idx = np.argmax(pot_match)
             has_pot_match = np.any(pot_match)
 
-            # Assemble ctx dict (same structure as overcooked_interaction_body)
+            # Assemble ctx dict (same structure as compose_interaction_fn)
             ctx = {
                 "base_ok": base_ok,
                 "fwd_type": fwd_type,
@@ -605,22 +616,16 @@ def test_at_most_one_branch_fires():
                 "pot_idx": pot_idx,
                 "has_pot_match": has_pot_match,
                 "CAN_PICKUP": static_tables["CAN_PICKUP"],
-                "CAN_PICKUP_FROM": static_tables["CAN_PICKUP_FROM"],
-                "CAN_PLACE_ON": static_tables["CAN_PLACE_ON"],
+                "PICKUP_FROM_GUARD": static_tables["PICKUP_FROM_GUARD"],
+                "PLACE_ON_GUARD": static_tables["PLACE_ON_GUARD"],
                 "pickup_from_produces": static_tables["pickup_from_produces"],
-                "legal_pot_ingredients": static_tables["legal_pot_ingredients"],
-                "pot_id": static_tables["pot_id"],
-                "plate_id": static_tables["plate_id"],
-                "tomato_id": static_tables["tomato_id"],
-                "onion_soup_id": static_tables["onion_soup_id"],
-                "tomato_soup_id": static_tables["tomato_soup_id"],
-                "delivery_zone_id": static_tables["delivery_zone_id"],
+                "container_id": static_tables["pot_id"],
+                "consume_type_ids": [static_tables["delivery_zone_id"]],
                 "cooking_time": static_tables["cooking_time"],
                 "recipe_ingredients": static_tables["recipe_ingredients"],
                 "recipe_result": static_tables["recipe_result"],
                 "recipe_cooking_time": static_tables["recipe_cooking_time"],
                 "max_ingredients": static_tables["max_ingredients"],
-                "IS_DELIVERABLE": static_tables["IS_DELIVERABLE"],
             }
 
             # Run branches with handled accumulation (as the real orchestrator does)
@@ -649,22 +654,22 @@ def test_at_most_one_branch_fires():
 
 
 def test_default_recipes_backward_compat():
-    """Verify DEFAULT_RECIPES compile to arrays matching current hardcoded behavior."""
-    import numpy as np
-
+    """Verify default Pot recipes compile to arrays matching expected behavior."""
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
+    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        compile_recipes,
-    )
 
     scope = "overcooked"
-    tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
+
+    # Default recipes matching Pot class definition
+    default_recipes = [
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=1.0),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30, reward=1.0),
+    ]
+    tables = compile_recipes(default_recipes, scope=scope)
 
     # Verify shapes
     assert tables["recipe_ingredients"].shape == (2, 3), (
@@ -691,14 +696,7 @@ def test_default_recipes_backward_compat():
     assert list(tables["recipe_cooking_time"]) == [30, 30]
 
     # Rewards
-    assert list(tables["recipe_reward"]) == [20.0, 20.0]
-
-    # legal_pot_ingredients must match current hardcoded behavior
-    old_itables = _build_interaction_tables(scope)
-    assert np.array_equal(
-        tables["legal_pot_ingredients"],
-        old_itables["legal_pot_ingredients"],
-    ), "legal_pot_ingredients must match current hardcoded values"
+    assert list(tables["recipe_reward"]) == [1.0, 1.0]
 
     print("  Default recipe backward compatibility: PASSED")
 
@@ -709,102 +707,44 @@ def test_recipe_validation_errors():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-    from cogrid.envs.overcooked.config import compile_recipes
+    from cogrid.core.containers import Recipe, compile_recipes
 
     scope = "overcooked"
 
+    # Test cases that the new Recipe-based compile_recipes validates:
+    # empty list, unknown ingredients, unknown result, duplicate combos
     test_cases = [
         ("empty list", []),
         (
-            "missing key (no reward)",
-            [{"ingredients": ["onion"], "result": "onion_soup", "cook_time": 30}],
+            "unknown ingredient",
+            [Recipe(["nonexistent_object"], result="onion_soup", cook_time=30, reward=20.0)],
         ),
         (
-            "extra key",
+            "unknown result",
             [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "onion_soup",
-                    "cook_time": 30,
-                    "reward": 20.0,
-                    "extra_key": True,
-                }
-            ],
-        ),
-        (
-            "non-string ingredient",
-            [{"ingredients": [123], "result": "onion_soup", "cook_time": 30, "reward": 20.0}],
-        ),
-        (
-            "invalid ingredient name",
-            [
-                {
-                    "ingredients": ["nonexistent_object"],
-                    "result": "onion_soup",
-                    "cook_time": 30,
-                    "reward": 20.0,
-                }
-            ],
-        ),
-        (
-            "invalid result name",
-            [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "nonexistent_soup",
-                    "cook_time": 30,
-                    "reward": 20.0,
-                }
-            ],
-        ),
-        (
-            "non-positive cook_time (0)",
-            [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "onion_soup",
-                    "cook_time": 0,
-                    "reward": 20.0,
-                }
-            ],
-        ),
-        (
-            "non-positive cook_time (-1)",
-            [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "onion_soup",
-                    "cook_time": -1,
-                    "reward": 20.0,
-                }
-            ],
-        ),
-        (
-            "non-numeric reward",
-            [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "onion_soup",
-                    "cook_time": 30,
-                    "reward": "bad",
-                }
+                Recipe(
+                    ["onion", "onion", "onion"],
+                    result="nonexistent_soup",
+                    cook_time=30,
+                    reward=20.0,
+                )
             ],
         ),
         (
             "duplicate sorted ingredients",
             [
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "onion_soup",
-                    "cook_time": 30,
-                    "reward": 20.0,
-                },
-                {
-                    "ingredients": ["onion", "onion", "onion"],
-                    "result": "tomato_soup",
-                    "cook_time": 30,
-                    "reward": 15.0,
-                },
+                Recipe(
+                    ["onion", "onion", "onion"],
+                    result="onion_soup",
+                    cook_time=30,
+                    reward=20.0,
+                ),
+                Recipe(
+                    ["onion", "onion", "onion"],
+                    result="tomato_soup",
+                    cook_time=30,
+                    reward=15.0,
+                ),
             ],
         ),
     ]
@@ -825,18 +765,18 @@ def test_custom_recipe_compilation():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
+    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import object_to_idx
-    from cogrid.envs.overcooked.config import compile_recipes
 
     scope = "overcooked"
 
     # 2 onions + 1 tomato, deliberately unsorted
-    custom_recipe = {
-        "ingredients": ["onion", "tomato", "onion"],
-        "result": "onion_soup",
-        "cook_time": 20,
-        "reward": 15.0,
-    }
+    custom_recipe = Recipe(
+        ["onion", "tomato", "onion"],
+        result="onion_soup",
+        cook_time=20,
+        reward=15.0,
+    )
     tables = compile_recipes([custom_recipe], scope)
 
     # Shape check
@@ -856,10 +796,6 @@ def test_custom_recipe_compilation():
     # Cooking time and reward
     assert tables["recipe_cooking_time"][0] == 20
     assert tables["recipe_reward"][0] == 15.0
-
-    # legal_pot_ingredients has 1 for both onion and tomato
-    assert tables["legal_pot_ingredients"][onion_id] == 1
-    assert tables["legal_pot_ingredients"][tomato_id] == 1
 
     # max_ingredients
     assert tables["max_ingredients"] == 3
@@ -881,15 +817,8 @@ def test_mixed_recipe_end_to_end():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
+    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.config import (
-        _build_interaction_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-        overcooked_interaction_fn,
-        overcooked_tick,
-    )
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -897,22 +826,15 @@ def test_mixed_recipe_end_to_end():
 
     # Custom recipe: 2 onion + 1 tomato -> onion_soup, cook_time=20
     custom_recipes = [
-        {
-            "ingredients": ["onion", "onion", "tomato"],
-            "result": "onion_soup",
-            "cook_time": 20,
-            "reward": 15.0,
-        },
+        Recipe(["onion", "onion", "tomato"], result="onion_soup", cook_time=20, reward=15.0),
     ]
 
-    # Build scope_config with custom recipe tables
+    # Build scope_config and overlay custom recipe tables
     scope_cfg = build_scope_config_from_components(scope)
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
     recipe_tables = compile_recipes(custom_recipes, scope=scope)
-    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
-    scope_cfg["static_tables"] = static_tables
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    scope_cfg["static_tables"].update(recipe_tables)
+    interaction_fn = scope_cfg["interaction_fn"]
+    tick_handler = scope_cfg["tick_handler"]
     tables = build_lookup_tables(scope=scope)
 
     type_ids = scope_cfg["type_ids"]
@@ -944,7 +866,7 @@ def test_mixed_recipe_end_to_end():
         state = process_interactions(
             state,
             actions_arr,
-            overcooked_interaction_fn,
+            interaction_fn,
             tables,
             scope_cfg,
             dir_vec,
@@ -967,7 +889,7 @@ def test_mixed_recipe_end_to_end():
     state = process_interactions(
         state,
         actions_arr,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -983,9 +905,14 @@ def test_mixed_recipe_end_to_end():
     assert int(pt[0]) == 20, f"Pot timer should be 20 (custom cook_time), got {int(pt[0])}"
     print("  Placed 1 tomato, pot full, timer=20: OK")
 
-    # --- Step C: Cook for exactly 20 ticks ---
-    for tick_i in range(20):
-        _, pt, _ = overcooked_tick(pc, pt)
+    # --- Step C: Cook for exactly 20 ticks via tick_handler ---
+    state = _make_state(
+        agent_pos, agent_dir, np.array([[-1]], dtype=np.int32), otm, osm, pc, pt, pp
+    )
+    for _ in range(20):
+        state = tick_handler(state, scope_cfg)
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
     assert int(pt[0]) == 0, f"Pot should be done after 20 ticks: {pt[0]}"
     print("  Cooked for 20 ticks, done: OK")
 
@@ -996,7 +923,7 @@ def test_mixed_recipe_end_to_end():
     state = process_interactions(
         state,
         actions_arr,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1022,7 +949,7 @@ def test_mixed_recipe_end_to_end():
     state = process_interactions(
         state,
         actions_arr,
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1049,15 +976,8 @@ def test_per_recipe_cook_time():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
+    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.config import (
-        _build_interaction_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-        overcooked_interaction_fn,
-        overcooked_tick,
-    )
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1065,28 +985,16 @@ def test_per_recipe_cook_time():
 
     # Custom recipes: onion soup cooks in 10 ticks, tomato soup in 50 ticks
     custom_recipes = [
-        {
-            "ingredients": ["onion", "onion", "onion"],
-            "result": "onion_soup",
-            "cook_time": 10,
-            "reward": 20.0,
-        },
-        {
-            "ingredients": ["tomato", "tomato", "tomato"],
-            "result": "tomato_soup",
-            "cook_time": 50,
-            "reward": 20.0,
-        },
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=10, reward=20.0),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=50, reward=20.0),
     ]
 
-    # Build scope_config with custom recipe tables
+    # Build scope_config and overlay custom recipe tables
     scope_cfg = build_scope_config_from_components(scope)
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
     recipe_tables = compile_recipes(custom_recipes, scope=scope)
-    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
-    scope_cfg["static_tables"] = static_tables
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    scope_cfg["static_tables"].update(recipe_tables)
+    interaction_fn = scope_cfg["interaction_fn"]
+    tick_handler = scope_cfg["tick_handler"]
     tables = build_lookup_tables(scope=scope)
 
     type_ids = scope_cfg["type_ids"]
@@ -1118,7 +1026,7 @@ def test_per_recipe_cook_time():
         state = process_interactions(
             state,
             actions_arr,
-            overcooked_interaction_fn,
+            interaction_fn,
             tables,
             scope_cfg,
             dir_vec,
@@ -1134,9 +1042,14 @@ def test_per_recipe_cook_time():
     assert int(pt[0]) == 10, f"Onion recipe timer should be 10, got {int(pt[0])}"
     print("  Onion pot timer=10: OK")
 
-    # Cook for 10 ticks
+    # Cook for 10 ticks via tick_handler
+    state = _make_state(
+        agent_pos, agent_dir, np.array([[-1]], dtype=np.int32), otm, osm, pc, pt, pp
+    )
     for _ in range(10):
-        _, pt, _ = overcooked_tick(pc, pt)
+        state = tick_handler(state, scope_cfg)
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
     assert int(pt[0]) == 0, f"Onion pot should be done after 10 ticks: {pt[0]}"
     print("  Cooked for 10 ticks, done: OK")
 
@@ -1146,7 +1059,7 @@ def test_per_recipe_cook_time():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1173,7 +1086,7 @@ def test_per_recipe_cook_time():
         state = process_interactions(
             state,
             actions_arr,
-            overcooked_interaction_fn,
+            interaction_fn,
             tables,
             scope_cfg,
             dir_vec,
@@ -1189,9 +1102,14 @@ def test_per_recipe_cook_time():
     assert int(pt[0]) == 50, f"Tomato recipe timer should be 50, got {int(pt[0])}"
     print("  Tomato pot timer=50: OK")
 
-    # Cook for 50 ticks
+    # Cook for 50 ticks via tick_handler
+    state = _make_state(
+        agent_pos, agent_dir, np.array([[-1]], dtype=np.int32), otm, osm, pc, pt, pp
+    )
     for _ in range(50):
-        _, pt, _ = overcooked_tick(pc, pt)
+        state = tick_handler(state, scope_cfg)
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
     assert int(pt[0]) == 0, f"Tomato pot should be done after 50 ticks: {pt[0]}"
     print("  Cooked for 50 ticks, done: OK")
 
@@ -1201,7 +1119,7 @@ def test_per_recipe_cook_time():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1247,10 +1165,19 @@ def test_pickup_from_produces_config_driven():
         f"plate_stack should produce plate: {int(pfp[plate_stack_id])} != {plate_id}"
     )
 
-    # Verify no spurious mappings: all other entries should be 0
-    for i in range(len(pfp)):
-        if i not in (onion_stack_id, tomato_stack_id, plate_stack_id):
-            assert int(pfp[i]) == 0, f"Unexpected non-zero entry at index {i}: {int(pfp[i])}"
+    # Verify no spurious mappings among non-stack types.
+    # Other tests may register additional stacks in the same process,
+    # so we only check types whose name does NOT end with "_stack".
+    from cogrid.core.grid_object import get_object_names
+
+    names = get_object_names(scope=scope)
+    known_stacks = {onion_stack_id, tomato_stack_id, plate_stack_id}
+    for i, name in enumerate(names):
+        if i in known_stacks:
+            continue
+        if name is not None and name.endswith("_stack"):
+            continue  # skip stacks registered by other tests
+        assert int(pfp[i]) == 0, f"Unexpected non-zero entry at index {i} ({name}): {int(pfp[i])}"
 
     print("  Config-driven pickup_from_produces: PASSED")
 
@@ -1272,10 +1199,7 @@ def test_stack_subclasses_are_thin():
         assert issubclass(cls, _BaseStack), f"{cls.__name__} should extend _BaseStack"
 
         # Verify NO method overrides in the subclass __dict__
-        for method_name in ("pick_up_from", "render"):
-            assert method_name not in cls.__dict__, (
-                f"{cls.__name__} should NOT define its own {method_name}"
-            )
+        assert "render" not in cls.__dict__, f"{cls.__name__} should NOT define its own render"
 
         # Verify produces is set to a non-None string
         assert isinstance(cls.produces, str) and cls.produces is not None, (
@@ -1303,7 +1227,7 @@ def test_factory_registers_new_types():
     # Check if already registered (from a previous test run in the same process)
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
+        make_ingredient_and_stack("test_mushroom", "9", [139, 90, 43], "test_mushroom_stack", "0")
 
     # Verify both types are registered
     names = get_object_names(scope=scope)
@@ -1344,14 +1268,13 @@ def test_factory_stack_dispenses_item():
     # Register if not already done
     names = get_object_names(scope=scope)
     if "test_mushroom" not in names:
-        make_ingredient_and_stack("test_mushroom", "m", [139, 90, 43], "test_mushroom_stack", "M")
+        make_ingredient_and_stack("test_mushroom", "9", [139, 90, 43], "test_mushroom_stack", "0")
 
-    # Object-level check
+    # Verify stack class has correct produces attr
     stack = make_object("test_mushroom_stack", scope=scope)
     assert stack.can_pickup_from, "Stack should allow pickup"
-    item = stack.pick_up_from(None)
-    assert item.object_id == "test_mushroom", (
-        f"Dispensed item should be test_mushroom, got {item.object_id}"
+    assert stack.produces == "test_mushroom", (
+        f"Stack.produces should be 'test_mushroom', got {stack.produces}"
     )
 
     # Branch 2B integration check: rebuild tables and verify entry
@@ -1385,8 +1308,6 @@ def _make_state_with_orders(
     pot_positions,
     order_recipe=None,
     order_timer=None,
-    order_spawn_counter=None,
-    order_recipe_counter=None,
     order_n_expired=None,
 ):
     """Build a minimal EnvState with optional order arrays for testing."""
@@ -1404,8 +1325,6 @@ def _make_state_with_orders(
     if order_recipe is not None:
         extra_state["overcooked.order_recipe"] = order_recipe
         extra_state["overcooked.order_timer"] = order_timer
-        extra_state["overcooked.order_spawn_counter"] = order_spawn_counter
-        extra_state["overcooked.order_recipe_counter"] = order_recipe_counter
         extra_state["overcooked.order_n_expired"] = order_n_expired
     return EnvState(
         agent_pos=agent_pos,
@@ -1426,10 +1345,10 @@ def _make_state_with_orders(
 
 
 def test_order_tick_lifecycle():
-    """Test order tick mechanics: spawn, countdown, expiry, re-spawn.
+    """Test order tick mechanics: probabilistic spawn, countdown, expiry.
 
-    Uses spawn_interval=5, max_active=2, time_limit=10, uniform weights
-    over 2 recipes.
+    Uses spawn_probs summing to 1.0 (guaranteed spawn each tick per empty slot)
+    with max_active=2, time_limit=10.
     """
     import numpy as np
 
@@ -1437,38 +1356,28 @@ def test_order_tick_lifecycle():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        _build_order_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-        overcooked_tick_state,
-    )
+    from cogrid.envs.overcooked.config import _build_order_tables, order_queue_tick
 
     scope = "overcooked"
     order_config = {
-        "spawn_interval": 5,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 2,
         "time_limit": 10,
-        "recipe_weights": [1.0, 1.0],
     }
 
     # Build scope config with order tables
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
-    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(
-        scope,
-        itables,
-        type_ids_dict,
-        recipe_tables=recipe_tables,
-        order_tables=order_tables,
-    )
     scope_cfg = build_scope_config_from_components(scope)
-    scope_cfg["static_tables"] = static_tables
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
+    scope_cfg["static_tables"].update(order_tables)
+    tick_handler = scope_cfg["tick_handler"]
+
+    # Compose pot tick + order tick
+    def composed_tick(state, sc):
+        state = tick_handler(state, sc)
+        state = order_queue_tick(state, sc)
+        return state
+
+    type_ids = scope_cfg["type_ids"]
 
     # Setup: minimal grid with 1 pot
     agent_pos = np.array([[2, 3]], dtype=np.int32)
@@ -1476,17 +1385,15 @@ def test_order_tick_lifecycle():
     agent_inv = np.array([[-1]], dtype=np.int32)
     otm = np.zeros((7, 7), dtype=np.int32)
     osm = np.zeros((7, 7), dtype=np.int32)
-    pot_id = type_ids_dict["pot"]
+    pot_id = type_ids["pot"]
     otm[2, 4] = pot_id
     pp = np.array([[2, 4]], dtype=np.int32)
     pc = np.array([[-1, -1, -1]], dtype=np.int32)
     pt = np.array([30], dtype=np.int32)
 
-    # Order arrays: empty queue, counter starts at 5
+    # Order arrays: empty queue
     order_recipe = np.full((2,), -1, dtype=np.int32)
     order_timer = np.zeros((2,), dtype=np.int32)
-    order_spawn_counter = np.int32(5)
-    order_recipe_counter = np.int32(0)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1500,54 +1407,36 @@ def test_order_tick_lifecycle():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
     print("Order tick lifecycle test:")
 
-    # Phase A: 5 ticks -> first order spawns
-    for i in range(5):
-        state = overcooked_tick_state(state, scope_cfg)
+    # Phase A: 1 tick with p=1.0 -> both slots should spawn immediately
+    state = composed_tick(state, scope_cfg)
 
     or_ = state.extra_state["overcooked.order_recipe"]
     ot_ = state.extra_state["overcooked.order_timer"]
-    osc = state.extra_state["overcooked.order_spawn_counter"]
-    assert int(or_[0]) == 0, f"Phase A: first order should be recipe 0, got {int(or_[0])}"
-    assert int(ot_[0]) == 10, f"Phase A: first order timer should be 10, got {int(ot_[0])}"
-    assert int(osc) == 5, f"Phase A: spawn counter should reset to 5, got {int(osc)}"
-    print("  Phase A (first spawn after 5 ticks): OK")
+    assert int(or_[0]) in (0, 1), f"Phase A: slot 0 should have a recipe, got {int(or_[0])}"
+    assert int(or_[1]) in (0, 1), f"Phase A: slot 1 should have a recipe, got {int(or_[1])}"
+    assert int(ot_[0]) == 10, f"Phase A: slot 0 timer should be 10, got {int(ot_[0])}"
+    assert int(ot_[1]) == 10, f"Phase A: slot 1 timer should be 10, got {int(ot_[1])}"
+    print("  Phase A (immediate spawn with p=1.0): OK")
 
-    # Phase B: 5 more ticks -> second order spawns, first timer decrements
-    for i in range(5):
-        state = overcooked_tick_state(state, scope_cfg)
+    # Phase B: 10 more ticks -> both orders expire (timers go from 10 to 0)
+    for i in range(10):
+        state = composed_tick(state, scope_cfg)
 
-    or_ = state.extra_state["overcooked.order_recipe"]
-    ot_ = state.extra_state["overcooked.order_timer"]
-    assert int(or_[1]) == 1, f"Phase B: second order should be recipe 1, got {int(or_[1])}"
-    assert int(ot_[1]) == 10, f"Phase B: second order timer should be 10, got {int(ot_[1])}"
-    assert int(ot_[0]) == 5, f"Phase B: first order timer should be 5, got {int(ot_[0])}"
-    print("  Phase B (second spawn, first countdown): OK")
-
-    # Phase C: 5 more ticks -> first order expires (timer was 5)
-    for i in range(5):
-        state = overcooked_tick_state(state, scope_cfg)
-
-    or_ = state.extra_state["overcooked.order_recipe"]
-    ot_ = state.extra_state["overcooked.order_timer"]
     one = state.extra_state["overcooked.order_n_expired"]
-    assert int(or_[0]) != -1 or int(one) >= 1, (
-        f"Phase C: first order should have expired. or_[0]={int(or_[0])}, n_expired={int(one)}"
-    )
-    # The first order expired at tick 10 (timer went from 5 to 0).
-    # But a new spawn also happened at tick 15 (counter reset at tick 10, then -5 again).
-    # The new spawn fills the first empty slot (slot 0 since it expired).
-    print(f"  Phase C (expiry + re-spawn): n_expired={int(one)}, or_={[int(x) for x in or_]}")
+    assert int(one) >= 2, f"Phase B: expected at least 2 expired orders, got {int(one)}"
+    print(f"  Phase B (expiry after 10 ticks): n_expired={int(one)}")
 
-    # Phase D: Verify we've had at least one expiry
-    assert int(one) >= 1, f"Phase D: expected at least 1 expired order, got {int(one)}"
-    print("  Phase D (expiry tracked): OK")
+    # Phase C: After expiry, re-spawning should fill empty slots again
+    or_ = state.extra_state["overcooked.order_recipe"]
+    # With p=1.0, expired slots should be re-filled in the same tick they expire
+    assert int(or_[0]) in (0, 1), f"Phase C: slot 0 should re-spawn, got {int(or_[0])}"
+    assert int(or_[1]) in (0, 1), f"Phase C: slot 1 should re-spawn, got {int(or_[1])}"
+    print("  Phase C (re-spawn after expiry): OK")
 
     print("  PASSED")
 
@@ -1562,41 +1451,23 @@ def test_order_delivery_consumes_order():
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
     from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        _build_order_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-        overcooked_interaction_fn,
-    )
+    from cogrid.envs.overcooked.config import _build_order_tables
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
     PICKUP_DROP = 4
 
     order_config = {
-        "spawn_interval": 1,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 3,
         "time_limit": 1000,
     }
 
     # Build scope_config with order tables
     scope_cfg = build_scope_config_from_components(scope)
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
-    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(
-        scope,
-        itables,
-        type_ids_dict,
-        recipe_tables=recipe_tables,
-        order_tables=order_tables,
-    )
-    scope_cfg["static_tables"] = static_tables
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
+    scope_cfg["static_tables"].update(order_tables)
+    interaction_fn = scope_cfg["interaction_fn"]
     tables = build_lookup_tables(scope=scope)
 
     type_ids = scope_cfg["type_ids"]
@@ -1619,8 +1490,6 @@ def test_order_delivery_consumes_order():
     # Inject active order: recipe 0 = onion_soup
     order_recipe = np.array([0, -1, -1], dtype=np.int32)
     order_timer = np.array([100, 0, 0], dtype=np.int32)
-    order_spawn_counter = np.int32(10)
-    order_recipe_counter = np.int32(1)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1634,15 +1503,13 @@ def test_order_delivery_consumes_order():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1669,40 +1536,22 @@ def test_order_delivery_without_matching_order():
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
     from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        _build_order_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-        overcooked_interaction_fn,
-    )
+    from cogrid.envs.overcooked.config import _build_order_tables
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
     PICKUP_DROP = 4
 
     order_config = {
-        "spawn_interval": 1,
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
         "max_active": 3,
         "time_limit": 1000,
     }
 
     scope_cfg = build_scope_config_from_components(scope)
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
-    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(
-        scope,
-        itables,
-        type_ids_dict,
-        recipe_tables=recipe_tables,
-        order_tables=order_tables,
-    )
-    scope_cfg["static_tables"] = static_tables
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
+    scope_cfg["static_tables"].update(order_tables)
+    interaction_fn = scope_cfg["interaction_fn"]
     tables = build_lookup_tables(scope=scope)
 
     type_ids = scope_cfg["type_ids"]
@@ -1724,8 +1573,6 @@ def test_order_delivery_without_matching_order():
     # No active orders
     order_recipe = np.array([-1, -1, -1], dtype=np.int32)
     order_timer = np.array([0, 0, 0], dtype=np.int32)
-    order_spawn_counter = np.int32(10)
-    order_recipe_counter = np.int32(0)
     order_n_expired = np.int32(0)
 
     state = _make_state_with_orders(
@@ -1739,15 +1586,13 @@ def test_order_delivery_without_matching_order():
         pp,
         order_recipe=order_recipe,
         order_timer=order_timer,
-        order_spawn_counter=order_spawn_counter,
-        order_recipe_counter=order_recipe_counter,
         order_n_expired=order_n_expired,
     )
 
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1774,12 +1619,7 @@ def test_order_backward_compat_no_config():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
-    from cogrid.envs.overcooked.config import (
-        build_overcooked_extra_state,
-        overcooked_interaction_fn,
-        overcooked_tick,
-    )
+    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1787,31 +1627,21 @@ def test_order_backward_compat_no_config():
 
     print("Order backward compat (no config) test:")
 
-    # Build extra_state with no order_config
-    otm = np.zeros((7, 7), dtype=np.int32)
-    from cogrid.core.grid_object import object_to_idx
+    # Use autowired scope_cfg directly (no order config)
+    scope_cfg = build_scope_config_from_components(scope)
+    interaction_fn = scope_cfg["interaction_fn"]
+    tick_handler = scope_cfg["tick_handler"]
+    tables = build_lookup_tables(scope=scope)
 
     pot_id = object_to_idx("pot", scope=scope)
     onion_id = object_to_idx("onion", scope=scope)
     plate_id = object_to_idx("plate", scope=scope)
     onion_soup_id = object_to_idx("onion_soup", scope=scope)
     delivery_zone_id = object_to_idx("delivery_zone", scope=scope)
-    otm[2, 4] = pot_id
-
-    extra = build_overcooked_extra_state({"object_type_map": otm}, scope=scope)
-
-    # Assert no order keys
-    assert "overcooked.order_recipe" not in extra, (
-        "No order keys should be present without order_config"
-    )
-    assert "overcooked.order_timer" not in extra
-    assert "overcooked.order_spawn_counter" not in extra
-    print("  No order keys in extra_state: OK")
 
     # Full workflow: place 3 onions, cook, pickup, deliver
-    scope_cfg = build_scope_config_from_components(scope)
-    scope_cfg["interaction_fn"] = overcooked_interaction_fn
-    tables = build_lookup_tables(scope=scope)
+    otm = np.zeros((7, 7), dtype=np.int32)
+    otm[2, 4] = pot_id
 
     agent_pos = np.array([[2, 3]], dtype=np.int32)
     agent_dir = np.array([0], dtype=np.int32)
@@ -1827,7 +1657,7 @@ def test_order_backward_compat_no_config():
         state = process_interactions(
             state,
             np.array([PICKUP_DROP], dtype=np.int32),
-            overcooked_interaction_fn,
+            interaction_fn,
             tables,
             scope_cfg,
             dir_vec,
@@ -1839,9 +1669,14 @@ def test_order_backward_compat_no_config():
         pc = state.extra_state["overcooked.pot_contents"]
         pt = state.extra_state["overcooked.pot_timer"]
 
-    # Cook for 30 ticks
+    # Cook for 30 ticks via tick_handler
+    state = _make_state(
+        agent_pos, agent_dir, np.array([[-1]], dtype=np.int32), otm, osm, pc, pt, pp
+    )
     for _ in range(30):
-        _, pt, _ = overcooked_tick(pc, pt)
+        state = tick_handler(state, scope_cfg)
+    pc = state.extra_state["overcooked.pot_contents"]
+    pt = state.extra_state["overcooked.pot_timer"]
 
     # Pickup with plate
     agent_inv = np.array([[plate_id]], dtype=np.int32)
@@ -1849,7 +1684,7 @@ def test_order_backward_compat_no_config():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1871,7 +1706,7 @@ def test_order_backward_compat_no_config():
     state = process_interactions(
         state,
         np.array([PICKUP_DROP], dtype=np.int32),
-        overcooked_interaction_fn,
+        interaction_fn,
         tables,
         scope_cfg,
         dir_vec,
@@ -1929,7 +1764,7 @@ def test_delivery_reward_uses_is_deliverable():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -1948,6 +1783,8 @@ def test_delivery_reward_uses_is_deliverable():
         "static_tables": static_tables,
     }
 
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+
     print("test_delivery_reward_uses_is_deliverable:")
 
     # Agent holds onion_soup (deliverable), faces delivery zone
@@ -1964,9 +1801,7 @@ def test_delivery_reward_uses_is_deliverable():
     )
     actions = np.array([4], dtype=np.int32)
 
-    r = delivery_reward(
-        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r = delivery.compute(prev_state, prev_state, actions, reward_config)
     assert float(r[0]) > 0, f"Deliverable item should earn reward, got {float(r[0])}"
     print("  Deliverable item (onion_soup) earns reward: OK")
 
@@ -1980,9 +1815,7 @@ def test_delivery_reward_uses_is_deliverable():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_state2, prev_state2, actions, reward_config)
     assert float(r2[0]) == 0.0, f"Non-deliverable should get 0, got {float(r2[0])}"
     print("  Non-deliverable item (onion) gets zero: OK")
 
@@ -1998,13 +1831,8 @@ def test_delivery_reward_per_recipe_values():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.config import (
-        _build_interaction_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-    )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.core.containers import Recipe, compile_recipes
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2012,23 +1840,12 @@ def test_delivery_reward_per_recipe_values():
 
     # Custom recipes with different reward values
     custom_recipes = [
-        {
-            "ingredients": ["onion", "onion", "onion"],
-            "result": "onion_soup",
-            "cook_time": 30,
-            "reward": 20.0,
-        },
-        {
-            "ingredients": ["tomato", "tomato", "tomato"],
-            "result": "tomato_soup",
-            "cook_time": 30,
-            "reward": 30.0,
-        },
+        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=20.0),
+        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30, reward=30.0),
     ]
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
     recipe_tables = compile_recipes(custom_recipes, scope=scope)
-    static_tables = _build_static_tables(scope, itables, type_ids_dict, recipe_tables=recipe_tables)
+    static_tables = dict(scope_cfg["static_tables"])
+    static_tables.update(recipe_tables)
 
     onion_soup_id = type_ids["onion_soup"]
     tomato_soup_id = type_ids["tomato_soup"]
@@ -2041,6 +1858,8 @@ def test_delivery_reward_per_recipe_values():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
+
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_per_recipe_values:")
 
@@ -2058,9 +1877,7 @@ def test_delivery_reward_per_recipe_values():
         },
         n_agents=1,
     )
-    r = delivery_reward(
-        prev_state, prev_state, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r = delivery.compute(prev_state, prev_state, actions, reward_config)
     assert float(r[0]) == 30.0, f"Expected 30.0 for tomato_soup, got {float(r[0])}"
     print("  Tomato soup reward = 30.0: OK")
 
@@ -2074,9 +1891,7 @@ def test_delivery_reward_per_recipe_values():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_state2, prev_state2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_state2, prev_state2, actions, reward_config)
     assert float(r2[0]) == 20.0, f"Expected 20.0 for onion_soup, got {float(r2[0])}"
     print("  Onion soup reward = 20.0: OK")
 
@@ -2092,28 +1907,17 @@ def test_delivery_reward_order_match_required():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        _build_order_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-    )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.config import _build_order_tables
+    from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 1000}
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
-    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(
-        scope, itables, type_ids_dict, recipe_tables=recipe_tables, order_tables=order_tables
-    )
+    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 1000}
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
+    static_tables = dict(scope_cfg["static_tables"])
+    static_tables.update(order_tables)
 
     onion_soup_id = type_ids["onion_soup"]
     dz_id = type_ids["delivery_zone"]
@@ -2125,6 +1929,8 @@ def test_delivery_reward_order_match_required():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
+
+    delivery = OrderDeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_order_match_required:")
 
@@ -2156,7 +1962,7 @@ def test_delivery_reward_order_match_required():
         },
         n_agents=1,
     )
-    r = delivery_reward(prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config)
+    r = delivery.compute(prev_sv, curr_sv, actions, reward_config)
     assert float(r[0]) > 0, f"Matching order should earn reward, got {float(r[0])}"
     print("  Matching order -> reward fires: OK")
 
@@ -2183,9 +1989,7 @@ def test_delivery_reward_order_match_required():
         },
         n_agents=1,
     )
-    r2 = delivery_reward(
-        prev_sv2, curr_sv2, actions, type_ids, n_agents, reward_config=reward_config
-    )
+    r2 = delivery.compute(prev_sv2, curr_sv2, actions, reward_config)
     assert float(r2[0]) == 0.0, f"No matching order should yield zero, got {float(r2[0])}"
     print("  No matching order -> zero reward: OK")
 
@@ -2205,14 +2009,14 @@ def test_expired_order_penalty():
     print("test_expired_order_penalty:")
 
     n_agents = 2
-    reward_config = {"n_agents": n_agents, "expired_order_penalty": -5.0}
+    reward_config = {"n_agents": n_agents}
 
     # prev_state: order_n_expired=0, state: order_n_expired=2
     prev_sv = _sv_from_dict({"order_n_expired": np.int32(0)}, n_agents=n_agents)
     curr_sv = _sv_from_dict({"order_n_expired": np.int32(2)}, n_agents=n_agents)
     actions = np.array([6, 6], dtype=np.int32)  # Noop
 
-    penalty = ExpiredOrderPenalty()
+    penalty = ExpiredOrderPenalty(penalty=-5.0)
     r = penalty.compute(prev_sv, curr_sv, actions, reward_config)
     expected = 2 * (-5.0)
     assert float(r[0]) == expected, f"Expected {expected}, got {float(r[0])}"
@@ -2238,7 +2042,7 @@ def test_delivery_reward_backward_compat_no_orders():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
@@ -2256,6 +2060,8 @@ def test_delivery_reward_backward_compat_no_orders():
         "static_tables": static_tables,
     }
 
+    delivery = DeliveryReward(coefficient=1.0, common_reward=True)
+
     print("test_delivery_reward_backward_compat_no_orders:")
 
     otm = np.zeros((5, 5), dtype=np.int32)
@@ -2272,7 +2078,7 @@ def test_delivery_reward_backward_compat_no_orders():
         },
         n_agents=1,
     )
-    r = delivery_reward(prev_sv, prev_sv, actions, type_ids, n_agents, reward_config=reward_config)
+    r = delivery.compute(prev_sv, prev_sv, actions, reward_config)
     assert float(r[0]) > 0, f"No orders -> unconditional reward, got {float(r[0])}"
     print("  No order arrays -> reward fires unconditionally: OK")
 
@@ -2313,33 +2119,36 @@ def test_order_config_validation():
 
     print("Order config validation test:")
 
+    recipe_results = ["onion_soup", "tomato_soup"]
+
     # Case 1: None -> disabled
-    result = _build_order_tables(None, 2)
+    result = _build_order_tables(None, recipe_results)
     assert result == {"order_enabled": False}, f"Expected disabled, got {result}"
     print("  None config -> disabled: OK")
 
-    # Case 2: Valid config with defaults
-    result = _build_order_tables({"spawn_interval": 10, "max_active": 5, "time_limit": 100}, 2)
+    # Case 2: Valid config with spawn_probs
+    result = _build_order_tables(
+        {"spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05}, "max_active": 5, "time_limit": 100},
+        recipe_results,
+    )
     assert result["order_enabled"] is True
-    assert int(result["order_spawn_interval"]) == 10
     assert int(result["order_max_active"]) == 5
     assert int(result["order_time_limit"]) == 100
-    assert len(result["order_spawn_cycle"]) == 2, (
-        "Uniform weights over 2 recipes should give cycle of length 2, "
-        f"got {len(result['order_spawn_cycle'])}"
-    )
-    assert list(result["order_spawn_cycle"]) == [0, 1]
-    print("  Valid config with uniform weights: OK")
+    probs = result["order_spawn_probs"]
+    assert abs(float(probs[0]) - 0.05) < 1e-6, f"onion_soup prob should be 0.05, got {float(probs[0])}"
+    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    print("  Valid config with spawn_probs: OK")
 
-    # Case 3: Weighted config
+    # Case 3: Asymmetric probs
     result = _build_order_tables(
-        {"spawn_interval": 10, "max_active": 5, "time_limit": 100, "recipe_weights": [2.0, 1.0]},
-        2,
+        {"spawn_probs": {"onion_soup": 0.1, "tomato_soup": 0.05}, "max_active": 3, "time_limit": 100},
+        recipe_results,
     )
     assert result["order_enabled"] is True
-    cycle = list(result["order_spawn_cycle"])
-    assert cycle == [0, 0, 1], f"Weights [2.0, 1.0] should give cycle [0, 0, 1], got {cycle}"
-    print("  Weighted config [2.0, 1.0] -> cycle [0, 0, 1]: OK")
+    probs = result["order_spawn_probs"]
+    assert abs(float(probs[0]) - 0.1) < 1e-6, f"onion_soup prob should be 0.1, got {float(probs[0])}"
+    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    print("  Asymmetric probs: OK")
 
     print("  PASSED")
 
@@ -2353,32 +2162,23 @@ def test_delivery_reward_tip_bonus():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.envs.overcooked.config import (
-        DEFAULT_RECIPES,
-        _build_interaction_tables,
-        _build_order_tables,
-        _build_static_tables,
-        _build_type_ids,
-        compile_recipes,
-    )
-    from cogrid.envs.overcooked.rewards import delivery_reward
+    from cogrid.envs.overcooked.config import _build_order_tables
+    from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 
     scope = "overcooked"
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_interval": 1, "max_active": 3, "time_limit": 200}
-    itables = _build_interaction_tables(scope)
-    type_ids_dict = _build_type_ids(scope)
-    recipe_tables = compile_recipes(DEFAULT_RECIPES, scope=scope)
-    order_tables = _build_order_tables(order_config, n_recipes=len(DEFAULT_RECIPES))
-    static_tables = _build_static_tables(
-        scope, itables, type_ids_dict, recipe_tables=recipe_tables, order_tables=order_tables
-    )
+    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 200}
+    order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
+    static_tables = dict(scope_cfg["static_tables"])
+    static_tables.update(order_tables)
 
     onion_soup_id = type_ids["onion_soup"]
     dz_id = type_ids["delivery_zone"]
     n_agents = 1
+
+    delivery = OrderDeliveryReward(coefficient=1.0, common_reward=True)
 
     print("test_delivery_reward_tip_bonus:")
 
@@ -2418,10 +2218,8 @@ def test_delivery_reward_tip_bonus():
         "static_tables": static_tables,
         "tip_coefficient": 10.0,
     }
-    r = delivery_reward(
-        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_with_tip
-    )
-    # Base recipe reward (20.0 for onion_soup) + tip (5.0) = 25.0
+    r = delivery.compute(prev_sv, curr_sv, actions, reward_config_with_tip)
+    # Base recipe reward (1.0 for onion_soup from default Pot recipes) + tip (5.0)
     expected_tip = 100.0 / 200.0 * 10.0  # 5.0
     base_reward = float(r[0]) - expected_tip
     assert base_reward > 0, f"Base reward should be positive, got {base_reward}"
@@ -2440,9 +2238,7 @@ def test_delivery_reward_tip_bonus():
         "action_pickup_drop_idx": 4,
         "static_tables": static_tables,
     }
-    r2 = delivery_reward(
-        prev_sv, curr_sv, actions, type_ids, n_agents, reward_config=reward_config_no_tip
-    )
+    r2 = delivery.compute(prev_sv, curr_sv, actions, reward_config_no_tip)
     assert float(r2[0]) == base_reward, (
         f"Without tip_coefficient, reward should be {base_reward}, got {float(r2[0])}"
     )

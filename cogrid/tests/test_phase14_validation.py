@@ -153,7 +153,7 @@ def test_autowired_overcooked_jit_vmap_1024():
     batched_reset = jax.jit(jax.vmap(reset_fn))
     batched_step = jax.jit(jax.vmap(step_fn))
 
-    states, obs = batched_reset(keys)
+    obs, states, _ = batched_reset(keys)
 
     # Verify batch dimension on obs
     assert obs.shape[0] == N_ENVS, f"Expected obs batch dim {N_ENVS}, got {obs.shape[0]}"
@@ -163,7 +163,7 @@ def test_autowired_overcooked_jit_vmap_1024():
         # Cycle through actions deterministically
         action_val = step_i % 7
         actions = jnp.full((N_ENVS, n_agents), action_val, dtype=jnp.int32)
-        states, obs, rew, term, trunc, _ = batched_step(states, actions)
+        obs, states, rew, term, trunc, _ = batched_step(states, actions)
 
         # Shape checks
         assert rew.shape == (N_ENVS, n_agents), (

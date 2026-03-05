@@ -320,7 +320,7 @@ def dist_to_other_players_feature(agent_pos, agent_idx, n_agents):
     return xp.stack([dys, dxs], axis=1).ravel().astype(xp.int32)
 
 
-def layout_id_feature(layout_idx, num_layouts=5):
+def layout_id_feature(layout_idx, num_layouts=7):
     """(num_layouts,) one-hot layout identifier."""
     return (xp.arange(num_layouts) == layout_idx).astype(xp.int32)
 
@@ -632,6 +632,9 @@ _TYPE_MASK_NAMES = [
     "onion_stack",
     "plate",
     "plate_stack",
+    "tomato",
+    "tomato_soup",
+    "tomato_stack",
 ]
 _TYPE_MASK_MAX_H = 7  # max rows across all Overcooked layouts
 _TYPE_MASK_MAX_W = 11  # max cols across all Overcooked layouts
@@ -660,10 +663,10 @@ def object_type_masks_feature(object_type_map, object_state_map, type_ids):
 
 @register_feature_type("object_type_masks", scope="overcooked")
 class ObjectTypeMasks(Feature):
-    """Binary spatial masks for 7 object types."""
+    """Binary spatial masks for object types."""
 
     per_agent = False
-    obs_dim = len(_TYPE_MASK_NAMES) * _TYPE_MASK_CELLS  # 7 * 77 = 539
+    obs_dim = len(_TYPE_MASK_NAMES) * _TYPE_MASK_CELLS  # 10 * 77 = 770
 
     @classmethod
     def build_feature_fn(cls, scope):
@@ -738,7 +741,7 @@ class LayoutID(Feature):
     """One-hot layout identifier feature."""
 
     per_agent = False
-    obs_dim = 5
+    obs_dim = 7
     _layout_idx = 0  # Set before build_feature_fn; Phase 18 wires this
 
     @classmethod
@@ -791,17 +794,8 @@ from cogrid.core.component_registry import (  # noqa: E402
 
 
 def _overcooked_pre_compose_hook(layout_idx: int, scope: str, env_config=None) -> None:
-    """Set LayoutID._layout_idx and Pot config before feature composition."""
+    """Set LayoutID._layout_idx before feature composition."""
     LayoutID._layout_idx = layout_idx
-
-    from cogrid.envs.overcooked.overcooked_grid_objects import Pot
-
-    if env_config is not None:
-        Pot._recipes_config = env_config.get("recipes")
-        Pot._orders_config = env_config.get("orders")
-    else:
-        Pot._recipes_config = None
-        Pot._orders_config = None
 
 
 register_pre_compose_hook("overcooked", _overcooked_pre_compose_hook)
@@ -814,5 +808,7 @@ register_layout_indices(
         "overcooked_coordination_ring_v0": 2,
         "overcooked_forced_coordination_v0": 3,
         "overcooked_counter_circuit_v0": 4,
+        "overcooked_mixed_kitchen_v0": 5,
+        "overcooked_order_delivery_v0": 6,
     },
 )

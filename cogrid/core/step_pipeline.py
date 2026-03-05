@@ -20,7 +20,7 @@ Public API:
 - :func:`build_step_fn` -- init-time factory: closes over static config,
   returns ``(state, actions) -> ...`` closure (auto-JIT on JAX).
 - :func:`build_reset_fn` -- init-time factory: closes over layout config,
-  returns ``(rng) -> (state, obs)`` closure (auto-JIT on JAX).
+  returns ``(rng) -> (obs, state, infos)`` closure (auto-JIT on JAX).
 
 Usage::
 
@@ -129,7 +129,7 @@ def step(
     (4) interactions, (5) observations, (6) rewards, (7) terminateds/
     truncateds, (8) stop_gradient (JAX only).
 
-    Returns ``(state, obs, rewards, terminateds, truncateds, infos)``.
+    Returns ``(obs, state, rewards, terminateds, truncateds, infos)``.
     """
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
@@ -202,7 +202,7 @@ def step(
     )
 
     # k. Return
-    return state, obs, rewards, terminateds, truncateds, {}
+    return obs, state, rewards, terminateds, truncateds, {}
 
 
 def reset(
@@ -219,7 +219,7 @@ def reset(
     """Build initial EnvState from pre-computed layout arrays.
 
     Layout data is pre-computed at init time; this function only
-    randomizes agent initial directions. Returns ``(state, obs)``.
+    randomizes agent initial directions. Returns ``(obs, state, infos)``.
     """
     # Backend-specific RNG for random initial directions
     key, agent_dir = _backend_rng(rng, "directions", n_agents)
@@ -276,7 +276,7 @@ def reset(
     # Stop gradient (JAX only, no-op on numpy)
     (obs,) = _maybe_stop_gradient(obs)
 
-    return state, obs
+    return obs, state, {}
 
 
 def build_step_fn(
@@ -292,7 +292,7 @@ def build_step_fn(
 ):
     """Close over static config and return a step function.
 
-    ``(state, actions) -> (state, obs, rewards, terminateds, truncateds, infos)``
+    ``(state, actions) -> (obs, state, rewards, terminateds, truncateds, infos)``
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
@@ -326,7 +326,7 @@ def build_reset_fn(
 ):
     """Close over layout config and return a reset function.
 
-    ``(rng) -> (state, obs)``
+    ``(rng) -> (obs, state, infos)``
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """

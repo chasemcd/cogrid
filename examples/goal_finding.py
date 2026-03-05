@@ -30,7 +30,6 @@ from cogrid.core.constants import Colors
 class Goal(GridObj):
     """A goal cell that agents can walk onto."""
 
-    object_id = "goal"
     color = Colors.Green
     char = "g"
     can_overlap = when()
@@ -60,30 +59,20 @@ layouts.register_layout(
 )
 
 
-# -- 3. Register a Reward subclass ---------------------------------------------
+# -- 3. Define a Reward subclass ------------------------------------------------
 #
 # Reward.compute() returns final (n_agents,) rewards. The autowire
-# layer just sums all registered rewards -- coefficient weighting and
+# layer just sums all reward instances -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
-from cogrid.core.rewards import Reward
-from cogrid.core.component_registry import register_reward_type
+from cogrid.core.rewards import InteractionReward
 
 
-@register_reward_type("goal", scope="global")
-class GoalReward(Reward):
-    def compute(self, prev_state, state, actions, reward_config):
-        from cogrid.backend import xp
+class GoalReward(InteractionReward):
+    """Reward for standing on a goal cell."""
 
-        goal_id = reward_config["type_ids"].get("goal", -1)
-        n_agents = reward_config["n_agents"]
-        otm = state.object_type_map
-        rows = state.agent_pos[:, 0]
-        cols = state.agent_pos[:, 1]
-        on_goal = (otm[rows, cols] == goal_id).astype(xp.float32)
-        # Common reward: if any agent reaches the goal, all agents get +1.0
-        n_earners = xp.sum(on_goal)
-        return xp.full(n_agents, n_earners * 1.0, dtype=xp.float32)
+    action = None
+    overlaps = "goal"
 
 
 # -- 4. Termination function --------------------------------------------------
@@ -115,7 +104,7 @@ goal_config = {
     "num_agents": 2,
     "action_set": "cardinal_actions",
     "features": ["agent_dir", "agent_position", "can_move_direction", "inventory"],
-    "rewards": [],  # We use the Reward component pipeline, not the legacy one
+    "rewards": [GoalReward(coefficient=1.0, common_reward=True)],
     "grid": {"layout": "goal_simple_v0"},
     "max_steps": 50,
     "scope": "global",
@@ -193,9 +182,9 @@ def run_jax():
     reset_fn = env.jax_reset  # JIT-compiled reset function
 
     key = jax.random.key(0)
-    state, obs = reset_fn(key)
+    obs, state, _ = reset_fn(key)
     actions = jnp.array([0, 3], dtype=jnp.int32)  # Agent 0: Up, Agent 1: Right
-    state, obs, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
+    obs, state, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
     print(f"Functional API -- reward: {rew}, terms: {terminateds_arr}, truncs: {truncateds_arr}")
     print()
 
@@ -206,7 +195,7 @@ def run_jax():
     batched_reset = jax.jit(jax.vmap(reset_fn))
     batched_step = jax.jit(jax.vmap(step_fn))
 
-    batched_state, batched_obs = batched_reset(keys)
+    batched_obs, batched_state, _ = batched_reset(keys)
     print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs.shape}")
 
     # Run 50 steps across all 1024 envs with random cardinal actions
@@ -216,7 +205,7 @@ def run_jax():
     for _ in range(n_steps):
         action_key, subkey = jax.random.split(action_key)
         batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
-        batched_state, batched_obs, batched_rew, *_ = batched_step(batched_state, batched_actions)
+        batched_obs, batched_state, batched_rew, *_ = batched_step(batched_state, batched_actions)
         total_reward += batched_rew.sum()
 
     total_reward /= n_envs

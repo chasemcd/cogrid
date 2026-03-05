@@ -39,7 +39,7 @@ def _setup_overcooked_config():
     import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.core.autowire import (
         build_feature_config_from_components,
-        build_reward_config_from_components,
+        build_reward_config,
         build_scope_config_from_components,
     )
     from cogrid.core.grid_object import build_lookup_tables
@@ -60,11 +60,23 @@ def _setup_overcooked_config():
 
     type_ids = scope_config["type_ids"]
 
-    reward_config = build_reward_config_from_components(
-        "overcooked",
+    from cogrid.envs.overcooked.rewards import (
+        DeliveryReward,
+        OnionInPotReward,
+        SoupInDishReward,
+    )
+
+    reward_instances = [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ]
+    reward_config = build_reward_config(
+        reward_instances,
         n_agents=n_agents,
         type_ids=type_ids,
         action_pickup_drop_idx=4,
+        action_toggle_idx=5,
     )
 
     action_pickup_drop_idx = 4
@@ -121,7 +133,7 @@ def test_step_numpy_backend():
         set_backend("numpy")
 
         # Reset
-        state, obs = reset(
+        obs, state, _ = reset(
             42,
             layout_arrays=cfg["layout_arrays"],
             spawn_positions=cfg["spawn_positions"],
@@ -151,7 +163,7 @@ def test_step_numpy_backend():
         )
 
         assert len(result) == 6
-        state, obs, rewards, terminateds, truncateds, infos = result
+        obs, state, rewards, terminateds, truncateds, infos = result
         assert isinstance(state, EnvState)
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
@@ -160,7 +172,7 @@ def test_step_numpy_backend():
 
         # Run 5 more steps
         for _ in range(5):
-            state, obs, rewards, terminateds, truncateds, infos = step(
+            obs, state, rewards, terminateds, truncateds, infos = step(
                 state,
                 actions,
                 scope_config=cfg["scope_config"],
@@ -224,7 +236,7 @@ def test_step_jax_backend_eager():
 
         # Reset
         rng = jax.random.key(42)
-        state, obs = reset(
+        obs, state, _ = reset(
             rng,
             layout_arrays=layout_arrays,
             spawn_positions=spawn_positions,
@@ -240,7 +252,7 @@ def test_step_jax_backend_eager():
 
         # Step
         actions = jnp.zeros(n_agents, dtype=jnp.int32)
-        state, obs, rewards, terminateds, truncateds, infos = step(
+        obs, state, rewards, terminateds, truncateds, infos = step(
             state,
             actions,
             scope_config=scope_config,
@@ -259,7 +271,7 @@ def test_step_jax_backend_eager():
 
         # Run 5 more steps
         for _ in range(5):
-            state, obs, rewards, terminateds, truncateds, infos = step(
+            obs, state, rewards, terminateds, truncateds, infos = step(
                 state,
                 actions,
                 scope_config=scope_config,
@@ -341,13 +353,13 @@ def test_build_step_fn_jit_compiles():
         )
 
         # Reset -- first call triggers JIT compilation
-        state, obs = reset_fn(jax.random.key(42))
+        obs, state, _ = reset_fn(jax.random.key(42))
         assert isinstance(state, EnvState)
         assert obs.shape[0] == n_agents
 
         # Step -- first call triggers JIT compilation
         actions = jnp.zeros(n_agents, dtype=jnp.int32)
-        state, obs, rewards, terminateds, truncateds, infos = step_fn(state, actions)
+        obs, state, rewards, terminateds, truncateds, infos = step_fn(state, actions)
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
         assert terminateds.shape == (n_agents,)
@@ -355,7 +367,7 @@ def test_build_step_fn_jit_compiles():
 
         # Run 10 more steps to verify repeated execution
         for _ in range(10):
-            state, obs, rewards, terminateds, truncateds, infos = step_fn(state, actions)
+            obs, state, rewards, terminateds, truncateds, infos = step_fn(state, actions)
 
         assert obs.shape[0] == n_agents
         assert rewards.shape == (n_agents,)
