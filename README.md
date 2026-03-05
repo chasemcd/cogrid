@@ -10,7 +10,7 @@
 | cogrid/backend/array\_ops.py                                |       17 |        4 |     76% | 17, 35-39 |
 | cogrid/backend/env\_state.py                                |       50 |       32 |     36% |100-106, 114-117, 129-134, 139-141, 150-156, 163-201 |
 | cogrid/backend/state\_view.py                               |       16 |        5 |     69% |     72-78 |
-| cogrid/cogrid\_env.py                                       |      516 |      251 |     51% |72, 122, 126, 154, 158-165, 169, 176-183, 213-237, 259, 266-268, 278-281, 292, 298, 308, 327-328, 370-372, 394, 437-439, 455-460, 478-480, 503, 514-515, 528-550, 558-602, 613-668, 683-687, 695-699, 720, 724, 728, 740, 748-755, 764-771, 794-796, 805-826, 830-855, 863-868, 874-908, 917-922, 926-965, 970-985, 989-990, 994, 1011-1012 |
+| cogrid/cogrid\_env.py                                       |      517 |      252 |     51% |72, 122, 126, 154, 158-167, 171, 178-187, 217-242, 264, 271-273, 283-286, 297, 303, 313, 332-333, 375-377, 399, 442-444, 460-465, 483-485, 508, 519-520, 533-555, 563-607, 618-673, 688-692, 700-704, 725, 729, 733, 745, 753-760, 769-776, 799-801, 810-831, 835-860, 868-873, 879-913, 922-927, 931-970, 975-990, 994-995, 999, 1016-1017 |
 | cogrid/constants.py                                         |        7 |        0 |    100% |           |
 | cogrid/core/actions.py                                      |       17 |        0 |    100% |           |
 | cogrid/core/agent.py                                        |       69 |       15 |     78% |37-39, 43, 64-65, 69, 99-109, 141, 154-161 |
@@ -35,7 +35,7 @@
 | cogrid/core/step\_pipeline.py                               |       94 |        9 |     90% |52-58, 74-76, 83-85 |
 | cogrid/core/typing.py                                       |        7 |        0 |    100% |           |
 | cogrid/core/when.py                                         |       25 |        4 |     84% |     65-68 |
-| cogrid/envs/\_\_init\_\_.py                                 |       46 |        0 |    100% |           |
+| cogrid/envs/\_\_init\_\_.py                                 |       47 |        0 |    100% |           |
 | cogrid/envs/goal\_seeking/agent.py                          |       14 |       14 |      0% |      3-37 |
 | cogrid/envs/goal\_seeking/goal\_seeking.py                  |       41 |       41 |      0% |      3-85 |
 | cogrid/envs/overcooked/\_\_init\_\_.py                      |        1 |        0 |    100% |           |
@@ -43,8 +43,8 @@
 | cogrid/envs/overcooked/config.py                            |       84 |       59 |     30% |31-34, 63-120, 145, 197-217 |
 | cogrid/envs/overcooked/features.py                          |      325 |        9 |     97% |357, 400, 405-406, 604-619 |
 | cogrid/envs/overcooked/overcooked\_grid\_objects.py         |      126 |       25 |     80% |24, 28, 41, 45, 61-63, 112-122, 126-128, 204, 207, 240, 244, 271, 276-279, 296, 301-304 |
-| cogrid/envs/overcooked/rewards.py                           |      156 |       91 |     42% |122, 151-190, 285-342, 365-411, 433-445 |
-| cogrid/envs/overcooked/test\_interactions.py                |     1033 |     1033 |      0% |   12-2247 |
+| cogrid/envs/overcooked/rewards.py                           |      157 |       92 |     41% |122, 151-190, 285-339, 362-404, 426-438 |
+| cogrid/envs/overcooked/test\_interactions.py                |     1033 |     1033 |      0% |   12-2271 |
 | cogrid/envs/registry.py                                     |        8 |        1 |     88% |        11 |
 | cogrid/envs/search\_rescue/search\_rescue\_grid\_objects.py |       72 |       23 |     68% |24, 29-31, 44, 49-65, 77, 81, 85-87, 99, 103, 115, 119, 131, 135, 147, 151 |
 | cogrid/envs/search\_rescue/sr\_utils.py                     |       46 |       46 |      0% |     3-112 |
@@ -55,7 +55,7 @@
 | cogrid/run\_interactive.py                                  |      111 |      111 |      0% |     3-244 |
 | cogrid/test\_overcooked\_env.py                             |      102 |      102 |      0% |     1-240 |
 | cogrid/visualization/rendering.py                           |       84 |       69 |     18% |15-22, 27-34, 40-49, 54-81, 87-90, 96-99, 104-128, 133-135, 148-153 |
-| **TOTAL**                                                   | **4872** | **2497** | **49%** |           |
+| **TOTAL**                                                   | **4875** | **2499** | **49%** |           |
 
 4 empty files skipped.
 
