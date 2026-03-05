@@ -165,7 +165,7 @@ registry.register(
 layouts.register_layout(
     "overcooked_mixed_kitchen_v0",
     [
-        "CUCCCCC",
+        "CUCCUCC",
         "O+    T",
         "=     C",
         "T    +O",
