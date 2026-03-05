@@ -91,10 +91,14 @@ def branch_pickup_from(handled, ctx):
 
     has_item = item > 0
     held_c = _held_col(ctx["inv_item"])
+    # Exclude container types (e.g., pot) — their pickup is handled by
+    # branch_pickup_from_container which checks recipe/timer conditions.
+    container_id = ctx.get("container_id", -1)
     cond = (
         ~handled
         & ctx["base_ok"]
         & (fwd_type > 0)
+        & (fwd_type != container_id)
         & (ctx["PICKUP_FROM_GUARD"][fwd_type, held_c] == 1)
         & has_item
     )
@@ -396,7 +400,7 @@ def compose_interaction_fn(container_specs, consume_type_ids, scope):
         # natural extension but not needed for current environments).
         # Use the first container spec for pot_* keys in ctx.
         spec = container_specs[0] if container_specs else None
-        if spec:
+        if spec and container_arrays[spec["object_id"]]["positions"].shape[0] > 0:
             oid = spec["object_id"]
             ca = container_arrays[oid]
             pot_contents = ca["contents"]
@@ -409,9 +413,11 @@ def compose_interaction_fn(container_specs, consume_type_ids, scope):
             pot_idx = xp.argmax(pot_match)
             has_pot_match = xp.any(pot_match)
         else:
-            pot_contents = xp.zeros((0, 1), dtype=xp.int32)
-            pot_timer = xp.zeros((0,), dtype=xp.int32)
-            pot_positions = xp.zeros((0, 2), dtype=xp.int32)
+            # Dummy arrays with 1 row so pot_idx=0 is always valid;
+            # has_pot_match=False ensures no branch fires.
+            pot_contents = xp.full((1, 1), -1, dtype=xp.int32)
+            pot_timer = xp.zeros((1,), dtype=xp.int32)
+            pot_positions = xp.zeros((1, 2), dtype=xp.int32)
             pot_idx = xp.int32(0)
             has_pot_match = xp.bool_(False)
 

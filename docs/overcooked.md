@@ -54,6 +54,8 @@ class Pot(GridObj):
 | `Overcooked-ForcedCoordination-V0` | Forced Coordination |
 | `Overcooked-CounterCircuit-V0` | Counter Circuit |
 | `Overcooked-CrampedRoom-SingleAgent-V0` | Cramped Room (1 agent) |
+| `Overcooked-MixedKitchen-V0` | Mixed Kitchen (orders) |
+| `Overcooked-OrderDelivery-V0` | Order Delivery (orders) |
 
 ```python
 env = registry.make("Overcooked-CrampedRoom-V0")
@@ -106,23 +108,29 @@ Different layouts swap `grid.layout`; different gameplay swaps `rewards` and `fe
 | `SoupInDishReward` | 0.3 | Pick up finished soup from pot with a plate (individual) |
 | `ExpiredOrderPenalty` | -5.0 | Penalty when an active order expires (common) |
 
+**Mixed Kitchen**
+
+`Overcooked-MixedKitchen-V0` adds an order queue on top of the base Overcooked mechanics. Agents must coordinate to fill stochastically spawning orders for both onion soup and tomato soup before they expire.
+
+![Mixed Kitchen episode](assets/images/episode.gif){ width="50%" }
+
+Each step, every empty order slot independently samples from a categorical distribution over recipes. Orders count down and expire with a penalty if not fulfilled in time. The HUD bars above the grid show active orders and their remaining time.
+
 **Order queue**
 
-By default the order queue is disabled -- any valid delivery earns a reward. When enabled, orders spawn at intervals, count down, and expire with a penalty.
+By default the order queue is disabled -- any valid delivery earns a reward. When enabled, orders spawn stochastically, count down, and expire with a penalty.
 
 ```python
 order_config = {
-    "max_active": 3,          # max concurrent orders
-    "spawn_interval": 40,     # steps between spawns
-    "time_limit": 200,        # steps before expiry
-    "recipe_weights": [2.0, 1.0],  # relative spawn frequency per recipe
+    "max_active": 3,                                        # max concurrent orders
+    "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},  # per-recipe spawn probability
+    "time_limit": 100,                                      # steps before expiry
 }
 ```
 
 - **`max_active`** -- maximum simultaneous orders.
-- **`spawn_interval`** -- steps between new order spawns.
+- **`spawn_probs`** -- per-recipe probability of spawning into each empty slot per step (keyed by dish name, must sum to &le; 1.0; remainder is P(no order)).
 - **`time_limit`** -- steps before an order expires.
-- **`recipe_weights`** -- deterministic round-robin weights (e.g. `[2.0, 1.0]` spawns recipe 0 twice per recipe 1).
 
 Enable by initializing order arrays with `build_order_extra_state` and composing `order_queue_tick` with the auto-generated container tick. Use `OrderDeliveryReward` and `ExpiredOrderPenalty` in the rewards list.
 

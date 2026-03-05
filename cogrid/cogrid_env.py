@@ -152,6 +152,36 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._scope_config = build_scope_config_from_components(self.scope)
         if "interaction_fn" in self.config:
             self._scope_config["interaction_fn"] = self.config["interaction_fn"]
+
+        # Config-level tick composition (appended after auto-generated tick)
+        if "tick_fn" in self.config:
+            base_tick = self._scope_config.get("tick_handler")
+            user_tick = self.config["tick_fn"]
+            if base_tick is not None:
+                def _composed_tick(state, scope_config, _b=base_tick, _u=user_tick):
+                    return _u(_b(state, scope_config), scope_config)
+                self._scope_config["tick_handler"] = _composed_tick
+            else:
+                self._scope_config["tick_handler"] = user_tick
+
+        # Merge extra static tables from config
+        if "extra_static_tables" in self.config:
+            self._scope_config.setdefault("static_tables", {}).update(
+                self.config["extra_static_tables"]
+            )
+
+        # Compose extra_state_init_fn with auto-generated extra_state_builder
+        extra_init_fn = self.config.get("extra_state_init_fn")
+        if extra_init_fn is not None:
+            base_builder = self._scope_config.get("extra_state_builder")
+            def _composed_builder(parsed_state, scope, _base=base_builder, _fn=extra_init_fn):
+                merged = {}
+                if _base is not None:
+                    merged.update(_base(parsed_state, scope))
+                merged.update(_fn())
+                return merged
+            self._scope_config["extra_state_builder"] = _composed_builder
+
         self._type_ids = self._scope_config["type_ids"]
         self._interaction_tables = self._scope_config.get("interaction_tables")
 
@@ -195,7 +225,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             st = self._scope_config["static_tables"]
             for key in st:
                 if isinstance(st[key], _np.ndarray):
-                    st[key] = jnp.array(st[key], dtype=jnp.int32)
+                    dtype = jnp.float32 if _np.issubdtype(st[key].dtype, _np.floating) else jnp.int32
+                    st[key] = jnp.array(st[key], dtype=dtype)
 
         if self._scope_config.get("interaction_tables") is not None:
             import numpy as _np
@@ -918,10 +949,40 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self.metadata.get("agent_pov", None),
         )
 
+        # Build HUD bar data from config hook (e.g., order queue bars)
+        hud_bars = None
+        render_hud_fn = self.config.get("render_hud_fn")
+        if render_hud_fn is not None and self._env_state is not None:
+            hud_bars = render_hud_fn(self._env_state, self._scope_config)
+
         if self.render_mode == "human":
-            self._renderer.render_human(img, self.cumulative_score, self.render_message)
+            self._renderer.render_human(
+                img, self.cumulative_score, self.render_message, hud_bars=hud_bars
+            )
         elif self.render_mode == "rgb_array":
+            if hud_bars:
+                img = self._composite_hud_bars(img, hud_bars)
             return img
+
+    @staticmethod
+    def _composite_hud_bars(img: np.ndarray, hud_bars: list[dict]) -> np.ndarray:
+        """Draw HUD bars above the grid image and return the composited array."""
+        bar_height = 4
+        bar_gap = 2
+        bar_area_h = len(hud_bars) * (bar_height + bar_gap) + bar_gap
+        h, w, c = img.shape
+        out = np.full((h + bar_area_h, w, c), 255, dtype=np.uint8)
+        out[bar_area_h:] = img
+        for i, bar in enumerate(hud_bars):
+            y = bar_gap + i * (bar_height + bar_gap)
+            progress = bar.get("progress", 0)
+            color = np.array(bar.get("color", (80, 80, 80)), dtype=np.uint8)
+            bg_color = np.array(bar.get("bg_color", (50, 50, 50)), dtype=np.uint8)
+            out[y : y + bar_height, :] = bg_color
+            if progress > 0:
+                fill_w = max(1, int(progress * w))
+                out[y : y + bar_height, :fill_w] = color
+        return out
 
     def close(self):
         """Close the renderer if active."""

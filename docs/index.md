@@ -1,5 +1,5 @@
 <div style="text-align: center;">
-  <img src="assets/images/cogrid_logo_nobg.png" alt="CoGrid Logo" width="200">
+  <img src="assets/images/cogrid_logo_clean.png" alt="CoGrid Logo" width="200">
 </div>
 
 # CoGrid

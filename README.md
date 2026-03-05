@@ -5,7 +5,7 @@
 
 # CoGrid
 
-![CoGrid Logo](docs/assets/images/cogrid_logo_nobg.png)
+![CoGrid Logo](docs/assets/images/cogrid_logo_clean.png)
 
 CoGrid is a library for creating multi-agent grid-world environments for reinforcement learning research. It features a functional array-based simulation core, pluggable components (rewards, features, objects), and dual NumPy/JAX backend support.
 
@@ -40,7 +40,7 @@ If you use CoGrid in your research, please cite the following paper:
 ```bibtex
 @article{mcdonald2024cogrid,
   author  = {McDonald, Chase and Gonzalez, Cleotilde},
-  title   = {CoGrid and Interactive Gym: A Framework for Multi-Agent Experimentation},
+  title   = {CoGrid and the Multi-User Gymnasium: A Framework for Multi-Agent Experimentation},
   year    = {forthcoming},
 }
 ```

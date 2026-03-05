@@ -10,6 +10,8 @@ from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.rewards import (
     DeliveryReward,
     OnionInPotReward,
+    OrderGatedIngredientInPotReward,
+    OrderGatedSoupInDishReward,
     SoupInDishReward,
 )
 from cogrid.envs.overcooked.rewards import (
@@ -17,6 +19,15 @@ from cogrid.envs.overcooked.rewards import (
 )
 from cogrid.envs.overcooked.rewards import (
     OrderDeliveryReward as OrderDeliveryReward,
+)
+from cogrid.envs.overcooked.config import (
+    _build_order_tables,
+    build_order_extra_state,
+    build_order_hud_fn,
+    order_queue_tick,
+)
+from cogrid.envs.overcooked.rewards import (
+    ExpiredOrderPenalty as ExpiredOrderPenalty,
 )
 
 layouts.register_layout(
@@ -149,6 +160,103 @@ registry.register(
         config=sa_overcooked_config,
         agent_class=OvercookedAgent,
     ),
+)
+
+layouts.register_layout(
+    "overcooked_mixed_kitchen_v0",
+    [
+        "CUCCUCC",
+        "O+    T",
+        "=     C",
+        "T    +O",
+        "CCC@CCC",
+    ],
+)
+
+_order_cfg = {"spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05}, "max_active": 3, "time_limit": 100}
+_order_tables = _build_order_tables(_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
+
+mixed_kitchen_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "action_set": "cardinal_actions",
+    "features": [
+        "agent_dir",
+        "overcooked_inventory",
+        "next_to_counter",
+        "next_to_pot",
+        "object_type_masks",
+        "ordered_pot_features",
+        "dist_to_other_players",
+        "agent_position",
+        "can_move_direction",
+        "order_observation",
+    ],
+    "rewards": [
+        OrderDeliveryReward(coefficient=1.0, common_reward=True),
+        OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
+        # OrderGatedSoupInDishReward(coefficient=0.3, common_reward=False),
+        ExpiredOrderPenalty(penalty=-2.0),
+    ],
+    "grid": {"layout": "overcooked_mixed_kitchen_v0"},
+    "max_steps": 4000,
+    "scope": "overcooked",
+    "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+    "orders": _order_cfg,
+    "tick_fn": order_queue_tick,
+    "extra_static_tables": _order_tables,
+    "extra_state_init_fn": functools.partial(build_order_extra_state, _order_cfg),
+    "render_hud_fn": build_order_hud_fn(_order_cfg),
+}
+
+registry.register(
+    "Overcooked-MixedKitchen-V0",
+    functools.partial(CoGridEnv, config=mixed_kitchen_config, agent_class=OvercookedAgent),
+)
+
+layouts.register_layout(
+    "overcooked_order_delivery_v0",
+    [
+        "CCCCC",
+        "C1 2C",
+        "C + C",
+        "C @ C",
+        "CCCCC",
+    ],
+)
+
+_od_order_cfg = {"spawn_probs": {"onion_soup": 0.017, "tomato_soup": 0.017}, "max_active": 2, "time_limit": 200}
+_od_order_tables = _build_order_tables(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
+
+order_delivery_config = {
+    "name": "overcooked",
+    "num_agents": 1,
+    "action_set": "cardinal_actions",
+    "features": [
+        "agent_dir",
+        "overcooked_inventory",
+        "agent_position",
+        "can_move_direction",
+        "order_observation",
+    ],
+    "rewards": [
+        OrderDeliveryReward(coefficient=1.0, common_reward=True),
+        ExpiredOrderPenalty(penalty=-0.5),
+    ],
+    "grid": {"layout": "overcooked_order_delivery_v0"},
+    "max_steps": 1000,
+    "scope": "overcooked",
+    "pickupable_types": ["onion_soup", "tomato_soup"],
+    "orders": _od_order_cfg,
+    "tick_fn": order_queue_tick,
+    "extra_static_tables": _od_order_tables,
+    "extra_state_init_fn": functools.partial(build_order_extra_state, _od_order_cfg),
+    "render_hud_fn": build_order_hud_fn(_od_order_cfg),
+}
+
+registry.register(
+    "Overcooked-OrderDelivery-V0",
+    functools.partial(CoGridEnv, config=order_delivery_config, agent_class=OvercookedAgent),
 )
 
 

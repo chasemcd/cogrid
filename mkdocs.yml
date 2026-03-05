@@ -5,7 +5,7 @@ repo_name: chasemcd/cogrid
 
 theme:
   name: readthedocs
-  logo: assets/images/cogrid_logo_nobg.png
+  logo: assets/images/cogrid_logo_clean.png
 
 extra_css:
   - assets/css/custom.css
