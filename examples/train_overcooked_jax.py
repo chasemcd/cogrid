@@ -323,7 +323,15 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
     return train
 
 
-def visualize_policy(network, params, env_id, max_steps=1000, gif_path="examples/episode.gif", fps=30, seed=0):
+def visualize_policy(
+    network,
+    params,
+    env_id,
+    max_steps=1000,
+    gif_path="examples/episode.gif",
+    fps=30,
+    seed=0,
+):
     """Roll out trained policy greedily and save as GIF."""
     import imageio
 
@@ -366,7 +374,7 @@ if __name__ == "__main__":
         "GAMMA": 0.99,
         "GAE_LAMBDA": 0.95,
         "CLIP_EPS": 0.2,
-        "ENT_COEF": 0.01,
+        "ENT_COEF": 0.03,
         "VF_COEF": 0.5,
         "MAX_GRAD_NORM": 0.5,
         "ACTIVATION": "tanh",

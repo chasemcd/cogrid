@@ -1914,7 +1914,11 @@ def test_delivery_reward_order_match_required():
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 1000}
+    order_config = {
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
+        "max_active": 3,
+        "time_limit": 1000,
+    }
     order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     static_tables = dict(scope_cfg["static_tables"])
     static_tables.update(order_tables)
@@ -2128,26 +2132,42 @@ def test_order_config_validation():
 
     # Case 2: Valid config with spawn_probs
     result = _build_order_tables(
-        {"spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05}, "max_active": 5, "time_limit": 100},
+        {
+            "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},
+            "max_active": 5,
+            "time_limit": 100,
+        },
         recipe_results,
     )
     assert result["order_enabled"] is True
     assert int(result["order_max_active"]) == 5
     assert int(result["order_time_limit"]) == 100
     probs = result["order_spawn_probs"]
-    assert abs(float(probs[0]) - 0.05) < 1e-6, f"onion_soup prob should be 0.05, got {float(probs[0])}"
-    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    assert abs(float(probs[0]) - 0.05) < 1e-6, (
+        f"onion_soup prob should be 0.05, got {float(probs[0])}"
+    )
+    assert abs(float(probs[1]) - 0.05) < 1e-6, (
+        f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    )
     print("  Valid config with spawn_probs: OK")
 
     # Case 3: Asymmetric probs
     result = _build_order_tables(
-        {"spawn_probs": {"onion_soup": 0.1, "tomato_soup": 0.05}, "max_active": 3, "time_limit": 100},
+        {
+            "spawn_probs": {"onion_soup": 0.1, "tomato_soup": 0.05},
+            "max_active": 3,
+            "time_limit": 100,
+        },
         recipe_results,
     )
     assert result["order_enabled"] is True
     probs = result["order_spawn_probs"]
-    assert abs(float(probs[0]) - 0.1) < 1e-6, f"onion_soup prob should be 0.1, got {float(probs[0])}"
-    assert abs(float(probs[1]) - 0.05) < 1e-6, f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    assert abs(float(probs[0]) - 0.1) < 1e-6, (
+        f"onion_soup prob should be 0.1, got {float(probs[0])}"
+    )
+    assert abs(float(probs[1]) - 0.05) < 1e-6, (
+        f"tomato_soup prob should be 0.05, got {float(probs[1])}"
+    )
     print("  Asymmetric probs: OK")
 
     print("  PASSED")
@@ -2169,7 +2189,11 @@ def test_delivery_reward_tip_bonus():
     scope_cfg = build_scope_config_from_components(scope)
     type_ids = scope_cfg["type_ids"]
 
-    order_config = {"spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5}, "max_active": 3, "time_limit": 200}
+    order_config = {
+        "spawn_probs": {"onion_soup": 0.5, "tomato_soup": 0.5},
+        "max_active": 3,
+        "time_limit": 200,
+    }
     order_tables = _build_order_tables(order_config, recipe_results=["onion_soup", "tomato_soup"])
     static_tables = dict(scope_cfg["static_tables"])
     static_tables.update(order_tables)

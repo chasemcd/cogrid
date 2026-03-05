@@ -158,8 +158,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             base_tick = self._scope_config.get("tick_handler")
             user_tick = self.config["tick_fn"]
             if base_tick is not None:
+
                 def _composed_tick(state, scope_config, _b=base_tick, _u=user_tick):
                     return _u(_b(state, scope_config), scope_config)
+
                 self._scope_config["tick_handler"] = _composed_tick
             else:
                 self._scope_config["tick_handler"] = user_tick
@@ -174,12 +176,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         extra_init_fn = self.config.get("extra_state_init_fn")
         if extra_init_fn is not None:
             base_builder = self._scope_config.get("extra_state_builder")
+
             def _composed_builder(parsed_state, scope, _base=base_builder, _fn=extra_init_fn):
                 merged = {}
                 if _base is not None:
                     merged.update(_base(parsed_state, scope))
                 merged.update(_fn())
                 return merged
+
             self._scope_config["extra_state_builder"] = _composed_builder
 
         self._type_ids = self._scope_config["type_ids"]
@@ -225,7 +229,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             st = self._scope_config["static_tables"]
             for key in st:
                 if isinstance(st[key], _np.ndarray):
-                    dtype = jnp.float32 if _np.issubdtype(st[key].dtype, _np.floating) else jnp.int32
+                    is_float = _np.issubdtype(st[key].dtype, _np.floating)
+                    dtype = jnp.float32 if is_float else jnp.int32
                     st[key] = jnp.array(st[key], dtype=dtype)
 
         if self._scope_config.get("interaction_tables") is not None:
