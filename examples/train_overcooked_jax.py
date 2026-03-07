@@ -332,9 +332,10 @@ def visualize_policy(
     fps=30,
     seed=0,
 ):
-    """Roll out trained policy greedily and save as GIF."""
+    """Roll out trained policy stochastically and save as GIF."""
     import imageio
 
+    rng = jax.random.key(seed)
     env = cogrid.make(env_id, render_mode="rgb_array", backend="jax")
     obs, info = env.reset(seed=seed)
     frames = [env.render()]
@@ -342,7 +343,8 @@ def visualize_policy(
     for _ in range(max_steps):
         obs_array = jnp.stack([obs[a] for a in env.agents])  # (n_agents, obs_dim)
         logits, _ = network.apply(params, obs_array)
-        actions_arr = jnp.argmax(logits, axis=-1)
+        rng, action_rng = jax.random.split(rng)
+        actions_arr = jax.random.categorical(action_rng, logits)
         actions = {a: int(actions_arr[i]) for i, a in enumerate(env.agents)}
 
         obs, rewards, terms, truncs, info = env.step(actions)
@@ -387,21 +389,31 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
         kernel = np.array(p[name]["kernel"])
         bias = np.array(p[name]["bias"])
         initializers.append(
-            helper.make_tensor(f"{name}_weight", TensorProto.FLOAT, kernel.shape, kernel.flatten().tolist())
+            helper.make_tensor(
+                f"{name}_weight", TensorProto.FLOAT, kernel.shape, kernel.flatten().tolist()
+            )
         )
         initializers.append(
-            helper.make_tensor(f"{name}_bias", TensorProto.FLOAT, bias.shape, bias.flatten().tolist())
+            helper.make_tensor(
+                f"{name}_bias", TensorProto.FLOAT, bias.shape, bias.flatten().tolist()
+            )
         )
 
     act_type = "Tanh" if activation == "tanh" else "Relu"
 
     # Actor head: Dense_0 -> act -> Dense_1 -> act -> Dense_2
     actor_nodes = [
-        helper.make_node("Gemm", ["input", "Dense_0_weight", "Dense_0_bias"], ["actor_h0"], transB=0),
+        helper.make_node(
+            "Gemm", ["input", "Dense_0_weight", "Dense_0_bias"], ["actor_h0"], transB=0
+        ),
         helper.make_node(act_type, ["actor_h0"], ["actor_a0"]),
-        helper.make_node("Gemm", ["actor_a0", "Dense_1_weight", "Dense_1_bias"], ["actor_h1"], transB=0),
+        helper.make_node(
+            "Gemm", ["actor_a0", "Dense_1_weight", "Dense_1_bias"], ["actor_h1"], transB=0
+        ),
         helper.make_node(act_type, ["actor_h1"], ["actor_a1"]),
-        helper.make_node("Gemm", ["actor_a1", "Dense_2_weight", "Dense_2_bias"], ["logits"], transB=0),
+        helper.make_node(
+            "Gemm", ["actor_a1", "Dense_2_weight", "Dense_2_bias"], ["logits"], transB=0
+        ),
     ]
 
     # Critic head: Dense_3 -> act -> Dense_4 -> act -> Dense_5 -> squeeze
@@ -409,11 +421,17 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
     initializers.append(squeeze_axes)
 
     critic_nodes = [
-        helper.make_node("Gemm", ["input", "Dense_3_weight", "Dense_3_bias"], ["critic_h0"], transB=0),
+        helper.make_node(
+            "Gemm", ["input", "Dense_3_weight", "Dense_3_bias"], ["critic_h0"], transB=0
+        ),
         helper.make_node(act_type, ["critic_h0"], ["critic_a0"]),
-        helper.make_node("Gemm", ["critic_a0", "Dense_4_weight", "Dense_4_bias"], ["critic_h1"], transB=0),
+        helper.make_node(
+            "Gemm", ["critic_a0", "Dense_4_weight", "Dense_4_bias"], ["critic_h1"], transB=0
+        ),
         helper.make_node(act_type, ["critic_h1"], ["critic_a1"]),
-        helper.make_node("Gemm", ["critic_a1", "Dense_5_weight", "Dense_5_bias"], ["value_2d"], transB=0),
+        helper.make_node(
+            "Gemm", ["critic_a1", "Dense_5_weight", "Dense_5_bias"], ["value_2d"], transB=0
+        ),
         helper.make_node("Squeeze", ["value_2d", "squeeze_axes"], ["value"]),
     ]
 
@@ -440,7 +458,7 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
     sess = ort.InferenceSession(onnx_path)
     test_input = np.random.randn(1, obs_dim).astype(np.float32)
     ort_logits, ort_value = sess.run(None, {"input": test_input})
-    print(f"  ONNX verification passed — logits shape: {ort_logits.shape}, value shape: {ort_value.shape}")
+    print(f"  ONNX verification passed — logits: {ort_logits.shape}, value: {ort_value.shape}")
 
 
 if __name__ == "__main__":
