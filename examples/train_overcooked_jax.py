@@ -332,9 +332,10 @@ def visualize_policy(
     fps=30,
     seed=0,
 ):
-    """Roll out trained policy greedily and save as GIF."""
+    """Roll out trained policy stochastically and save as GIF."""
     import imageio
 
+    rng = jax.random.key(seed)
     env = cogrid.make(env_id, render_mode="rgb_array", backend="jax")
     obs, info = env.reset(seed=seed)
     frames = [env.render()]
@@ -342,7 +343,8 @@ def visualize_policy(
     for _ in range(max_steps):
         obs_array = jnp.stack([obs[a] for a in env.agents])  # (n_agents, obs_dim)
         logits, _ = network.apply(params, obs_array)
-        actions_arr = jnp.argmax(logits, axis=-1)
+        rng, action_rng = jax.random.split(rng)
+        actions_arr = jax.random.categorical(action_rng, logits)
         actions = {a: int(actions_arr[i]) for i, a in enumerate(env.agents)}
 
         obs, rewards, terms, truncs, info = env.step(actions)
@@ -363,12 +365,108 @@ def visualize_policy(
     print(f"Saved {len(frames)}-frame GIF to {gif_path}")
 
 
+def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="examples/policy.onnx"):
+    """Export the trained ActorCritic Flax model to ONNX format.
+
+    Builds the ONNX graph directly from Flax parameters. Exports both the
+    actor (logits) and critic (value) heads.
+
+    Args:
+        params: Flax parameter dict (the 'params' key from TrainState).
+        obs_dim: Observation vector size.
+        n_actions: Number of discrete actions (actor output size).
+        activation: "tanh" or "relu".
+        onnx_path: Output file path for the .onnx model.
+    """
+    import onnx
+    from onnx import TensorProto, helper
+
+    p = params["params"]
+
+    # Build initializers (weights & biases) from Flax params
+    initializers = []
+    for name in ["Dense_0", "Dense_1", "Dense_2", "Dense_3", "Dense_4", "Dense_5"]:
+        kernel = np.array(p[name]["kernel"])
+        bias = np.array(p[name]["bias"])
+        initializers.append(
+            helper.make_tensor(
+                f"{name}_weight", TensorProto.FLOAT, kernel.shape, kernel.flatten().tolist()
+            )
+        )
+        initializers.append(
+            helper.make_tensor(
+                f"{name}_bias", TensorProto.FLOAT, bias.shape, bias.flatten().tolist()
+            )
+        )
+
+    act_type = "Tanh" if activation == "tanh" else "Relu"
+
+    # Actor head: Dense_0 -> act -> Dense_1 -> act -> Dense_2
+    actor_nodes = [
+        helper.make_node(
+            "Gemm", ["input", "Dense_0_weight", "Dense_0_bias"], ["actor_h0"], transB=0
+        ),
+        helper.make_node(act_type, ["actor_h0"], ["actor_a0"]),
+        helper.make_node(
+            "Gemm", ["actor_a0", "Dense_1_weight", "Dense_1_bias"], ["actor_h1"], transB=0
+        ),
+        helper.make_node(act_type, ["actor_h1"], ["actor_a1"]),
+        helper.make_node(
+            "Gemm", ["actor_a1", "Dense_2_weight", "Dense_2_bias"], ["logits"], transB=0
+        ),
+    ]
+
+    # Critic head: Dense_3 -> act -> Dense_4 -> act -> Dense_5 -> squeeze
+    squeeze_axes = helper.make_tensor("squeeze_axes", TensorProto.INT64, [1], [1])
+    initializers.append(squeeze_axes)
+
+    critic_nodes = [
+        helper.make_node(
+            "Gemm", ["input", "Dense_3_weight", "Dense_3_bias"], ["critic_h0"], transB=0
+        ),
+        helper.make_node(act_type, ["critic_h0"], ["critic_a0"]),
+        helper.make_node(
+            "Gemm", ["critic_a0", "Dense_4_weight", "Dense_4_bias"], ["critic_h1"], transB=0
+        ),
+        helper.make_node(act_type, ["critic_h1"], ["critic_a1"]),
+        helper.make_node(
+            "Gemm", ["critic_a1", "Dense_5_weight", "Dense_5_bias"], ["value_2d"], transB=0
+        ),
+        helper.make_node("Squeeze", ["value_2d", "squeeze_axes"], ["value"]),
+    ]
+
+    graph = helper.make_graph(
+        actor_nodes + critic_nodes,
+        "ActorCritic",
+        inputs=[helper.make_tensor_value_info("input", TensorProto.FLOAT, [None, obs_dim])],
+        outputs=[
+            helper.make_tensor_value_info("logits", TensorProto.FLOAT, [None, n_actions]),
+            helper.make_tensor_value_info("value", TensorProto.FLOAT, [None]),
+        ],
+        initializer=initializers,
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 8
+    onnx.checker.check_model(model)
+    onnx.save(model, onnx_path)
+    print(f"Exported ONNX model to {onnx_path}")
+
+    # Verify with onnxruntime
+    import onnxruntime as ort
+
+    sess = ort.InferenceSession(onnx_path)
+    test_input = np.random.randn(1, obs_dim).astype(np.float32)
+    ort_logits, ort_value = sess.run(None, {"input": test_input})
+    print(f"  ONNX verification passed — logits: {ort_logits.shape}, value: {ort_value.shape}")
+
+
 if __name__ == "__main__":
     config = {
         "LR": 2.5e-4,
         "NUM_ENVS": 32,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 50_000_000,
+        "TOTAL_TIMESTEPS": 5_000_000,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 4,
         "GAMMA": 0.99,
@@ -383,7 +481,7 @@ if __name__ == "__main__":
     }
 
     # Build CoGrid env (JAX backend) to get pure step/reset functions
-    env = cogrid.make("Overcooked-MixedKitchen-V0", backend="jax")
+    env = cogrid.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=config["SEED"])
 
     # Extract pure JAX functions (already JIT-compiled)
@@ -459,7 +557,10 @@ if __name__ == "__main__":
     except ImportError:
         pass
 
+    # Export trained policy to ONNX
+    params = out["runner_state"][0].params
+    export_to_onnx(params, obs_dim, n_actions, activation=config["ACTIVATION"])
+
     # Visualize trained policy as a GIF
     network = ActorCritic(n_actions, activation=config["ACTIVATION"])
-    params = out["runner_state"][0].params
-    visualize_policy(network, params, "Overcooked-MixedKitchen-V0")
+    visualize_policy(network, params, "Overcooked-CrampedRoom-V0")
