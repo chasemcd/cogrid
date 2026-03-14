@@ -233,6 +233,23 @@ registry.register(
 )
 
 layouts.register_layout(
+    "overcooked_cramped_mixed_kitchen_v0",
+    [
+        "CCUCC",
+        "O+ +T",
+        "=   =",
+        "C   C",
+        "CC@CC",
+    ],
+)
+cramped_mixed_kitchen_config = mixed_kitchen_config.copy()
+cramped_mixed_kitchen_config["grid"] = {"layout": "overcooked_cramped_mixed_kitchen_v0"}
+registry.register(
+    "Overcooked-CrampedMixedKitchen-V0",
+    functools.partial(CoGridEnv, config=cramped_mixed_kitchen_config, agent_class=OvercookedAgent),
+)
+
+layouts.register_layout(
     "overcooked_order_delivery_v0",
     [
         "CCCCC",

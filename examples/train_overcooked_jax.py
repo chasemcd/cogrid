@@ -27,6 +27,9 @@ import cogrid.envs  # noqa: F401 -- register layouts & grid objects
 import cogrid
 
 
+ENVIRONMENT_NAME = "Overcooked-CrampedMixedKitchen-V0"
+
+
 # ---- Categorical distribution helpers ----
 
 
@@ -481,7 +484,7 @@ if __name__ == "__main__":
     }
 
     # Build CoGrid env (JAX backend) to get pure step/reset functions
-    env = cogrid.make("Overcooked-CrampedRoom-V0", backend="jax")
+    env = cogrid.make(ENVIRONMENT_NAME, backend="jax")
     env.reset(seed=config["SEED"])
 
     # Extract pure JAX functions (already JIT-compiled)
@@ -550,7 +553,7 @@ if __name__ == "__main__":
         plt.plot(smoothed_steps, smoothed, linewidth=1.5)
         plt.xlabel("Environment Steps")
         plt.ylabel("Mean Episode Return")
-        plt.title("IPPO on CoGrid Overcooked (cramped room)")
+        plt.title(f"IPPO on {ENVIRONMENT_NAME}")
         plt.tight_layout()
         plt.savefig("examples/overcooked_training.png", dpi=150)
         print("Saved learning curve to examples/overcooked_training.png")
@@ -563,4 +566,4 @@ if __name__ == "__main__":
 
     # Visualize trained policy as a GIF
     network = ActorCritic(n_actions, activation=config["ACTIVATION"])
-    visualize_policy(network, params, "Overcooked-CrampedRoom-V0")
+    visualize_policy(network, params, ENVIRONMENT_NAME)
