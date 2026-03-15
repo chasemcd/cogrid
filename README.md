@@ -35,7 +35,7 @@
 | cogrid/core/step\_pipeline.py                               |       94 |        9 |     90% |52-58, 74-76, 83-85 |
 | cogrid/core/typing.py                                       |        7 |        0 |    100% |           |
 | cogrid/core/when.py                                         |       25 |        4 |     84% |     65-68 |
-| cogrid/envs/\_\_init\_\_.py                                 |       47 |        0 |    100% |           |
+| cogrid/envs/\_\_init\_\_.py                                 |       51 |        0 |    100% |           |
 | cogrid/envs/goal\_seeking/agent.py                          |       14 |       14 |      0% |      3-37 |
 | cogrid/envs/goal\_seeking/goal\_seeking.py                  |       41 |       41 |      0% |      3-85 |
 | cogrid/envs/overcooked/\_\_init\_\_.py                      |        1 |        0 |    100% |           |
@@ -55,7 +55,7 @@
 | cogrid/run\_interactive.py                                  |      111 |      111 |      0% |     3-244 |
 | cogrid/test\_overcooked\_env.py                             |      102 |      102 |      0% |     1-240 |
 | cogrid/visualization/rendering.py                           |       84 |       69 |     18% |15-22, 27-34, 40-49, 54-81, 87-90, 96-99, 104-128, 133-135, 148-153 |
-| **TOTAL**                                                   | **4875** | **2499** | **49%** |           |
+| **TOTAL**                                                   | **4879** | **2499** | **49%** |           |
 
 4 empty files skipped.
 
