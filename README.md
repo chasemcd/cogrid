@@ -16,7 +16,9 @@ CoGrid is a library for creating multi-agent grid-world environments for reinfor
 
 CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to standardize the multi-agent environment interface.
 
-![Example](docs/assets/images/overcooked_grid.png)
+<p align="center">
+  <img src="docs/assets/images/episode.gif" alt="Example">
+</p>
 
 ## Installation
 
