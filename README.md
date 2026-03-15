@@ -9,10 +9,12 @@
 
 CoGrid is a library for creating multi-agent grid-world environments for reinforcement learning research. It features a functional array-based simulation core, pluggable components (rewards, features, objects), and dual NumPy/JAX backend support.
 
-CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to standardize the multi-agent environment interface.
+CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to standardize the multi-agent environment interface. The JAX API is similar to that of [JaxMARL](https://github.com/FLAIROx/JaxMARL).
+
+Full documentation is available at [cogrid.readthedocs.io](https://cogrid.readthedocs.io).
 
 <p align="center">
-  <img src="docs/assets/images/episode.gif" alt="Example">
+  <img src="docs/assets/images/episode.gif" alt="Example" width=400>
 </p>
 
 ## Installation
