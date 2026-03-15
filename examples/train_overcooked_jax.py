@@ -469,7 +469,7 @@ if __name__ == "__main__":
         "LR": 2.5e-4,
         "NUM_ENVS": 32,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 5_000_000,
+        "TOTAL_TIMESTEPS": 100_000_000,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 4,
         "GAMMA": 0.99,

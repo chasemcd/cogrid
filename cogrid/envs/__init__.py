@@ -184,7 +184,7 @@ layouts.register_layout(
 _order_cfg = {
     "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},
     "max_active": 3,
-    "time_limit": 200,
+    "time_limit": 100,
 }
 _order_tables = _build_order_tables(_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
 
@@ -208,7 +208,7 @@ mixed_kitchen_config = {
         OrderDeliveryReward(coefficient=1.0, common_reward=True),
         OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
         # OrderGatedSoupInDishReward(coefficient=0.3, common_reward=False),
-        ExpiredOrderPenalty(penalty=-0.5),
+        ExpiredOrderPenalty(penalty=-0.75),
     ],
     "grid": {"layout": "overcooked_mixed_kitchen_v0"},
     "max_steps": 4000,
