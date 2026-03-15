@@ -4,7 +4,7 @@
 [![Coverage](https://raw.githubusercontent.com/chasemcd/cogrid/python-coverage-comment-action-data/badge.svg)](https://htmlpreview.github.io/?https://github.com/chasemcd/cogrid/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
 <p align="center">
-  <img src="docs/assets/images/cogrid_logo_clean.png" alt="CoGrid Logo" width="200">
+  <img src="docs/assets/images/cogrid_logo_clean.png" alt="CoGrid Logo" width="300">
 </p>
 
 CoGrid is a library for creating multi-agent grid-world environments for reinforcement learning research. It features a functional array-based simulation core, pluggable components (rewards, features, objects), and dual NumPy/JAX backend support.
@@ -14,7 +14,7 @@ CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to
 Full documentation is available at [cogrid.readthedocs.io](https://cogrid.readthedocs.io).
 
 <p align="center">
-  <img src="docs/assets/images/episode.gif" alt="Example" width=400>
+  <img src="docs/assets/images/episode.gif" alt="Example" width=200>
 </p>
 
 ## Installation
