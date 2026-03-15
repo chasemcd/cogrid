@@ -3,9 +3,6 @@
 [![License](https://img.shields.io/github/license/chasemcd/cogrid)](https://github.com/chasemcd/cogrid/blob/main/LICENSE)
 [![Coverage](https://raw.githubusercontent.com/chasemcd/cogrid/python-coverage-comment-action-data/badge.svg)](https://htmlpreview.github.io/?https://github.com/chasemcd/cogrid/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
-# CoGrid
-
-
 <p align="center">
   <img src="docs/assets/images/cogrid_logo_clean.png" alt="CoGrid Logo" width="400">
 </p>
