@@ -110,9 +110,9 @@ Different layouts swap `grid.layout`; different gameplay swaps `rewards` and `fe
 
 **Mixed Kitchen**
 
-`Overcooked-MixedKitchen-V0` adds an order queue on top of the base Overcooked mechanics. Agents must coordinate to fill stochastically spawning orders for both onion soup and tomato soup before they expire.
+`Overcooked-CrampedMixedKitchen-V0` adds an order queue on top of the base Overcooked mechanics. Agents must coordinate to fill stochastically spawning orders for both onion soup and tomato soup before they expire.
 
-![Mixed Kitchen episode](assets/images/episode.gif){ width="50%" }
+![Cramped Mixed Kitchen episode](assets/images/episode.gif){ width="50%" }
 
 Each step, every empty order slot independently samples from a categorical distribution over recipes. Orders count down and expire with a penalty if not fulfilled in time. The HUD bars above the grid show active orders and their remaining time.
 
