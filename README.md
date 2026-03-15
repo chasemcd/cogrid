@@ -12,10 +12,6 @@
 
 CoGrid is a library for creating multi-agent grid-world environments for reinforcement learning research. It features a functional array-based simulation core, pluggable components (rewards, features, objects), and dual NumPy/JAX backend support.
 
-> [!IMPORTANT]
-> CoGrid has gone through a major overhaul and the API has changed significantly. If you need the previous version, you can install it with `pip install cogrid==0.0.16`.
-
-
 CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to standardize the multi-agent environment interface.
 
 <p align="center">
@@ -41,6 +37,10 @@ For development (includes test, lint, and docs tools):
 ```bash
 pip install cogrid[dev]
 ```
+
+> [!IMPORTANT]
+> CoGrid has gone through a major overhaul and the API has changed significantly. If you need the previous version, you can install it with `pip install cogrid==0.0.16`.
+
 
 ## Citation
 
