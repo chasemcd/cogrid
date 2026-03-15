@@ -27,6 +27,9 @@ import cogrid.envs  # noqa: F401 -- register layouts & grid objects
 import cogrid
 
 
+ENVIRONMENT_NAME = "Overcooked-CrampedMixedKitchen-V0"
+
+
 # ---- Categorical distribution helpers ----
 
 
@@ -111,6 +114,11 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
         frac = 1.0 - (count // (num_minibatches * config["UPDATE_EPOCHS"])) / num_updates
         return config["LR"] * frac
 
+    def entropy_schedule(update_step):
+        """Linearly decay entropy coefficient from ENT_COEF to ENT_COEF_FINAL."""
+        frac = 1.0 - update_step / num_updates
+        return config["ENT_COEF_FINAL"] + (config["ENT_COEF"] - config["ENT_COEF_FINAL"]) * frac
+
     def train(rng):
         # ---- Init network ----
         rng, init_rng = jax.random.split(rng)
@@ -137,7 +145,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
         ep_return = jnp.zeros(num_envs, dtype=jnp.float32)
 
         # ---- Outer loop: one iteration = collect + update ----
-        def _update_step(runner_state, unused):
+        def _update_step(runner_state, update_step):
             def _env_step(carry, unused):
                 train_state, env_state, last_obs, ep_return, rng = carry
 
@@ -265,10 +273,9 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
                             * gae,
                         ).mean()
 
+                        ent_coef = entropy_schedule(update_step)
                         total_loss = (
-                            loss_actor
-                            + config["VF_COEF"] * value_loss
-                            - config["ENT_COEF"] * entropy.mean()
+                            loss_actor + config["VF_COEF"] * value_loss - ent_coef * entropy.mean()
                         )
                         return total_loss, (
                             value_loss,
@@ -317,7 +324,7 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
         rng, train_rng = jax.random.split(rng)
         runner_state = (train_state, env_state, obs, ep_return, train_rng)
-        runner_state, metrics = jax.lax.scan(_update_step, runner_state, None, num_updates)
+        runner_state, metrics = jax.lax.scan(_update_step, runner_state, jnp.arange(num_updates))
         return {"runner_state": runner_state, "metrics": metrics}
 
     return train
@@ -365,7 +372,13 @@ def visualize_policy(
     print(f"Saved {len(frames)}-frame GIF to {gif_path}")
 
 
-def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="examples/policy.onnx"):
+def export_to_onnx(
+    params,
+    obs_dim,
+    n_actions,
+    activation="tanh",
+    onnx_path="examples/policy.onnx",
+):
     """Export the trained ActorCritic Flax model to ONNX format.
 
     Builds the ONNX graph directly from Flax parameters. Exports both the
@@ -385,17 +398,30 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
 
     # Build initializers (weights & biases) from Flax params
     initializers = []
-    for name in ["Dense_0", "Dense_1", "Dense_2", "Dense_3", "Dense_4", "Dense_5"]:
+    for name in [
+        "Dense_0",
+        "Dense_1",
+        "Dense_2",
+        "Dense_3",
+        "Dense_4",
+        "Dense_5",
+    ]:
         kernel = np.array(p[name]["kernel"])
         bias = np.array(p[name]["bias"])
         initializers.append(
             helper.make_tensor(
-                f"{name}_weight", TensorProto.FLOAT, kernel.shape, kernel.flatten().tolist()
+                f"{name}_weight",
+                TensorProto.FLOAT,
+                kernel.shape,
+                kernel.flatten().tolist(),
             )
         )
         initializers.append(
             helper.make_tensor(
-                f"{name}_bias", TensorProto.FLOAT, bias.shape, bias.flatten().tolist()
+                f"{name}_bias",
+                TensorProto.FLOAT,
+                bias.shape,
+                bias.flatten().tolist(),
             )
         )
 
@@ -404,15 +430,24 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
     # Actor head: Dense_0 -> act -> Dense_1 -> act -> Dense_2
     actor_nodes = [
         helper.make_node(
-            "Gemm", ["input", "Dense_0_weight", "Dense_0_bias"], ["actor_h0"], transB=0
+            "Gemm",
+            ["input", "Dense_0_weight", "Dense_0_bias"],
+            ["actor_h0"],
+            transB=0,
         ),
         helper.make_node(act_type, ["actor_h0"], ["actor_a0"]),
         helper.make_node(
-            "Gemm", ["actor_a0", "Dense_1_weight", "Dense_1_bias"], ["actor_h1"], transB=0
+            "Gemm",
+            ["actor_a0", "Dense_1_weight", "Dense_1_bias"],
+            ["actor_h1"],
+            transB=0,
         ),
         helper.make_node(act_type, ["actor_h1"], ["actor_a1"]),
         helper.make_node(
-            "Gemm", ["actor_a1", "Dense_2_weight", "Dense_2_bias"], ["logits"], transB=0
+            "Gemm",
+            ["actor_a1", "Dense_2_weight", "Dense_2_bias"],
+            ["logits"],
+            transB=0,
         ),
     ]
 
@@ -422,15 +457,24 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
 
     critic_nodes = [
         helper.make_node(
-            "Gemm", ["input", "Dense_3_weight", "Dense_3_bias"], ["critic_h0"], transB=0
+            "Gemm",
+            ["input", "Dense_3_weight", "Dense_3_bias"],
+            ["critic_h0"],
+            transB=0,
         ),
         helper.make_node(act_type, ["critic_h0"], ["critic_a0"]),
         helper.make_node(
-            "Gemm", ["critic_a0", "Dense_4_weight", "Dense_4_bias"], ["critic_h1"], transB=0
+            "Gemm",
+            ["critic_a0", "Dense_4_weight", "Dense_4_bias"],
+            ["critic_h1"],
+            transB=0,
         ),
         helper.make_node(act_type, ["critic_h1"], ["critic_a1"]),
         helper.make_node(
-            "Gemm", ["critic_a1", "Dense_5_weight", "Dense_5_bias"], ["value_2d"], transB=0
+            "Gemm",
+            ["critic_a1", "Dense_5_weight", "Dense_5_bias"],
+            ["value_2d"],
+            transB=0,
         ),
         helper.make_node("Squeeze", ["value_2d", "squeeze_axes"], ["value"]),
     ]
@@ -463,16 +507,17 @@ def export_to_onnx(params, obs_dim, n_actions, activation="tanh", onnx_path="exa
 
 if __name__ == "__main__":
     config = {
-        "LR": 2.5e-4,
+        "LR": 4e-4,
         "NUM_ENVS": 32,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 5_000_000,
+        "TOTAL_TIMESTEPS": 500_000_000,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 4,
         "GAMMA": 0.99,
         "GAE_LAMBDA": 0.95,
         "CLIP_EPS": 0.2,
-        "ENT_COEF": 0.03,
+        "ENT_COEF": 0.25,
+        "ENT_COEF_FINAL": 0.0,
         "VF_COEF": 0.5,
         "MAX_GRAD_NORM": 0.5,
         "ACTIVATION": "tanh",
@@ -481,7 +526,7 @@ if __name__ == "__main__":
     }
 
     # Build CoGrid env (JAX backend) to get pure step/reset functions
-    env = cogrid.make("Overcooked-CrampedRoom-V0", backend="jax")
+    env = cogrid.make(ENVIRONMENT_NAME, backend="jax")
     env.reset(seed=config["SEED"])
 
     # Extract pure JAX functions (already JIT-compiled)
@@ -550,7 +595,7 @@ if __name__ == "__main__":
         plt.plot(smoothed_steps, smoothed, linewidth=1.5)
         plt.xlabel("Environment Steps")
         plt.ylabel("Mean Episode Return")
-        plt.title("IPPO on CoGrid Overcooked (cramped room)")
+        plt.title(f"IPPO on {ENVIRONMENT_NAME}")
         plt.tight_layout()
         plt.savefig("examples/overcooked_training.png", dpi=150)
         print("Saved learning curve to examples/overcooked_training.png")
@@ -563,4 +608,4 @@ if __name__ == "__main__":
 
     # Visualize trained policy as a GIF
     network = ActorCritic(n_actions, activation=config["ACTIVATION"])
-    visualize_policy(network, params, "Overcooked-CrampedRoom-V0")
+    visualize_policy(network, params, ENVIRONMENT_NAME)
