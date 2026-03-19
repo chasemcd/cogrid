@@ -11,9 +11,8 @@ Golden values were captured with seed=42 on the CrampedRoom layout.
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from cogrid.feature_space.local_view import LocalView
 from cogrid.envs.overcooked.features import OvercookedLocalView
-
+from cogrid.feature_space.local_view import LocalView
 
 # ---------------------------------------------------------------------------
 # Golden arrays (sparse representation: size, nonzero indices, nonzero values)
@@ -44,14 +43,18 @@ GOLDEN_BASE_AGENT1 = _build_golden(
 
 GOLDEN_OC_AGENT0 = _build_golden(
     1911,
-    [624, 663, 733, 738, 741, 780, 901, 946, 951, 1057, 1170, 1259, 1265, 1326, 1443, 1488, 1521, 1561, 1599],
-    [1.0, 1.0, 1.0, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    [624, 663, 733, 738, 741, 780, 901, 946, 951, 1057,
+     1170, 1259, 1265, 1326, 1443, 1488, 1521, 1561, 1599],
+    [1.0, 1.0, 1.0, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
 )
 
 GOLDEN_OC_AGENT1 = _build_golden(
     1911,
-    [312, 351, 421, 426, 429, 468, 589, 635, 643, 745, 858, 946, 949, 1014, 1131, 1176, 1209, 1249, 1287],
-    [1.0, 1.0, 1.0, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    [312, 351, 421, 426, 429, 468, 589, 635, 643, 745,
+     858, 946, 949, 1014, 1131, 1176, 1209, 1249, 1287],
+    [1.0, 1.0, 1.0, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
 )
 
 # ---------------------------------------------------------------------------
@@ -92,15 +95,15 @@ def _channel_diff_msg(actual, expected, window, n_channels):
 
 def _make_state():
     """Create a deterministic CrampedRoom state with seed=42."""
-    from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
     set_backend("numpy")
 
     import cogrid.envs  # noqa: F401 -- trigger registration
-    from cogrid.envs import registry
     from cogrid.backend.state_view import StateView
+    from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0")
     env.reset(seed=42)
