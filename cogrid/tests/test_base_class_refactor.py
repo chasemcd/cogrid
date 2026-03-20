@@ -1,15 +1,12 @@
 """Tests for the new LocalView API contract (Phase 2).
 
-Defines the test scaffold for:
+Covers:
 - Import re-exports from cogrid.feature_space
 - _scatter_to_grid helper (NumPy and JAX)
 - __init_subclass__ validation for missing n_extra_channels
 - Channel count mismatch runtime assertion
 - JAX JIT tracing with instance-in-closure pattern
 - End-to-end new subclass API with extra channels
-
-Tests 2-7 are marked xfail because the new API does not exist yet.
-Plan 02-02 implements the new API and removes the xfail markers.
 """
 
 import pytest
@@ -33,7 +30,6 @@ def test_import_from_feature_space():
 # ===================================================================
 
 
-@pytest.mark.xfail(reason="Plan 02 adds _scatter_to_grid")
 def test_scatter_to_grid_numpy():
     """Verify LocalView._scatter_to_grid produces correct output with NumPy."""
     from cogrid.backend import set_backend
@@ -65,7 +61,6 @@ def test_scatter_to_grid_numpy():
 jax = pytest.importorskip("jax")
 
 
-@pytest.mark.xfail(reason="Plan 02 adds _scatter_to_grid")
 def test_scatter_to_grid_jax():
     """Verify LocalView._scatter_to_grid produces correct output with JAX."""
     from cogrid.backend import set_backend
@@ -92,7 +87,6 @@ def test_scatter_to_grid_jax():
 # ===================================================================
 
 
-@pytest.mark.xfail(reason="Plan 02 adds __init_subclass__")
 def test_missing_n_extra_channels_error():
     """Verify __init_subclass__ raises TypeError when n_extra_channels is missing."""
     from cogrid.feature_space.local_view import LocalView
@@ -108,7 +102,6 @@ def test_missing_n_extra_channels_error():
 # ===================================================================
 
 
-@pytest.mark.xfail(reason="Plan 02 adds channel count validation")
 def test_channel_count_mismatch_error():
     """Verify runtime error when n_extra_channels mismatches extra_channels() output."""
     from cogrid.backend import set_backend
@@ -155,7 +148,6 @@ def test_channel_count_mismatch_error():
 # ===================================================================
 
 
-@pytest.mark.xfail(reason="Plan 02 implements new API")
 def test_jax_jit_tracing():
     """Verify the refactored LocalView works under jax.jit."""
     jax = pytest.importorskip("jax")
@@ -169,7 +161,10 @@ def test_jax_jit_tracing():
 
     from cogrid.feature_space.local_view import LocalView
     from cogrid.core.component_registry import register_feature_type
-    from cogrid.backend.state_view import StateView
+    from cogrid.backend.state_view import StateView, register_stateview_pytree
+
+    # StateView must be registered as a JAX pytree before JIT tracing
+    register_stateview_pytree()
 
     @register_feature_type("test_jit_lv", scope="test_jit_scope")
     class JitTestView(LocalView):
@@ -199,7 +194,6 @@ def test_jax_jit_tracing():
 # ===================================================================
 
 
-@pytest.mark.xfail(reason="Plan 02 implements new API")
 def test_new_subclass_with_extra_channels():
     """End-to-end test: define subclass with n_extra_channels=2, verify output."""
     from cogrid.backend import set_backend
