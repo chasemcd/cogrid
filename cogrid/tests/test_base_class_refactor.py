@@ -138,7 +138,7 @@ def test_channel_count_mismatch_error():
     )
     with pytest.raises(
         ValueError,
-        match=r"n_extra_channels=3 but extra_channels\(\) returned 5 channels",
+        match=r"extra_channels\(\) returned shape \(3, 3, 5\), expected \(3, 3, 3\)",
     ):
         fn(state, 0)
 
