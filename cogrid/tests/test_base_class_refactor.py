@@ -1,4 +1,4 @@
-"""Tests for the new LocalView API contract (Phase 2).
+"""Tests for the new LocalView API contract (Phase 2-3).
 
 Covers:
 - Import re-exports from cogrid.feature_space
@@ -7,6 +7,7 @@ Covers:
 - Channel count mismatch runtime assertion
 - JAX JIT tracing with instance-in-closure pattern
 - End-to-end new subclass API with extra channels
+- Error messages for wrong return type, wrong ndim, wrong shape
 """
 
 import pytest
@@ -231,3 +232,129 @@ def test_new_subclass_with_extra_channels():
     result = fn(state, 0)
     assert result.shape == (dim,)
     assert result.dtype == np.float32
+
+
+# ===================================================================
+# Test 8: extra_channels returns wrong type (list instead of ndarray)
+# ===================================================================
+
+
+def test_extra_channels_wrong_return_type():
+    """Verify clear error when extra_channels() returns a list instead of ndarray."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    import numpy as np
+
+    from cogrid.feature_space.local_view import LocalView
+    from cogrid.core.component_registry import register_feature_type
+    from cogrid.backend.state_view import StateView
+
+    @register_feature_type("test_wrong_type_lv", scope="test_wrong_type_scope")
+    class WrongTypeView(LocalView):
+        n_extra_channels = 2
+
+        def extra_channels(self, state, H, W):
+            return [np.zeros((H, W), dtype=np.float32)] * 2  # list, not ndarray
+
+    fn = WrongTypeView.build_feature_fn(
+        "test_wrong_type_scope", env_config={"observable_radius": 1, "n_agents": 1}
+    )
+    state = StateView(
+        agent_pos=np.array([[1, 1]], dtype=np.int32),
+        agent_dir=np.array([0], dtype=np.int32),
+        agent_inv=np.full((1, 1), -1, dtype=np.int32),
+        wall_map=np.zeros((3, 3), dtype=np.int32),
+        object_type_map=np.zeros((3, 3), dtype=np.int32),
+        object_state_map=np.zeros((3, 3), dtype=np.int32),
+    )
+    with pytest.raises(TypeError, match=r"must return ndarray with shape.*got list"):
+        fn(state, 0)
+
+
+# ===================================================================
+# Test 9: extra_channels returns wrong ndim (2D instead of 3D)
+# ===================================================================
+
+
+def test_extra_channels_wrong_ndim():
+    """Verify clear error when extra_channels() returns 2D array instead of 3D."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    import numpy as np
+
+    from cogrid.feature_space.local_view import LocalView
+    from cogrid.core.component_registry import register_feature_type
+    from cogrid.backend.state_view import StateView
+
+    @register_feature_type("test_wrong_ndim_lv", scope="test_wrong_ndim_scope")
+    class WrongNdimView(LocalView):
+        n_extra_channels = 1
+
+        def extra_channels(self, state, H, W):
+            return np.zeros((H, W), dtype=np.float32)  # 2D, not 3D
+
+    fn = WrongNdimView.build_feature_fn(
+        "test_wrong_ndim_scope", env_config={"observable_radius": 1, "n_agents": 1}
+    )
+    state = StateView(
+        agent_pos=np.array([[1, 1]], dtype=np.int32),
+        agent_dir=np.array([0], dtype=np.int32),
+        agent_inv=np.full((1, 1), -1, dtype=np.int32),
+        wall_map=np.zeros((3, 3), dtype=np.int32),
+        object_type_map=np.zeros((3, 3), dtype=np.int32),
+        object_state_map=np.zeros((3, 3), dtype=np.int32),
+    )
+    with pytest.raises(TypeError, match=r"must return ndarray with shape.*got ndim=2"):
+        fn(state, 0)
+
+
+# ===================================================================
+# Test 10: extra_channels returns wrong shape
+# ===================================================================
+
+
+def test_extra_channels_wrong_shape():
+    """Verify clear error when extra_channels() returns wrong spatial or channel dims."""
+    from cogrid.backend import set_backend
+    from cogrid.backend._dispatch import _reset_backend_for_testing
+
+    _reset_backend_for_testing()
+    set_backend("numpy")
+
+    import numpy as np
+
+    from cogrid.feature_space.local_view import LocalView
+    from cogrid.core.component_registry import register_feature_type
+    from cogrid.backend.state_view import StateView
+
+    @register_feature_type("test_wrong_shape_lv", scope="test_wrong_shape_scope")
+    class WrongShapeView(LocalView):
+        n_extra_channels = 3
+
+        def extra_channels(self, state, H, W):
+            return np.zeros((H, W, 5), dtype=np.float32)  # says 3, shape has 5
+
+    fn = WrongShapeView.build_feature_fn(
+        "test_wrong_shape_scope", env_config={"observable_radius": 1, "n_agents": 1}
+    )
+    state = StateView(
+        agent_pos=np.array([[1, 1]], dtype=np.int32),
+        agent_dir=np.array([0], dtype=np.int32),
+        agent_inv=np.full((1, 1), -1, dtype=np.int32),
+        wall_map=np.zeros((3, 3), dtype=np.int32),
+        object_type_map=np.zeros((3, 3), dtype=np.int32),
+        object_state_map=np.zeros((3, 3), dtype=np.int32),
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"extra_channels\(\) returned shape \(3, 3, 5\), expected \(3, 3, 3\)",
+    ):
+        fn(state, 0)
