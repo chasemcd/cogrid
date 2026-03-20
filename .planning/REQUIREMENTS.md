@@ -9,8 +9,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### API Simplification
 
-- [ ] **API-01**: Subclass authors override a single instance method `extra_channels(self, state, H, W) -> list[ndarray]` instead of the classmethod `build_extra_channel_fn`
-- [ ] **API-02**: Subclass authors declare `n_extra_channels` as a class attribute instead of overriding the `extra_n_channels()` classmethod
+- [x] **API-01**: Subclass authors override a single instance method `extra_channels(self, state, H, W) -> list[ndarray]` instead of the classmethod `build_extra_channel_fn`
+- [x] **API-02**: Subclass authors declare `n_extra_channels` as a class attribute instead of overriding the `extra_n_channels()` classmethod
 - [x] **API-03**: Subclass authors only need `from cogrid.feature_space import LocalView` — no decorator, registry, or `xp` imports required
 - [ ] **API-04**: OvercookedLocalView is updated to use the new simplified API
 - [ ] **API-05**: Deprecated classmethods (`extra_n_channels`, `build_extra_channel_fn`) are removed from the public API
@@ -57,8 +57,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01 | Phase 2 | Pending |
-| API-02 | Phase 2 | Pending |
+| API-01 | Phase 2 | Complete |
+| API-02 | Phase 2 | Complete |
 | API-03 | Phase 2 | Complete |
 | API-04 | Phase 3 | Pending |
 | API-05 | Phase 3 | Pending |

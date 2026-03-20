@@ -13,7 +13,7 @@ This refactoring transforms cogrid's LocalView subclass API from a classmethod-h
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Safety Baseline** - Capture golden output tests and confirm existing test suite passes before any code changes (completed 2026-03-19)
-- [ ] **Phase 2: Base Class Refactoring** - Transform LocalView to use instance methods, class attributes, and the closure-bridge pattern
+- [x] **Phase 2: Base Class Refactoring** - Transform LocalView to use instance methods, class attributes, and the closure-bridge pattern (completed 2026-03-20)
 - [ ] **Phase 3: Subclass Update and Cleanup** - Update OvercookedLocalView, remove deprecated classmethods, add error messages, verify full parity
 
 ## Phase Details
@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Create golden output tests for LocalView and OvercookedLocalView, verify existing test suite baseline
+- [x] 01-01-PLAN.md — Create golden output tests for LocalView and OvercookedLocalView, verify existing test suite baseline
 
 ### Phase 2: Base Class Refactoring
 **Goal**: LocalView exposes a beginner-friendly subclass API -- instance methods and class attributes -- while preserving the Feature/registry contract under the hood
@@ -40,11 +40,11 @@ Plans:
   3. `_scatter_to_grid` helper is available on the base class and abstracts JAX/NumPy backend branching
   4. A runtime assertion fires with a clear message when `n_extra_channels` does not match the length of `extra_channels()` output
   5. The refactored LocalView (with no extra channels) produces bit-identical output to the golden baseline, and the code works correctly under JAX JIT tracing
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Create test scaffold for new API + add import re-exports
-- [ ] 02-02-PLAN.md — Refactor LocalView base class with new instance-method API
+- [x] 02-01-PLAN.md — Create test scaffold for new API + add import re-exports
+- [x] 02-02-PLAN.md — Refactor LocalView base class with new instance-method API
 
 ### Phase 3: Subclass Update and Cleanup
 **Goal**: OvercookedLocalView uses the new simplified API, deprecated classmethods are removed, and the full refactoring is verified end-to-end
@@ -65,5 +65,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Baseline | 1/1 | Complete    | 2026-03-19 |
-| 2. Base Class Refactoring | 1/2 | In Progress | - |
+| 2. Base Class Refactoring | 2/2 | Complete | 2026-03-20 |
 | 3. Subclass Update and Cleanup | 0/0 | Not started | - |
