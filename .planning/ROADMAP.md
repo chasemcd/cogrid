@@ -65,5 +65,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Baseline | 1/1 | Complete    | 2026-03-19 |
-| 2. Base Class Refactoring | 0/2 | Not started | - |
+| 2. Base Class Refactoring | 1/2 | In Progress | - |
 | 3. Subclass Update and Cleanup | 0/0 | Not started | - |
