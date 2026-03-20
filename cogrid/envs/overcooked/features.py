@@ -15,6 +15,7 @@ from cogrid.backend import xp
 from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
 from cogrid.feature_space.local_view import LocalView
+from cogrid.core.grid_object import object_to_idx
 
 # ---------------------------------------------------------------------------
 # Order observation constants (defaults match _build_order_tables)
@@ -803,7 +804,6 @@ class OvercookedLocalView(LocalView):
 
     def __init__(self, scope, env_config=None):
         super().__init__(scope, env_config)
-        from cogrid.core.grid_object import object_to_idx
 
         self._onion_id = object_to_idx("onion", scope=scope)
         self._tomato_id = object_to_idx("tomato", scope=scope)
