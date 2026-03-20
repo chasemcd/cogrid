@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **API-02**: Subclass authors declare `n_extra_channels` as a class attribute instead of overriding the `extra_n_channels()` classmethod
 - [x] **API-03**: Subclass authors only need `from cogrid.feature_space import LocalView` — no decorator, registry, or `xp` imports required
 - [x] **API-04**: OvercookedLocalView is updated to use the new simplified API
-- [ ] **API-05**: Deprecated classmethods (`extra_n_channels`, `build_extra_channel_fn`) are removed from the public API
+- [x] **API-05**: Deprecated classmethods (`extra_n_channels`, `build_extra_channel_fn`) are removed from the public API
 
 ### Helpers
 
@@ -23,12 +23,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SAFE-01**: Golden output tests capture exact tensor baselines for LocalView and OvercookedLocalView BEFORE any code changes
 - [x] **SAFE-02**: Runtime assertion validates that `n_extra_channels` matches the length of `extra_channels()` output
-- [ ] **SAFE-03**: Clear, actionable error messages for common subclassing mistakes (missing `n_extra_channels`, wrong return type, channel count mismatch)
+- [x] **SAFE-03**: Clear, actionable error messages for common subclassing mistakes (missing `n_extra_channels`, wrong return type, channel count mismatch)
 - [x] **SAFE-04**: JAX backend tracing verification — instance method approach works correctly under JAX JIT
 
 ### Compatibility
 
-- [ ] **COMPAT-01**: Observation arrays produced by the refactored code are identical to pre-refactor (same shape, dtype, channel order)
+- [x] **COMPAT-01**: Observation arrays produced by the refactored code are identical to pre-refactor (same shape, dtype, channel order)
 - [x] **COMPAT-02**: All existing tests in `test_features.py` pass without modification (except import path changes)
 
 ## v2 Requirements
@@ -61,13 +61,13 @@ Requirements for initial release. Each maps to roadmap phases.
 | API-02 | Phase 2 | Complete |
 | API-03 | Phase 2 | Complete |
 | API-04 | Phase 3 | Complete |
-| API-05 | Phase 3 | Pending |
+| API-05 | Phase 3 | Complete |
 | HELP-01 | Phase 2 | Complete |
 | SAFE-01 | Phase 1 | Complete |
 | SAFE-02 | Phase 2 | Complete |
-| SAFE-03 | Phase 3 | Pending |
+| SAFE-03 | Phase 3 | Complete |
 | SAFE-04 | Phase 2 | Complete |
-| COMPAT-01 | Phase 3 | Pending |
+| COMPAT-01 | Phase 3 | Complete |
 | COMPAT-02 | Phase 1 | Complete |
 
 **Coverage:**
