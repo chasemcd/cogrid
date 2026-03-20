@@ -799,56 +799,47 @@ class OvercookedLocalView(LocalView):
     empty, partial, cooking, ready, fill_norm, timer_norm, n_onion, n_tomato.
     """
 
-    @classmethod
-    def extra_n_channels(cls, scope, env_config=None):
-        return _N_POT_CHANNELS
+    n_extra_channels = 8
 
-    @classmethod
-    def build_extra_channel_fn(cls, scope, env_config=None):
+    def __init__(self, scope, env_config=None):
+        super().__init__(scope, env_config)
         from cogrid.core.grid_object import object_to_idx
 
-        onion_id = object_to_idx("onion", scope=scope)
-        tomato_id = object_to_idx("tomato", scope=scope)
-        capacity = 3
-        cook_time = xp.float32(20.0)
+        self._onion_id = object_to_idx("onion", scope=scope)
+        self._tomato_id = object_to_idx("tomato", scope=scope)
+        self._capacity = 3
+        self._cook_time = xp.float32(20.0)
 
-        def fn(state, H, W):
-            pot_pos = state.pot_positions
-            pot_contents = state.pot_contents
-            pot_timer = state.pot_timer
-            pot_rows = pot_pos[:, 0]
-            pot_cols = pot_pos[:, 1]
+    def extra_channels(self, state, H, W):
+        pot_pos = state.pot_positions
+        pot_contents = state.pot_contents
+        pot_timer = state.pot_timer
+        pot_rows = pot_pos[:, 0]
+        pot_cols = pot_pos[:, 1]
 
-            n_items = xp.sum(pot_contents > 0, axis=1)
-            is_empty = (n_items == 0).astype(xp.float32)
-            is_partial = ((n_items > 0) & (n_items < capacity)).astype(xp.float32)
-            is_cooking = ((n_items == capacity) & (pot_timer > 0)).astype(xp.float32)
-            is_ready = ((n_items == capacity) & (pot_timer == 0)).astype(xp.float32)
-            fill_norm = n_items.astype(xp.float32) / capacity
-            timer_norm = pot_timer.astype(xp.float32) / cook_time
-            n_onion = xp.sum(pot_contents == onion_id, axis=1).astype(xp.float32)
-            n_tomato = xp.sum(pot_contents == tomato_id, axis=1).astype(xp.float32)
+        n_items = xp.sum(pot_contents > 0, axis=1)
+        is_empty = (n_items == 0).astype(xp.float32)
+        is_partial = ((n_items > 0) & (n_items < self._capacity)).astype(xp.float32)
+        is_cooking = ((n_items == self._capacity) & (pot_timer > 0)).astype(xp.float32)
+        is_ready = ((n_items == self._capacity) & (pot_timer == 0)).astype(xp.float32)
+        fill_norm = n_items.astype(xp.float32) / self._capacity
+        timer_norm = pot_timer.astype(xp.float32) / self._cook_time
+        n_onion = xp.sum(pot_contents == self._onion_id, axis=1).astype(xp.float32)
+        n_tomato = xp.sum(pot_contents == self._tomato_id, axis=1).astype(xp.float32)
 
-            layers = []
-            for values in [
-                is_empty,
-                is_partial,
-                is_cooking,
-                is_ready,
-                fill_norm,
-                timer_norm,
-                n_onion,
-                n_tomato,
-            ]:
-                ch = xp.zeros((H, W), dtype=xp.float32)
-                if hasattr(ch, "at"):  # JAX
-                    ch = ch.at[pot_rows, pot_cols].set(values)
-                else:
-                    ch[pot_rows, pot_cols] = values
-                layers.append(ch)
-            return layers
-
-        return fn
+        layers = []
+        for values in [
+            is_empty,
+            is_partial,
+            is_cooking,
+            is_ready,
+            fill_norm,
+            timer_norm,
+            n_onion,
+            n_tomato,
+        ]:
+            layers.append(self._scatter_to_grid(H, W, pot_rows, pot_cols, values))
+        return xp.stack(layers, axis=-1)
 
 
 # ---------------------------------------------------------------------------
