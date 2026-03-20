@@ -2,9 +2,23 @@
 
 Produces a (2r+1, 2r+1, C) multi-channel spatial tensor centered on the
 focal agent, auto-discovering object types and holdable items from the
-component registry.  Scope-specific extra channels (e.g. Overcooked pot
-state) are added by subclassing and overriding ``extra_n_channels`` and
-``build_extra_channel_fn``.
+component registry.
+
+**New subclass API (preferred):**
+
+Subclass authors override ``extra_channels(self, state, H, W)`` to return
+an ``(H, W, E)`` float32 array and set ``n_extra_channels`` as a class
+attribute.  The base class validates ``n_extra_channels`` at class
+definition time via ``__init_subclass__``, and bridges the instance
+method into the closure expected by ``generic_local_view_feature``.
+
+A ``_scatter_to_grid`` static helper is available for placing per-object
+values onto a spatial grid, hiding JAX/NumPy branching.
+
+**Old subclass API (backward-compatible):**
+
+Subclasses that override ``extra_n_channels`` and ``build_extra_channel_fn``
+classmethods continue to work during the transition period.
 
 Channel layout:
     1. Object type binary masks  (T channels)
@@ -175,13 +189,87 @@ class LocalView(Feature):
     """Generic local-view feature for any environment scope.
 
     Auto-discovers object types and holdable items from the registry.
-    Subclasses can override ``extra_n_channels`` and ``build_extra_channel_fn``
-    to add scope-specific channels (e.g. pot state for Overcooked).
+
+    **New API:** Subclasses set ``n_extra_channels`` as a class attribute
+    and override ``extra_channels(self, state, H, W)`` to return an
+    ``(H, W, E)`` float32 array.
+
+    **Old API (backward-compatible):** Subclasses can still override
+    ``extra_n_channels`` and ``build_extra_channel_fn`` classmethods.
     """
 
     per_agent = True
     focal_only = True
     obs_dim = 0  # computed dynamically
+
+    # ------------------------------------------------------------------
+    # Subclass validation
+    # ------------------------------------------------------------------
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Skip validation for subclasses using the old API (backward compat).
+        # Old-API subclasses override extra_n_channels or build_extra_channel_fn
+        # and do not need n_extra_channels yet.
+        _uses_old_api = (
+            cls.__dict__.get("extra_n_channels") is not None
+            or cls.__dict__.get("build_extra_channel_fn") is not None
+        )
+        if _uses_old_api:
+            return
+        if not hasattr(cls, "n_extra_channels"):
+            raise TypeError(
+                f"{cls.__name__} must define n_extra_channels as a class attribute"
+            )
+        if not isinstance(cls.n_extra_channels, int) or cls.n_extra_channels < 0:
+            raise TypeError(
+                f"{cls.__name__}.n_extra_channels must be a non-negative int, "
+                f"got {cls.n_extra_channels!r}"
+            )
+
+    # ------------------------------------------------------------------
+    # Instance constructor (NEW)
+    # ------------------------------------------------------------------
+
+    def __init__(self, scope, env_config=None):
+        from cogrid.core.grid_object import object_to_idx
+
+        self.scope = scope
+        self.env_config = env_config or {}
+        self._radius = self.env_config.get("observable_radius", 3)
+        self._n_agents = self.env_config.get("n_agents", 2)
+        type_names = _discover_type_names(scope, env_config)
+        self._type_ids = [object_to_idx(name, scope=scope) for name in type_names]
+        holdable_names = _discover_holdable_names(scope, env_config)
+        self._holdable_ids = [object_to_idx(name, scope=scope) for name in holdable_names]
+
+    # ------------------------------------------------------------------
+    # New instance-method API
+    # ------------------------------------------------------------------
+
+    def extra_channels(self, state, H, W):
+        """Override in subclass. Return (H, W, E) float32 array of extra channels.
+
+        Base implementation returns None (no extra channels).
+        """
+        return None
+
+    @staticmethod
+    def _scatter_to_grid(H, W, rows, cols, values):
+        """Place values at (rows, cols) positions on an (H, W) grid.
+
+        Handles JAX (.at[].set()) vs NumPy (direct indexing) transparently.
+        """
+        ch = xp.zeros((H, W), dtype=xp.float32)
+        if hasattr(ch, "at"):  # JAX
+            ch = ch.at[rows, cols].set(values)
+        else:
+            ch[rows, cols] = values
+        return ch
+
+    # ------------------------------------------------------------------
+    # Old classmethods (kept for backward compatibility)
+    # ------------------------------------------------------------------
 
     @classmethod
     def extra_n_channels(cls, scope, env_config=None):
@@ -196,17 +284,31 @@ class LocalView(Feature):
         """
         return None
 
+    # ------------------------------------------------------------------
+    # Observation dimension
+    # ------------------------------------------------------------------
+
     @classmethod
     def compute_obs_dim(cls, scope, env_config=None):
         r = env_config.get("observable_radius", 3) if env_config else 3
         n_agents = env_config.get("n_agents", 2) if env_config else 2
         type_names = _discover_type_names(scope, env_config)
         holdable_names = _discover_holdable_names(scope, env_config)
-        n_extra = cls.extra_n_channels(scope, env_config)
+
+        # New API: class attribute (subclasses must define it)
+        n_extra = getattr(cls, "n_extra_channels", 0)
+
+        # Backward compat: if old classmethod is overridden, use it
+        if n_extra == 0 and cls.extra_n_channels is not LocalView.extra_n_channels:
+            n_extra = cls.extra_n_channels(scope, env_config)
 
         window = 2 * r + 1
         n_ch = _n_core_channels(len(type_names), n_agents, len(holdable_names)) + n_extra
         return window * window * n_ch
+
+    # ------------------------------------------------------------------
+    # Feature function builder
+    # ------------------------------------------------------------------
 
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
@@ -221,7 +323,32 @@ class LocalView(Feature):
         holdable_names = _discover_holdable_names(scope, env_config)
         holdable_ids = [object_to_idx(name, scope=scope) for name in holdable_names]
 
-        extra_channel_fn = cls.build_extra_channel_fn(scope, env_config)
+        # Determine which API path to use
+        n_extra = getattr(cls, "n_extra_channels", 0)
+        uses_new_api = cls.extra_channels is not LocalView.extra_channels
+
+        if uses_new_api:
+            # New API: instance method path
+            instance = cls(scope, env_config)
+            expected_channels = n_extra
+
+            def extra_channel_fn(state, H, W):
+                result = instance.extra_channels(state, H, W)
+                actual = result.shape[-1]
+                if actual != expected_channels:
+                    raise ValueError(
+                        f"n_extra_channels={expected_channels} but "
+                        f"extra_channels() returned {actual} channels"
+                    )
+                return [result[:, :, i] for i in range(actual)]
+
+            _extra_fn = extra_channel_fn
+        elif cls.build_extra_channel_fn is not LocalView.build_extra_channel_fn:
+            # Old API: classmethod path (backward compat for OvercookedLocalView)
+            _extra_fn = cls.build_extra_channel_fn(scope, env_config)
+        else:
+            # Base class: no extra channels
+            _extra_fn = None
 
         def fn(state, agent_idx):
             return generic_local_view_feature(
@@ -231,7 +358,7 @@ class LocalView(Feature):
                 r,
                 type_ids,
                 holdable_ids,
-                extra_channel_fn,
+                _extra_fn,
             )
 
         return fn
