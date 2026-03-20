@@ -56,6 +56,11 @@ Plans:
   3. Common subclassing mistakes (missing `n_extra_channels`, wrong return type, channel count mismatch) produce clear, actionable error messages
   4. Golden output tests pass with exact equality -- observation arrays are bit-identical to the pre-refactor baseline for both LocalView and OvercookedLocalView
   5. The full existing test suite passes without modification (except import path changes)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Migrate OvercookedLocalView to new instance-method API
+- [ ] 03-02-PLAN.md — Remove deprecated API from LocalView, add return-type validation, update tests
 
 ## Progress
 
@@ -65,5 +70,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Baseline | 1/1 | Complete    | 2026-03-19 |
-| 2. Base Class Refactoring | 2/2 | Complete | 2026-03-20 |
-| 3. Subclass Update and Cleanup | 0/0 | Not started | - |
+| 2. Base Class Refactoring | 2/2 | Complete    | 2026-03-20 |
+| 3. Subclass Update and Cleanup | 0/2 | Not started | - |
