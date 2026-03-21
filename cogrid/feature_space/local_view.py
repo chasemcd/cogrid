@@ -46,6 +46,7 @@ from cogrid.core.component_registry import (
     register_feature_type,
 )
 from cogrid.core.features import Feature
+from cogrid.core.grid_object import get_object_names, object_to_idx
 
 # ---------------------------------------------------------------------------
 # Discovery helpers (build-time, not traced)
@@ -60,8 +61,6 @@ def _discover_type_names(scope, env_config=None):
     """
     if env_config is not None and "local_view_type_names" in env_config:
         return sorted(env_config["local_view_type_names"])
-
-    from cogrid.core.grid_object import get_object_names
 
     all_names = get_object_names(scope)
     excluded = {None, "free_space"}
@@ -228,8 +227,6 @@ class LocalView(Feature):
     # ------------------------------------------------------------------
 
     def __init__(self, scope, env_config=None):
-        from cogrid.core.grid_object import object_to_idx
-
         self.scope = scope
         self.env_config = env_config or {}
         self._radius = self.env_config.get("observable_radius", 3)
@@ -286,8 +283,6 @@ class LocalView(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
-        from cogrid.core.grid_object import object_to_idx
-
         r = env_config.get("observable_radius", 3) if env_config else 3
         n_agents = env_config.get("n_agents", 2) if env_config else 2
 

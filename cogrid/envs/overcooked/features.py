@@ -14,8 +14,9 @@ registered in this module.
 from cogrid.backend import xp
 from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
-from cogrid.feature_space.local_view import LocalView
 from cogrid.core.grid_object import object_to_idx
+from cogrid.envs.overcooked.overcooked_grid_objects import Pot
+from cogrid.feature_space.local_view import LocalView
 
 # ---------------------------------------------------------------------------
 # Order observation constants (defaults match _build_order_tables)
@@ -468,8 +469,6 @@ class OvercookedInventory(Feature):
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
         """Build the inventory feature function for the given scope."""
-        from cogrid.core.grid_object import object_to_idx
-
         if env_config is not None and "pickupable_types" in env_config:
             pickupable_names = sorted(env_config["pickupable_types"])
         else:
@@ -500,8 +499,6 @@ class NextToCounter(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the counter adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         counter_type_id = object_to_idx("counter", scope=scope)
 
         def fn(state, agent_idx):
@@ -525,8 +522,6 @@ class NextToPot(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the pot adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         pot_type_id = object_to_idx("pot", scope=scope)
 
         def fn(state, agent_idx):
@@ -556,8 +551,6 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
         @classmethod
         def build_feature_fn(cls, scope):
-            from cogrid.core.grid_object import object_to_idx
-
             target_type_id = object_to_idx(_obj, scope=scope)
 
             def fn(state, agent_idx):
@@ -603,8 +596,6 @@ class ClosestObjects(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build closest-object feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         type_ids_and_ns = [
             (object_to_idx(name, scope=scope), n) for name, n in _CLOSEST_SPECS_SORTED
         ]
@@ -673,8 +664,6 @@ class ObjectTypeMasks(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build object-type mask feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
 
         def fn(state):
@@ -697,8 +686,6 @@ class OrderedPotFeatures(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the ordered pot feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         onion_id = object_to_idx("onion", scope=scope)
         tomato_id = object_to_idx("tomato", scope=scope)
 
@@ -768,8 +755,6 @@ class EnvironmentLayout(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the environment layout feature function."""
-        from cogrid.core.grid_object import object_to_idx
-
         layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
         layout_type_ids = [object_to_idx(name, scope=scope) for name in layout_type_names]
         max_shape = cls._max_layout_shape
@@ -804,11 +789,12 @@ class OvercookedLocalView(LocalView):
 
     def __init__(self, scope, env_config=None):
         super().__init__(scope, env_config)
-
         self._onion_id = object_to_idx("onion", scope=scope)
         self._tomato_id = object_to_idx("tomato", scope=scope)
-        self._capacity = 3
-        self._cook_time = xp.float32(20.0)
+        self._capacity = Pot.container.capacity
+        self._cook_time = xp.float32(
+            max(r.cook_time for r in Pot.recipes) if Pot.recipes else 1.0
+        )
 
     def extra_channels(self, state, H, W):
         pot_pos = state.pot_positions
