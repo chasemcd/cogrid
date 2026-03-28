@@ -31,7 +31,7 @@ def test_container_dataclass():
 
 def test_recipe_dataclass():
     """Recipe is a frozen dataclass with expected fields."""
-    from cogrid.core.containers import Recipe
+    from cogrid.envs.overcooked.recipes import Recipe
 
     r = Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=20.0)
     assert r.ingredients == ["onion", "onion", "onion"]
@@ -52,7 +52,8 @@ def test_recipe_dataclass():
 def test_pot_has_container_descriptor():
     """Overcooked Pot declares container and recipes class attributes."""
     import cogrid.envs.overcooked.overcooked_grid_objects as oc
-    from cogrid.core.containers import Container, Recipe
+    from cogrid.core.containers import Container
+    from cogrid.envs.overcooked.recipes import Recipe
 
     assert isinstance(oc.Pot.container, Container)
     assert oc.Pot.container.capacity == 3
@@ -135,8 +136,8 @@ def test_non_container_has_no_container_meta():
 def test_compile_recipes():
     """compile_recipes produces correct arrays from Recipe objects."""
     import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object_registry import object_to_idx
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
     recipes = [
@@ -289,9 +290,15 @@ def test_auto_generated_extra_state_builder():
 # -----------------------------------------------------------------------
 
 
-def test_container_recipe_reexported():
-    """Container and Recipe are re-exported from cogrid.core.grid_object."""
-    from cogrid.core.grid_object import Container, Recipe
+def test_container_reexported():
+    """Container is re-exported from cogrid.core.grid_object."""
+    from cogrid.core.grid_object import Container
 
     assert Container is not None
+
+
+def test_recipe_in_overcooked():
+    """Recipe is importable from cogrid.envs.overcooked.recipes."""
+    from cogrid.envs.overcooked.recipes import Recipe
+
     assert Recipe is not None

@@ -659,8 +659,8 @@ def test_default_recipes_backward_compat():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
 
@@ -707,7 +707,7 @@ def test_recipe_validation_errors():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-    from cogrid.core.containers import Recipe, compile_recipes
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
 
@@ -765,8 +765,8 @@ def test_custom_recipe_compilation():
 
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
-    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import object_to_idx
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
 
@@ -817,8 +817,8 @@ def test_mixed_recipe_end_to_end():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -976,8 +976,8 @@ def test_per_recipe_cook_time():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.containers import Recipe, compile_recipes
     from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1831,7 +1831,7 @@ def test_delivery_reward_per_recipe_values():
     _reset_backend_for_testing()
     import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.core.containers import Recipe, compile_recipes
+    from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
     from cogrid.envs.overcooked.rewards import DeliveryReward
 
     scope = "overcooked"

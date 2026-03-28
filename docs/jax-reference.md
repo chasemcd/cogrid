@@ -21,12 +21,15 @@ using `jax_reset`/`jax_step` -- this builds the compiled pipeline.
 ```python
 env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
 env.reset(seed=0)  # builds the JIT-compiled pipeline
+n_agents = len(env.possible_agents)
+n_actions = len(env.action_set)
 
 key = jax.random.key(0)
 obs, state, info = env.jax_reset(key)  # obs: (n_agents, obs_dim)
 
-actions = jnp.array([0, 3], dtype=jnp.int32)  # Up, Right
-obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
+key, subkey = jax.random.split(key)
+actions = jax.random.randint(subkey, (n_agents,), 0, n_actions)
+obs, state, rewards, terminated, truncated, info = env.jax_step(state, actions)
 # rewards: (n_agents,)
 ```
 
@@ -36,23 +39,31 @@ obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions
 
 ```python
 n_envs = 1024
-keys = jax.random.split(jax.random.key(0), n_envs)
+n_agents = len(env.possible_agents)
+n_actions = len(env.action_set)
 
 batched_reset = jax.jit(jax.vmap(env.jax_reset))
 batched_step = jax.jit(jax.vmap(env.jax_step))
 
-obs, states, info = batched_reset(keys)  # obs: (n_envs, n_agents, obs_dim)
+def step_fn(carry, _):
+    states, key = carry
+    key, subkey = jax.random.split(key)
+    actions = jax.random.randint(subkey, (n_envs, n_agents), 0, n_actions)
+    obs, states, rewards, terminated, truncated, info = batched_step(states, actions)
+    return (states, key), rewards
 
-# Rollout loop -- random actions across all envs
-action_key = jax.random.key(42)
-total_reward = jnp.float32(0.0)
-for step_i in range(5):
-    action_key, subkey = jax.random.split(action_key)
-    actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)  # (n_envs, n_agents)
-    obs, states, rewards, terminateds, truncateds, info = batched_step(states, actions)
-    total_reward += rewards.sum()
+@jax.jit
+def batched_rollout(key):
+    key, reset_key = jax.random.split(key)
+    reset_keys = jax.random.split(reset_key, n_envs)
+    obs, states, info = batched_reset(reset_keys)
+    (final_states, _), all_rewards = jax.lax.scan(
+        step_fn, (states, key), None, length=env.max_steps,
+    )
+    return all_rewards  # (max_steps, n_envs, n_agents)
 
-print(f"Total reward across {n_envs} envs: {float(total_reward):.1f}")
+all_rewards = batched_rollout(jax.random.key(0))
+print(f"Total reward across {n_envs} envs: {float(all_rewards.sum()):.1f}")
 ```
 
 **Compatibility rules**

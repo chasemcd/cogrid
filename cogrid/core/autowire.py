@@ -96,7 +96,6 @@ def build_scope_config_from_components(
         build_container_extra_state_builder,
         build_container_extra_state_schema,
         build_container_render_sync,
-        build_container_static_tables,
         build_container_tick_fn,
     )
     from cogrid.core.grid_object import (
@@ -179,9 +178,11 @@ def build_scope_config_from_components(
         if "extra_state_builder" in meta.methods:
             continue  # already added above
         cm = meta.container_meta
+        recipes = cm.get("recipes", [])
+        default_timer = max((r.cook_time for r in recipes), default=0) if recipes else 0
         builder_fns.append(
             build_container_extra_state_builder(
-                meta.object_id, cm["container"], cm["recipes"], scope
+                meta.object_id, cm["container"], scope, default_timer=default_timer
             )
         )
 
@@ -203,15 +204,11 @@ def build_scope_config_from_components(
             extra_tables = meta.methods["build_static_tables"]()
             static_tables.update(extra_tables)
 
-    # Auto-generate static_tables from container metadata
+    # Auto-generate container type ID in static_tables
     for meta in container_components:
         if meta.has_static_tables:
             continue  # already merged above
-        cm = meta.container_meta
-        extra_tables = build_container_static_tables(
-            meta.object_id, cm["container"], cm["recipes"], scope
-        )
-        static_tables.update(extra_tables)
+        static_tables[f"{meta.object_id}_id"] = object_to_idx(meta.object_id, scope)
 
     # -- Build 2D guard tables for pickup_from / place_on conditions --
     guard_tables = build_guard_tables(scope=scope)

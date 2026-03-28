@@ -57,8 +57,16 @@ validation:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Concepts:
+    - Grid & Layouts: concepts/layouts.md
+    - Objects: concepts/objects.md
+    - Actions: concepts/actions.md
+    - Observations: concepts/observations.md
+    - Rewards: concepts/rewards.md
+  - Environments:
+    - Overcooked: environments/overcooked.md
+    - Goal Seeking: environments/goal-seeking.md
   - Custom Environment: custom-environment.md
   - Advanced Patterns: advanced-patterns.md
   - JAX Reference: jax-reference.md
-  - Overcooked: overcooked.md
   - API Reference: api-reference.md

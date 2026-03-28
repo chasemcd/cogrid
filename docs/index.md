@@ -38,19 +38,51 @@ pip install cogrid
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=0)
-    obs, state, info = env.jax_reset(jax.random.key(0))
+    n_agents = len(env.possible_agents)
+    n_actions = len(env.action_set)
 
-    for _ in range(100):
-        actions = jax.numpy.array([0, 3], dtype=jax.numpy.int32)
-        obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
+    def step_fn(carry, _):
+        state, key = carry
+        key, subkey = jax.random.split(key)
+        actions = jax.random.randint(subkey, (n_agents,), 0, n_actions)
+        obs, state, rewards, terminated, truncated, info = env.jax_step(state, actions)
+        return (state, key), rewards
+
+    @jax.jit
+    def rollout(key):
+        key, reset_key = jax.random.split(key)
+        obs, state, info = env.jax_reset(reset_key)
+        (final_state, _), all_rewards = jax.lax.scan(
+            step_fn, (state, key), None, length=env.max_steps,
+        )
+        return all_rewards  # (max_steps, n_agents)
+
+    rewards = rollout(jax.random.key(0))
     ```
 
-## Key Features
+## Architecture
 
-- **Component API** -- Build environments from [GridObject, Reward, and Feature](custom-environment.md) subclasses that the engine autowires into array-level code.
-- **JAX Backend** -- [JIT-compile and vmap-batch](jax-reference.md) entire rollouts for high-throughput training.
-- **PettingZoo ParallelEnv** -- Standard multi-agent interface compatible with [PettingZoo](https://pettingzoo.farama.org/) and existing RL libraries.
-- **Config-Driven Environments** -- Define layouts, rewards, and features through a [config dict](overcooked.md) instead of writing boilerplate.
+Environments follow a component pipeline:
+
+**Layout** -- ASCII grid parsed into state arrays.
+**Objects** -- Registered types populate the grid and define interaction rules.
+**Actions** -- Agents submit actions each step; the engine resolves movement and interactions.
+**Step Pipeline** -- Updates state arrays, runs tick functions, computes rewards and observations.
+
+All components are declared in a config dict and autowired by the engine. No manual wiring needed.
+
+## Core Concepts
+
+- **[Grid & Layouts](concepts/layouts.md)** -- 2D integer arrays, ASCII layout definitions, layout registry.
+- **[Objects](concepts/objects.md)** -- `GridObj` base class, registration, containers, and recipes.
+- **[Actions](concepts/actions.md)** -- Cardinal and rotation action sets, movement, pickup/drop/toggle pipeline.
+- **[Observations](concepts/observations.md)** -- Composable feature extractors, per-agent vs global, built-in features.
+- **[Rewards](concepts/rewards.md)** -- `Reward` and `InteractionReward` base classes, composition, coefficients.
+
+## Environments
+
+- **[Overcooked](environments/overcooked.md)** -- Cooperative cooking with 9 layout variants, recipes, and an optional order queue.
+- **[Goal Seeking](environments/goal-seeking.md)** -- Navigation to valued goal cells.
 
 ## Next Steps
 
@@ -61,16 +93,22 @@ pip install cogrid
       <p>Install CoGrid and run your first environment.</p>
     </div>
   </a>
+  <a href="concepts/layouts/">
+    <div class="card">
+      <h3>Core Concepts</h3>
+      <p>Grid layouts, objects, actions, observations, and rewards.</p>
+    </div>
+  </a>
   <a href="custom-environment/">
     <div class="card">
       <h3>Custom Environment</h3>
-      <p>Build your own grid world with objects, rewards, and features.</p>
+      <p>Build your own grid world from components.</p>
     </div>
   </a>
   <a href="jax-reference/">
     <div class="card">
-      <h3>Reference</h3>
-      <p>JAX backend, advanced patterns, and the Overcooked environment.</p>
+      <h3>JAX Backend</h3>
+      <p>JIT-compile and vmap-batch entire rollouts.</p>
     </div>
   </a>
 </div>

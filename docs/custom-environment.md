@@ -112,7 +112,6 @@ registry.register(
     while env.agents:
         actions = {a: env.action_space(a).sample() for a in env.agents}
         obs, rewards, terminateds, truncateds, info = env.step(actions)
-        print(rewards)
     ```
 
 === "JAX"
@@ -123,11 +122,26 @@ registry.register(
 
     env = registry.make("GoalFinding-V0", backend="jax")
     env.reset(seed=0)  # builds JIT-compiled functions
+    n_agents = len(env.possible_agents)
+    n_actions = len(env.action_set)
 
-    obs, state, info = env.jax_reset(jax.random.key(0))
-    actions = jax.numpy.array([0, 3], dtype=jax.numpy.int32)
-    obs, state, rewards, terminateds, truncateds, info = env.jax_step(state, actions)
-    print(rewards)
+    def step_fn(carry, _):
+        state, key = carry
+        key, subkey = jax.random.split(key)
+        actions = jax.random.randint(subkey, (n_agents,), 0, n_actions)
+        obs, state, rewards, terminated, truncated, info = env.jax_step(state, actions)
+        return (state, key), rewards
+
+    @jax.jit
+    def rollout(key):
+        key, reset_key = jax.random.split(key)
+        obs, state, info = env.jax_reset(reset_key)
+        (final_state, _), all_rewards = jax.lax.scan(
+            step_fn, (state, key), None, length=env.max_steps,
+        )
+        return all_rewards
+
+    rewards = rollout(jax.random.key(0))
     ```
 
 For a full-featured example of these patterns, see the [Overcooked environment source](https://github.com/chasemcd/cogrid/tree/main/cogrid/envs/overcooked).

@@ -1,17 +1,20 @@
-"""Declarative container and recipe system for stateful grid objects.
+"""Declarative container system for stateful grid objects.
 
-Provides ``Container`` and ``Recipe`` dataclasses that replace hundreds of
-lines of imperative array code with class-attribute declarations::
+Provides the ``Container`` dataclass and auto-generation helpers for
+extra_state schemas, builders, tick functions, and render syncs.
+
+Environment-specific recipe definitions live in their respective
+modules (e.g. ``cogrid.envs.overcooked.recipes``).
+
+Usage::
 
     @register_object_type("pot", scope="overcooked")
     class Pot(GridObj):
         container = Container(capacity=3, pickup_requires="plate")
-        recipes = [
-            Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30),
-        ]
+        recipes = [...]  # environment-specific Recipe objects
 
-The autowire system reads these descriptors and auto-generates extra_state
-schemas, builders, tick functions, render syncs, static tables, and
+The autowire system reads the ``container`` descriptor and auto-generates
+extra_state schemas, builders, tick functions, render syncs, and
 interaction branches.
 """
 
@@ -22,29 +25,6 @@ from dataclasses import dataclass
 # ======================================================================
 # Declarative data classes
 # ======================================================================
-
-
-@dataclass(frozen=True)
-class Recipe:
-    """A recipe that a Container can cook.
-
-    Parameters
-    ----------
-    ingredients : list[str]
-        Object IDs of the required ingredients (order does not matter;
-        sorted internally for matching).
-    result : str
-        Object ID of the output item.
-    cook_time : int
-        Number of env steps to cook once the container is full.
-    reward : float
-        Reward granted on delivery of the result item.
-    """
-
-    ingredients: list[str]
-    result: str
-    cook_time: int = 0
-    reward: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -62,90 +42,6 @@ class Container:
 
     capacity: int
     pickup_requires: str | list[str] | None = None
-
-
-# ======================================================================
-# Recipe compilation (init-time, not step-path)
-# ======================================================================
-
-
-def compile_recipes(recipes: list[Recipe], scope: str) -> dict:
-    """Compile a list of Recipe objects into fixed-shape lookup arrays.
-
-    Produces sentinel-padded arrays suitable for storage in
-    ``static_tables``.
-
-    Parameters
-    ----------
-    recipes : list[Recipe]
-        Recipe objects to compile.
-    scope : str
-        Object registry scope for resolving type names to IDs.
-
-    Returns:
-    -------
-    dict with keys:
-        recipe_ingredients : (n_recipes, max_ingredients) int32
-        recipe_result : (n_recipes,) int32
-        recipe_cooking_time : (n_recipes,) int32
-        recipe_reward : (n_recipes,) float32
-        max_ingredients : int
-    """
-    import numpy as _np
-
-    from cogrid.core.grid_object_registry import get_object_names, object_to_idx
-
-    if not recipes:
-        raise ValueError("recipes must be a non-empty list of Recipe objects.")
-
-    names = get_object_names(scope=scope)
-
-    # Validate
-    for i, recipe in enumerate(recipes):
-        if not recipe.ingredients:
-            raise ValueError(f"Recipe {i}: ingredients must be non-empty")
-        for ing in recipe.ingredients:
-            if ing not in names:
-                raise ValueError(
-                    f"Recipe {i}: ingredient '{ing}' not registered in scope '{scope}'"
-                )
-        if recipe.result not in names:
-            raise ValueError(
-                f"Recipe {i}: result '{recipe.result}' not registered in scope '{scope}'"
-            )
-
-    max_ing = max(len(r.ingredients) for r in recipes)
-    n_recipes = len(recipes)
-
-    recipe_ingredients = _np.full((n_recipes, max_ing), -1, dtype=_np.int32)
-    recipe_result = _np.zeros(n_recipes, dtype=_np.int32)
-    recipe_cooking_time = _np.zeros(n_recipes, dtype=_np.int32)
-    recipe_reward = _np.zeros(n_recipes, dtype=_np.float32)
-
-    seen_combos = {}
-    for i, recipe in enumerate(recipes):
-        ing_ids = sorted([object_to_idx(name, scope=scope) for name in recipe.ingredients])
-        combo_key = tuple(ing_ids)
-        if combo_key in seen_combos:
-            raise ValueError(
-                f"Recipe {i} has same sorted ingredients as recipe {seen_combos[combo_key]}."
-            )
-        seen_combos[combo_key] = i
-
-        for j, tid in enumerate(ing_ids):
-            recipe_ingredients[i, j] = tid
-
-        recipe_result[i] = object_to_idx(recipe.result, scope=scope)
-        recipe_cooking_time[i] = recipe.cook_time
-        recipe_reward[i] = recipe.reward
-
-    return {
-        "recipe_ingredients": recipe_ingredients,
-        "recipe_result": recipe_result,
-        "recipe_cooking_time": recipe_cooking_time,
-        "recipe_reward": recipe_reward,
-        "max_ingredients": max_ing,
-    }
 
 
 # ======================================================================
@@ -168,11 +64,10 @@ def build_container_extra_state_schema(object_id: str, container: Container) -> 
 def build_container_extra_state_builder(
     object_id: str,
     container: Container,
-    recipes: list[Recipe],
     scope: str,
+    default_timer: int = 0,
 ) -> callable:
     """Return an extra_state builder closure for a container type."""
-    default_timer = max((r.cook_time for r in recipes), default=0) if recipes else 0
 
     def builder(parsed_arrays, scope=scope):
         import numpy as _np
@@ -284,40 +179,3 @@ def build_container_render_sync(object_id: str, scope: str) -> callable:
                 obj.cooking_timer = int(timer[p])
 
     return render_sync
-
-
-def build_container_static_tables(
-    object_id: str,
-    container: Container,
-    recipes: list[Recipe],
-    scope: str,
-) -> dict:
-    """Return static lookup tables for a container type's recipes."""
-    import numpy as _np
-
-    from cogrid.core.grid_object_registry import get_object_names, object_to_idx
-
-    tables = {}
-
-    # Container type ID
-    tables[f"{object_id}_id"] = object_to_idx(object_id, scope=scope)
-
-    # Default cooking time (max across recipes)
-    tables["cooking_time"] = max((r.cook_time for r in recipes), default=0)
-
-    if recipes:
-        recipe_tables = compile_recipes(recipes, scope=scope)
-        tables["recipe_ingredients"] = recipe_tables["recipe_ingredients"]
-        tables["recipe_result"] = recipe_tables["recipe_result"]
-        tables["recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]
-        tables["recipe_reward"] = recipe_tables["recipe_reward"]
-        tables["max_ingredients"] = recipe_tables["max_ingredients"]
-
-        # IS_DELIVERABLE: 1 for any type that is a recipe output
-        n_types = len(get_object_names(scope=scope))
-        is_deliverable = _np.zeros(n_types, dtype=_np.int32)
-        for result_id in recipe_tables["recipe_result"]:
-            is_deliverable[int(result_id)] = 1
-        tables["IS_DELIVERABLE"] = is_deliverable
-
-    return tables

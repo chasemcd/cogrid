@@ -1,9 +1,10 @@
 """Overcooked grid object types (food, pots, plates, delivery zones)."""
 
 from cogrid.core import constants, grid_object
-from cogrid.core.containers import Container, Recipe
+from cogrid.core.containers import Container
 from cogrid.core.grid_object import register_object_type
 from cogrid.core.when import when
+from cogrid.envs.overcooked.recipes import Recipe
 from cogrid.visualization.rendering import (
     add_text_to_image,
     fill_coords,
@@ -100,6 +101,13 @@ class Pot(grid_object.GridObj):
     ]
 
     capacity: int = 3  # backward compat alias for container.capacity
+
+    @classmethod
+    def build_static_tables(cls):
+        """Build recipe lookup tables for the interaction and reward systems."""
+        from cogrid.envs.overcooked.recipes import build_recipe_static_tables
+
+        return build_recipe_static_tables("pot", cls.recipes, scope="overcooked")
 
     def __init__(self, state: int = 0, **kwargs):
         """Initialize pot with empty contents and default timer."""
