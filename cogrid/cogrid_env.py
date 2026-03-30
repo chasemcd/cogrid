@@ -332,7 +332,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._sync_objects_from_state()
             self.render()
 
-        return obs, {agent_id: {} for agent_id in self.agent_ids}
+        return obs, {aid: {} for aid in self._agent_id_order}
 
     def _reset_agents(self, seed):
         """Reset RNG, regenerate grid, and re-initialize agents."""
@@ -425,6 +425,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._feature_fn,
             self._scope_config,
             action_set_name,
+            agent_ids=self._agent_id_order,
         )
 
         self._step_fn = build_step_fn(
@@ -435,6 +436,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             self._action_pickup_drop_idx,
             self._action_toggle_idx,
             self.max_steps,
+            agent_ids=self._agent_id_order,
             terminated_fn=self._terminated_fn,
         )
 
@@ -445,9 +447,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             rng = seed if seed is not None else 42
 
-        obs_arr, self._env_state, _ = self._reset_fn(rng)
+        obs_dict, self._env_state, _ = self._reset_fn(rng)
 
-        obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+        obs = {aid: np.array(obs_dict[aid]) for aid in self._agent_id_order}
 
         self.per_agent_reward = self.get_empty_reward_dict()
         self.per_component_reward = {}
@@ -475,34 +477,27 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     ]:
         """Advance one timestep via the unified step pipeline.
 
-        Converts dict actions to an ordered array, delegates to
-        ``self._step_fn``, and converts outputs back to PettingZoo dicts.
+        Passes the action dict directly to the dict-based step pipeline
+        and converts JAX arrays to numpy for PettingZoo compatibility.
         """
-        # Select array module
+        # Generate an RNG key for this step
         if self._backend == "jax":
-            import jax.numpy as jnp
+            import jax
 
-            xp = jnp
+            key = jax.random.key(int(self.np_random.integers(2**31)))
         else:
-            xp = np
+            key = int(self.np_random.integers(2**31))
 
-        # Convert action dict to ordered array
-        actions_arr = xp.array(
-            [actions[aid] for aid in self._agent_id_order],
-            dtype=xp.int32,
+        # Delegate to the dict-based step pipeline
+        obs_dict, self._env_state, rewards_dict, terminateds_dict, truncateds_dict, infos = (
+            self._step_fn(key, self._env_state, actions)
         )
 
-        # Delegate to the unified step pipeline
-        obs_arr, self._env_state, rewards_arr, terminateds_arr, truncateds_arr, infos = (
-            self._step_fn(self._env_state, actions_arr)
-        )
-
-        # Convert to PettingZoo dict format
-        obs = {aid: np.array(obs_arr[i]) for i, aid in enumerate(self._agent_id_order)}
-        rewards = {aid: float(rewards_arr[i]) for i, aid in enumerate(self._agent_id_order)}
-
-        terminateds = {aid: bool(terminateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
-        truncateds = {aid: bool(truncateds_arr[i]) for i, aid in enumerate(self._agent_id_order)}
+        # Convert to numpy for PettingZoo compatibility
+        obs = {aid: np.array(obs_dict[aid]) for aid in self._agent_id_order}
+        rewards = {aid: float(rewards_dict[aid]) for aid in self._agent_id_order}
+        terminateds = {aid: bool(terminateds_dict[aid]) for aid in self._agent_id_order}
+        truncateds = {aid: bool(truncateds_dict[aid]) for aid in self._agent_id_order}
 
         if any(terminateds.values()) or any(truncateds.values()):
             self.agents = []
@@ -683,7 +678,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_step(self):
         """Raw JIT-compiled step function for direct JIT/vmap usage.
 
-        ``(EnvState, actions) -> (obs, EnvState, rewards, terminateds, truncateds, infos)``
+        ``(key, EnvState, dict[AgentID, Action]) ->
+        (dict[AgentID, Obs], EnvState, dict[AgentID, Reward],
+         dict[AgentID, Terminated], dict[AgentID, Truncated],
+         dict[AgentID, Info])``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_step is only available with backend='jax'")
@@ -695,7 +693,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     def jax_reset(self):
         """Raw JIT-compiled reset function for direct JIT/vmap usage.
 
-        ``(rng_key) -> (obs, EnvState, infos)``
+        ``(key) -> (dict[AgentID, Obs], EnvState, dict[AgentID, Info])``
         """
         if self._backend != "jax":
             raise RuntimeError("jax_reset is only available with backend='jax'")

@@ -4,7 +4,6 @@ JIT-compile steps, batch environments with vmap, and train at GPU speed.
 
 ```python
 import jax
-import jax.numpy as jnp
 import dataclasses
 from cogrid.envs import registry
 from cogrid.backend import xp
@@ -25,12 +24,13 @@ n_agents = len(env.possible_agents)
 n_actions = len(env.action_set)
 
 key = jax.random.key(0)
-obs, state, info = env.jax_reset(key)  # obs: (n_agents, obs_dim)
+obs, state, info = env.jax_reset(key)  # obs: {agent_id: array}
 
-key, subkey = jax.random.split(key)
-actions = jax.random.randint(subkey, (n_agents,), 0, n_actions)
-obs, state, rewards, terminated, truncated, info = env.jax_step(state, actions)
-# rewards: (n_agents,)
+key, step_key, action_key = jax.random.split(key, 3)
+actions = {i: jax.random.randint(jax.random.fold_in(action_key, i), (), 0, n_actions)
+           for i in range(n_agents)}
+obs, state, rewards, terminated, truncated, info = env.jax_step(step_key, state, actions)
+# rewards: {agent_id: scalar}
 ```
 
 **vmap batching**
@@ -47,9 +47,11 @@ batched_step = jax.jit(jax.vmap(env.jax_step))
 
 def step_fn(carry, _):
     states, key = carry
-    key, subkey = jax.random.split(key)
-    actions = jax.random.randint(subkey, (n_envs, n_agents), 0, n_actions)
-    obs, states, rewards, terminated, truncated, info = batched_step(states, actions)
+    key, step_key, action_key = jax.random.split(key, 3)
+    step_keys = jax.random.split(step_key, n_envs)
+    actions = {i: jax.random.randint(jax.random.fold_in(action_key, i), (n_envs,), 0, n_actions)
+               for i in range(n_agents)}
+    obs, states, rewards, terminated, truncated, info = batched_step(step_keys, states, actions)
     return (states, key), rewards
 
 @jax.jit
@@ -60,10 +62,11 @@ def batched_rollout(key):
     (final_states, _), all_rewards = jax.lax.scan(
         step_fn, (states, key), None, length=env.max_steps,
     )
-    return all_rewards  # (max_steps, n_envs, n_agents)
+    return all_rewards  # {agent_id: (max_steps, n_envs)}
 
 all_rewards = batched_rollout(jax.random.key(0))
-print(f"Total reward across {n_envs} envs: {float(all_rewards.sum()):.1f}")
+total = sum(float(v.sum()) for v in all_rewards.values())
+print(f"Total reward across {n_envs} envs: {total:.1f}")
 ```
 
 **Compatibility rules**
@@ -126,8 +129,8 @@ CoGrid's pure functional API integrates directly with JAX transformations like `
 env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
 env.reset(seed=0)
 
-step_fn = jax.jit(jax.vmap(env.jax_step))
-reset_fn = jax.jit(jax.vmap(env.jax_reset))
+step_fn = jax.jit(jax.vmap(env.jax_step))   # (keys, states, actions_dicts) -> ...
+reset_fn = jax.jit(jax.vmap(env.jax_reset))  # (keys,) -> (obs_dicts, states, info_dicts)
 ```
 
 For a complete training loop, see [`train_overcooked_jax.py`](https://github.com/chasemcd/cogrid/blob/main/examples/train_overcooked_jax.py).

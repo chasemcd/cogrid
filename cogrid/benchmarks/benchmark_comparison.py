@@ -146,22 +146,26 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
     if batch_size == 1:
         jit_step = jax.jit(step_fn)
         jit_reset = jax.jit(reset_fn)
-        actions = jax.device_put(jnp.full((n_agents,), 6, dtype=jnp.int32), device)
+        actions = {i: jax.device_put(jnp.int32(6), device) for i in range(n_agents)}
         key = jax.device_put(jax.random.key(SEED), device)
+        step_rng = jax.device_put(jax.random.key(0), device)
 
         # warmup (includes JIT compilation)
         _, state, _ = jit_reset(key)
         state.agent_pos.block_until_ready()
         for _ in range(N_WARMUP):
-            _, state, *_ = jit_step(state, actions)
+            step_rng, sk = jax.random.split(step_rng)
+            _, state, *_ = jit_step(sk, state, actions)
             state.agent_pos.block_until_ready()
 
         def trial():
+            nonlocal step_rng
             _, s, _ = jit_reset(key)
             s.agent_pos.block_until_ready()
             t0 = time.perf_counter()
             for _ in range(n_steps):
-                _, s, *_ = jit_step(s, actions)
+                step_rng, sk = jax.random.split(step_rng)
+                _, s, *_ = jit_step(sk, s, actions)
             s.agent_pos.block_until_ready()
             return n_steps / (time.perf_counter() - t0)
 
@@ -169,21 +173,30 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
         v_step = jax.jit(jax.vmap(step_fn))
         v_reset = jax.jit(jax.vmap(reset_fn))
         keys = jax.device_put(jax.random.split(jax.random.key(0), batch_size), device)
-        batch_actions = jax.device_put(jnp.full((batch_size, n_agents), 6, dtype=jnp.int32), device)
+        batch_actions = {
+            i: jax.device_put(jnp.full(batch_size, 6, dtype=jnp.int32), device)
+            for i in range(n_agents)
+        }
+        step_rng = jax.device_put(jax.random.key(1), device)
 
         # warmup
         _, bs, _ = v_reset(keys)
         bs.agent_pos.block_until_ready()
         for _ in range(N_WARMUP):
-            _, bs, *_ = v_step(bs, batch_actions)
+            step_rng, sk = jax.random.split(step_rng)
+            step_keys = jax.random.split(sk, batch_size)
+            _, bs, *_ = v_step(step_keys, bs, batch_actions)
             bs.agent_pos.block_until_ready()
 
         def trial():
+            nonlocal step_rng
             _, s, _ = v_reset(keys)
             s.agent_pos.block_until_ready()
             t0 = time.perf_counter()
             for _ in range(n_steps):
-                _, s, *_ = v_step(s, batch_actions)
+                step_rng, sk = jax.random.split(step_rng)
+                step_keys = jax.random.split(sk, batch_size)
+                _, s, *_ = v_step(step_keys, s, batch_actions)
             s.agent_pos.block_until_ready()
             return (n_steps * batch_size) / (time.perf_counter() - t0)
 

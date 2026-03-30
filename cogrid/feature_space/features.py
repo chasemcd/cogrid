@@ -197,6 +197,11 @@ class Inventory(Feature):
 # ---------------------------------------------------------------------------
 
 
-def get_all_agent_obs(feature_fn, state, n_agents):
-    """Stack per-agent observations into (n_agents, obs_dim) array."""
-    return xp.stack([feature_fn(state, i) for i in range(n_agents)])
+def get_all_agent_obs(feature_fn, state, agent_ids):
+    """Build per-agent observations as ``dict[AgentID, (obs_dim,)]``.
+
+    Feature functions receive numeric index ``i`` (0, 1, ...) because
+    they index into stacked arrays in EnvState. ``agent_ids`` maps
+    position to ID.
+    """
+    return {aid: feature_fn(state, i) for i, aid in enumerate(agent_ids)}

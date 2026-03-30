@@ -127,9 +127,10 @@ registry.register(
 
     def step_fn(carry, _):
         state, key = carry
-        key, subkey = jax.random.split(key)
-        actions = jax.random.randint(subkey, (n_agents,), 0, n_actions)
-        obs, state, rewards, terminated, truncated, info = env.jax_step(state, actions)
+        key, step_key, action_key = jax.random.split(key, 3)
+        actions = {i: jax.random.randint(jax.random.fold_in(action_key, i), (), 0, n_actions)
+                   for i in range(n_agents)}
+        obs, state, rewards, terminated, truncated, info = env.jax_step(step_key, state, actions)
         return (state, key), rewards
 
     @jax.jit

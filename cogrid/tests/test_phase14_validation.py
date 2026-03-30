@@ -155,23 +155,29 @@ def test_autowired_overcooked_jit_vmap_1024():
 
     obs, states, _ = batched_reset(keys)
 
-    # Verify batch dimension on obs
-    assert obs.shape[0] == N_ENVS, f"Expected obs batch dim {N_ENVS}, got {obs.shape[0]}"
+    # Verify batch dimension on obs (obs is now a dict {agent_id: array})
+    assert obs[0].shape[0] == N_ENVS, f"Expected obs batch dim {N_ENVS}, got {obs[0].shape[0]}"
 
     # Run N_STEPS of batched steps with scripted actions
     for step_i in range(N_STEPS):
         # Cycle through actions deterministically
         action_val = step_i % 7
-        actions = jnp.full((N_ENVS, n_agents), action_val, dtype=jnp.int32)
-        obs, states, rew, term, trunc, _ = batched_step(states, actions)
+        actions = {aid: jnp.full(N_ENVS, action_val, dtype=jnp.int32) for aid in range(n_agents)}
+        step_keys = jax.random.split(jax.random.key(step_i + 1), N_ENVS)
+        obs, states, rew, term, trunc, _ = batched_step(step_keys, states, actions)
 
-        # Shape checks
-        assert rew.shape == (N_ENVS, n_agents), (
-            f"Step {step_i}: expected reward shape ({N_ENVS}, {n_agents}), got {rew.shape}"
-        )
+        # Shape checks (rew is now a dict {agent_id: (N_ENVS,)})
+        for aid in range(n_agents):
+            assert rew[aid].shape == (N_ENVS,), (
+                f"Step {step_i}: expected reward shape ({N_ENVS},) "
+                f"for agent {aid}, got {rew[aid].shape}"
+            )
 
         # Finite rewards
-        assert jnp.all(jnp.isfinite(rew)), f"Step {step_i}: non-finite rewards detected"
+        for aid in range(n_agents):
+            assert jnp.all(jnp.isfinite(rew[aid])), (
+                f"Step {step_i}: non-finite rewards for agent {aid}"
+            )
 
 
 # ======================================================================

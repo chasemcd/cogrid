@@ -31,9 +31,10 @@ def _setup_cogrid():
     env.reset(seed=SEED)
     n_agents = len(env.possible_agents)
     key = jax.random.key(SEED)
-    actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
+    actions_arr = jnp.full((n_agents,), 6, dtype=jnp.int32)
+    actions_dict = {i: jnp.int32(6) for i in range(n_agents)}
 
-    return env, key, actions, n_agents
+    return env, key, actions_arr, actions_dict, n_agents
 
 
 def _bench_fn(jit_fn, state, extra_args, n_steps=N_STEPS, extract_state=None):
@@ -67,7 +68,7 @@ def profile_phases():
     )
     from cogrid.feature_space.features import get_all_agent_obs
 
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
 
     # Get internals from env
     step_fn = env.jax_step
@@ -224,11 +225,11 @@ def profile_phases():
     # --- Phase: Full step ---
     jit_step = jax.jit(step_fn)
     for _ in range(N_WARMUP):
-        _, s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(key, state, actions_dict)
         s.agent_pos.block_until_ready()
     t0 = time.perf_counter()
     for _ in range(N_STEPS):
-        _, s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(key, state, actions_dict)
     s.agent_pos.block_until_ready()
     full_rate = N_STEPS / (time.perf_counter() - t0)
     print(f"  Full step:     {full_rate:>12,.0f} calls/sec")
@@ -259,7 +260,7 @@ def hlo_analysis():
     print()
 
     # CoGrid
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions_arr, actions_dict, n_agents = _setup_cogrid()
     step_fn = env.jax_step
     reset_fn = env.jax_reset
 
@@ -267,7 +268,7 @@ def hlo_analysis():
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
-    lowered = jax.jit(step_fn).lower(state, actions)
+    lowered = jax.jit(step_fn).lower(key, state, actions_dict)
     compiled = lowered.compile()
     hlo_text = compiled.as_text()
     # Count HLO instructions (lines starting with %)
@@ -279,9 +280,10 @@ def hlo_analysis():
     v_step = jax.jit(jax.vmap(step_fn))
     _, batch_state, _ = jax.jit(jax.vmap(reset_fn))(jax.random.split(key, 4))
     batch_state.agent_pos.block_until_ready()
-    batch_actions = jnp.full((4, n_agents), 6, dtype=jnp.int32)
+    batch_actions = {i: jnp.full(4, 6, dtype=jnp.int32) for i in range(n_agents)}
+    batch_keys = jax.random.split(key, 4)
 
-    lowered_v = v_step.lower(batch_state, batch_actions)
+    lowered_v = v_step.lower(batch_keys, batch_state, batch_actions)
     compiled_v = lowered_v.compile()
     hlo_v = compiled_v.as_text()
     v_ops = sum(1 for line in hlo_v.split("\n") if line.strip().startswith("%"))
@@ -362,7 +364,7 @@ def profile_per_feature():
     from cogrid.core.component_registry import get_feature_types
     from cogrid.core.step_pipeline import envstate_to_dict
 
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
@@ -443,7 +445,7 @@ def profile_per_feature():
 
 def profile_interaction_detail():
     """Profile interaction sub-costs."""
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()

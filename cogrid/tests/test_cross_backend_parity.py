@@ -349,7 +349,6 @@ def test_eager_vs_jit():
     action_toggle_idx = env._action_toggle_idx
     max_steps = env.max_steps
     n_agents = env.config["num_agents"]
-
     # Reconstruct layout_arrays and spawn_positions from the env's array state
     layout_arrays = {
         "wall_map": jnp.array(env._state["wall_map"], dtype=jnp.int32),
@@ -365,12 +364,15 @@ def test_eager_vs_jit():
 
     rng_key = jax.random.key(42)
 
+    agent_ids = [0, 1]
+
     # --- Reset comparison ---
     obs_eager, state_eager, _ = reset_fn_eager(
         rng_key,
         layout_arrays=layout_arrays,
         spawn_positions=spawn_positions,
         n_agents=n_agents,
+        agent_ids=agent_ids,
         feature_fn=feature_fn,
         scope_config=scope_config,
         action_set="cardinal",
@@ -378,21 +380,30 @@ def test_eager_vs_jit():
 
     obs_jit, state_jit, _ = reset_fn(rng_key)
 
+    obs_eager_arr = jnp.stack([obs_eager[aid] for aid in agent_ids])
+    obs_jit_arr = jnp.stack([obs_jit[aid] for aid in agent_ids])
     np.testing.assert_array_equal(
-        np.array(obs_eager), np.array(obs_jit), err_msg="Reset: obs mismatch between eager and JIT"
+        np.array(obs_eager_arr),
+        np.array(obs_jit_arr),
+        err_msg="Reset: obs mismatch between eager and JIT",
     )
     _compare_states(state_eager, state_jit, "Reset")
 
     # --- Step comparison (10 steps) ---
     state_e = state_eager
     state_j = state_jit
+    step_key = jax.random.key(99)
 
     for step_i in range(10):
-        actions = jnp.array([0, 1], dtype=jnp.int32)  # Up, Down
+        actions_dict = {0: jnp.int32(0), 1: jnp.int32(1)}  # Up, Down
+
+        step_key, subkey = jax.random.split(step_key)
 
         obs_e, state_e, rew_e, term_e, trunc_e, _ = step_fn_eager(
+            subkey,
             state_e,
-            actions,
+            actions_dict,
+            agent_ids=agent_ids,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
             feature_fn=feature_fn,
@@ -402,27 +413,35 @@ def test_eager_vs_jit():
             max_steps=max_steps,
         )
 
-        obs_j, state_j, rew_j, term_j, trunc_j, _ = step_fn(state_j, actions)
+        obs_j, state_j, rew_j, term_j, trunc_j, _ = step_fn(subkey, state_j, actions_dict)
 
+        obs_e_arr = jnp.stack([obs_e[aid] for aid in agent_ids])
+        obs_j_arr = jnp.stack([obs_j[aid] for aid in agent_ids])
         np.testing.assert_array_equal(
-            np.array(obs_e),
-            np.array(obs_j),
+            np.array(obs_e_arr),
+            np.array(obs_j_arr),
             err_msg=f"Step {step_i}: obs mismatch between eager and JIT",
         )
+        rew_e_arr = jnp.stack([rew_e[aid] for aid in agent_ids])
+        rew_j_arr = jnp.stack([rew_j[aid] for aid in agent_ids])
         np.testing.assert_allclose(
-            np.array(rew_e),
-            np.array(rew_j),
+            np.array(rew_e_arr),
+            np.array(rew_j_arr),
             atol=1e-7,
             err_msg=f"Step {step_i}: reward mismatch between eager and JIT",
         )
+        term_e_arr = jnp.stack([term_e[aid] for aid in agent_ids])
+        term_j_arr = jnp.stack([term_j[aid] for aid in agent_ids])
         np.testing.assert_array_equal(
-            np.array(term_e),
-            np.array(term_j),
+            np.array(term_e_arr),
+            np.array(term_j_arr),
             err_msg=f"Step {step_i}: terminateds mismatch between eager and JIT",
         )
+        trunc_e_arr = jnp.stack([trunc_e[aid] for aid in agent_ids])
+        trunc_j_arr = jnp.stack([trunc_j[aid] for aid in agent_ids])
         np.testing.assert_array_equal(
-            np.array(trunc_e),
-            np.array(trunc_j),
+            np.array(trunc_e_arr),
+            np.array(trunc_j_arr),
             err_msg=f"Step {step_i}: truncateds mismatch between eager and JIT",
         )
         _compare_states(state_e, state_j, f"Step {step_i}")
@@ -452,31 +471,45 @@ def test_step_determinism():
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=42)
 
+    import jax
+
     step_fn = env.jax_step
     state = env._env_state
 
-    actions = jnp.array([0, 3], dtype=jnp.int32)  # Up, Right
+    key = jax.random.key(42)
+    actions_dict = {0: jnp.int32(0), 1: jnp.int32(3)}  # Up, Right
+    agent_ids = [0, 1]
 
     # Call step twice with same state and actions
-    obs1, state1, rew1, term1, trunc1, _ = step_fn(state, actions)
-    obs2, state2, rew2, term2, trunc2, _ = step_fn(state, actions)
+    obs1, state1, rew1, term1, trunc1, _ = step_fn(key, state, actions_dict)
+    obs2, state2, rew2, term2, trunc2, _ = step_fn(key, state, actions_dict)
 
+    obs1_arr = jnp.stack([obs1[aid] for aid in agent_ids])
+    obs2_arr = jnp.stack([obs2[aid] for aid in agent_ids])
     np.testing.assert_array_equal(
-        np.array(obs1), np.array(obs2), err_msg="Determinism: obs differ between identical calls"
+        np.array(obs1_arr),
+        np.array(obs2_arr),
+        err_msg="Determinism: obs differ between identical calls",
     )
+    rew1_arr = jnp.stack([rew1[aid] for aid in agent_ids])
+    rew2_arr = jnp.stack([rew2[aid] for aid in agent_ids])
     np.testing.assert_array_equal(
-        np.array(rew1),
-        np.array(rew2),
+        np.array(rew1_arr),
+        np.array(rew2_arr),
         err_msg="Determinism: rewards differ between identical calls",
     )
+    term1_arr = jnp.stack([term1[aid] for aid in agent_ids])
+    term2_arr = jnp.stack([term2[aid] for aid in agent_ids])
     np.testing.assert_array_equal(
-        np.array(term1),
-        np.array(term2),
+        np.array(term1_arr),
+        np.array(term2_arr),
         err_msg="Determinism: terminateds differ between identical calls",
     )
+    trunc1_arr = jnp.stack([trunc1[aid] for aid in agent_ids])
+    trunc2_arr = jnp.stack([trunc2[aid] for aid in agent_ids])
     np.testing.assert_array_equal(
-        np.array(trunc1),
-        np.array(trunc2),
+        np.array(trunc1_arr),
+        np.array(trunc2_arr),
         err_msg="Determinism: truncateds differ between identical calls",
     )
 
@@ -523,23 +556,24 @@ def test_obs_eager_vs_jit():
     state = env._env_state
     state_view = envstate_to_dict(state)
     feature_fn = env._feature_fn
-    n_agents = env.config["num_agents"]
+    agent_ids = [0, 1]
 
     # Eager call
-    obs_e = get_all_agent_obs(feature_fn, state_view, n_agents)
+    obs_e = get_all_agent_obs(feature_fn, state_view, agent_ids)
 
     # JIT call -- StateView is a registered pytree, pass directly
     @jax.jit
     def jitted_obs(sv):
-        return get_all_agent_obs(feature_fn, sv, n_agents)
+        return get_all_agent_obs(feature_fn, sv, agent_ids)
 
     obs_j = jitted_obs(state_view)
 
-    np.testing.assert_array_equal(
-        np.array(obs_e),
-        np.array(obs_j),
-        err_msg="get_all_agent_obs: obs mismatch between eager and JIT",
-    )
+    for aid in agent_ids:
+        np.testing.assert_array_equal(
+            np.array(obs_e[aid]),
+            np.array(obs_j[aid]),
+            err_msg=f"get_all_agent_obs: obs mismatch between eager and JIT for agent {aid}",
+        )
 
 
 def test_rewards_eager_vs_jit():
@@ -555,23 +589,27 @@ def test_rewards_eager_vs_jit():
 
     # Run one step to get a prev_state and current state
     step_fn = env.jax_step
-    actions = jnp.array([0, 1], dtype=jnp.int32)
-    _, new_state, _, _, _, _ = step_fn(state, actions)
+    key = jax.random.key(42)
+    actions_dict = {0: jnp.int32(0), 1: jnp.int32(1)}
+    _, new_state, _, _, _, _ = step_fn(key, state, actions_dict)
 
     prev_sv = envstate_to_dict(state)
     curr_sv = envstate_to_dict(new_state)
     reward_config = env._reward_config
     compute_fn = reward_config["compute_fn"]
 
+    # compute_fn uses array actions internally
+    actions_arr = jnp.array([0, 1], dtype=jnp.int32)
+
     # Eager call
-    rew_e = compute_fn(prev_sv, curr_sv, actions, reward_config)
+    rew_e = compute_fn(prev_sv, curr_sv, actions_arr, reward_config)
 
     # JIT call -- StateView is a registered pytree, pass directly
     @jax.jit
     def jitted_rewards(prev, curr, acts):
         return compute_fn(prev, curr, acts, reward_config)
 
-    rew_j = jitted_rewards(prev_sv, curr_sv, actions)
+    rew_j = jitted_rewards(prev_sv, curr_sv, actions_arr)
 
     np.testing.assert_allclose(
         np.array(rew_e),

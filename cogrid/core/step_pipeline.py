@@ -5,22 +5,22 @@ that work on both numpy and JAX via ``xp``.  Backend-specific code
 (RNG splitting, ``stop_gradient``) is isolated to ``get_backend()``
 conditionals -- everything else uses the ``xp`` array namespace.
 
-The three public functions compose all Phase 5-7 sub-functions
-(``move_agents``, ``process_interactions``, ``get_all_agent_obs``,
-``compute_rewards``, scope-config tick handler) into a pure pipeline
-operating on :class:`~cogrid.backend.env_state.EnvState`.
+All per-agent data (observations, rewards, terminateds, truncateds,
+infos) and actions use ``dict[AgentID, ...]`` format, matching the
+PettingZoo ``ParallelEnv`` interface.  ``EnvState`` keeps stacked
+arrays internally; dict↔array conversion happens inside the pipeline.
 
 Public API:
 
 - :func:`envstate_to_dict` -- zero-cost EnvState-to-dict conversion.
 - :func:`step` -- end-to-end step: tick, move, interact, obs, rewards,
-  dones.
+  dones.  Takes ``(key, state, actions_dict)`` and returns dicts.
 - :func:`reset` -- build initial EnvState and compute initial
-  observations.
+  observations.  Takes ``(key)`` and returns dicts.
 - :func:`build_step_fn` -- init-time factory: closes over static config,
-  returns ``(state, actions) -> ...`` closure (auto-JIT on JAX).
+  returns ``(key, state, actions_dict) -> ...`` closure (auto-JIT on JAX).
 - :func:`build_reset_fn` -- init-time factory: closes over layout config,
-  returns ``(rng) -> (obs, state, infos)`` closure (auto-JIT on JAX).
+  returns ``(key) -> (obs_dict, state, infos_dict)`` closure (auto-JIT on JAX).
 
 Usage::
 
@@ -86,6 +86,16 @@ def _maybe_jit(fn, jit_compile=None):
     return fn
 
 
+def _dict_to_array(d, agent_ids):
+    """Convert ``{AgentID: value}`` dict to a stacked array."""
+    return xp.stack([d[aid] for aid in agent_ids])
+
+
+def _array_to_dict(arr, agent_ids):
+    """Convert ``(n_agents, ...)`` array to ``{AgentID: value}`` dict."""
+    return {aid: arr[i] for i, aid in enumerate(agent_ids)}
+
+
 def envstate_to_dict(state):
     """Convert EnvState to a StateView with dot access and scope-stripped extras.
 
@@ -109,9 +119,11 @@ def envstate_to_dict(state):
 
 
 def step(
+    key,
     state,
     actions,
     *,
+    agent_ids,
     scope_config,
     lookup_tables,
     feature_fn,
@@ -123,14 +135,33 @@ def step(
 ):
     """End-to-end step: tick, move, interact, observe, reward, done.
 
-    Keyword arguments are designed to be closed over via ``build_step_fn``.
+    Args:
+        key: RNG key (JAX PRNG key or integer seed for numpy).
+        state: Current :class:`~cogrid.backend.env_state.EnvState`.
+        actions: ``dict[AgentID, int]`` mapping agent IDs to action indices.
+        agent_ids: Sorted list of integer agent IDs.
+        scope_config: Dict of environment-specific handlers and settings.
+        lookup_tables: Pre-computed lookup arrays (e.g. ``CAN_OVERLAP``).
+        feature_fn: Callable that computes per-agent observations.
+        reward_config: Dict describing reward shaping parameters.
+        action_pickup_drop_idx: Action index for pickup/drop interaction.
+        action_toggle_idx: Action index for toggle interaction.
+        max_steps: Episode length limit (used for truncation).
+        terminated_fn: Optional callable returning per-agent terminated
+            flags. Defaults to ``None`` (no early termination).
 
     Pipeline order: (1) capture prev_state, (2) tick, (3) movement,
     (4) interactions, (5) observations, (6) rewards, (7) terminateds/
     truncateds, (8) stop_gradient (JAX only).
 
-    Returns ``(obs, state, rewards, terminateds, truncateds, infos)``.
+    Returns ``(obs_dict, state, rewards_dict, terminateds_dict,
+    truncateds_dict, infos_dict)`` where each ``*_dict`` is
+    ``dict[AgentID, ...]``.
     """
+    # 0. Set RNG key on state, convert actions dict to stacked array
+    state = dataclasses.replace(state, rng_key=key)
+    actions_arr = _dict_to_array(actions, agent_ids)
+
     # a. Capture prev_state before ANY mutations (zero-cost, immutable)
     prev_state = state
 
@@ -140,19 +171,19 @@ def step(
         state = tick_handler(state, scope_config)
 
     # c. Movement -- backend-specific RNG for priority
-    key, priority = _backend_rng(state.rng_key, "permutation", state.n_agents)
+    rng_key, priority = _backend_rng(state.rng_key, "permutation", state.n_agents)
 
     new_pos, new_dir = move_agents(
         state.agent_pos,
         state.agent_dir,
-        actions,
+        actions_arr,
         state.wall_map,
         state.object_type_map,
         lookup_tables["CAN_OVERLAP"],
         priority,
         state.action_set,
     )
-    state = dataclasses.replace(state, agent_pos=new_pos, agent_dir=new_dir, rng_key=key)
+    state = dataclasses.replace(state, agent_pos=new_pos, agent_dir=new_dir, rng_key=rng_key)
 
     # d. Interactions
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
@@ -160,7 +191,7 @@ def step(
 
     state = process_interactions(
         state,
-        actions,
+        actions_arr,
         interaction_fn,
         lookup_tables,
         scope_config,
@@ -172,12 +203,12 @@ def step(
 
     # e. Observations
     sv = envstate_to_dict(state)
-    obs = get_all_agent_obs(feature_fn, sv, state.n_agents)
+    obs = get_all_agent_obs(feature_fn, sv, agent_ids)
 
     # f. Rewards -- compute_fn comes from reward_config (no env-specific import)
     prev_sv = envstate_to_dict(prev_state)
     compute_fn = reward_config["compute_fn"]
-    rewards = compute_fn(prev_sv, sv, actions, reward_config)
+    rewards = compute_fn(prev_sv, sv, actions_arr, reward_config)
 
     # g. Terminateds and truncateds
     if terminated_fn is not None:
@@ -201,13 +232,20 @@ def step(
         obs, rewards, terminateds, truncateds
     )
 
-    # k. Return
-    return obs, state, rewards, terminateds, truncateds, {}
+    # k. Convert arrays to per-agent dicts and return
+    obs_dict = obs  # already a dict from get_all_agent_obs
+    rewards_dict = _array_to_dict(rewards, agent_ids)
+    terminateds_dict = _array_to_dict(terminateds, agent_ids)
+    truncateds_dict = _array_to_dict(truncateds, agent_ids)
+    infos_dict = {aid: {} for aid in agent_ids}
+
+    return obs_dict, state, rewards_dict, terminateds_dict, truncateds_dict, infos_dict
 
 
 def reset(
     rng,
     *,
+    agent_ids,
     layout_arrays,
     spawn_positions,
     n_agents,
@@ -219,7 +257,10 @@ def reset(
     """Build initial EnvState from pre-computed layout arrays.
 
     Layout data is pre-computed at init time; this function only
-    randomizes agent initial directions. Returns ``(obs, state, infos)``.
+    randomizes agent initial directions.
+
+    Returns ``(obs_dict, state, infos_dict)`` where ``obs_dict`` and
+    ``infos_dict`` are ``dict[AgentID, ...]``.
     """
     # Backend-specific RNG for random initial directions
     key, agent_dir = _backend_rng(rng, "directions", n_agents)
@@ -269,14 +310,15 @@ def reset(
         action_set=action_set,
     )
 
-    # Compute initial observations
+    # Compute initial observations (returns dict)
     sv = envstate_to_dict(state)
-    obs = get_all_agent_obs(feature_fn, sv, n_agents)
+    obs_dict = get_all_agent_obs(feature_fn, sv, agent_ids)
 
-    # Stop gradient (JAX only, no-op on numpy)
-    (obs,) = _maybe_stop_gradient(obs)
+    # Stop gradient on each obs value (JAX only, no-op on numpy)
+    obs_dict = {aid: _maybe_stop_gradient(v)[0] for aid, v in obs_dict.items()}
 
-    return obs, state, {}
+    infos_dict = {aid: {} for aid in agent_ids}
+    return obs_dict, state, infos_dict
 
 
 def build_step_fn(
@@ -287,20 +329,24 @@ def build_step_fn(
     action_pickup_drop_idx,
     action_toggle_idx,
     max_steps,
+    agent_ids,
     terminated_fn=None,
     jit_compile=None,
 ):
     """Close over static config and return a step function.
 
-    ``(state, actions) -> (obs, state, rewards, terminateds, truncateds, infos)``
+    ``(key, state, actions_dict) -> (obs_dict, state, rewards_dict,
+    terminateds_dict, truncateds_dict, infos_dict)``
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
 
-    def step_fn(state, actions):
+    def step_fn(key, state, actions):
         return step(
+            key,
             state,
             actions,
+            agent_ids=agent_ids,
             scope_config=scope_config,
             lookup_tables=lookup_tables,
             feature_fn=feature_fn,
@@ -321,12 +367,13 @@ def build_reset_fn(
     feature_fn,
     scope_config,
     action_set,
+    agent_ids,
     jit_compile=None,
     **kwargs,
 ):
     """Close over layout config and return a reset function.
 
-    ``(rng) -> (obs, state, infos)``
+    ``(key) -> (obs_dict, state, infos_dict)``
 
     Auto-JIT on JAX backend unless ``jit_compile=False``.
     """
@@ -334,6 +381,7 @@ def build_reset_fn(
     def reset_fn(rng):
         return reset(
             rng,
+            agent_ids=agent_ids,
             layout_arrays=layout_arrays,
             spawn_positions=spawn_positions,
             n_agents=n_agents,

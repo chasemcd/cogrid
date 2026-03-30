@@ -183,9 +183,12 @@ def run_jax():
 
     key = jax.random.key(0)
     obs, state, _ = reset_fn(key)
-    actions = jnp.array([0, 3], dtype=jnp.int32)  # Agent 0: Up, Agent 1: Right
-    obs, state, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
-    print(f"Functional API -- reward: {rew}, terms: {terminateds_arr}, truncs: {truncateds_arr}")
+    actions = {0: jnp.int32(0), 1: jnp.int32(3)}  # Agent 0: Up, Agent 1: Right
+    key, step_key = jax.random.split(key)
+    obs, state, rew, terminateds_d, truncateds_d, _ = step_fn(step_key, state, actions)
+    print(
+        f"Functional API -- reward: {rew[0]}, terms: {terminateds_d[0]}, truncs: {truncateds_d[0]}"
+    )
     print()
 
     # --- Batched rollouts with vmap ---
@@ -196,7 +199,7 @@ def run_jax():
     batched_step = jax.jit(jax.vmap(step_fn))
 
     batched_obs, batched_state, _ = batched_reset(keys)
-    print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs.shape}")
+    print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs[0].shape}")
 
     # Run 50 steps across all 1024 envs with random cardinal actions
     n_steps = 50
@@ -204,9 +207,14 @@ def run_jax():
     total_reward = jnp.float32(0.0)
     for _ in range(n_steps):
         action_key, subkey = jax.random.split(action_key)
-        batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
-        batched_obs, batched_state, batched_rew, *_ = batched_step(batched_state, batched_actions)
-        total_reward += batched_rew.sum()
+        arr = jax.random.randint(subkey, (n_envs, 2), 0, 4)
+        batched_actions = {0: arr[:, 0], 1: arr[:, 1]}
+        subkey, step_subkey = jax.random.split(subkey)
+        step_keys = jax.random.split(step_subkey, n_envs)
+        batched_obs, batched_state, batched_rew, *_ = batched_step(
+            step_keys, batched_state, batched_actions
+        )
+        total_reward += sum(v.sum() for v in batched_rew.values())
 
     total_reward /= n_envs
     print(f"vmap step x{n_steps} -- total reward across batch: {float(total_reward):.1f}")

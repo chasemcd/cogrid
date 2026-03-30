@@ -127,6 +127,7 @@ def test_step_numpy_backend():
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
+    agent_ids = [0, 1]
 
     try:
         _reset_backend_for_testing()
@@ -141,16 +142,18 @@ def test_step_numpy_backend():
             feature_fn=cfg["feature_fn"],
             scope_config=cfg["scope_config"],
             action_set="cardinal",
+            agent_ids=agent_ids,
         )
 
         assert isinstance(state, EnvState)
-        assert isinstance(obs, np.ndarray)
-        assert obs.shape[0] == n_agents
-        assert len(obs.shape) == 2
+        assert isinstance(obs, dict)
+        assert obs[0].shape == obs[1].shape
+        assert len(obs[0].shape) == 1
 
         # Step with noop actions
-        actions = np.zeros(n_agents, dtype=np.int32)
+        actions = {0: 0, 1: 0}
         result = step(
+            42,
             state,
             actions,
             scope_config=cfg["scope_config"],
@@ -160,19 +163,22 @@ def test_step_numpy_backend():
             action_pickup_drop_idx=cfg["action_pickup_drop_idx"],
             action_toggle_idx=cfg["action_toggle_idx"],
             max_steps=cfg["max_steps"],
+            agent_ids=agent_ids,
         )
 
         assert len(result) == 6
         obs, state, rewards, terminateds, truncateds, infos = result
         assert isinstance(state, EnvState)
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
-        assert terminateds.shape == (n_agents,)
-        assert truncateds.shape == (n_agents,)
+        assert isinstance(obs, dict)
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
+        assert 0 in terminateds and 1 in terminateds
+        assert 0 in truncateds and 1 in truncateds
 
         # Run 5 more steps
         for _ in range(5):
             obs, state, rewards, terminateds, truncateds, infos = step(
+                42,
                 state,
                 actions,
                 scope_config=cfg["scope_config"],
@@ -182,10 +188,11 @@ def test_step_numpy_backend():
                 action_pickup_drop_idx=cfg["action_pickup_drop_idx"],
                 action_toggle_idx=cfg["action_toggle_idx"],
                 max_steps=cfg["max_steps"],
+                agent_ids=agent_ids,
             )
 
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
     finally:
         _reset_backend_for_testing()
 
@@ -202,6 +209,7 @@ def test_step_jax_backend_eager():
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
+    agent_ids = [0, 1]
 
     try:
         _reset_backend_for_testing()
@@ -244,15 +252,18 @@ def test_step_jax_backend_eager():
             feature_fn=feature_fn,
             scope_config=scope_config,
             action_set="cardinal",
+            agent_ids=agent_ids,
         )
 
         assert isinstance(state, EnvState)
-        assert obs.shape[0] == n_agents
-        assert len(obs.shape) == 2
+        assert isinstance(obs, dict)
+        assert 0 in obs and 1 in obs
+        assert len(obs[0].shape) == 1
 
         # Step
-        actions = jnp.zeros(n_agents, dtype=jnp.int32)
+        actions = {0: 0, 1: 0}
         obs, state, rewards, terminateds, truncateds, infos = step(
+            jax.random.key(42),
             state,
             actions,
             scope_config=scope_config,
@@ -262,16 +273,18 @@ def test_step_jax_backend_eager():
             action_pickup_drop_idx=cfg["action_pickup_drop_idx"],
             action_toggle_idx=cfg["action_toggle_idx"],
             max_steps=cfg["max_steps"],
+            agent_ids=agent_ids,
         )
 
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
-        assert terminateds.shape == (n_agents,)
-        assert truncateds.shape == (n_agents,)
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
+        assert 0 in terminateds and 1 in terminateds
+        assert 0 in truncateds and 1 in truncateds
 
         # Run 5 more steps
         for _ in range(5):
             obs, state, rewards, terminateds, truncateds, infos = step(
+                jax.random.key(42),
                 state,
                 actions,
                 scope_config=scope_config,
@@ -281,10 +294,11 @@ def test_step_jax_backend_eager():
                 action_pickup_drop_idx=cfg["action_pickup_drop_idx"],
                 action_toggle_idx=cfg["action_toggle_idx"],
                 max_steps=cfg["max_steps"],
+                agent_ids=agent_ids,
             )
 
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
     finally:
         _reset_backend_for_testing()
 
@@ -301,6 +315,7 @@ def test_build_step_fn_jit_compiles():
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
+    agent_ids = [0, 1]
 
     try:
         _reset_backend_for_testing()
@@ -341,6 +356,7 @@ def test_build_step_fn_jit_compiles():
             feature_fn,
             scope_config,
             "cardinal",
+            agent_ids=agent_ids,
         )
         step_fn = build_step_fn(
             scope_config,
@@ -350,29 +366,35 @@ def test_build_step_fn_jit_compiles():
             cfg["action_pickup_drop_idx"],
             cfg["action_toggle_idx"],
             cfg["max_steps"],
+            agent_ids=agent_ids,
         )
 
         # Reset -- first call triggers JIT compilation
         obs, state, _ = reset_fn(jax.random.key(42))
         assert isinstance(state, EnvState)
-        assert obs.shape[0] == n_agents
+        assert isinstance(obs, dict)
+        assert 0 in obs and 1 in obs
 
         # Step -- first call triggers JIT compilation
-        actions = jnp.zeros(n_agents, dtype=jnp.int32)
-        obs, state, rewards, terminateds, truncateds, infos = step_fn(state, actions)
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
-        assert terminateds.shape == (n_agents,)
-        assert truncateds.shape == (n_agents,)
+        actions = {0: 0, 1: 0}
+        obs, state, rewards, terminateds, truncateds, infos = step_fn(
+            jax.random.key(42), state, actions
+        )
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
+        assert 0 in terminateds and 1 in terminateds
+        assert 0 in truncateds and 1 in truncateds
 
         # Run 10 more steps to verify repeated execution
         for _ in range(10):
-            obs, state, rewards, terminateds, truncateds, infos = step_fn(state, actions)
+            obs, state, rewards, terminateds, truncateds, infos = step_fn(
+                jax.random.key(42), state, actions
+            )
 
-        assert obs.shape[0] == n_agents
-        assert rewards.shape == (n_agents,)
-        assert terminateds.shape == (n_agents,)
-        assert truncateds.shape == (n_agents,)
+        assert 0 in obs and 1 in obs
+        assert 0 in rewards and 1 in rewards
+        assert 0 in terminateds and 1 in terminateds
+        assert 0 in truncateds and 1 in truncateds
 
         # Verify extra_state persistence through JIT-compiled steps
         pc = get_extra(state, "pot_contents", scope="overcooked")
