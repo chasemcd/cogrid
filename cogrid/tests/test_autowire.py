@@ -48,7 +48,8 @@ def test_scope_config_has_all_required_keys():
         "extra_state_schema",
         "extra_state_builder",
         "render_sync",
-        "interaction_fn",
+        "autowire_extras_fn",
+        "autowire_interactions",
     }
     assert required_keys == set(config.keys()), (
         f"Missing keys: {required_keys - set(config.keys())}, "

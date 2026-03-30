@@ -15,11 +15,7 @@ from cogrid.core.constants import Colors
 from cogrid.core import layouts
 from cogrid.core.rewards import InteractionReward
 from cogrid.core.features import Feature, register_feature_type
-from cogrid.core.interactions import (
-    branch_pickup,
-    branch_drop_on_empty,
-    merge_branch_results,
-)
+from cogrid.core.interaction_context import clear_facing_cell, increment
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
 ```
@@ -86,144 +82,100 @@ The pipeline calls all tick functions before movement and interactions each step
 
 ## Interaction functions
 
-When an agent performs the interact action (PickupDrop), the pipeline calls the `interaction_fn` for that agent. The function receives per-agent context and returns an updated state. Inside, it evaluates a sequence of **branch functions** — small pure functions that each handle one type of interaction (pick up an object, drop an item, collect a goal, etc.).
+When an agent performs `PickupDrop` or `Toggle`, the pipeline runs each function in the `interactions` list. Each function receives an `InteractionContext` and returns `(should_apply, changes)`. The pipeline applies the changes from every function whose `should_apply` is true. If multiple functions fire for the same agent, the later function's changes overwrite earlier ones for overlapping keys.
 
-### The handled cascade
+`PickupDrop` ("pick up / put down") and `Toggle` ("activate / use") are semantically different actions. Built-in branches (pickup, drop, place) only fire on `PickupDrop`. Custom branches can check `ctx.action` against `ctx.action_id` to distinguish which action the agent chose.
 
-Branch functions are evaluated in order. Each has the signature:
+### Signature
 
+```python
+def my_interaction(ctx):
+    should_apply = ...  # bool: should this interaction happen?
+    changes = {...}     # dict: what to change if it does
+    return should_apply, changes
 ```
-(handled, ctx) -> (cond, updates, new_handled)
-```
 
-| Argument | Type | Meaning |
-|----------|------|---------|
-| `handled` | bool scalar | `True` if a previous branch already claimed this interact action. |
-| `ctx` | dict | State arrays and static lookup tables the branch reads from. |
-| **Return** | | |
-| `cond` | bool scalar | Whether this branch fires. Always includes `~handled` so it won't fire if a prior branch already did. |
-| `updates` | dict | Arrays to write back if `cond` is true (e.g., modified `object_type_map`). |
-| `new_handled` | bool scalar | Updated flag: `handled \| cond`. Passed to the next branch. |
+### InteractionContext
 
-The first branch whose `cond` is true wins. Later branches see `handled=True` and skip. This ensures each agent does at most one thing per interact action.
+The pipeline builds an `InteractionContext` before calling interaction functions. Standard fields:
 
-### The ctx dict
-
-The pipeline builds a `ctx` dict before running branches. Standard keys:
-
-| Key | Value | Source |
-|-----|-------|--------|
-| `base_ok` | bool scalar | `True` if this agent performed the interact action **and** no other agent is blocking the cell ahead. Computed by `process_interactions` before calling `interaction_fn`. |
-| `fwd_r`, `fwd_c` | int scalars | Row and column of the cell the agent is facing. |
-| `fwd_type` | int scalar | `object_type_map[fwd_r, fwd_c]` — the type ID of the object in that cell. |
-| `agent_idx` | int scalar | Which agent (0, 1, ...) is acting. |
-| `inv_item` | int scalar | Type ID the agent is holding, or `-1` for empty hands. |
-| `agent_inv` | `(n_agents, 1)` int array | Full inventory array (branches write to it via `set_at`). |
+| Field | Type | Meaning |
+|-------|------|---------|
+| `can_interact` | bool | `True` if this agent performed `PickupDrop` or `Toggle` and no other agent blocks the cell ahead. |
+| `action` | int | Raw action index this agent chose this step. |
+| `action_id` | `ActionID` | Named indices for all actions in this env. Use `ctx.action_id.pickup_drop`, `ctx.action_id.toggle`, etc. Actions not in the action set have index `-1`. |
+| `facing_row` | int | Row of the cell the agent is facing. |
+| `facing_col` | int | Column of the cell the agent is facing. |
+| `facing_type` | int | Type ID of the object in the faced cell (0 = empty). |
+| `agent_index` | int | Which agent (0, 1, ...) is acting. |
+| `held_item` | int | Type ID of item the agent holds. `-1` = empty hands. |
+| `type_ids` | dict | Maps object names to integer type IDs. `ctx.type_ids["goal"]` returns the goal's type ID. |
 | `object_type_map` | `(H, W)` int array | Grid of object type IDs. |
 | `object_state_map` | `(H, W)` int array | Grid of per-cell state values. |
-| `CAN_PICKUP`, `PICKUP_FROM_GUARD`, `PLACE_ON_GUARD`, `pickup_from_produces` | int arrays | Static lookup tables built at init time. Control which objects can be picked up, dropped, or placed on surfaces. |
+| `agent_inv` | `(n_agents, 1)` int array | All agents' inventories. |
 
-Custom branches can add extra keys (like `goal_id` and `goals_collected` below).
+Extra-state arrays declared by components (via `extra_state_schema`) are available directly as attributes on `ctx`. For example, if a component declares `goals_collected`, access it as `ctx.goals_collected`.
 
-### Example branch: collecting a goal
+### Helper functions
+
+Import from `cogrid.core.interaction_context`:
+
+| Helper | Returns | Purpose |
+|--------|---------|---------|
+| `clear_facing_cell(ctx)` | `object_type_map` | Set the faced cell to empty (type 0). |
+| `set_facing_cell(ctx, type_id)` | `object_type_map` | Set the faced cell to a specific type. |
+| `pickup_from_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Pick up the faced object into the agent's inventory. |
+| `place_in_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Place the held item in the faced cell. |
+| `give_item(ctx, type_id)` | `agent_inv` | Put an item in the agent's inventory. |
+| `empty_hands(ctx)` | `agent_inv` | Clear the agent's inventory. |
+| `increment(array, index)` | array | `array[index] += 1`. Works on both numpy and JAX. |
+| `find_facing_instance(positions, row, col)` | `(index, is_match)` | Find which instance of a multi-position object the agent faces. |
+
+### Example: collecting a goal (PickupDrop)
 
 ```python
-def branch_collect_goal(handled, ctx):
-    """Remove a goal from the grid when an agent faces it."""
-    # Fire only if:
-    #  - no prior branch handled this action (~handled)
-    #  - the interact action is valid for this agent (base_ok)
-    #  - the cell ahead contains a goal
-    cond = ~handled & ctx["base_ok"] & (ctx["fwd_type"] == ctx["goal_id"])
+from cogrid.core.interaction_context import clear_facing_cell, increment
 
-    # Clear the goal cell by setting its type_id to 0 (empty)
-    otm = set_at_2d(ctx["object_type_map"], ctx["fwd_r"], ctx["fwd_c"], 0)
 
-    # Increment this agent's collection counter.
-    # .at[].add() is JAX syntax; the hasattr guard keeps numpy compat.
-    gc = ctx["goals_collected"]
-    gc = gc.at[ctx["agent_idx"]].add(1) if hasattr(gc, "at") else gc
-
-    return cond, {"object_type_map": otm, "goals_collected": gc}, handled | cond
+def collect_goal(ctx):
+    """Remove a goal when the agent picks it up."""
+    goal_id = ctx.type_ids["goal"]
+    is_pickup = ctx.action == ctx.action_id.pickup_drop
+    should_apply = ctx.can_interact & is_pickup & (ctx.facing_type == goal_id)
+    changes = {
+        "object_type_map": clear_facing_cell(ctx),
+        "goals_collected": increment(ctx.goals_collected, ctx.agent_index),
+    }
+    return should_apply, changes
 ```
 
-### Wiring branches into an interaction function
-
-The `interaction_fn` builds the `ctx` dict from state arrays and static tables, runs each branch in priority order, and merges results. Custom branches go before generic ones — order determines priority.
+### Example: toggling a door (Toggle)
 
 ```python
-def build_goal_interaction_fn(scope):
-    from cogrid.core.grid_object import object_to_idx
+from cogrid.backend import xp
+from cogrid.backend.array_ops import set_at_2d
 
-    # Look up the integer type_id for "goal" at init time (closed over).
-    goal_id = object_to_idx("goal", scope=scope)
 
-    def interaction_fn(state, agent_idx, fwd_r, fwd_c, base_ok, scope_config):
-        st = scope_config.get("static_tables", {})
+def toggle_door(ctx):
+    """Open or close a door when the agent toggles it."""
+    door_id = ctx.type_ids["door"]
+    is_toggle = ctx.action == ctx.action_id.toggle
+    should_apply = ctx.can_interact & is_toggle & (ctx.facing_type == door_id)
+    cur = ctx.object_state_map[ctx.facing_row, ctx.facing_col]
+    new_state = xp.where(cur == 0, 1, 0)
+    new_osm = set_at_2d(ctx.object_state_map, ctx.facing_row, ctx.facing_col, new_state)
+    return should_apply, {"object_state_map": new_osm}
+```
 
-        # Read the goals_collected extra-state array
-        gc_key = f"{scope}.goals_collected"
-        gc = state.extra_state.get(gc_key, xp.zeros(2, dtype=xp.int32))
+### Wiring into config
 
-        # Build the context dict that branches read from.
-        # Every branch expects the standard keys; custom branches
-        # (branch_collect_goal) also need goal_id and goals_collected.
-        ctx = {
-            # Per-call info (set by process_interactions before this call)
-            "base_ok": base_ok,
-            "fwd_r": fwd_r,
-            "fwd_c": fwd_c,
-            "agent_idx": agent_idx,
+Pass a list of interaction functions in the config. User interactions run before any auto-discovered ones (from the autowire system).
 
-            # Derived from state arrays
-            "fwd_type": state.object_type_map[fwd_r, fwd_c],
-            "inv_item": state.agent_inv[agent_idx, 0],
-
-            # Goal-specific keys (custom to this environment)
-            "goal_id": goal_id,
-            "goals_collected": gc,
-
-            # State arrays (branches may produce updated versions of these)
-            "agent_inv": state.agent_inv,
-            "object_type_map": state.object_type_map,
-            "object_state_map": state.object_state_map,
-
-            # Static lookup tables (built at init, never modified)
-            "CAN_PICKUP": st["CAN_PICKUP"],
-            "PICKUP_FROM_GUARD": st["PICKUP_FROM_GUARD"],
-            "PLACE_ON_GUARD": st["PLACE_ON_GUARD"],
-            "pickup_from_produces": st["pickup_from_produces"],
-        }
-
-        # Evaluate branches in priority order.
-        # branch_collect_goal runs first — if it fires, the generic
-        # branch_pickup and branch_drop_on_empty won't.
-        handled = xp.bool_(False)
-        results = []
-        for fn in [branch_collect_goal, branch_pickup, branch_drop_on_empty]:
-            c, u, handled = fn(handled, ctx)
-            results.append((c, u))
-
-        # merge_branch_results applies the winning branch's array updates.
-        # For each key, it does: final = xp.where(cond, updated, original).
-        merged = merge_branch_results(
-            results,
-            {
-                "agent_inv": state.agent_inv,
-                "object_type_map": state.object_type_map,
-                "object_state_map": state.object_state_map,
-            },
-        )
-
-        # goals_collected lives in extra_state, so merge it separately.
-        extra = dict(state.extra_state)
-        for c, u in results:
-            if "goals_collected" in u:
-                extra[gc_key] = xp.where(c, u["goals_collected"], gc)
-
-        return dataclasses.replace(state, **merged, extra_state=extra)
-
-    return interaction_fn
+```python
+goal_config = {
+    ...
+    "interactions": [collect_goal],
+}
 ```
 
 ## Extra state
@@ -304,7 +256,7 @@ goal_config = {
     "max_steps": 50,
     "scope": "global",
     "terminated_fn": goal_terminated,
-    "interaction_fn": build_goal_interaction_fn("global"),
+    "interactions": [collect_goal],
 }
 
 registry.register(

@@ -243,10 +243,11 @@ def build_scope_config_from_components(
 
         render_sync = _composed_render_sync
 
-    # -- Auto-generate interaction_fn from container + consume components --
-    interaction_fn = None
+    # -- Auto-generate interactions from container + consume components --
+    autowire_extras_fn = None
+    autowire_interactions = None
     if container_components or consume_components:
-        from cogrid.core.interactions import compose_interaction_fn
+        from cogrid.core.interactions import compose_interactions
 
         container_specs = []
         for meta in container_components:
@@ -261,7 +262,9 @@ def build_scope_config_from_components(
 
         consume_type_ids = [object_to_idx(m.object_id, scope=scope) for m in consume_components]
 
-        interaction_fn = compose_interaction_fn(container_specs, consume_type_ids, scope)
+        autowire_extras_fn, autowire_interactions = compose_interactions(
+            container_specs, consume_type_ids, scope
+        )
 
     return {
         "scope": scope,
@@ -274,7 +277,8 @@ def build_scope_config_from_components(
         "extra_state_schema": extra_state_schema,
         "extra_state_builder": extra_state_builder,
         "render_sync": render_sync,
-        "interaction_fn": interaction_fn,
+        "autowire_extras_fn": autowire_extras_fn,
+        "autowire_interactions": autowire_interactions,
     }
 
 

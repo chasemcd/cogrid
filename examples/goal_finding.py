@@ -24,6 +24,7 @@ import numpy as np
 
 from cogrid.core.grid_object import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
+from cogrid.core.interaction_context import clear_facing_cell
 
 
 @register_object_type("goal")
@@ -90,7 +91,25 @@ def goal_terminated(prev_state, state, reward_config):
     return otm[rows, cols] == goal_id
 
 
-# -- 5. Register the environment using CoGridEnv directly ---------------------
+# -- 5. Interaction function ---------------------------------------------------
+#
+# Interaction functions have signature (ctx) -> (should_apply, changes).
+# ctx is an InteractionContext with standard fields (facing_type, can_interact,
+# agent_index, type_ids, etc.) plus any extra_state arrays declared by components.
+
+
+def collect_goal(ctx):
+    """Remove a goal when the agent interacts with it."""
+    goal_id = ctx.type_ids["goal"]
+    is_pickup = ctx.action == ctx.action_id.pickup_drop
+    should_apply = ctx.can_interact & is_pickup & (ctx.facing_type == goal_id)
+    changes = {
+        "object_type_map": clear_facing_cell(ctx),
+    }
+    return should_apply, changes
+
+
+# -- 6. Register the environment using CoGridEnv directly ---------------------
 #
 # No env subclass needed -- the component API (registered GoalReward +
 # auto-wiring) handles everything. The registry entry points to CoGridEnv.
@@ -109,6 +128,7 @@ goal_config = {
     "max_steps": 50,
     "scope": "global",
     "terminated_fn": goal_terminated,
+    "interactions": [collect_goal],
 }
 
 registry.register(
@@ -117,7 +137,7 @@ registry.register(
 )
 
 
-# -- 6. Run on numpy ----------------------------------------------------------
+# -- 7. Run on numpy ----------------------------------------------------------
 
 
 def run_numpy():
@@ -148,7 +168,7 @@ def run_numpy():
     print()
 
 
-# -- 7. Run on JAX ------------------------------------------------------------
+# -- 8. Run on JAX ------------------------------------------------------------
 
 
 def run_jax():

@@ -8,10 +8,9 @@ from cogrid.core import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import (
-    _build_order_tables,
     build_order_extra_state,
     build_order_hud_fn,
-    order_queue_tick,
+    build_order_tick,
 )
 from cogrid.envs.overcooked.rewards import (
     DeliveryReward,
@@ -186,8 +185,6 @@ _order_cfg = {
     "max_active": 3,
     "time_limit": 100,
 }
-_order_tables = _build_order_tables(_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
-
 mixed_kitchen_config = {
     "name": "overcooked",
     "num_agents": 2,
@@ -205,7 +202,9 @@ mixed_kitchen_config = {
         "order_observation",
     ],
     "rewards": [
-        OrderDeliveryReward(coefficient=1.0, common_reward=True),
+        OrderDeliveryReward(
+            coefficient=1.0, common_reward=True, order_time_limit=_order_cfg["time_limit"]
+        ),
         OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
         # OrderGatedSoupInDishReward(coefficient=0.3, common_reward=False),
         ExpiredOrderPenalty(penalty=-0.75),
@@ -221,8 +220,7 @@ mixed_kitchen_config = {
         "tomato_soup",
     ],
     "orders": _order_cfg,
-    "tick_fn": order_queue_tick,
-    "extra_static_tables": _order_tables,
+    "tick_fn": build_order_tick(_order_cfg, recipe_results=["onion_soup", "tomato_soup"]),
     "extra_state_init_fn": functools.partial(build_order_extra_state, _order_cfg),
     "render_hud_fn": build_order_hud_fn(_order_cfg),
 }
@@ -265,8 +263,6 @@ _od_order_cfg = {
     "max_active": 2,
     "time_limit": 200,
 }
-_od_order_tables = _build_order_tables(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"])
-
 order_delivery_config = {
     "name": "overcooked",
     "num_agents": 1,
@@ -279,7 +275,9 @@ order_delivery_config = {
         "order_observation",
     ],
     "rewards": [
-        OrderDeliveryReward(coefficient=1.0, common_reward=True),
+        OrderDeliveryReward(
+            coefficient=1.0, common_reward=True, order_time_limit=_od_order_cfg["time_limit"]
+        ),
         ExpiredOrderPenalty(penalty=-0.5),
     ],
     "grid": {"layout": "overcooked_order_delivery_v0"},
@@ -287,8 +285,7 @@ order_delivery_config = {
     "scope": "overcooked",
     "pickupable_types": ["onion_soup", "tomato_soup"],
     "orders": _od_order_cfg,
-    "tick_fn": order_queue_tick,
-    "extra_static_tables": _od_order_tables,
+    "tick_fn": build_order_tick(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"]),
     "extra_state_init_fn": functools.partial(build_order_extra_state, _od_order_cfg),
     "render_hud_fn": build_order_hud_fn(_od_order_cfg),
 }

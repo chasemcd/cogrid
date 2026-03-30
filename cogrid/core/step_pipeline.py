@@ -187,12 +187,11 @@ def step(
 
     # d. Interactions
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
-    interaction_fn = scope_config.get("interaction_fn") if scope_config else None
 
     state = process_interactions(
         state,
         actions_arr,
-        interaction_fn,
+        None,
         lookup_tables,
         scope_config,
         dir_vec_table,

@@ -131,6 +131,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self._action_pickup_drop_idx = self.action_set.index(grid_actions.Actions.PickupDrop)
         self._action_toggle_idx = self.action_set.index(grid_actions.Actions.Toggle)
+        self._action_id = grid_actions.build_action_id(self.action_set)
         self.prev_actions = None
 
     def _init_vectorized_infrastructure(self):
@@ -150,8 +151,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             pre_hook(layout_idx=_layout_idx, scope=self.scope, env_config=self.config)
 
         self._scope_config = build_scope_config_from_components(self.scope)
-        if "interaction_fn" in self.config:
-            self._scope_config["interaction_fn"] = self.config["interaction_fn"]
+        self._scope_config["action_id"] = self._action_id
+        if "interactions" in self.config:
+            self._scope_config["user_interactions"] = self.config["interactions"]
 
         # Config-level tick composition (appended after auto-generated tick)
         if "tick_fn" in self.config:
@@ -165,12 +167,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 self._scope_config["tick_handler"] = _composed_tick
             else:
                 self._scope_config["tick_handler"] = user_tick
-
-        # Merge extra static tables from config
-        if "extra_static_tables" in self.config:
-            self._scope_config.setdefault("static_tables", {}).update(
-                self.config["extra_static_tables"]
-            )
 
         # Compose extra_state_init_fn with auto-generated extra_state_builder
         extra_init_fn = self.config.get("extra_state_init_fn")

@@ -207,13 +207,14 @@ def test_auto_generated_static_tables():
 
 
 def test_auto_generated_interaction_fn():
-    """Container + consumes_on_place auto-generates interaction_fn."""
+    """Container + consumes_on_place auto-generates interactions list."""
     import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
-    assert config["interaction_fn"] is not None
-    assert callable(config["interaction_fn"])
+    assert config["autowire_interactions"] is not None
+    assert len(config["autowire_interactions"]) > 0
+    assert callable(config["autowire_extras_fn"])
 
 
 # -----------------------------------------------------------------------

@@ -160,14 +160,12 @@ def profile_phases():
     print(f"  Movement:      {move_rate:>12,.0f} calls/sec")
 
     # --- Phase: Interactions ---
-    interaction_fn = scope_config.get("interaction_fn")
-
     @jax.jit
     def jit_interact(state, actions):
         return process_interactions(
             state,
             actions,
-            interaction_fn,
+            None,
             lookup_tables,
             scope_config,
             dir_vec_table,
@@ -451,28 +449,33 @@ def profile_interaction_detail():
     state.agent_pos.block_until_ready()
 
     scope_config = env._scope_config
-    interaction_fn = scope_config.get("interaction_fn")
 
     from cogrid.backend import xp
 
     dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
 
-    # Profile just the overcooked interaction for 1 agent
-    if interaction_fn is not None:
+    # Profile just the interaction pipeline
+    interactions = scope_config.get("interactions")
+    if interactions is not None:
+        from cogrid.core.interactions import process_interactions as _pi
+
+        action_pickup_drop_idx = env._action_pickup_drop_idx
+        action_toggle_idx = env._action_toggle_idx
+        lookup_tables = env._lookup_tables
+        interact_actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
 
         @jax.jit
         def jit_single_interact(state):
-            H, W = state.object_type_map.shape
-            fwd_pos = state.agent_pos + dir_vec_table[state.agent_dir]
-            fwd_r = jnp.clip(fwd_pos[:, 0], 0, H - 1)
-            fwd_c = jnp.clip(fwd_pos[:, 1], 0, W - 1)
-            is_interact = jnp.ones(n_agents, dtype=jnp.bool_)
-            fwd_rc = jnp.stack([fwd_r, fwd_c], axis=1)
-            fwd_matches_pos = jnp.all(fwd_rc[:, None, :] == state.agent_pos[None, :, :], axis=2)
-            not_self = ~jnp.eye(n_agents, dtype=jnp.bool_)
-            agent_ahead = jnp.any(fwd_matches_pos & not_self, axis=1)
-            base_ok = is_interact & ~agent_ahead
-            return interaction_fn(state, 0, fwd_r[0], fwd_c[0], base_ok[0], scope_config)
+            return _pi(
+                state,
+                interact_actions,
+                interactions,
+                lookup_tables,
+                scope_config,
+                dir_vec_table,
+                action_pickup_drop_idx,
+                action_toggle_idx,
+            )
 
         lowered = jit_single_interact.lower(state)
         hlo = lowered.compile().as_text()
@@ -491,11 +494,7 @@ def profile_interaction_detail():
         print("Interaction detail")
         print("=" * 65)
         print()
-        print(f"  Single-agent interaction:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
-        print(
-            f"  Full interaction (x2):     ~{ops * 2:>5,d} HLO ops,"
-            f" {10631:>12,d} calls/sec (from phase profile)"
-        )
+        print(f"  Interaction pipeline:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
         print()
 
 
