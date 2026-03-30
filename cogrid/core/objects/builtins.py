@@ -8,13 +8,13 @@ import numpy as np
 
 from cogrid.constants import GridConstants
 from cogrid.core import constants
-from cogrid.core.grid_object_base import GridAgent, GridObj
-from cogrid.core.grid_object_registry import (
+from cogrid.core.objects.base import GridAgent, GridObj
+from cogrid.core.objects.registry import (
     idx_to_object,
     make_object,
     register_object_type,
 )
-from cogrid.core.when import when
+from cogrid.core.objects.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,

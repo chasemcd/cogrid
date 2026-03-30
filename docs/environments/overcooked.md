@@ -113,7 +113,7 @@ CCCCC
 Recipes are defined in `cogrid.envs.overcooked.recipes` and declared on the `Pot` class:
 
 ```python
-from cogrid.core.containers import Container
+from cogrid.core.objects.containers import Container
 from cogrid.envs.overcooked.recipes import Recipe
 
 @register_object_type("pot", scope="overcooked")

@@ -5,7 +5,7 @@ Rewards are modular components that compute per-agent reward values each step. M
 ## Reward Base Class
 
 ```python
-from cogrid.core.rewards import Reward
+from cogrid.core.pipeline.rewards import Reward
 
 class MyReward(Reward):
     def compute(self, prev_state, state, actions, reward_config):
@@ -39,7 +39,7 @@ class MyReward(Reward):
 For rewards triggered by agent-object interactions, use the declarative `InteractionReward` base:
 
 ```python
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.pipeline.rewards import InteractionReward
 
 class OnionInPotReward(InteractionReward):
     action = "pickup_drop"   # "pickup_drop", "toggle", or None
@@ -105,7 +105,7 @@ Each step, the engine calls `compute()` on every reward instance and sums the re
 ## Writing a Custom Reward
 
 ```python
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.pipeline.rewards import InteractionReward
 
 class GoalReward(InteractionReward):
     action = None          # no specific action required

@@ -10,12 +10,12 @@ import functools
 
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at_2d
-from cogrid.core.grid_object import GridObj, register_object_type, when
+from cogrid.core.objects import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
-from cogrid.core import layouts
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.grid import layouts
+from cogrid.core.pipeline.rewards import InteractionReward
 from cogrid.core.features import Feature, register_feature_type
-from cogrid.core.interaction_context import clear_facing_cell, increment
+from cogrid.core.pipeline.context import clear_facing_cell, increment
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
 ```
@@ -118,7 +118,7 @@ Extra-state arrays declared by components (via `extra_state_schema`) are availab
 
 ### Helper functions
 
-Import from `cogrid.core.interaction_context`:
+Import from `cogrid.core.pipeline.context`:
 
 | Helper | Returns | Purpose |
 |--------|---------|---------|
@@ -134,7 +134,7 @@ Import from `cogrid.core.interaction_context`:
 ### Example: collecting a goal (PickupDrop)
 
 ```python
-from cogrid.core.interaction_context import clear_facing_cell, increment
+from cogrid.core.pipeline.context import clear_facing_cell, increment
 
 
 def collect_goal(ctx):

@@ -72,7 +72,7 @@ def build_container_extra_state_builder(
     def builder(parsed_arrays, scope=scope):
         import numpy as _np
 
-        from cogrid.core.grid_object_registry import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         type_id = object_to_idx(object_id, scope=scope)
         otm = parsed_arrays["object_type_map"]
@@ -148,7 +148,7 @@ def build_container_render_sync(object_id: str, scope: str) -> callable:
     def render_sync(grid, env_state, scope=scope):
         import numpy as np
 
-        from cogrid.core.grid_object_registry import idx_to_object, make_object
+        from cogrid.core.objects.registry import idx_to_object, make_object
 
         extra = env_state.extra_state
         prefix = f"{scope}."

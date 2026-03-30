@@ -24,7 +24,6 @@ def _setup_cogrid():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
@@ -60,10 +59,9 @@ def _bench_fn(jit_fn, state, extra_args, n_steps=N_STEPS, extract_state=None):
 
 def profile_phases():
     """Profile each step phase in isolation."""
-    from cogrid.backend import xp
-    from cogrid.core.interactions import process_interactions
-    from cogrid.core.movement import move_agents
-    from cogrid.core.step_pipeline import (
+    from cogrid.core.pipeline.interactions import process_interactions
+    from cogrid.core.pipeline.movement import move_agents
+    from cogrid.core.pipeline.step import (
         envstate_to_dict,
     )
     from cogrid.feature_space.features import get_all_agent_obs
@@ -88,7 +86,9 @@ def profile_phases():
     _ = env.max_steps
     _ = getattr(env, "_terminated_fn", None)
 
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    dir_vec_table = get_dir_vec_table()
 
     print("=" * 65)
     print("Phase-level profiling (batch=1, CPU, JIT-compiled)")
@@ -360,7 +360,7 @@ def hlo_top_ops(hlo_text, label="CoGrid", top_n=15):
 def profile_per_feature():
     """Profile each individual feature function: HLO ops and throughput."""
     from cogrid.core.component_registry import get_feature_types
-    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.core.pipeline.step import envstate_to_dict
 
     env, key, actions, actions_dict, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
@@ -450,14 +450,14 @@ def profile_interaction_detail():
 
     scope_config = env._scope_config
 
-    from cogrid.backend import xp
+    from cogrid.core.agent import get_dir_vec_table
 
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    dir_vec_table = get_dir_vec_table()
 
     # Profile just the interaction pipeline
     interactions = scope_config.get("interactions")
     if interactions is not None:
-        from cogrid.core.interactions import process_interactions as _pi
+        from cogrid.core.pipeline.interactions import process_interactions as _pi
 
         action_pickup_drop_idx = env._action_pickup_drop_idx
         action_toggle_idx = env._action_toggle_idx

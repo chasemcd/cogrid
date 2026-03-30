@@ -411,7 +411,6 @@ def test_agent_position_parity():
 
 def test_can_move_direction_parity():
     """CanMoveDirection Feature produces output identical to can_move_direction_feature."""
-    import cogrid.envs  # noqa: F401 -- triggers global scope registration
     from cogrid.feature_space.features import (
         CanMoveDirection,
         can_move_direction_feature,
@@ -458,8 +457,6 @@ def test_inventory_parity():
 
 def test_all_four_registered_global():
     """All four core features are registered to global scope with correct metadata."""
-    import cogrid.feature_space.features  # noqa: F401 -- triggers registration
-
     metas = get_feature_types(scope="global")
     meta_by_id = {m.feature_id: m for m in metas}
 
@@ -483,8 +480,7 @@ def test_all_four_registered_global():
 
 def test_overcooked_inventory_parity():
     """OvercookedInventory Feature produces output identical to overcooked_inventory_feature."""
-    import cogrid.envs  # noqa: F401 -- triggers overcooked scope registration
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         OvercookedInventory,
         overcooked_inventory_feature,
@@ -512,8 +508,7 @@ def test_overcooked_inventory_parity():
 
 def test_next_to_counter_parity():
     """NextToCounter Feature produces output identical to next_to_counter_feature."""
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         NextToCounter,
         next_to_counter_feature,
@@ -541,8 +536,7 @@ def test_next_to_counter_parity():
 
 def test_next_to_pot_parity():
     """NextToPot Feature produces output identical to next_to_pot_feature."""
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         NextToPot,
         next_to_pot_feature,
@@ -587,8 +581,7 @@ def test_next_to_pot_parity():
 
 def test_closest_obj_parity():
     """ClosestObj Feature produces output identical to closest_obj_feature."""
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import closest_obj_feature
 
     onion_type_id = object_to_idx("onion", scope="overcooked")
@@ -643,8 +636,7 @@ def test_closest_obj_parity():
 
 def test_ordered_pot_features_parity():
     """OrderedPotFeatures Feature produces output identical to ordered_pot_features."""
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         OrderedPotFeatures,
         ordered_pot_features,
@@ -686,7 +678,6 @@ def test_ordered_pot_features_parity():
 
 def test_dist_to_other_players_parity():
     """DistToOtherPlayers Feature produces output identical to dist_to_other_players_feature."""
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.features import (
         DistToOtherPlayers,
         dist_to_other_players_feature,
@@ -712,8 +703,7 @@ def test_closest_objects_merged_parity():
     differently for equidistant objects, so we compare sorted manhattan
     distances per type rather than exact (dy,dx) pairs.
     """
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         _CLOSEST_SPECS_SORTED,
         closest_obj_feature,
@@ -772,9 +762,6 @@ def test_closest_objects_merged_parity():
 
 def test_all_overcooked_per_agent_registered():
     """All per-agent Overcooked features are discoverable via get_feature_types."""
-    import cogrid.envs  # noqa: F401
-    import cogrid.envs.overcooked.features  # noqa: F401
-
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
 
@@ -806,7 +793,6 @@ def test_all_overcooked_per_agent_registered():
 
 def test_layout_id_parity():
     """LayoutID Feature produces output identical to layout_id_feature."""
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.features import (
         LayoutID,
         layout_id_feature,
@@ -835,8 +821,7 @@ def test_layout_id_parity():
 
 def test_environment_layout_parity():
     """EnvironmentLayout Feature produces output identical to environment_layout_feature."""
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         EnvironmentLayout,
         environment_layout_feature,
@@ -866,9 +851,6 @@ def test_environment_layout_parity():
 
 def test_all_overcooked_features_registered():
     """All 14 Overcooked features (12 per-agent + 2 global) are registered."""
-    import cogrid.envs  # noqa: F401
-    import cogrid.envs.overcooked.features  # noqa: F401
-
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
 

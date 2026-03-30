@@ -63,7 +63,6 @@ def bench_cogrid_numpy(n_steps=N_STEPS):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="numpy")
@@ -134,7 +133,6 @@ def bench_cogrid_jax(batch_size, device, n_steps=N_STEPS):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")

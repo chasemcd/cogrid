@@ -1,9 +1,10 @@
 """Overcooked grid object types (food, pots, plates, delivery zones)."""
 
-from cogrid.core import constants, grid_object
-from cogrid.core.containers import Container
-from cogrid.core.grid_object import register_object_type
-from cogrid.core.when import when
+from cogrid.core import constants
+from cogrid.core import objects as grid_object
+from cogrid.core.objects import register_object_type
+from cogrid.core.objects.containers import Container
+from cogrid.core.objects.when import when
 from cogrid.envs.overcooked.recipes import Recipe
 from cogrid.visualization.rendering import (
     add_text_to_image,

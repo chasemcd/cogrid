@@ -10,7 +10,7 @@ Run with::
 """
 
 from cogrid.core.autowire import build_scope_config_from_components
-from cogrid.core.interactions import process_interactions
+from cogrid.core.pipeline.interactions import process_interactions
 
 
 def _make_state(agent_pos, agent_dir, agent_inv, otm, osm, pot_contents, pot_timer, pot_positions):
@@ -54,9 +54,8 @@ def test_interaction_parity():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401 -- trigger environment registration
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
 
     scope = "overcooked"
     tables = build_lookup_tables(scope=scope)
@@ -427,8 +426,7 @@ def test_at_most_one_branch_fires():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401 -- trigger environment registration
-    from cogrid.core.interactions import (
+    from cogrid.core.pipeline.interactions import (
         branch_drop_on_empty,
         branch_pickup,
         branch_pickup_from,
@@ -601,7 +599,7 @@ def test_at_most_one_branch_fires():
 
             # Build InteractionContext
             from cogrid.core.actions import ActionID
-            from cogrid.core.interaction_context import InteractionContext
+            from cogrid.core.pipeline.context import InteractionContext
 
             _action_id = ActionID(pickup_drop=4, toggle=5)
             ctx = InteractionContext(
@@ -670,8 +668,7 @@ def test_default_recipes_backward_compat():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -718,7 +715,6 @@ def test_recipe_validation_errors():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -776,8 +772,7 @@ def test_custom_recipe_compilation():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -827,9 +822,8 @@ def test_mixed_recipe_end_to_end():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -986,9 +980,8 @@ def test_per_recipe_cook_time():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -1151,9 +1144,8 @@ def test_pickup_from_produces_config_driven():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import object_to_idx
-    from cogrid.core.grid_object_registry import build_lookup_tables
+    from cogrid.core.objects import object_to_idx
+    from cogrid.core.objects.registry import build_lookup_tables
 
     scope = "overcooked"
     tables = build_lookup_tables(scope)
@@ -1180,7 +1172,7 @@ def test_pickup_from_produces_config_driven():
     # Verify no spurious mappings among non-stack types.
     # Other tests may register additional stacks in the same process,
     # so we only check types whose name does NOT end with "_stack".
-    from cogrid.core.grid_object import get_object_names
+    from cogrid.core.objects import get_object_names
 
     names = get_object_names(scope=scope)
     known_stacks = {onion_stack_id, tomato_stack_id, plate_stack_id}
@@ -1199,7 +1191,6 @@ def test_stack_subclasses_are_thin():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.overcooked_grid_objects import (
         OnionStack,
         PlateStack,
@@ -1229,9 +1220,8 @@ def test_factory_registers_new_types():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
-    from cogrid.core.grid_object_registry import build_lookup_tables
+    from cogrid.core.objects import get_object_names, make_object, object_to_idx
+    from cogrid.core.objects.registry import build_lookup_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
 
     scope = "overcooked"
@@ -1270,9 +1260,8 @@ def test_factory_stack_dispenses_item():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
-    from cogrid.core.grid_object import get_object_names, make_object, object_to_idx
-    from cogrid.core.grid_object_registry import build_lookup_tables
+    from cogrid.core.objects import get_object_names, make_object, object_to_idx
+    from cogrid.core.objects.registry import build_lookup_tables
     from cogrid.envs.overcooked.overcooked_grid_objects import make_ingredient_and_stack
 
     scope = "overcooked"
@@ -1367,7 +1356,6 @@ def test_order_tick_lifecycle():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.config import build_order_tick
 
     scope = "overcooked"
@@ -1459,9 +1447,8 @@ def test_order_delivery_consumes_order():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1535,9 +1522,8 @@ def test_order_delivery_without_matching_order():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1611,9 +1597,8 @@ def test_order_backward_compat_no_config():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.agent import get_dir_vec_table
-    from cogrid.core.grid_object import build_lookup_tables, object_to_idx
+    from cogrid.core.objects import build_lookup_tables, object_to_idx
 
     scope = "overcooked"
     dir_vec = get_dir_vec_table()
@@ -1756,7 +1741,6 @@ def test_delivery_reward_uses_is_deliverable():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import DeliveryReward
 
@@ -1823,7 +1807,6 @@ def test_delivery_reward_per_recipe_values():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
     from cogrid.envs.overcooked.rewards import DeliveryReward
@@ -1899,7 +1882,6 @@ def test_delivery_reward_order_match_required():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 
@@ -1992,7 +1974,6 @@ def test_expired_order_penalty():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.rewards import ExpiredOrderPenalty
 
     print("test_expired_order_penalty:")
@@ -2029,7 +2010,6 @@ def test_delivery_reward_backward_compat_no_orders():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import DeliveryReward
 
@@ -2079,10 +2059,11 @@ def test_static_tables_in_reward_config_via_env():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.cogrid_env import CoGridEnv
 
     print("test_static_tables_in_reward_config_via_env:")
+
+    import cogrid.envs
 
     config = cogrid.envs.cramped_room_config
     env = CoGridEnv(config)
@@ -2103,7 +2084,6 @@ def test_order_config_validation():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.config import build_order_tick
 
     print("Order config validation test:")
@@ -2149,7 +2129,6 @@ def test_delivery_reward_tip_bonus():
     from cogrid.backend._dispatch import _reset_backend_for_testing
 
     _reset_backend_for_testing()
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
     from cogrid.envs.overcooked.rewards import OrderDeliveryReward
 

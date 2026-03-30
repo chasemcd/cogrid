@@ -24,7 +24,7 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.rewards import (
+from cogrid.core.pipeline.rewards import (
     InteractionReward,
     Reward,
     _compute_fwd_positions,

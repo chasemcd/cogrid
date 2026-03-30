@@ -13,10 +13,10 @@ Build a goal-reaching grid world from scratch.
 ```
 
 ```python
-from cogrid.core.grid_object import GridObj, register_object_type, when
+from cogrid.core.objects import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
-from cogrid.core import layouts
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.grid import layouts
+from cogrid.core.pipeline.rewards import InteractionReward
 from cogrid.cogrid_env import CoGridEnv
 from cogrid.envs import registry
 import functools

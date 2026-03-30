@@ -158,7 +158,7 @@ class CanMoveDirection(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the can-move-direction feature function."""
-        from cogrid.core.grid_object import build_lookup_tables
+        from cogrid.core.objects import build_lookup_tables
 
         tables = build_lookup_tables(scope=scope)
         can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)

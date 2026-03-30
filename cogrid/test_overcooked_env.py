@@ -3,8 +3,8 @@ import sys
 import unittest
 
 from cogrid.cogrid_env import CoGridEnv
-from cogrid.core import layouts
 from cogrid.core.actions import Actions, ActionSets
+from cogrid.core.grid import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked import overcooked_grid_objects
 from cogrid.envs.overcooked.agent import OvercookedAgent

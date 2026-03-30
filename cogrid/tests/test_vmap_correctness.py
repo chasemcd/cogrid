@@ -80,7 +80,6 @@ def _create_jax_env(registry_id, seed=42):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     env = registry.make(registry_id, backend="jax")

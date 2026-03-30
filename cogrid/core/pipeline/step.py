@@ -24,8 +24,8 @@ Public API:
 
 Usage::
 
-    from cogrid.core.step_pipeline import step, reset, envstate_to_dict
-    from cogrid.core.step_pipeline import build_step_fn, build_reset_fn
+    from cogrid.core.pipeline.step import step, reset, envstate_to_dict
+    from cogrid.core.pipeline.step import build_step_fn, build_reset_fn
 """
 
 import dataclasses
@@ -34,8 +34,8 @@ from cogrid.backend import xp
 from cogrid.backend._dispatch import get_backend
 from cogrid.backend.env_state import create_env_state
 from cogrid.backend.state_view import StateView
-from cogrid.core.interactions import process_interactions
-from cogrid.core.movement import move_agents
+from cogrid.core.pipeline.interactions import process_interactions
+from cogrid.core.pipeline.movement import move_agents
 from cogrid.feature_space.features import get_all_agent_obs
 
 # ---------------------------------------------------------------------------
@@ -186,7 +186,9 @@ def step(
     state = dataclasses.replace(state, agent_pos=new_pos, agent_dir=new_dir, rng_key=rng_key)
 
     # d. Interactions
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    dir_vec_table = get_dir_vec_table()
 
     state = process_interactions(
         state,

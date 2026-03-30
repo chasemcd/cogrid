@@ -4,7 +4,7 @@ import copy
 import functools
 
 from cogrid.cogrid_env import CoGridEnv
-from cogrid.core import layouts
+from cogrid.core.grid import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import (

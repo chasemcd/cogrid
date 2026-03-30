@@ -29,7 +29,7 @@ def layout_to_state(grid, scope: str = "global", scope_config=None) -> dict:
     Scope-specific state is extracted via scope_config's ``state_extractor``
     if provided.
     """
-    from cogrid.core.grid_object import Wall, object_to_idx
+    from cogrid.core.objects import Wall, object_to_idx
 
     height, width = grid.height, grid.width
 
@@ -73,14 +73,4 @@ def layout_to_state(grid, scope: str = "global", scope_config=None) -> dict:
         extra_state = state_extractor(grid, scope)
         result.update(extra_state)
 
-    return result
-
-
-def grid_to_state(grid, env_agents, scope: str = "global", scope_config=None) -> dict:
-    """Convenience wrapper: layout_to_state + create_agent_arrays."""
-    from cogrid.core.agent import create_agent_arrays
-
-    result = layout_to_state(grid, scope=scope, scope_config=scope_config)
-    agent_arrays = create_agent_arrays(env_agents, scope=scope)
-    result.update(agent_arrays)
     return result

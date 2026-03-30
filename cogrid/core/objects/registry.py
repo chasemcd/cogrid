@@ -7,7 +7,7 @@ functions for registering, looking up, encoding, and decoding grid objects.
 import numpy as np
 
 from cogrid.backend import xp
-from cogrid.core.grid_object_base import GridObj
+from cogrid.core.objects.base import GridObj
 
 # The OBJECT_REGISTRY holds all registered objects under a "scope"
 # (e.g., "global", "search_rescue", "overcooked") which allows re-using
@@ -32,6 +32,10 @@ _COMPONENT_METHODS = frozenset(
 
 def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridObj:
     """Create a GridObj instance by object_id, checking global then scope."""
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
     if object_id is None:
         return None
 
@@ -113,8 +117,8 @@ def register_object_type(
             get_all_components,
             register_component_metadata,
         )
-        from cogrid.core.containers import Container
-        from cogrid.core.when import When, when
+        from cogrid.core.objects.containers import Container
+        from cogrid.core.objects.when import When, when
 
         # --- Auto-generate when() from Container + Recipe descriptors ---
         container = getattr(cls, "container", None)
@@ -198,6 +202,10 @@ def build_lookup_tables(scope: str = "global") -> dict[str, np.ndarray]:
     Returns ``(n_types,)`` int32 arrays indexed by the integer encoding
     from ``object_to_idx()``.
     """
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
     from cogrid.backend.array_ops import set_at
 
     type_names = get_object_names(scope=scope)
@@ -293,7 +301,11 @@ def build_guard_tables(scope: str = "global") -> dict[str, np.ndarray]:
     - ``when(agent_holding="plate")``: sets only the plate column.
     - ``when(agent_holding=["onion", "tomato"])``: sets those columns.
     """
-    from cogrid.core.when import When
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
+    from cogrid.core.objects.when import When
 
     type_names = get_object_names(scope=scope)
     n_types = len(type_names)
@@ -380,6 +392,10 @@ def get_object_names(scope: str = "global") -> list[str]:
 
     Order: [None, "free_space", sorted globals, sorted scope, agent directions].
     """
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
     # Start with None and free_space which are special cases
     names = [None, "free_space"]
 
@@ -409,6 +425,10 @@ def get_object_names(scope: str = "global") -> list[str]:
 
 def object_to_idx(object: GridObj | str | None, scope: str = "global") -> int:
     """Convert an object or object_id to its integer index."""
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
     if isinstance(object, GridObj):
         object_id = object.object_id
     else:
@@ -419,6 +439,10 @@ def object_to_idx(object: GridObj | str | None, scope: str = "global") -> int:
 
 def idx_to_object(idx: int, scope: str = "global") -> str:
     """Convert an integer index back to its object_id."""
+    from cogrid.core.component_registry import _ensure_scope_loaded
+
+    _ensure_scope_loaded(scope)
+
     names = get_object_names(scope=scope)
     if idx >= len(names):
         raise ValueError(

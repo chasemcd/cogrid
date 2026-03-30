@@ -5,7 +5,8 @@ import dataclasses
 import numpy as np
 
 from cogrid import constants
-from cogrid.core import grid_object, grid_utils
+from cogrid.core import objects as grid_object
+from cogrid.core.grid import utils as grid_utils
 
 
 def generate_sr_grid(

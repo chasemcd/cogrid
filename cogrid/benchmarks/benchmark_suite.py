@@ -58,7 +58,6 @@ def _create_numpy_env(layout=LAYOUT, seed=SEED):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     env = registry.make(layout, backend="numpy")
@@ -77,7 +76,6 @@ def _create_jax_env(layout=LAYOUT, seed=SEED):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     env = registry.make(layout, backend="jax")

@@ -38,7 +38,7 @@ Environment-scoped objects add their own characters. For example, the Overcooked
 Use `register_layout()` to store a named layout in the global registry:
 
 ```python
-from cogrid.core.layouts import register_layout
+from cogrid.core.grid.layouts import register_layout
 
 register_layout(
     "my_layout_v0",
@@ -72,7 +72,7 @@ config = {
 ## Retrieving Layouts
 
 ```python
-from cogrid.core.layouts import get_layout
+from cogrid.core.grid.layouts import get_layout
 
 layout, state_encoding = get_layout("my_layout_v0")
 ```

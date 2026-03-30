@@ -2,7 +2,7 @@
 
 Usage::
 
-    from cogrid.core.when import when
+    from cogrid.core.objects.when import when
 
 
     @register_object_type("onion", scope="overcooked")

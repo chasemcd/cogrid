@@ -40,7 +40,6 @@ def test_autowired_overcooked_determinism_and_invariants():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     N_STEPS = 50
@@ -135,7 +134,6 @@ def test_autowired_overcooked_jit_vmap_1024():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     N_ENVS = 1024

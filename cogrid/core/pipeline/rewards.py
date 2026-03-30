@@ -17,7 +17,9 @@ from cogrid.backend import xp
 def _compute_fwd_positions(prev_state):
     """Compute forward positions, clipped indices, bounds mask, and forward type IDs."""
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    dir_vec_table = get_dir_vec_table()
 
     fwd_pos = prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]  # (n_agents, 2)
     H, W = prev_state.object_type_map.shape

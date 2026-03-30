@@ -29,8 +29,6 @@ def build_feature_config_from_components(
     ``compose_feature_fns``, and ``obs_dim_for_features`` so that features
     can read their dimensions from the config instead of the global registry.
     """
-    # Ensure global Feature subclasses are registered
-    import cogrid.feature_space.features  # noqa: F401
     from cogrid.core.component_registry import get_pre_compose_hook
     from cogrid.core.features import compose_feature_fns, obs_dim_for_features
 
@@ -92,17 +90,17 @@ def build_scope_config_from_components(
         get_container_components,
         get_tickable_components,
     )
-    from cogrid.core.containers import (
-        build_container_extra_state_builder,
-        build_container_extra_state_schema,
-        build_container_render_sync,
-        build_container_tick_fn,
-    )
-    from cogrid.core.grid_object import (
+    from cogrid.core.objects import (
         build_guard_tables,
         build_lookup_tables,
         get_object_names,
         object_to_idx,
+    )
+    from cogrid.core.objects.containers import (
+        build_container_extra_state_builder,
+        build_container_extra_state_schema,
+        build_container_render_sync,
+        build_container_tick_fn,
     )
 
     # -- Collect all components for this scope (reused below) --
@@ -247,7 +245,7 @@ def build_scope_config_from_components(
     autowire_extras_fn = None
     autowire_interactions = None
     if container_components or consume_components:
-        from cogrid.core.interactions import compose_interactions
+        from cogrid.core.pipeline.interactions import compose_interactions
 
         container_specs = []
         for meta in container_components:

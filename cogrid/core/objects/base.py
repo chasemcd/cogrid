@@ -56,7 +56,7 @@ class GridObj:
 
     def encode(self, encode_char=True, scope: str = "global"):
         """Encode this object as a (char/idx, extra, state) tuple."""
-        from cogrid.core.grid_object_registry import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         return (
             self.char if encode_char else object_to_idx(self, scope=scope),
@@ -71,7 +71,7 @@ class GridObj:
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global"):
         """Decode a char/idx and state into a GridObj instance."""
-        from cogrid.core.grid_object_registry import get_object_id_from_char, make_object
+        from cogrid.core.objects.registry import get_object_id_from_char, make_object
 
         if char_or_idx in [
             None,
@@ -116,7 +116,7 @@ class GridAgent(GridObj):
 
     def __init__(self, agent, n_agents: int, scope: str = "global"):
         """Initialize from an Agent, encoding direction as char and inventory as state."""
-        from cogrid.core.grid_object_registry import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         self.char = {
             Directions.Up: "^",
@@ -197,7 +197,7 @@ class GridAgent(GridObj):
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global"):
         """Decode a char/idx and state into a GridAgent-compatible object."""
-        from cogrid.core.grid_object_registry import (
+        from cogrid.core.objects.registry import (
             get_object_id_from_char,
             get_object_names,
             make_object,

@@ -7,7 +7,7 @@ Every cell on the grid can hold a `GridObj` instance. Objects define their appea
 All grid objects inherit from `GridObj`:
 
 ```python
-from cogrid.core.grid_object_base import GridObj
+from cogrid.core.objects.base import GridObj
 
 class MyObject(GridObj):
     object_id: str = None   # set by @register_object_type
@@ -40,7 +40,7 @@ class MyObject(GridObj):
 Objects are registered with the `@register_object_type` decorator:
 
 ```python
-from cogrid.core.grid_object_registry import register_object_type
+from cogrid.core.objects.registry import register_object_type
 
 @register_object_type("my_object", scope="my_env")
 class MyObject(GridObj):
@@ -72,7 +72,7 @@ Objects in a named scope are only visible to environments that use that scope. G
 Objects declare interaction rules through class-level descriptors imported from `cogrid.core.when`:
 
 ```python
-from cogrid.core.when import when
+from cogrid.core.objects.when import when
 
 @register_object_type("counter")
 class Counter(GridObj):
@@ -87,9 +87,9 @@ The `when()` descriptor (with no arguments) means the action is always allowed. 
 Objects that hold multiple items use the `Container` descriptor:
 
 ```python
-from cogrid.core.containers import Container
-from cogrid.core.grid_object_base import GridObj
-from cogrid.core.grid_object_registry import register_object_type
+from cogrid.core.objects.containers import Container
+from cogrid.core.objects.base import GridObj
+from cogrid.core.objects.registry import register_object_type
 
 @register_object_type("pot", scope="overcooked")
 class Pot(GridObj):

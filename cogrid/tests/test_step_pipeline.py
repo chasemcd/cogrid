@@ -36,13 +36,12 @@ def _setup_overcooked_config():
     _reset_backend_for_testing()
     set_backend("numpy")
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.core.autowire import (
         build_feature_config_from_components,
         build_reward_config,
         build_scope_config_from_components,
     )
-    from cogrid.core.grid_object import build_lookup_tables
+    from cogrid.core.objects import build_lookup_tables
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0")
@@ -123,7 +122,7 @@ def test_step_numpy_backend():
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend.env_state import EnvState
-    from cogrid.core.step_pipeline import reset, step
+    from cogrid.core.pipeline.step import reset, step
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
@@ -205,7 +204,7 @@ def test_step_jax_backend_eager():
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend.env_state import EnvState, register_envstate_pytree
-    from cogrid.core.step_pipeline import reset, step
+    from cogrid.core.pipeline.step import reset, step
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]
@@ -311,7 +310,7 @@ def test_build_step_fn_jit_compiles():
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
     from cogrid.backend.env_state import EnvState, get_extra, register_envstate_pytree
-    from cogrid.core.step_pipeline import build_reset_fn, build_step_fn
+    from cogrid.core.pipeline.step import build_reset_fn, build_step_fn
 
     cfg = _setup_overcooked_config()
     n_agents = cfg["n_agents"]

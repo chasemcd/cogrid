@@ -72,7 +72,6 @@ def _create_env(registry_id, backend, seed=42, max_steps=200):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     env = registry.make(registry_id, backend=backend)
@@ -324,12 +323,11 @@ def test_eager_vs_jit():
     import jax.numpy as jnp
 
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.step_pipeline import reset as reset_fn_eager
-    from cogrid.core.step_pipeline import step as step_fn_eager
+    from cogrid.core.pipeline.step import reset as reset_fn_eager
+    from cogrid.core.pipeline.step import step as step_fn_eager
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     # Create env to extract config
@@ -465,7 +463,6 @@ def test_step_determinism():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
@@ -536,7 +533,6 @@ def _setup_jax_env():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
@@ -549,7 +545,7 @@ def test_obs_eager_vs_jit():
     pytest.importorskip("jax")
     import jax
 
-    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.core.pipeline.step import envstate_to_dict
     from cogrid.feature_space.features import get_all_agent_obs
 
     env = _setup_jax_env()
@@ -582,7 +578,7 @@ def test_rewards_eager_vs_jit():
     import jax
     import jax.numpy as jnp
 
-    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.core.pipeline.step import envstate_to_dict
 
     env = _setup_jax_env()
     state = env._env_state

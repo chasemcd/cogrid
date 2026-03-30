@@ -23,7 +23,6 @@ from flax.linen.initializers import constant, orthogonal
 from typing import NamedTuple
 from flax.training.train_state import TrainState
 
-import cogrid.envs  # noqa: F401 -- register layouts & grid objects
 import cogrid
 
 

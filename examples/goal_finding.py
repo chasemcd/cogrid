@@ -22,9 +22,9 @@ import numpy as np
 # (for ASCII layouts), a color (for rendering), and boolean properties
 # that control how agents interact with it.
 
-from cogrid.core.grid_object import GridObj, register_object_type, when
+from cogrid.core.objects import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
-from cogrid.core.interaction_context import clear_facing_cell
+from cogrid.core.pipeline.context import clear_facing_cell
 
 
 @register_object_type("goal")
@@ -44,7 +44,7 @@ class Goal(GridObj):
 # Layouts are ASCII strings. Special characters:
 #   '#' = wall    '+' = spawn point    ' ' = empty    'g' = goal (ours)
 
-from cogrid.core import layouts
+from cogrid.core.grid import layouts
 
 layouts.register_layout(
     "goal_simple_v0",
@@ -66,7 +66,7 @@ layouts.register_layout(
 # layer just sums all reward instances -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.pipeline.rewards import InteractionReward
 
 
 class GoalReward(InteractionReward):

@@ -12,7 +12,7 @@ import numpy as np
 
 from cogrid.constants import GridConstants
 from cogrid.core.constants import CoreConstants
-from cogrid.core.grid_object import GridAgent, GridObj, Wall, object_to_idx
+from cogrid.core.objects import GridAgent, GridObj, Wall, object_to_idx
 from cogrid.visualization.rendering import (
     downsample,
     fill_coords,

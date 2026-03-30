@@ -1,8 +1,9 @@
 """Search-and-rescue grid object types (items, obstacles, victims)."""
 
-from cogrid.core import constants, grid_object
-from cogrid.core.grid_object_registry import register_object_type
-from cogrid.core.when import when
+from cogrid.core import constants
+from cogrid.core import objects as grid_object
+from cogrid.core.objects.registry import register_object_type
+from cogrid.core.objects.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,

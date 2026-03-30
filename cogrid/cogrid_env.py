@@ -11,11 +11,14 @@ from cogrid import constants
 # Vectorized components
 from cogrid.backend import get_backend, set_backend
 from cogrid.core import actions as grid_actions
-from cogrid.core import agent, directions, grid, grid_object, grid_utils, layouts, typing
+from cogrid.core import agent, directions, grid, typing
+from cogrid.core import objects as grid_object
 from cogrid.core.agent import create_agent_arrays
 from cogrid.core.constants import CoreConstants
-from cogrid.core.grid_object import build_lookup_tables
-from cogrid.core.grid_utils import layout_to_state
+from cogrid.core.grid import layouts
+from cogrid.core.grid import utils as grid_utils
+from cogrid.core.grid.utils import layout_to_state
+from cogrid.core.objects import build_lookup_tables
 from cogrid.rendering import EnvRenderer
 
 RNG = RandomNumberGenerator = np.random.Generator
@@ -400,7 +403,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Build feature/step/reset pipeline and run initial reset."""
         from cogrid.core.autowire import build_feature_config_from_components
         from cogrid.core.component_registry import get_layout_index
-        from cogrid.core.step_pipeline import build_reset_fn, build_step_fn
+        from cogrid.core.pipeline.step import build_reset_fn, build_step_fn
 
         n_agents = self.config["num_agents"]
         _layout_idx = get_layout_index(self.scope, self.current_layout_id)
@@ -610,7 +613,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             return
 
         state = self._env_state
-        from cogrid.core.grid_object import idx_to_object, make_object
+        from cogrid.core.objects import idx_to_object, make_object
 
         # --- Sync agent positions, directions, and inventory ---
         for i, aid in enumerate(self._agent_id_order):

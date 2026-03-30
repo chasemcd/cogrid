@@ -61,7 +61,7 @@ def compile_recipes(recipes: list[Recipe], scope: str) -> dict:
     """
     import numpy as _np
 
-    from cogrid.core.grid_object_registry import get_object_names, object_to_idx
+    from cogrid.core.objects.registry import get_object_names, object_to_idx
 
     if not recipes:
         raise ValueError("recipes must be a non-empty list of Recipe objects.")
@@ -129,7 +129,7 @@ def build_recipe_static_tables(
     """
     import numpy as _np
 
-    from cogrid.core.grid_object_registry import get_object_names, object_to_idx
+    from cogrid.core.objects.registry import get_object_names, object_to_idx
 
     tables = {}
 

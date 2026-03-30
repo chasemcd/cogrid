@@ -31,7 +31,7 @@ import dataclasses
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 from cogrid.core.actions import ActionID
-from cogrid.core.interaction_context import (
+from cogrid.core.pipeline.context import (
     InteractionContext,
     build_context,
     clear_facing_cell,

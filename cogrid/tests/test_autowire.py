@@ -22,8 +22,8 @@ from cogrid.core.autowire import (
     build_reward_config,
     build_scope_config_from_components,
 )
-from cogrid.core.grid_object import GridObj, register_object_type
-from cogrid.core.rewards import Reward
+from cogrid.core.objects import GridObj, register_object_type
+from cogrid.core.pipeline.rewards import Reward
 
 # -----------------------------------------------------------------------
 # Test 1: scope_config has all required keys
@@ -32,9 +32,6 @@ from cogrid.core.rewards import Reward
 
 def test_scope_config_has_all_required_keys():
     """build_scope_config_from_components returns a dict with all required keys."""
-    # Ensure overcooked objects are registered
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-
     config = build_scope_config_from_components("overcooked")
 
     required_keys = {
@@ -64,8 +61,6 @@ def test_scope_config_has_all_required_keys():
 
 def test_type_ids_includes_global_and_scope_objects():
     """type_ids maps object names to non-negative ints, includes global and scope objects."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-
     config = build_scope_config_from_components("overcooked")
     type_ids = config["type_ids"]
 
@@ -205,8 +200,6 @@ def test_extra_state_schema_scope_prefixed():
 
 def test_static_tables_built_from_lookup():
     """static_tables contains CAN_PICKUP, CAN_PICKUP_FROM, CAN_PLACE_ON keys with arrays."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-
     config = build_scope_config_from_components("overcooked")
     static_tables = config["static_tables"]
 
@@ -451,7 +444,6 @@ _OVERCOOKED_FEATURES = [
 
 def test_build_feature_config_overcooked():
     """build_feature_config_from_components returns correct structure for overcooked."""
-    import cogrid.envs  # noqa: F401 -- triggers registration
     from cogrid.core.autowire import build_feature_config_from_components
 
     config = build_feature_config_from_components(
@@ -474,7 +466,6 @@ def test_build_feature_config_overcooked():
 
 def test_build_feature_config_sets_layout_idx():
     """build_feature_config_from_components sets LayoutID._layout_idx."""
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_feature_config_from_components
     from cogrid.envs.overcooked.features import LayoutID
 
@@ -489,9 +480,8 @@ def test_build_feature_config_sets_layout_idx():
 
 def test_build_feature_config_returns_callable():
     """Returned feature_fn produces (677,) float32 output."""
-    import cogrid.envs  # noqa: F401
     from cogrid.core.autowire import build_feature_config_from_components
-    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.core.pipeline.step import envstate_to_dict
     from cogrid.envs.overcooked.features import LayoutID
 
     config = build_feature_config_from_components(

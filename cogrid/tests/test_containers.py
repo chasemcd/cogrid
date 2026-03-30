@@ -18,7 +18,7 @@ import numpy as np
 
 def test_container_dataclass():
     """Container is a frozen dataclass with expected fields."""
-    from cogrid.core.containers import Container
+    from cogrid.core.objects.containers import Container
 
     c = Container(capacity=3, pickup_requires="plate")
     assert c.capacity == 3
@@ -52,7 +52,7 @@ def test_recipe_dataclass():
 def test_pot_has_container_descriptor():
     """Overcooked Pot declares container and recipes class attributes."""
     import cogrid.envs.overcooked.overcooked_grid_objects as oc
-    from cogrid.core.containers import Container
+    from cogrid.core.objects.containers import Container
     from cogrid.envs.overcooked.recipes import Recipe
 
     assert isinstance(oc.Pot.container, Container)
@@ -71,7 +71,7 @@ def test_pot_has_container_descriptor():
 def test_pot_auto_generated_when():
     """Pot's can_place_on and can_pickup_from are When instances."""
     import cogrid.envs.overcooked.overcooked_grid_objects as oc
-    from cogrid.core.when import When
+    from cogrid.core.objects.when import When
 
     assert isinstance(oc.Pot.can_place_on, When)
     assert isinstance(oc.Pot.can_pickup_from, When)
@@ -106,7 +106,6 @@ def test_delivery_zone_consumes_on_place():
 
 def test_container_metadata_stored():
     """ComponentMetadata stores container_meta for Pot."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.component_registry import get_component_metadata
 
     meta = get_component_metadata("pot", scope="overcooked")
@@ -119,7 +118,6 @@ def test_container_metadata_stored():
 
 def test_non_container_has_no_container_meta():
     """Non-container components have container_meta=None."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.component_registry import get_component_metadata
 
     meta = get_component_metadata("onion", scope="overcooked")
@@ -135,8 +133,7 @@ def test_non_container_has_no_container_meta():
 
 def test_compile_recipes():
     """compile_recipes produces correct arrays from Recipe objects."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-    from cogrid.core.grid_object_registry import object_to_idx
+    from cogrid.core.objects.registry import object_to_idx
     from cogrid.envs.overcooked.recipes import Recipe, compile_recipes
 
     scope = "overcooked"
@@ -167,7 +164,6 @@ def test_compile_recipes():
 
 def test_auto_generated_extra_state_schema():
     """Container auto-generates extra_state_schema in scope_config."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
@@ -185,7 +181,6 @@ def test_auto_generated_extra_state_schema():
 
 def test_auto_generated_static_tables():
     """Container auto-generates static_tables with recipe arrays."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
@@ -208,7 +203,6 @@ def test_auto_generated_static_tables():
 
 def test_auto_generated_interaction_fn():
     """Container + consumes_on_place auto-generates interactions list."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
@@ -224,7 +218,6 @@ def test_auto_generated_interaction_fn():
 
 def test_auto_generated_tick_handler():
     """Container auto-generates tick_handler."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
@@ -239,7 +232,6 @@ def test_auto_generated_tick_handler():
 
 def test_auto_generated_render_sync():
     """Container auto-generates render_sync."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
 
     config = build_scope_config_from_components("overcooked")
@@ -254,9 +246,8 @@ def test_auto_generated_render_sync():
 
 def test_auto_generated_extra_state_builder():
     """Container auto-generates extra_state_builder that builds pot arrays."""
-    import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
     from cogrid.core.autowire import build_scope_config_from_components
-    from cogrid.core.grid_object_registry import object_to_idx
+    from cogrid.core.objects.registry import object_to_idx
 
     config = build_scope_config_from_components("overcooked")
     builder = config["extra_state_builder"]
@@ -292,8 +283,8 @@ def test_auto_generated_extra_state_builder():
 
 
 def test_container_reexported():
-    """Container is re-exported from cogrid.core.grid_object."""
-    from cogrid.core.grid_object import Container
+    """Container is re-exported from cogrid.core.objects."""
+    from cogrid.core.objects import Container
 
     assert Container is not None
 
