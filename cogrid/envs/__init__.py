@@ -8,15 +8,21 @@ from cogrid.core.grid import layouts
 from cogrid.envs import registry
 from cogrid.envs.overcooked.agent import OvercookedAgent
 from cogrid.envs.overcooked.config import (
+    build_branch_activate_button,
+    build_branch_flag_delivery,
     build_order_extra_state,
     build_order_hud_fn,
     build_order_tick,
+    build_target_recipe_extra_state,
+    build_target_recipe_tick,
 )
 from cogrid.envs.overcooked.rewards import (
+    ButtonActivationCost,
     DeliveryReward,
     OnionInPotReward,
     OrderGatedIngredientInPotReward,
     SoupInDishReward,
+    TargetRecipeDeliveryReward,
 )
 from cogrid.envs.overcooked.rewards import (
     ExpiredOrderPenalty as ExpiredOrderPenalty,
@@ -337,6 +343,263 @@ registry.register(
     functools.partial(CoGridEnv, config=order_delivery_config, agent_class=OvercookedAgent),
 )
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OvercookedV2 benchmark environments (Gessler et al., 2025)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Six environments testing coordination under asymmetric information.
+# Pots accept any ingredient; correctness is checked at delivery time.
+# Character mapping from JaxMARL:
+#   W→C  A→+  X→X(open_delivery_zone)  B(plate)→=  P→u(open_pot)
+#   R→R(recipe_indicator)  L→L(button_indicator)
+#   0→O(onion_stack)  1→T(tomato_stack)  2→B(broccoli_stack)  3→M(mushroom_stack)
+
+# -- Layouts --
+
+layouts.register_layout(
+    "overcooked_v2_grounded_coord_simple",
+    [
+        "CCBCCCCC",
+        "C  C=  O",
+        "R +Lu+ X",
+        "C  C=  T",
+        "CCBCCCCC",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_v2_grounded_coord_ring",
+    [
+        "CCCBRBCCC",
+        "C       C",
+        "C CCLCC C",
+        "B O   = B",
+        "R+X+u + R",
+        "B T   = B",
+        "C CCLCC C",
+        "C       C",
+        "CCCBRBCCC",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_v2_test_time_simple",
+    [
+        "CCBCCCCC",
+        "C  C=  O",
+        "R +Cu+ X",
+        "C  C=  T",
+        "CCBCCCCC",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_v2_test_time_wide",
+    [
+        "CCX=CC",
+        "O +  O",
+        "T    T",
+        "CuCuCC",
+        "M +  M",
+        "C    C",
+        "CCRCCC",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_v2_demo_cook_simple",
+    [
+        "CCCCCRBCoCC",
+        "O      C  =",
+        "C     +u+ X",
+        "T      C  =",
+        "CCCCCRBCtCC",
+    ],
+)
+
+layouts.register_layout(
+    "overcooked_v2_demo_cook_wide",
+    [
+        "CCCC=X=CCCC",
+        "CCCO + TCCC",
+        "CCCCCuCCCCC",
+        "C    +    C",
+        "O  CMRMC  O",
+        "CTCCCCCCCTC",
+    ],
+)
+
+# -- Shared V2 base config --
+# V2 types are registered lazily: the first call to registry.make() for
+# a V2 environment triggers the import, which registers OpenPot, indicators,
+# and mixed soup types in the overcooked scope.  This avoids polluting
+# the standard Pot's autowire.
+
+_v2_types_loaded = False
+
+
+def _ensure_v2_types():
+    global _v2_types_loaded
+    if not _v2_types_loaded:
+        import cogrid.envs.overcooked.v2_objects  # noqa: F401
+
+        _v2_types_loaded = True
+
+
+# Defer OPEN_POT_SOUP_NAMES resolution -- compute a static list now
+# based on known ingredient combos (must match v2_objects.build_open_pot_recipes).
+def _v2_soup_names():
+    """Compute all soup result names without importing v2_objects."""
+    from itertools import combinations_with_replacement
+
+    names = set()
+    ingredients = ["onion", "tomato", "broccoli", "mushroom"]
+    for combo in combinations_with_replacement(sorted(ingredients), 3):
+        sc = sorted(combo)
+        if sc == ["onion", "onion", "onion"]:
+            names.add("onion_soup")
+        elif sc == ["tomato", "tomato", "tomato"]:
+            names.add("tomato_soup")
+        else:
+            names.add("soup_" + "_".join(sc))
+    return sorted(names)
+
+
+_V2_SOUP_NAMES = _v2_soup_names()
+
+
+def _make_v2_env(config, **kwargs):
+    """Factory for V2 environments that lazily registers V2 types."""
+    _ensure_v2_types()
+    return CoGridEnv(config=config, agent_class=OvercookedAgent, **kwargs)
+
+
+_v2_base_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "n_agents": 2,
+    "action_set": "cardinal_actions",
+    "observable_radius": 2,
+    "max_steps": 400,
+    "scope": "overcooked",
+    "features": ["local_view"],
+    "pickupable_types": [
+        "onion",
+        "tomato",
+        "broccoli",
+        "mushroom",
+        "plate",
+        *_V2_SOUP_NAMES,
+    ],
+    "target_recipes": ["onion_soup", "tomato_soup"],
+    "resample_on_delivery": True,
+}
+
+# -- Grounded Coordination: R + L (button costs -5), incorrect = -20 --
+
+_gc_simple_config = copy.deepcopy(_v2_base_config)
+_gc_simple_config["grid"] = {"layout": "overcooked_v2_grounded_coord_simple"}
+_gc_simple_config["interactions"] = [
+    build_branch_activate_button(activation_time=10),
+    build_branch_flag_delivery(),
+]
+_gc_simple_config["rewards"] = [
+    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=True),
+    ButtonActivationCost(cost=5.0),
+]
+_gc_simple_config["tick_fn"] = build_target_recipe_tick(_gc_simple_config)
+_gc_simple_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _gc_simple_config,
+)
+
+registry.register(
+    "OvercookedV2-GroundedCoordSimple-V0",
+    functools.partial(_make_v2_env, config=_gc_simple_config),
+)
+
+_gc_ring_config = copy.deepcopy(_gc_simple_config)
+_gc_ring_config["grid"] = {"layout": "overcooked_v2_grounded_coord_ring"}
+_gc_ring_config["tick_fn"] = build_target_recipe_tick(_gc_ring_config)
+_gc_ring_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _gc_ring_config,
+)
+
+registry.register(
+    "OvercookedV2-GroundedCoordRing-V0",
+    functools.partial(_make_v2_env, config=_gc_ring_config),
+)
+
+# -- Test-Time Protocol: R only, incorrect = -20 --
+
+_ttp_simple_config = copy.deepcopy(_v2_base_config)
+_ttp_simple_config["grid"] = {"layout": "overcooked_v2_test_time_simple"}
+_ttp_simple_config["interactions"] = [build_branch_flag_delivery()]
+_ttp_simple_config["rewards"] = [
+    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=True),
+]
+_ttp_simple_config["tick_fn"] = build_target_recipe_tick(_ttp_simple_config)
+_ttp_simple_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _ttp_simple_config,
+)
+
+registry.register(
+    "OvercookedV2-TestTimeSimple-V0",
+    functools.partial(_make_v2_env, config=_ttp_simple_config),
+)
+
+_ttp_wide_config = copy.deepcopy(_ttp_simple_config)
+_ttp_wide_config["grid"] = {"layout": "overcooked_v2_test_time_wide"}
+_ttp_wide_config["tick_fn"] = build_target_recipe_tick(_ttp_wide_config)
+_ttp_wide_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _ttp_wide_config,
+)
+
+registry.register(
+    "OvercookedV2-TestTimeWide-V0",
+    functools.partial(_make_v2_env, config=_ttp_wide_config),
+)
+
+# -- Demo Cook: R only, no penalty for incorrect --
+
+_dc_simple_config = copy.deepcopy(_v2_base_config)
+_dc_simple_config["grid"] = {"layout": "overcooked_v2_demo_cook_simple"}
+_dc_simple_config["interactions"] = [build_branch_flag_delivery()]
+_dc_simple_config["rewards"] = [
+    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=False),
+]
+_dc_simple_config["tick_fn"] = build_target_recipe_tick(_dc_simple_config)
+_dc_simple_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _dc_simple_config,
+)
+
+registry.register(
+    "OvercookedV2-DemoCookSimple-V0",
+    functools.partial(_make_v2_env, config=_dc_simple_config),
+)
+
+_dc_wide_config = copy.deepcopy(_dc_simple_config)
+_dc_wide_config["grid"] = {"layout": "overcooked_v2_demo_cook_wide"}
+_dc_wide_config["tick_fn"] = build_target_recipe_tick(_dc_wide_config)
+_dc_wide_config["extra_state_init_fn"] = functools.partial(
+    build_target_recipe_extra_state,
+    _dc_wide_config,
+)
+
+registry.register(
+    "OvercookedV2-DemoCookWide-V0",
+    functools.partial(_make_v2_env, config=_dc_wide_config),
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Search & Rescue
+# ═══════════════════════════════════════════════════════════════════════════
 
 sr_config = {
     "name": "search_rescue",

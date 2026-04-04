@@ -17,6 +17,12 @@ Cooperative multi-agent cooking. Agents pick up ingredients, fill pots, wait for
 | `Overcooked-MixedKitchen-V0` | 2 | Mixed Kitchen | Yes |
 | `Overcooked-CrampedMixedKitchen-V0` | 2 | Cramped Mixed Kitchen | Yes |
 | `Overcooked-OrderDelivery-V0` | 1 | Order Delivery | Yes |
+| `OvercookedV2-GroundedCoordSimple-V0` | 2 | [Grounded Coord Simple](#grounded-coordination-simple) | Target recipe |
+| `OvercookedV2-GroundedCoordRing-V0` | 2 | [Grounded Coord Ring](#grounded-coordination-ring) | Target recipe |
+| `OvercookedV2-TestTimeSimple-V0` | 2 | [Test-Time Simple](#test-time-protocol-simple) | Target recipe |
+| `OvercookedV2-TestTimeWide-V0` | 2 | [Test-Time Wide](#test-time-protocol-wide) | Target recipe |
+| `OvercookedV2-DemoCookSimple-V0` | 2 | [Demo Cook Simple](#demo-cook-simple) | Target recipe |
+| `OvercookedV2-DemoCookWide-V0` | 2 | [Demo Cook Wide](#demo-cook-wide) | Target recipe |
 
 ## Layouts
 
@@ -149,7 +155,7 @@ All Overcooked variants use `cardinal_actions`:
 | 2 | MoveLeft | Move one cell left |
 | 3 | MoveRight | Move one cell right |
 | 4 | PickupDrop | Pick up ingredient/plate/soup, place in pot, place on counter |
-| 5 | Toggle | Not used in standard Overcooked |
+| 5 | Toggle | Activates button indicator (V2 Grounded Coordination only) |
 | 6 | Noop | Do nothing |
 
 ## Observations
@@ -280,6 +286,148 @@ Add `"order_observation"` to the features list.
 
     rewards = rollout(jax.random.key(0))
     ```
+
+## OvercookedV2 Benchmarks
+
+Six environments adapted from [Gessler et al., 2025](https://arxiv.org/abs/2503.17821) that test coordination under asymmetric information. One agent can see the target recipe (via a recipe indicator), while the other cannot. The environments vary in what communication channel is available.
+
+All V2 environments share: 2 agents, `observable_radius=2` (partial observability via `local_view`), `max_steps=400`, stochastic recipe selection (resampled on each correct delivery), and `cook_time=20`.
+
+### Coordination Categories
+
+| Category | Button | Incorrect penalty | Communication channel |
+|----------|:------:|:-----------------:|----------------------|
+| **Grounded Coordination** | Yes (-5 cost) | -20 | Button reveals recipe to partner |
+| **Test-Time Protocol** | No | -20 | Agents must form implicit protocols |
+| **Demo Cook** | No | None | Agent actions signal recipe implicitly |
+
+### Variants
+
+| Environment ID | Category | Layout |
+|----------------|----------|--------|
+| `OvercookedV2-GroundedCoordSimple-V0` | Grounded Coordination | 8x5 |
+| `OvercookedV2-GroundedCoordRing-V0` | Grounded Coordination | 9x9 |
+| `OvercookedV2-TestTimeSimple-V0` | Test-Time Protocol | 8x5 |
+| `OvercookedV2-TestTimeWide-V0` | Test-Time Protocol | 6x7 |
+| `OvercookedV2-DemoCookSimple-V0` | Demo Cook | 11x5 |
+| `OvercookedV2-DemoCookWide-V0` | Demo Cook | 11x6 |
+
+### How It Works
+
+1. At reset, a **target recipe** is sampled uniformly from `["onion_soup", "tomato_soup"]`.
+2. The **recipe indicator** (`R`) writes the target recipe into the grid state. Agents within their observable radius can see it; agents outside cannot.
+3. In Grounded Coordination layouts, a **button indicator** (`L`) can be toggled to temporarily reveal the recipe (10 steps) at a cost of -5 reward.
+4. The **OpenPot** (`u`) accepts any combination of ingredients — including distractor ingredients (broccoli, mushroom). There is no validation at placement time.
+5. At delivery, the reward system checks whether the delivered soup matches the target recipe: correct = +20, incorrect = -20 (except Demo Cook, where incorrect = 0).
+6. After a correct delivery, the target recipe is resampled.
+
+### V2 Layouts
+
+#### Grounded Coordination Simple
+```
+CCBCCCCC
+C  C=  O
+R +Lu+ X
+C  C=  T
+CCBCCCCC
+```
+
+#### Grounded Coordination Ring
+```
+CCCBRBCCC
+C       C
+C CCLCC C
+B O   = B
+R+X+u + R
+B T   = B
+C CCLCC C
+C       C
+CCCBRBCCC
+```
+
+#### Test-Time Protocol Simple
+```
+CCBCCCCC
+C  C=  O
+R +Cu+ X
+C  C=  T
+CCBCCCCC
+```
+
+#### Test-Time Protocol Wide
+```
+CCX=CC
+O +  O
+T    T
+CuCuCC
+M +  M
+C    C
+CCRCCC
+```
+
+#### Demo Cook Simple
+```
+CCCCCRBCoCC
+O      C  =
+C     +u+ X
+T      C  =
+CCCCCRBCtCC
+```
+
+#### Demo Cook Wide
+```
+CCCC=X=CCCC
+CCCO + TCCC
+CCCCCuCCCCC
+C    +    C
+O  CMRMC  O
+CTCCCCCCCTC
+```
+
+### V2 Objects
+
+| Char | Name | Description |
+|------|------|-------------|
+| `u` | OpenPot | Pot that accepts any ingredient combination (20 recipes) |
+| `R` | RecipeIndicator | Displays the current target recipe (wall-like, always visible within radius) |
+| `L` | ButtonIndicator | Toggle to reveal recipe for 10 steps at -5 reward cost |
+| `X` | OpenDeliveryZone | Accepts any soup type (correct or incorrect) |
+| `B` | BroccoliStack | Distractor ingredient dispenser |
+| `M` | MushroomStack | Distractor ingredient dispenser |
+| `b` | Broccoli | Individual broccoli (pickupable) |
+| `m` | Mushroom | Individual mushroom (pickupable) |
+
+### V2 Rewards
+
+| Class | Coefficient | Common | Trigger |
+|-------|-------------|--------|---------|
+| `TargetRecipeDeliveryReward` | 20.0 | Yes | Deliver soup: +20 correct, -20 incorrect (configurable via `penalize_incorrect`) |
+| `ButtonActivationCost` | 5.0 | Yes | Toggle the button indicator |
+
+### V2 Config Example
+
+```python
+from cogrid.envs import registry
+
+env = registry.make("OvercookedV2-GroundedCoordSimple-V0")
+obs, info = env.reset(seed=0)
+
+for _ in range(400):
+    actions = {a: env.action_space(a).sample() for a in env.agents}
+    obs, rewards, terminateds, truncateds, info = env.step(actions)
+```
+
+Target recipes and delivery behavior are configured in the environment config:
+
+```python
+config = {
+    ...
+    "target_recipes": ["onion_soup", "tomato_soup"],
+    "resample_on_delivery": True,
+}
+```
+
+---
 
 ## Custom Ingredients
 

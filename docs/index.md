@@ -18,7 +18,7 @@ functional API available for usage with JAX.
 - **Compatibility with standard tooling.** All environments implement the [PettingZoo](https://pettingzoo.farama.org/) ParallelEnv API, so they work directly with training libraries, etc. A similar functional API is exposed for users who wish to take advantage of the full speedup that is offered by hardware-accelerated parallelization. 
 - **Pre-built environments.** CoGrid ships with a suite of pre-built environments, inspired by prior work (importantly, they are **not** exact replicas!):
     - [Overcooked](environments/overcooked.md): the 5 original layouts from [Carroll et al., 2019](https://arxiv.org/abs/1910.05789) plus extended variants with multiple recipes and order queues.
-    - [OvercookedV2](environments/overcooked.md): more complex variants of Overcooked that introduce asymmetric information and stochasticity from [Gessler et al., 2025](https://arxiv.org/abs/2503.17821).
+    - [OvercookedV2](environments/overcooked.md#overcookedv2-benchmarks): 6 coordination benchmarks with asymmetric information and stochastic recipes from [Gessler et al., 2025](https://arxiv.org/abs/2503.17821).
     - [Goal Seeking](environments/goal-seeking.md): a simple debugging environment to navigate to targets. 
 
 ### Why a dual backend?

@@ -12,6 +12,7 @@ This module contains only order-queue-specific code:
 """
 
 from cogrid.backend import xp
+from cogrid.backend.array_ops import set_at_2d
 
 
 def build_order_extra_state(order_config):
@@ -194,3 +195,213 @@ def build_order_hud_fn(order_config):
         return bars
 
     return hud_fn
+
+
+# ---------------------------------------------------------------------------
+# Target recipe system
+# ---------------------------------------------------------------------------
+
+
+def build_target_recipe_extra_state(config):
+    """Initialize target-recipe indicator and button arrays from config.
+
+    Scans ``parsed_arrays`` for ``R`` (RecipeIndicator) and ``L``
+    (ButtonIndicator) positions and returns extra-state arrays for the
+    target recipe system.
+
+    Parameters
+    ----------
+    config : dict
+        Must contain ``"target_recipes"`` (list of recipe name strings).
+
+    Returns:
+    -------
+    callable
+        ``fn(parsed_arrays, scope) -> dict`` producing initial extra-state.
+    """
+    import numpy as _np
+
+    target_recipes = config["target_recipes"]
+
+    def init_fn(parsed_arrays, scope):
+        # Find R (RecipeIndicator) and L (ButtonIndicator) positions
+        indicator_rows, indicator_cols = _np.where(parsed_arrays == "R")
+        indicator_positions = _np.stack([indicator_rows, indicator_cols], axis=1).astype(_np.int32)
+
+        button_rows, button_cols = _np.where(parsed_arrays == "L")
+        button_positions = _np.stack([button_rows, button_cols], axis=1).astype(_np.int32)
+
+        n_buttons = button_positions.shape[0]
+
+        # Sample initial target recipe uniformly
+        initial_idx = _np.random.randint(0, len(target_recipes))
+
+        return {
+            "overcooked.target_recipe": _np.int32(initial_idx),
+            "overcooked.delivery_occurred": _np.int32(0),
+            "overcooked.button_timer": _np.zeros((n_buttons,), dtype=_np.int32),
+            "overcooked.button_positions": button_positions,
+            "overcooked.indicator_positions": indicator_positions,
+        }
+
+    return init_fn
+
+
+def build_target_recipe_tick(config):
+    """Factory that returns a tick function for the target recipe system.
+
+    The tick handles button timer countdown, recipe/button indicator sync
+    into ``object_state_map``, and optional recipe resampling on delivery.
+
+    Parameters
+    ----------
+    config : dict
+        Keys: ``target_recipes`` (list[str]), ``resample_on_delivery`` (bool),
+        ``indicator_activation_time`` (int, default 10).
+
+    Returns:
+    -------
+    callable
+        ``tick(state, scope_config) -> EnvState``
+    """
+    import numpy as _np
+
+    target_recipes = config["target_recipes"]
+    resample_on_delivery = config.get("resample_on_delivery", False)
+    _indicator_activation_time = config.get("indicator_activation_time", 10)
+    n_recipes = len(target_recipes)
+
+    def tick(state, scope_config):
+        """Advance button timers, sync indicators, and optionally resample recipe."""
+        import dataclasses
+
+        from cogrid.backend._dispatch import get_backend
+
+        new_extra = dict(state.extra_state)
+
+        target_recipe = new_extra["overcooked.target_recipe"]
+        button_timer = new_extra["overcooked.button_timer"]
+        button_positions = new_extra["overcooked.button_positions"]
+        indicator_positions = new_extra["overcooked.indicator_positions"]
+
+        # (1) Button timer countdown: decrement where > 0
+        new_button_timer = xp.where(button_timer > 0, button_timer - 1, button_timer)
+
+        # (2) Recipe indicator sync: write target_recipe + 1 at all indicator positions
+        osm = state.object_state_map
+        recipe_val = target_recipe + 1  # 0 = inactive, 1+ = recipe index + 1
+        for i in range(indicator_positions.shape[0]):
+            r, c = indicator_positions[i, 0], indicator_positions[i, 1]
+            osm = set_at_2d(osm, r, c, recipe_val)
+
+        # (3) Button indicator sync: write recipe+1 where timer > 0, 0 where timer == 0
+        for i in range(button_positions.shape[0]):
+            r, c = button_positions[i, 0], button_positions[i, 1]
+            btn_val = xp.where(new_button_timer[i] > 0, recipe_val, xp.int32(0))
+            osm = set_at_2d(osm, r, c, btn_val)
+
+        new_extra["overcooked.button_timer"] = new_button_timer
+
+        # (4) Recipe resampling on delivery
+        # Detect delivery via a flag set by TargetRecipeDeliveryReward
+        # or by checking if any agent's inventory was cleared at a delivery zone.
+        # For now, resample whenever a delivery_occurred flag is set in extra_state.
+        new_key = state.rng_key
+        delivery_flag = new_extra.get("overcooked.delivery_occurred", None)
+        if resample_on_delivery and delivery_flag is not None:
+            did_deliver = delivery_flag > 0
+            if get_backend() == "jax":
+                import jax
+
+                new_key, subkey = jax.random.split(state.rng_key)
+                new_idx = jax.random.randint(
+                    subkey,
+                    shape=(),
+                    minval=0,
+                    maxval=n_recipes,
+                )
+                new_extra["overcooked.target_recipe"] = xp.where(
+                    did_deliver,
+                    new_idx,
+                    target_recipe,
+                )
+            else:
+                if bool(did_deliver):
+                    new_extra["overcooked.target_recipe"] = _np.int32(
+                        _np.random.randint(0, n_recipes),
+                    )
+
+            # Reset the flag
+            new_extra["overcooked.delivery_occurred"] = xp.int32(0)
+
+        return dataclasses.replace(
+            state,
+            extra_state=new_extra,
+            object_state_map=osm,
+            rng_key=new_key,
+        )
+
+    return tick
+
+
+def build_branch_activate_button(activation_time=10):
+    """Factory that returns a branch function for button activation.
+
+    The branch fires when: agent toggles, faces a button, has empty hands,
+    and the button is not already active (timer == 0).
+
+    Parameters
+    ----------
+    activation_time : int
+        Number of ticks the button stays active after pressing.
+
+    Returns:
+    -------
+    callable
+        ``branch(ctx) -> (should_apply, changes)``
+    """
+    from cogrid.backend.array_ops import set_at
+    from cogrid.core.pipeline.context import find_facing_instance
+
+    def branch(ctx):
+        is_toggle = ctx.action == ctx.action_id.toggle
+        empty_hands = ctx.held_item == -1
+
+        # Find which button the agent faces
+        btn_idx, faces_button = find_facing_instance(
+            ctx.button_positions, ctx.facing_row, ctx.facing_col
+        )
+
+        # Check button is not already active
+        button_not_active = ctx.button_timer[btn_idx] == 0
+
+        should_apply = ctx.can_interact & is_toggle & faces_button & empty_hands & button_not_active
+
+        new_timer = set_at(ctx.button_timer, btn_idx, xp.int32(activation_time))
+
+        return should_apply, {"button_timer": new_timer}
+
+    return branch
+
+
+def build_branch_flag_delivery():
+    """Return a branch that sets a delivery_occurred flag on open delivery zones.
+
+    This branch fires alongside the standard consume branch. It does not
+    change any grid state — it only sets a flag in extra_state so the
+    tick function can detect that a delivery occurred and resample the
+    target recipe.
+    """
+
+    def branch(ctx):
+        dz_id = ctx.type_ids.get("open_delivery_zone", -1)
+        is_pickup_drop = ctx.action == ctx.action_id.pickup_drop
+        faces_dz = ctx.facing_type == dz_id
+        has_item = ctx.held_item != -1
+
+        should_apply = ctx.can_interact & is_pickup_drop & faces_dz & has_item
+        new_flag = xp.where(should_apply, xp.int32(1), ctx.delivery_occurred)
+
+        return should_apply, {"delivery_occurred": new_flag}
+
+    return branch

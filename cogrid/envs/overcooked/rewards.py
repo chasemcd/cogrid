@@ -443,3 +443,128 @@ class ExpiredOrderPenalty(Reward):
 
         # Broadcast penalty to all agents (shared responsibility)
         return xp.full(n_agents, newly_expired.astype(xp.float32) * penalty, dtype=xp.float32)
+
+
+# ---------------------------------------------------------------------------
+# Target recipe delivery reward
+# ---------------------------------------------------------------------------
+
+
+class TargetRecipeDeliveryReward(DeliveryReward):
+    """Delivery reward gated on the current target recipe.
+
+    Extends DeliveryReward by comparing the delivered item against the
+    active target recipe. Correct deliveries earn ``+coefficient``;
+    incorrect deliveries earn ``-coefficient`` when ``penalize_incorrect``
+    is True, otherwise 0. Both cases use common reward (all agents).
+
+    Parameters
+    ----------
+    penalize_incorrect : bool
+        Whether incorrect deliveries incur a negative reward.
+    target_recipes : list[str] or None
+        Ordered recipe result names. Falls back to
+        ``reward_config["target_recipes"]`` if not provided.
+    **kwargs
+        Forwarded to ``DeliveryReward.__init__``.
+    """
+
+    def __init__(self, *, penalize_incorrect: bool = True, **kwargs):
+        """Initialize with incorrect-delivery penalty flag."""
+        self.target_recipes = kwargs.pop("target_recipes", None)
+        super().__init__(**kwargs)
+        self.penalize_incorrect = penalize_incorrect
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute target-recipe-gated delivery reward."""
+        type_ids = reward_config["type_ids"]
+        n_agents = reward_config["n_agents"]
+        action_pickup_drop_idx = reward_config["action_pickup_drop_idx"]
+        coefficient = self.config.get("coefficient", 1.0)
+
+        # Step 1: compute delivery mask (same as base DeliveryReward)
+        fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+        is_interact = actions == action_pickup_drop_idx
+
+        static_tables = reward_config.get("static_tables", {})
+        is_deliverable_table = static_tables.get("IS_DELIVERABLE", None)
+        if is_deliverable_table is not None:
+            holds_deliverable = is_deliverable_table[prev_state.agent_inv[:, 0]] == 1
+        else:
+            holds_deliverable = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
+
+        faces_delivery = fwd_types == type_ids["delivery_zone"]
+        earns_delivery = is_interact & holds_deliverable & faces_delivery & in_bounds
+
+        # Step 2: read target recipe index
+        target_recipe_idx = getattr(prev_state, "target_recipe", None)
+        if target_recipe_idx is None:
+            # Target recipe system not active -- fall back to base
+            return super().compute(prev_state, state, actions, reward_config)
+
+        # Step 3: map target recipe index to type_id
+        target_recipes = self.target_recipes
+        if target_recipes is None:
+            target_recipes = reward_config.get("target_recipes")
+
+        # Build type_id array for all target recipes
+        target_type_ids = xp.array([type_ids[name] for name in target_recipes], dtype=xp.int32)
+        target_type_id = target_type_ids[target_recipe_idx]
+
+        # Step 4: compare delivered item against target
+        delivered_type = prev_state.agent_inv[:, 0]  # (n_agents,)
+        is_correct = delivered_type == target_type_id  # (n_agents,)
+
+        # Step 5/6/7: compute rewards
+        correct_delivery = earns_delivery & is_correct
+        incorrect_delivery = earns_delivery & ~is_correct
+
+        correct_total = xp.sum(correct_delivery.astype(xp.float32)) * coefficient
+        if self.penalize_incorrect:
+            incorrect_total = xp.sum(incorrect_delivery.astype(xp.float32)) * (-coefficient)
+        else:
+            incorrect_total = xp.float32(0.0)
+
+        total = correct_total + incorrect_total
+        return xp.full(n_agents, total, dtype=xp.float32)
+
+
+# ---------------------------------------------------------------------------
+# Button activation cost
+# ---------------------------------------------------------------------------
+
+
+class ButtonActivationCost(Reward):
+    """Penalty applied when a button is activated.
+
+    Detects button presses by comparing ``prev_state.button_timer`` vs
+    ``state.button_timer``: a slot that went from 0 to > 0 indicates a
+    press. Returns ``-cost`` as common reward to all agents per press.
+
+    Parameters
+    ----------
+    cost : float
+        Penalty per button activation (default 5.0).
+    """
+
+    def __init__(self, *, cost: float = 5.0, **kwargs):
+        """Initialize with activation cost."""
+        super().__init__(**kwargs)
+        self.cost = cost
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute button activation penalty."""
+        n_agents = reward_config["n_agents"]
+
+        prev_timer = getattr(prev_state, "button_timer", None)
+        if prev_timer is None:
+            return xp.zeros(n_agents, dtype=xp.float32)
+
+        curr_timer = state.button_timer
+
+        # Detect newly activated buttons: was 0, now > 0
+        newly_pressed = (prev_timer == 0) & (curr_timer > 0)
+        n_presses = xp.sum(newly_pressed.astype(xp.float32))
+
+        penalty = -self.cost * n_presses
+        return xp.full(n_agents, penalty, dtype=xp.float32)
