@@ -47,7 +47,7 @@ layouts.register_layout(
     [
         "CCCCCCCCC",
         "O C@COC @",
-        "C   U   C",
+        "C+  U  +C",
         "C   U   C",
         "CCC=C=CCC",
     ],
@@ -170,6 +170,44 @@ registry.register(
     ),
 )
 
+# -- Partial observability variants --
+
+partial_obs_cramped_room_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "n_agents": 2,
+    "observable_radius": 1,
+    "action_set": "cardinal_actions",
+    "features": [
+        "local_view",
+        "layout_id",
+    ],
+    "rewards": [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ],
+    "grid": {"layout": "overcooked_asymmetric_advantages_v0"},
+    "max_steps": 1000,
+    "scope": "overcooked",
+    "pickupable_types": [
+        "onion",
+        "onion_soup",
+        "plate",
+        "tomato",
+        "tomato_soup",
+    ],
+}
+
+registry.register(
+    "Overcooked-AsymmetricAdvantages-PartialObs-V0",
+    functools.partial(
+        CoGridEnv,
+        config=partial_obs_cramped_room_config,
+        agent_class=OvercookedAgent,
+    ),
+)
+
 layouts.register_layout(
     "overcooked_mixed_kitchen_v0",
     [
@@ -246,7 +284,11 @@ cramped_mixed_kitchen_config = mixed_kitchen_config.copy()
 cramped_mixed_kitchen_config["grid"] = {"layout": "overcooked_cramped_mixed_kitchen_v0"}
 registry.register(
     "Overcooked-CrampedMixedKitchen-V0",
-    functools.partial(CoGridEnv, config=cramped_mixed_kitchen_config, agent_class=OvercookedAgent),
+    functools.partial(
+        CoGridEnv,
+        config=cramped_mixed_kitchen_config,
+        agent_class=OvercookedAgent,
+    ),
 )
 
 layouts.register_layout(

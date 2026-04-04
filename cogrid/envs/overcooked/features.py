@@ -14,6 +14,7 @@ registered in this module.
 from cogrid.backend import xp
 from cogrid.backend.array_ops import topk_smallest_indices
 from cogrid.core.features import Feature, register_feature_type
+from cogrid.feature_space.local_view import LocalView
 
 # ---------------------------------------------------------------------------
 # Order observation constants (defaults match _build_order_tables)
@@ -778,6 +779,76 @@ class EnvironmentLayout(Feature):
                 layout_type_ids,
                 max_shape,
             )
+
+        return fn
+
+
+# ---------------------------------------------------------------------------
+# Overcooked local view — adds pot state channels to the generic LocalView
+# ---------------------------------------------------------------------------
+
+_N_POT_CHANNELS = 8  # empty, partial, cooking, ready, fill, timer, onion, tomato
+
+
+@register_feature_type("local_view", scope="overcooked")
+class OvercookedLocalView(LocalView):
+    """Adds 8 pot-state channels to the generic LocalView.
+
+    Inherits all core channels (object types, agent position/direction/
+    inventory, object state map) and appends pot-specific spatial channels:
+    empty, partial, cooking, ready, fill_norm, timer_norm, n_onion, n_tomato.
+    """
+
+    @classmethod
+    def extra_n_channels(cls, scope, env_config=None):
+        """Return the number of extra pot-state channels."""
+        return _N_POT_CHANNELS
+
+    @classmethod
+    def build_extra_channel_fn(cls, scope, env_config=None):
+        """Build a function that encodes pot state into extra channels."""
+        from cogrid.core.grid_object import object_to_idx
+
+        onion_id = object_to_idx("onion", scope=scope)
+        tomato_id = object_to_idx("tomato", scope=scope)
+        capacity = 3
+        cook_time = xp.float32(20.0)
+
+        def fn(state, H, W):
+            pot_pos = state.pot_positions
+            pot_contents = state.pot_contents
+            pot_timer = state.pot_timer
+            pot_rows = pot_pos[:, 0]
+            pot_cols = pot_pos[:, 1]
+
+            n_items = xp.sum(pot_contents > 0, axis=1)
+            is_empty = (n_items == 0).astype(xp.float32)
+            is_partial = ((n_items > 0) & (n_items < capacity)).astype(xp.float32)
+            is_cooking = ((n_items == capacity) & (pot_timer > 0)).astype(xp.float32)
+            is_ready = ((n_items == capacity) & (pot_timer == 0)).astype(xp.float32)
+            fill_norm = n_items.astype(xp.float32) / capacity
+            timer_norm = pot_timer.astype(xp.float32) / cook_time
+            n_onion = xp.sum(pot_contents == onion_id, axis=1).astype(xp.float32)
+            n_tomato = xp.sum(pot_contents == tomato_id, axis=1).astype(xp.float32)
+
+            layers = []
+            for values in [
+                is_empty,
+                is_partial,
+                is_cooking,
+                is_ready,
+                fill_norm,
+                timer_norm,
+                n_onion,
+                n_tomato,
+            ]:
+                ch = xp.zeros((H, W), dtype=xp.float32)
+                if hasattr(ch, "at"):  # JAX
+                    ch = ch.at[pot_rows, pot_cols].set(values)
+                else:
+                    ch[pot_rows, pot_cols] = values
+                layers.append(ch)
+            return layers
 
         return fn
 

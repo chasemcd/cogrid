@@ -960,6 +960,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         if render_hud_fn is not None and self._env_state is not None:
             hud_bars = render_hud_fn(self._env_state, self._scope_config)
 
+        # Draw observable radius overlay when partial observability is configured
+        obs_radius = self.config.get("observable_radius")
+        if obs_radius is not None and self._env_state is not None:
+            img = self._draw_obs_radius_overlay(img, obs_radius)
+
         if self.render_mode == "human":
             self._renderer.render_human(
                 img, self.cumulative_score, self.render_message, hud_bars=hud_bars
@@ -968,6 +973,36 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             if hud_bars:
                 img = self._composite_hud_bars(img, hud_bars)
             return img
+
+    def _draw_obs_radius_overlay(self, img: np.ndarray, radius: int) -> np.ndarray:
+        """Draw a colored rectangle per agent showing their observable radius."""
+        import colorsys
+
+        agent_pos = np.array(self._env_state.agent_pos)
+        n_agents = self.config["num_agents"]
+        ts = self.tile_size
+        H, W = img.shape[:2]
+        thickness = 2
+
+        for i in range(n_agents):
+            # Match the renderer's HSV color scheme
+            hue = (i * (360 / n_agents)) / 360.0
+            r, g, b = colorsys.hsv_to_rgb(hue, 0.35, 0.99)
+            color = (int(r * 255), int(g * 255), int(b * 255))
+
+            row, col = int(agent_pos[i, 0]), int(agent_pos[i, 1])
+            y0 = max(0, (row - radius) * ts)
+            y1 = min(H, (row + radius + 1) * ts)
+            x0 = max(0, (col - radius) * ts)
+            x1 = min(W, (col + radius + 1) * ts)
+
+            t = thickness
+            img[y0 : y0 + t, x0:x1] = color
+            img[y1 - t : y1, x0:x1] = color
+            img[y0:y1, x0 : x0 + t] = color
+            img[y0:y1, x1 - t : x1] = color
+
+        return img
 
     @staticmethod
     def _composite_hud_bars(img: np.ndarray, hud_bars: list[dict]) -> np.ndarray:
