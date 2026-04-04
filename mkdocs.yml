@@ -55,11 +55,11 @@ validation:
     unrecognized_links: warn
 
 nav:
-  - Home: index.md
-  - Getting Started: getting-started.md
+  - Getting Started: index.md
   - Concepts:
     - Grid & Layouts: concepts/layouts.md
     - Objects: concepts/objects.md
+    - Interactions: concepts/interactions.md
     - Actions: concepts/actions.md
     - Observations: concepts/observations.md
     - Rewards: concepts/rewards.md

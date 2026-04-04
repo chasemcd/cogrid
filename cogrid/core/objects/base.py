@@ -46,10 +46,6 @@ class GridObj:
         self.init_pos: tuple[int, int] | None = None
         self.pos: tuple[int, int] | None = None
 
-    def see_behind(self, agent: GridAgent) -> bool:
-        """Can the agent see through this object?"""
-        return True
-
     def visible(self) -> bool:
         """Return True if this object is visible to agents."""
         return True

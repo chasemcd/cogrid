@@ -30,7 +30,6 @@ class MyObject(GridObj):
 
 | Method | Default | Purpose |
 |--------|---------|---------|
-| `see_behind()` | `True` | Whether agents can see through this object. |
 | `encode()` | type + state tuple | Converts to `(char_or_idx, extra, state)` for the state arrays. |
 | `render(tile_img)` | Filled rectangle | Draws the object on a tile image. |
 | `tick()` | No-op | Called each step for time-dependent behavior. |

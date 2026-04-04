@@ -77,10 +77,6 @@ class Rubble(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def see_behind(self) -> bool:
-        """Return False; rubble blocks visibility."""
-        return False
-
     def render(self, tile_img):
         """Draw three brown circles representing rubble pile."""
         fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)

@@ -8,7 +8,7 @@ import numpy as np
 
 from cogrid.constants import GridConstants
 from cogrid.core import constants
-from cogrid.core.objects.base import GridAgent, GridObj
+from cogrid.core.objects.base import GridObj
 from cogrid.core.objects.registry import (
     idx_to_object,
     make_object,
@@ -33,10 +33,6 @@ class Wall(GridObj):
     def __init__(self, *args, **kwargs):
         """Initialize wall with default state."""
         super().__init__(state=0)
-
-    def see_behind(self) -> bool:
-        """Return False; walls block visibility."""
-        return False
 
 
 @register_object_type("floor")
@@ -138,10 +134,6 @@ class Door(GridObj):
         super().__init__(state=state)
         self.is_open = state == 2
         self.is_locked = state == 0
-
-    def see_behind(self, agent: GridAgent) -> bool:
-        """Return True only when the door is open."""
-        return self.is_open
 
     def encode(self, encode_char=False):
         """Encode the door as a 3-tuple of integers."""

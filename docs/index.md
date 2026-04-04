@@ -4,16 +4,40 @@
 
 # CoGrid
 
-*A framework for multi-agent grid-world research*
+*A framework for multi-agent grid-world research with extremely high-speed simulation and a flexible backend for deployment.*
 
 CoGrid lets you build multi-agent grid-world environments for reinforcement learning.
 It ships with dual NumPy and JAX backends, so the same environment runs interactively
 on NumPy or at scale with JIT compilation and `vmap` batching. All environments
-implement the [PettingZoo](https://pettingzoo.farama.org/) ParallelEnv API.
+implement the [PettingZoo](https://pettingzoo.farama.org/) ParallelEnv API, with a PettingZoo-like
+functional API available for usage with JAX. 
 
-```bash
-pip install cogrid
-```
+### What CoGrid Offers
+
+### Why a dual backend?
+
+CoGrid implements and operates through a dual backend to avoid the rigidy of JAX execution and allow for the flexibility of a NumPy backend. This was largely done for one reason: we wanted to have environments that would train extremely fast (inspired by, e.g., JaxMARL), interact with them in standard Python libraries and frameworks, and __use them in online human-AI experiments__. This last point is critical: CoGrid was designed to satisfy the first two desiderata (which libraries like JaxMARL already do), but to also be used in the [Multi-User Gymnasium (MUG)](multi-user-gymnasium.readthedocs.io). 
+
+MUG is a library that translates Gymnasium and PettingZoo environments to online multi-player experiments. For the best performance, these environments must be written in pure Python or have C-extensions that can have wheels build for WASM/Emscripten. MUG then runs the environments directly in the browser and coordinates multi-player experiments that can be used for research. More details around MUG can be found on [GitHub (MUG)](https://www.github.com/chasemcd/mug/) or on the corresponding [documentation site](multi-user-gymnasium.readthedocs.io).
+
+
+## Installation
+
+=== "Basic (NumPy)"
+
+    ```bash
+    pip install cogrid
+    ```
+
+=== "With JAX"
+
+    ```bash
+    pip install cogrid[jax]
+    ```
+
+For GPU support, see the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html).
+
+## Quick Start
 
 === "NumPy"
 
@@ -24,7 +48,7 @@ pip install cogrid
     env = registry.make("Overcooked-CrampedRoom-V0")
     obs, info = env.reset(seed=0)
 
-    for _ in range(100):
+    while env.agents:
         actions = {a: env.action_space(a).sample() for a in env.agents}
         obs, rewards, terminateds, truncateds, info = env.step(actions)
     ```
@@ -37,7 +61,7 @@ pip install cogrid
     import cogrid.envs.overcooked
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
-    env.reset(seed=0)
+    env.reset(seed=0)  # builds JIT-compiled functions
     n_agents = len(env.possible_agents)
     n_actions = len(env.action_set)
 
@@ -76,6 +100,7 @@ All components are declared in a config dict and autowired by the engine. No man
 
 - **[Grid & Layouts](concepts/layouts.md)** -- 2D integer arrays, ASCII layout definitions, layout registry.
 - **[Objects](concepts/objects.md)** -- `GridObj` base class, registration, containers, and recipes.
+- **[Interactions](concepts/interactions.md)** -- Branch functions, `InteractionContext`, built-in and custom interactions.
 - **[Actions](concepts/actions.md)** -- Cardinal and rotation action sets, movement, pickup/drop/toggle pipeline.
 - **[Observations](concepts/observations.md)** -- Composable feature extractors, per-agent vs global, built-in features.
 - **[Rewards](concepts/rewards.md)** -- `Reward` and `InteractionReward` base classes, composition, coefficients.
@@ -84,35 +109,6 @@ All components are declared in a config dict and autowired by the engine. No man
 
 - **[Overcooked](environments/overcooked.md)** -- Cooperative cooking with 9 layout variants, recipes, and an optional order queue.
 - **[Goal Seeking](environments/goal-seeking.md)** -- Navigation to valued goal cells.
-
-## Next Steps
-
-<div class="card-grid">
-  <a href="getting-started/">
-    <div class="card">
-      <h3>Getting Started</h3>
-      <p>Install CoGrid and run your first environment.</p>
-    </div>
-  </a>
-  <a href="concepts/layouts/">
-    <div class="card">
-      <h3>Core Concepts</h3>
-      <p>Grid layouts, objects, actions, observations, and rewards.</p>
-    </div>
-  </a>
-  <a href="custom-environment/">
-    <div class="card">
-      <h3>Custom Environment</h3>
-      <p>Build your own grid world from components.</p>
-    </div>
-  </a>
-  <a href="jax-reference/">
-    <div class="card">
-      <h3>JAX Backend</h3>
-      <p>JIT-compile and vmap-batch entire rollouts.</p>
-    </div>
-  </a>
-</div>
 
 ## Citation
 

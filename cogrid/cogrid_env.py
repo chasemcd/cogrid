@@ -37,7 +37,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         "render_message": "",
         "agent_pov": None,
         "highlight": False,
-        "see_through_walls": True,
     }
 
     def __init__(
@@ -841,11 +840,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         for i in range(agent.dir + 1):
             grid = grid.rotate_left()
 
-        if not self.metadata.get("see_through_walls", True):
-            # Mask view from the agents position at the bottom-center of the grid view
-            vis_mask = grid.process_vis(agent_pos=(-1, grid.width // 2))
-        else:
-            vis_mask = np.ones(shape=(grid.height, grid.width), dtype=bool)
+        vis_mask = np.ones(shape=(grid.height, grid.width), dtype=bool)
 
         assert len(grid.grid_agents) >= 1
         assert grid.grid_agents[agent_id].dir == directions.Directions.Up
