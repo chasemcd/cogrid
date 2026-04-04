@@ -136,12 +136,6 @@ class Grid:
         assert self.grid is not None
         return self.grid[row * self.width + col]
 
-    def tick(self):
-        """Advance all GridObjs by one timestep."""
-        for grid_obj in self.grid:
-            if grid_obj is not None:
-                grid_obj.tick()
-
     def horz_wall(
         self,
         col: int,
@@ -206,51 +200,6 @@ class Grid:
         self.horz_wall(row=row, col=col + h - 1, length=w, obj_type=grid_obj)
         self.vert_wall(row=row, col=col, length=h, obj_type=grid_obj)
         self.vert_wall(row=row + w - 1, col=col, length=h, obj_type=grid_obj)
-
-    def rotate_left(self) -> Grid:
-        """Rotate the grid to the left (counter-clockwise)."""
-        grid = Grid(width=self.height, height=self.width)
-
-        for col in range(self.width):
-            for row in range(self.height):
-                v = self.get(row=row, col=col)
-                if v:
-                    v.rotate_left()
-
-                new_row = grid.height - 1 - col
-                new_col = row
-                grid.set(row=new_row, col=new_col, obj=v)
-
-                agent = get_grid_agent_at_position(self, (row, col))
-                if agent:
-                    rotated_agent = deepcopy(agent)
-                    rotated_agent.rotate_left()
-                    rotated_agent.pos = (new_row, new_col)
-                    grid.grid_agents[rotated_agent.agent_id] = rotated_agent
-
-        return grid
-
-    def slice(self, topX: int, topY: int, width: int, height: int) -> Grid:
-        """Get a subset of the grid."""
-        grid = Grid(height=height, width=width)
-        for row in range(height):
-            for col in range(width):
-                x = topX + col
-                y = topY + row
-                if 0 <= x < self.width and 0 <= y < self.height:
-                    v = self.get(row=y, col=x)
-
-                    agent = get_grid_agent_at_position(grid=self, position=(y, x))
-                    if agent is not None:
-                        grid_slice_agent = deepcopy(agent)
-                        grid_slice_agent.pos = (row, col)
-                        grid.grid_agents[grid_slice_agent.agent_id] = grid_slice_agent
-                else:
-                    v = Wall()
-
-                grid.set(row=row, col=col, obj=v)
-
-        return grid
 
     def render_tile(
         self,
@@ -402,12 +351,10 @@ class Grid:
         return array
 
     @staticmethod
-    def decode(array: np.ndarray, scope: str = "global") -> tuple[Grid, np.ndarray]:
+    def decode(array: np.ndarray, scope: str = "global") -> Grid:
         """Decode ASCII encoding back into a Grid."""
         channels, height, width = array.shape
         assert channels == 2
-
-        vis_mask = np.ones(shape=(height, width), dtype=bool)
 
         grid = Grid(height=height, width=width)
         agent_count = 0
@@ -417,8 +364,7 @@ class Grid:
                 state = int(float(state))
                 v = GridObj.decode(char, state, scope=scope)
                 if v:
-                    v.pos = v.init_pos = (row, col)
-                    vis_mask[row, col] = v.visible()
+                    v.pos = (row, col)
 
                 if isinstance(v, GridAgent):
                     grid.grid_agents[agent_count] = v
@@ -426,7 +372,7 @@ class Grid:
                 else:
                     grid.set(row=row, col=col, obj=v)
 
-        return grid, vis_mask
+        return grid
 
     def get_obj_count(self, grid_obj: GridObj | None) -> int:
         """Get the number of a particular object that exists in the grid.

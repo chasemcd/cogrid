@@ -4,8 +4,27 @@ repo_url: https://github.com/chasemcd/cogrid
 repo_name: chasemcd/cogrid
 
 theme:
-  name: readthedocs
+  name: material
   logo: assets/images/cogrid_logo_clean.png
+  favicon: assets/images/cogrid_logo_clean.png
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - toc.follow
 
 extra_css:
   - assets/css/custom.css
@@ -21,27 +40,30 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - toc:
       permalink: true
+  - attr_list
+  - md_in_html
 
 plugins:
   - search
-  # - gen-files:
-  #     scripts:
-  #       - scripts/gen_ref_pages.py
-  # - literate-nav:
-  #     nav_file: SUMMARY.md
-  # - section-index
-  # - mkdocstrings:
-  #     handlers:
-  #       python:
-  #         paths: [.]
-  #         options:
-  #           docstring_style: google
-  #           docstring_section_style: table
-  #           show_source: true
-  #           show_root_heading: true
-  #           show_symbol_type_heading: true
-  #           show_symbol_type_toc: true
-  #           members_order: source
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            docstring_section_style: list
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            show_bases: false
+            heading_level: 3
+            line_length: 60
 
 validation:
   nav:
@@ -66,7 +88,8 @@ nav:
   - Environments:
     - Overcooked: environments/overcooked.md
     - Goal Seeking: environments/goal-seeking.md
-  - Custom Environment: custom-environment.md
-  - Advanced Patterns: advanced-patterns.md
-  - JAX Reference: jax-reference.md
-  - API Reference: api-reference.md
+  - Guides:
+    - Custom Environment: custom-environment.md
+    - Advanced Patterns: advanced-patterns.md
+  - Reference:
+    - JAX: jax-reference.md

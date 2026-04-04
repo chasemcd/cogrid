@@ -30,6 +30,13 @@ The pipeline applies changes via `xp.where`: for each key in `changes`, the new 
 
 The pipeline builds a frozen `InteractionContext` dataclass before calling branches. Each agent gets its own context per step.
 
+??? api "`InteractionContext`"
+
+    ::: cogrid.core.pipeline.context.InteractionContext
+        options:
+          heading_level: 4
+          members: false
+
 ### Standard fields
 
 | Field | Type | Description |
@@ -79,16 +86,39 @@ Container and consume branches are only included when the environment has contai
 
 Import from `cogrid.core.pipeline.context`:
 
-| Helper | Returns | Purpose |
-|--------|---------|---------|
-| `clear_facing_cell(ctx)` | `object_type_map` | Set the faced cell to empty (type 0). |
-| `set_facing_cell(ctx, type_id)` | `object_type_map` | Set the faced cell to a specific type. |
-| `pickup_from_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Pick up the faced object into the agent's inventory. |
-| `place_in_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Place the held item in the faced cell. |
-| `give_item(ctx, type_id)` | `agent_inv` | Put an item in the agent's inventory. |
-| `empty_hands(ctx)` | `agent_inv` | Clear the agent's inventory. |
-| `increment(array, index)` | array | `array[index] += 1`. Works on both numpy and JAX arrays. |
-| `find_facing_instance(positions, row, col)` | `(index, is_match)` | Find which instance of a multi-position object the agent faces. |
+??? api "Helper functions"
+
+    ::: cogrid.core.pipeline.context.clear_facing_cell
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.set_facing_cell
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.pickup_from_facing_cell
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.place_in_facing_cell
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.give_item
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.empty_hands
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.increment
+        options:
+          heading_level: 4
+
+    ::: cogrid.core.pipeline.context.find_facing_instance
+        options:
+          heading_level: 4
 
 ## Writing a Custom Interaction
 

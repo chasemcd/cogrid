@@ -15,24 +15,15 @@ class MyObject(GridObj):
     char: str                # single-character layout symbol
 ```
 
-**Core attributes:**
+??? api "`GridObj`"
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `object_id` | `str` | Set automatically by the registration decorator. |
-| `color` | `str | tuple` | Render color. Use `cogrid.core.constants.Colors` or an RGB tuple. |
-| `char` | `str` | Single character used in ASCII layouts. |
-| `state` | `int` | Mutable integer state (e.g. door open/closed, pot cook progress). |
-| `pos` | `tuple[int, int]` | Current `(row, col)` position on the grid. |
-| `obj_placed_on` | `GridObj | None` | Object stacked on top of this one (e.g. item on a counter). |
-
-**Methods:**
-
-| Method | Default | Purpose |
-|--------|---------|---------|
-| `encode()` | type + state tuple | Converts to `(char_or_idx, extra, state)` for the state arrays. |
-| `render(tile_img)` | Filled rectangle | Draws the object on a tile image. |
-| `tick()` | No-op | Called each step for time-dependent behavior. |
+    ::: cogrid.core.objects.base.GridObj
+        options:
+          heading_level: 4
+          members:
+            - __init__
+            - encode
+            - render
 
 ## Registration
 
@@ -47,14 +38,13 @@ class MyObject(GridObj):
     char = "M"
 ```
 
-**Parameters:**
-
-| Parameter | Description |
-|-----------|-------------|
-| `name` | Unique string ID within the scope. |
-| `scope` | Registry scope. `"global"` for built-in objects, or an environment name like `"overcooked"`. |
-
 Objects in a named scope are only visible to environments that use that scope. Global objects are available everywhere.
+
+??? api "`register_object_type`"
+
+    ::: cogrid.core.objects.registry.register_object_type
+        options:
+          heading_level: 4
 
 ## Built-in Objects (Global Scope)
 
@@ -68,7 +58,7 @@ Objects in a named scope are only visible to environments that use that scope. G
 
 ## Object Properties
 
-Objects declare interaction rules through class-level descriptors imported from `cogrid.core.when`:
+Objects declare interaction rules through class-level descriptors:
 
 ```python
 from cogrid.core.objects.when import when
@@ -79,7 +69,13 @@ class Counter(GridObj):
     can_pickup_from = when() # agents can pick up items from this
 ```
 
-The `when()` descriptor (with no arguments) means the action is always allowed. The engine reads these descriptors at init time and compiles them into lookup tables.
+The `when()` descriptor (with no arguments) means the action is always allowed. Pass `agent_holding` to restrict by held item type. The engine reads these descriptors at init time and compiles them into lookup tables.
+
+??? api "`when`"
+
+    ::: cogrid.core.objects.when.when
+        options:
+          heading_level: 4
 
 ## Containers
 
@@ -87,18 +83,11 @@ Objects that hold multiple items use the `Container` descriptor:
 
 ```python
 from cogrid.core.objects.containers import Container
-from cogrid.core.objects.base import GridObj
-from cogrid.core.objects.registry import register_object_type
 
 @register_object_type("pot", scope="overcooked")
 class Pot(GridObj):
     container = Container(capacity=3, pickup_requires="plate")
 ```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `capacity` | `int` | Maximum items the container holds. |
-| `pickup_requires` | `str | list[str] | None` | What the agent must hold to pick up from the container. `None` = empty inventory. |
 
 The autowire system reads `container` at init time and generates:
 
@@ -108,6 +97,12 @@ The autowire system reads `container` at init time and generates:
 - **Interaction branches** — pickup/drop logic based on `capacity` and `pickup_requires`.
 
 Containers can be paired with environment-specific recipe systems. The [Overcooked environment](../environments/overcooked.md#recipes) defines a `Recipe` dataclass that declares how ingredients combine into results inside a container.
+
+??? api "`Container`"
+
+    ::: cogrid.core.objects.containers.Container
+        options:
+          heading_level: 4
 
 ## Tick Functions
 

@@ -14,11 +14,18 @@ functional API available for usage with JAX.
 
 ### What CoGrid Offers
 
+- **An Approachable API for Environment Customization** Building and customizing environments with JAX can be unintuitive and difficult, as the logic required for parallelization can be complex. Our goal was to abstract away a large poortion of this complexity to make it easier for researchers to customize their environments so that they can ask their own novel research questions. Users can define objects, interactions, and layouts through a declarative config. 
+- **Compatibility with standard tooling.** All environments implement the [PettingZoo](https://pettingzoo.farama.org/) ParallelEnv API, so they work directly with training libraries, etc. A similar functional API is exposed for users who wish to take advantage of the full speedup that is offered by hardware-accelerated parallelization. 
+- **Pre-built environments.** CoGrid ships with a suite of pre-built environments, inspired by prior work (importantly, they are **not** exact replicas!):
+    - [Overcooked](environments/overcooked.md): the 5 original layouts from [Carroll et al., 2019](https://arxiv.org/abs/1910.05789) plus extended variants with multiple recipes and order queues.
+    - [OvercookedV2](environments/overcooked.md): more complex variants of Overcooked that introduce asymmetric information and stochasticity from [Gessler et al., 2025](https://arxiv.org/abs/2503.17821).
+    - [Goal Seeking](environments/goal-seeking.md): a simple debugging environment to navigate to targets. 
+
 ### Why a dual backend?
 
-CoGrid implements and operates through a dual backend to avoid the rigidy of JAX execution and allow for the flexibility of a NumPy backend. This was largely done for one reason: we wanted to have environments that would train extremely fast (inspired by, e.g., JaxMARL), interact with them in standard Python libraries and frameworks, and __use them in online human-AI experiments__. This last point is critical: CoGrid was designed to satisfy the first two desiderata (which libraries like JaxMARL already do), but to also be used in the [Multi-User Gymnasium (MUG)](multi-user-gymnasium.readthedocs.io). 
+CoGrid implements and operates through a dual backend to avoid the rigidy of JAX execution and allow for the flexibility of a NumPy backend. This was largely done for one reason: we wanted to have environments that would train extremely fast (inspired by, e.g., JaxMARL), interact with them in standard Python libraries and frameworks, and *use them in online human-AI experiments*. This last point is critical: CoGrid was designed to satisfy the first two desiderata (which libraries like JaxMARL already do), but to also be used in the [Multi-User Gymnasium (MUG)](https://multi-user-gymnasium.readthedocs.io). 
 
-MUG is a library that translates Gymnasium and PettingZoo environments to online multi-player experiments. For the best performance, these environments must be written in pure Python or have C-extensions that can have wheels build for WASM/Emscripten. MUG then runs the environments directly in the browser and coordinates multi-player experiments that can be used for research. More details around MUG can be found on [GitHub (MUG)](https://www.github.com/chasemcd/mug/) or on the corresponding [documentation site](multi-user-gymnasium.readthedocs.io).
+MUG is a library that translates Gymnasium and PettingZoo environments to online multi-player experiments. For the best performance, these environments must be written in pure Python or have C-extensions that can have wheels build for WASM/Emscripten. MUG then runs the environments directly in the browser and coordinates multi-player experiments that can be used for research. More details around MUG can be found on [GitHub (MUG)](https://www.github.com/chasemcd/mug/) or on the corresponding [documentation site](https://multi-user-gymnasium.readthedocs.io).
 
 
 ## Installation

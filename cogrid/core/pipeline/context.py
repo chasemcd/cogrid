@@ -21,10 +21,16 @@ Helpers provide intent-level operations for common actions:
 - :func:`find_facing_instance` -- which instance of a multi-position object
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
+
+if TYPE_CHECKING:
+    from cogrid.core.typing import ArrayLike
 
 _interaction_context_pytree_registered: bool = False
 
@@ -193,17 +199,17 @@ def increment(array, index):
     return out
 
 
-def find_facing_instance(positions, facing_row, facing_col):
+def find_facing_instance(positions: ArrayLike, facing_row: int, facing_col: int) -> tuple:
     """Find which instance of a multi-position object the agent faces.
 
     Args:
-        positions:  ``(n_instances, 2)`` int32 array of positions.
-        facing_row: int scalar -- row the agent faces.
-        facing_col: int scalar -- col the agent faces.
+        positions: ``(n_instances, 2)`` int32 array of positions.
+        facing_row: Row the agent faces.
+        facing_col: Column the agent faces.
 
     Returns:
         ``(index, is_match)`` -- index into *positions*, and whether
-        any instance matched.
+            any instance matched.
     """
     fwd = xp.stack([facing_row, facing_col])
     match = xp.all(positions == fwd[None, :], axis=1)

@@ -40,6 +40,18 @@ Turn-and-advance movement. The agent has a facing direction and moves forward re
 | 4 | `RotateLeft` | Turn 90 degrees counter-clockwise |
 | 5 | `RotateRight` | Turn 90 degrees clockwise |
 
+??? api "`Actions` and `ActionSets`"
+
+    ::: cogrid.core.actions.Actions
+        options:
+          heading_level: 4
+          members: false
+
+    ::: cogrid.core.actions.ActionSets
+        options:
+          heading_level: 4
+          members: false
+
 ## Movement
 
 Movement actions attempt to place the agent in the target cell. The move succeeds if:
@@ -67,23 +79,5 @@ For containers, adding the final ingredient starts the cook timer. When the time
 ## Interaction: Toggle
 
 The `Toggle` action activates objects that respond to toggling. For example, a closed Door opens when toggled, and a locked Door opens if the agent holds the matching Key.
-
-## Action Definitions
-
-Actions are defined in `cogrid.core.actions`:
-
-```python
-from cogrid.core.actions import Actions, ActionSets
-
-# Individual action strings
-Actions.MoveUp       # "move_up"
-Actions.PickupDrop   # "pick_up_or_drop"
-Actions.Toggle       # "toggle"
-Actions.Noop         # "no-op"
-
-# Action set tuples
-ActionSets.CardinalActions   # (MoveUp, MoveDown, MoveLeft, MoveRight, PickupDrop, Toggle, Noop)
-ActionSets.RotationActions   # (Forward, PickupDrop, Toggle, Noop, RotateLeft, RotateRight)
-```
 
 The action space exposed to agents is a `Discrete(n)` space where `n` is the length of the selected action set.

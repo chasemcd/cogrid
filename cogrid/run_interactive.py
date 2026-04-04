@@ -199,17 +199,6 @@ if __name__ == "__main__":
         default=32,
     )
     parser.add_argument(
-        "--agent-pov",
-        action="store_true",
-        help="draw the agent sees (partially observable view)",
-    )
-    parser.add_argument(
-        "--agent-view-size",
-        type=int,
-        default=7,
-        help="set the number of grid spaces visible in agent-view ",
-    )
-    parser.add_argument(
         "--screen-size",
         type=int,
         default=512,
@@ -222,7 +211,6 @@ if __name__ == "__main__":
         """Create an Overcooked environment instance."""
         return registry.make(
             args.env_id,
-            highlight=False,
             render_mode=render_mode,
             screen_size=args.screen_size,
             render_message=render_message,

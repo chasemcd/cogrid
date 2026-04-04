@@ -17,22 +17,11 @@ class MyReward(Reward):
         return rewards  # (n_agents,) float32
 ```
 
-**`compute()` parameters:**
+??? api "`Reward`"
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `prev_state` | `StateView` | Grid state before the step. |
-| `state` | `StateView` | Grid state after the step. |
-| `actions` | `ndarray` | `(n_agents,)` int32 action indices. |
-| `reward_config` | `dict` | Type ID mappings, action indices, static tables, `n_agents`. |
-
-`reward_config` keys include:
-
-- `type_ids` — dict mapping object names to integer type IDs.
-- `action_pickup_drop_idx` — integer index of the PickupDrop action.
-- `action_toggle_idx` — integer index of the Toggle action.
-- `n_agents` — number of agents.
-- `static_tables` — compiled recipe tables, deliverability tables, etc.
+    ::: cogrid.core.pipeline.rewards.Reward
+        options:
+          heading_level: 4
 
 ## InteractionReward
 
@@ -82,6 +71,15 @@ class OnionInPotReward(InteractionReward):
         ...
         return mask & has_capacity
 ```
+
+??? api "`InteractionReward`"
+
+    ::: cogrid.core.pipeline.rewards.InteractionReward
+        options:
+          heading_level: 4
+          members:
+            - compute
+            - extra_condition
 
 ## Composition
 

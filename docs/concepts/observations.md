@@ -22,18 +22,16 @@ class MyFeature(Feature):
         return fn
 ```
 
-**Class attributes:**
+??? api "`Feature`"
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `per_agent` | `bool` | `True` = function signature is `fn(state, agent_idx)`. `False` = `fn(state)`. |
-| `obs_dim` | `int` | Output dimensionality after `ravel()`. |
-
-**Required classmethod:**
-
-- `build_feature_fn(cls, scope)` — returns a pure function that extracts the feature from a `StateView`. For per-agent features the function takes `(state, agent_idx)`. For global features it takes `(state,)`.
-
-Override `compute_obs_dim(cls, scope, env_config=None)` when the dimension depends on the config (e.g. number of pickupable types).
+    ::: cogrid.core.features.Feature
+        options:
+          heading_level: 4
+          members:
+            - per_agent
+            - obs_dim
+            - build_feature_fn
+            - compute_obs_dim
 
 ## Per-Agent vs Global
 
@@ -66,6 +64,12 @@ The engine calls `compose_feature_fns()` which:
 1. Looks up each name in the feature registry for the environment's scope.
 2. Calls `build_feature_fn()` once per feature at init time.
 3. Returns a single function `fn(state, agent_idx) -> (obs_dim,) float32` that concatenates all features in ego-centric order.
+
+??? api "`compose_feature_fns`"
+
+    ::: cogrid.core.features.compose_feature_fns
+        options:
+          heading_level: 4
 
 ## Built-in Features (Global Scope)
 

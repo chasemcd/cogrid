@@ -11,7 +11,6 @@ handling direction-based rendering and inventory display.
 from __future__ import annotations
 
 import math
-import uuid
 from copy import deepcopy
 
 import numpy as np
@@ -35,20 +34,12 @@ class GridObj:
 
     def __init__(self, state: int = 0):
         """Initialize grid object with state."""
-        self.uuid: str = str(uuid.uuid4())
-
         self.state: int = state
 
         # If an object can be placed on top of this one, this will hold the object that's on top.
         self.obj_placed_on: GridObj | None = None
 
-        # position info
-        self.init_pos: tuple[int, int] | None = None
         self.pos: tuple[int, int] | None = None
-
-    def visible(self) -> bool:
-        """Return True if this object is visible to agents."""
-        return True
 
     def encode(self, encode_char=True, scope: str = "global"):
         """Encode this object as a (char/idx, extra, state) tuple."""
@@ -87,14 +78,6 @@ class GridObj:
         state = int(state)
 
         return make_object(object_id, state=state, scope=scope)
-
-    def rotate_left(self):
-        """Rotate this object counter-clockwise (overridden by agents)."""
-        pass
-
-    def tick(self):
-        """Advance time-dependent state (overridden by objects like pots)."""
-        pass
 
 
 def _is_str(chk):
@@ -144,14 +127,6 @@ class GridAgent(GridObj):
         # This avoids whites (high V, low S), blacks (low V), and greys (low S)
         rgb_color = self._hsv_to_rgb(hue, 0.35, 0.99)
         self.color = rgb_color
-
-    def rotate_left(self):
-        """Rotate the agent's direction counter-clockwise."""
-        self.char = {"^": "<", "<": "v", "v": ">", ">": "^"}[self.char]
-        self.object_id = f"agent_{self.char}"
-        self.dir -= 1
-        if self.dir < 0:
-            self.dir += 4
 
     def render(self, tile_img):
         """Draw agent as a directional triangle with inventory items."""
