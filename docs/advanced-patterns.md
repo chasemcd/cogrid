@@ -22,7 +22,7 @@ from cogrid.envs import registry
 
 ## Tick functions
 
-A `build_tick_fn` classmethod on a GridObj subclass returns a closure with signature `fn(state, scope_config) -> state`. It runs once per step, before movement and interactions. The autowire system discovers tick functions from all registered components automatically.
+See [Tick Functions](concepts/objects.md#tick-functions) for the full concept reference. Below is the Goal object from this example, which uses a tick function to reposition itself every 10 steps:
 
 ```python
 @register_object_type("goal")
@@ -82,54 +82,9 @@ The pipeline calls all tick functions before movement and interactions each step
 
 ## Interaction functions
 
-When an agent performs `PickupDrop` or `Toggle`, the pipeline runs each function in the `interactions` list. Each function receives an `InteractionContext` and returns `(should_apply, changes)`. The pipeline applies the changes from every function whose `should_apply` is true. If multiple functions fire for the same agent, the later function's changes overwrite earlier ones for overlapping keys.
+See [Interactions](concepts/interactions.md) for the full concept reference — branch signature, `InteractionContext` fields, built-in branches, and helper functions.
 
-`PickupDrop` ("pick up / put down") and `Toggle` ("activate / use") are semantically different actions. Built-in branches (pickup, drop, place) only fire on `PickupDrop`. Custom branches can check `ctx.action` against `ctx.action_id` to distinguish which action the agent chose.
-
-### Signature
-
-```python
-def my_interaction(ctx):
-    should_apply = ...  # bool: should this interaction happen?
-    changes = {...}     # dict: what to change if it does
-    return should_apply, changes
-```
-
-### InteractionContext
-
-The pipeline builds an `InteractionContext` before calling interaction functions. Standard fields:
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `can_interact` | bool | `True` if this agent performed `PickupDrop` or `Toggle` and no other agent blocks the cell ahead. |
-| `action` | int | Raw action index this agent chose this step. |
-| `action_id` | `ActionID` | Named indices for all actions in this env. Use `ctx.action_id.pickup_drop`, `ctx.action_id.toggle`, etc. Actions not in the action set have index `-1`. |
-| `facing_row` | int | Row of the cell the agent is facing. |
-| `facing_col` | int | Column of the cell the agent is facing. |
-| `facing_type` | int | Type ID of the object in the faced cell (0 = empty). |
-| `agent_index` | int | Which agent (0, 1, ...) is acting. |
-| `held_item` | int | Type ID of item the agent holds. `-1` = empty hands. |
-| `type_ids` | dict | Maps object names to integer type IDs. `ctx.type_ids["goal"]` returns the goal's type ID. |
-| `object_type_map` | `(H, W)` int array | Grid of object type IDs. |
-| `object_state_map` | `(H, W)` int array | Grid of per-cell state values. |
-| `agent_inv` | `(n_agents, 1)` int array | All agents' inventories. |
-
-Extra-state arrays declared by components (via `extra_state_schema`) are available directly as attributes on `ctx`. For example, if a component declares `goals_collected`, access it as `ctx.goals_collected`.
-
-### Helper functions
-
-Import from `cogrid.core.pipeline.context`:
-
-| Helper | Returns | Purpose |
-|--------|---------|---------|
-| `clear_facing_cell(ctx)` | `object_type_map` | Set the faced cell to empty (type 0). |
-| `set_facing_cell(ctx, type_id)` | `object_type_map` | Set the faced cell to a specific type. |
-| `pickup_from_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Pick up the faced object into the agent's inventory. |
-| `place_in_facing_cell(ctx)` | `(object_type_map, agent_inv)` | Place the held item in the faced cell. |
-| `give_item(ctx, type_id)` | `agent_inv` | Put an item in the agent's inventory. |
-| `empty_hands(ctx)` | `agent_inv` | Clear the agent's inventory. |
-| `increment(array, index)` | array | `array[index] += 1`. Works on both numpy and JAX. |
-| `find_facing_instance(positions, row, col)` | `(index, is_match)` | Find which instance of a multi-position object the agent faces. |
+Below are two custom interaction examples from this environment.
 
 ### Example: collecting a goal (PickupDrop)
 
