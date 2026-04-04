@@ -25,6 +25,20 @@ def set_at_2d(arr, row, col, value):
     return set_at(arr, (row, col), value)
 
 
+def dynamic_slice_2d(arr, start_row, start_col, size_h, size_w):
+    """Extract a (size_h, size_w) window starting at (start_row, start_col).
+
+    JAX: uses ``jax.lax.dynamic_slice`` (traced-index-safe).
+    NumPy: standard slicing.
+    """
+    if get_backend() == "jax":
+        import jax.lax
+
+        return jax.lax.dynamic_slice(arr, (start_row, start_col), (size_h, size_w))
+    else:
+        return arr[start_row : start_row + size_h, start_col : start_col + size_w]
+
+
 def topk_smallest_indices(arr, k):
     """Return indices of the k smallest elements, sorted by value.
 

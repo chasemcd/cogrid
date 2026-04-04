@@ -854,7 +854,7 @@ def test_all_overcooked_features_registered():
     metas = get_feature_types(scope="overcooked")
     meta_by_id = {m.feature_id: m for m in metas}
 
-    # 13 per-agent features (7 individual closest_* + 1 merged closest_objects)
+    # 14 per-agent features (7 individual closest_* + 1 merged closest_objects + local_view)
     per_agent_features = {
         "overcooked_inventory": 5,
         "next_to_counter": 4,
@@ -869,6 +869,7 @@ def test_all_overcooked_features_registered():
         "closest_objects": 44,
         "ordered_pot_features": 24,
         "dist_to_other_players": 2,
+        "local_view": 0,  # obs_dim is dynamic (computed from env_config)
     }
 
     # 3 global features
@@ -892,8 +893,8 @@ def test_all_overcooked_features_registered():
             f"{feat_id} obs_dim={meta_by_id[feat_id].obs_dim}, expected {expected_dim}"
         )
 
-    # Total: 17 features (13 per-agent + 4 global, including OrderObservation)
-    assert len(metas) == 17, f"Expected 17 overcooked features, got {len(metas)}"
+    # Total: 18 features (14 per-agent + 4 global, including OrderObservation)
+    assert len(metas) == 18, f"Expected 18 overcooked features, got {len(metas)}"
 
 
 # ===================================================================
@@ -1003,3 +1004,135 @@ def test_compose_multi_scope():
     expected = np.array([1, 2, 3, 4, 5], dtype=np.float32)
     np.testing.assert_array_equal(result, expected)
     assert result.shape == (5,)
+
+
+# ===================================================================
+# Generic LocalView tests
+# ===================================================================
+
+
+def test_generic_local_view_registered_global():
+    """local_view is registered in global scope."""
+    import cogrid.feature_space.local_view  # noqa: F401
+
+    metas = get_feature_types(scope="global")
+    meta_by_id = {m.feature_id: m for m in metas}
+    assert "local_view" in meta_by_id
+    assert meta_by_id["local_view"].per_agent is True
+
+
+def test_generic_local_view_overcooked_channel_count():
+    """Overcooked local_view still produces 39 channels via the subclass.
+
+    10 types + 2 pos + 8 dir + 10 inv + 1 osm + 8 pot = 39 channels.
+    With radius=1, window=3: 3*3*39 = 351.
+    """
+    import cogrid.envs  # noqa: F401
+    from cogrid.envs.overcooked.features import OvercookedLocalView
+
+    env_config = {
+        "observable_radius": 1,
+        "n_agents": 2,
+        "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+        "local_view_type_names": [
+            "counter",
+            "delivery_zone",
+            "onion",
+            "onion_soup",
+            "onion_stack",
+            "plate",
+            "plate_stack",
+            "tomato",
+            "tomato_soup",
+            "tomato_stack",
+        ],
+    }
+    dim = OvercookedLocalView.compute_obs_dim("overcooked", env_config)
+    # 39 channels * 3*3 window = 351
+    assert dim == 351, f"Expected 351, got {dim}"
+
+
+def test_generic_local_view_search_rescue():
+    """local_view works for search_rescue scope with auto-discovered types."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.envs.search_rescue import search_rescue_grid_objects  # noqa: F401
+    from cogrid.feature_space.local_view import (
+        LocalView,
+        _discover_holdable_names,
+        _discover_type_names,
+    )
+
+    type_names = _discover_type_names("search_rescue")
+    holdable_names = _discover_holdable_names("search_rescue")
+
+    # search_rescue has: medkit, pickaxe, rubble, green_victim, purple_victim,
+    # yellow_victim, red_victim as scope objects.  Plus global: counter, door,
+    # floor, key, wall.
+    # Excluded: None, free_space, agent_* (4 dirs), wall (no — wall IS included),
+    # floor (no — floor IS included)
+    assert "medkit" in type_names
+    assert "pickaxe" in type_names
+    assert "key" in type_names
+    assert None not in type_names
+    assert "free_space" not in type_names
+
+    # Holdable: medkit, pickaxe (search_rescue) + key (global)
+    assert "medkit" in holdable_names
+    assert "pickaxe" in holdable_names
+    assert "key" in holdable_names
+
+    # compute_obs_dim should work without errors
+    env_config = {"observable_radius": 2, "n_agents": 2}
+    dim = LocalView.compute_obs_dim("search_rescue", env_config)
+    n_types = len(type_names)
+    n_holdable = len(holdable_names)
+    # No extra providers for search_rescue
+    n_ch = n_types + 2 + 8 + n_holdable * 2 + 1  # T + A + 4A + H*A + 1
+    window = 5  # 2*2+1
+    assert dim == window * window * n_ch, f"Expected {window * window * n_ch}, got {dim}"
+
+
+def test_generic_local_view_output_shape():
+    """Overcooked local_view subclass produces correct output shape."""
+    import cogrid.envs  # noqa: F401
+    from cogrid.core.objects.registry import object_to_idx
+    from cogrid.envs.overcooked.features import OvercookedLocalView
+
+    env_config = {
+        "observable_radius": 1,
+        "n_agents": 2,
+        "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
+        "local_view_type_names": [
+            "counter",
+            "delivery_zone",
+            "onion",
+            "onion_soup",
+            "onion_stack",
+            "plate",
+            "plate_stack",
+            "tomato",
+            "tomato_soup",
+            "tomato_stack",
+        ],
+    }
+
+    pot_type_id = object_to_idx("pot", scope="overcooked")
+    otm = np.zeros((5, 5), dtype=np.int32)
+    otm[2, 3] = pot_type_id
+
+    state = _sv(
+        agent_pos=np.array([[2, 2], [0, 0]], dtype=np.int32),
+        agent_dir=np.array([0, 1], dtype=np.int32),
+        agent_inv=np.full((2, 1), -1, dtype=np.int32),
+        object_type_map=otm,
+        pot_positions=np.array([[2, 3]], dtype=np.int32),
+        pot_contents=np.zeros((1, 3), dtype=np.int32),
+        pot_timer=np.array([0], dtype=np.int32),
+    )
+
+    fn = OvercookedLocalView.build_feature_fn("overcooked", env_config)
+    result = fn(state, 0)
+
+    expected_dim = OvercookedLocalView.compute_obs_dim("overcooked", env_config)
+    assert result.shape == (expected_dim,), f"Expected ({expected_dim},), got {result.shape}"
+    assert result.dtype == np.float32
