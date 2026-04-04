@@ -24,16 +24,16 @@ def _setup_cogrid():
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401
     from cogrid.envs import registry
 
     env = registry.make("Overcooked-CrampedRoom-V0", backend="jax")
     env.reset(seed=SEED)
     n_agents = len(env.possible_agents)
     key = jax.random.key(SEED)
-    actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
+    actions_arr = jnp.full((n_agents,), 6, dtype=jnp.int32)
+    actions_dict = {i: jnp.int32(6) for i in range(n_agents)}
 
-    return env, key, actions, n_agents
+    return env, key, actions_arr, actions_dict, n_agents
 
 
 def _bench_fn(jit_fn, state, extra_args, n_steps=N_STEPS, extract_state=None):
@@ -59,15 +59,14 @@ def _bench_fn(jit_fn, state, extra_args, n_steps=N_STEPS, extract_state=None):
 
 def profile_phases():
     """Profile each step phase in isolation."""
-    from cogrid.backend import xp
-    from cogrid.core.interactions import process_interactions
-    from cogrid.core.movement import move_agents
-    from cogrid.core.step_pipeline import (
+    from cogrid.core.pipeline.interactions import process_interactions
+    from cogrid.core.pipeline.movement import move_agents
+    from cogrid.core.pipeline.step import (
         envstate_to_dict,
     )
     from cogrid.feature_space.features import get_all_agent_obs
 
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
 
     # Get internals from env
     step_fn = env.jax_step
@@ -87,7 +86,9 @@ def profile_phases():
     _ = env.max_steps
     _ = getattr(env, "_terminated_fn", None)
 
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    dir_vec_table = get_dir_vec_table()
 
     print("=" * 65)
     print("Phase-level profiling (batch=1, CPU, JIT-compiled)")
@@ -159,14 +160,12 @@ def profile_phases():
     print(f"  Movement:      {move_rate:>12,.0f} calls/sec")
 
     # --- Phase: Interactions ---
-    interaction_fn = scope_config.get("interaction_fn")
-
     @jax.jit
     def jit_interact(state, actions):
         return process_interactions(
             state,
             actions,
-            interaction_fn,
+            None,
             lookup_tables,
             scope_config,
             dir_vec_table,
@@ -224,11 +223,11 @@ def profile_phases():
     # --- Phase: Full step ---
     jit_step = jax.jit(step_fn)
     for _ in range(N_WARMUP):
-        _, s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(key, state, actions_dict)
         s.agent_pos.block_until_ready()
     t0 = time.perf_counter()
     for _ in range(N_STEPS):
-        _, s, *_ = jit_step(state, actions)
+        _, s, *_ = jit_step(key, state, actions_dict)
     s.agent_pos.block_until_ready()
     full_rate = N_STEPS / (time.perf_counter() - t0)
     print(f"  Full step:     {full_rate:>12,.0f} calls/sec")
@@ -259,7 +258,7 @@ def hlo_analysis():
     print()
 
     # CoGrid
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions_arr, actions_dict, n_agents = _setup_cogrid()
     step_fn = env.jax_step
     reset_fn = env.jax_reset
 
@@ -267,7 +266,7 @@ def hlo_analysis():
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
-    lowered = jax.jit(step_fn).lower(state, actions)
+    lowered = jax.jit(step_fn).lower(key, state, actions_dict)
     compiled = lowered.compile()
     hlo_text = compiled.as_text()
     # Count HLO instructions (lines starting with %)
@@ -279,9 +278,10 @@ def hlo_analysis():
     v_step = jax.jit(jax.vmap(step_fn))
     _, batch_state, _ = jax.jit(jax.vmap(reset_fn))(jax.random.split(key, 4))
     batch_state.agent_pos.block_until_ready()
-    batch_actions = jnp.full((4, n_agents), 6, dtype=jnp.int32)
+    batch_actions = {i: jnp.full(4, 6, dtype=jnp.int32) for i in range(n_agents)}
+    batch_keys = jax.random.split(key, 4)
 
-    lowered_v = v_step.lower(batch_state, batch_actions)
+    lowered_v = v_step.lower(batch_keys, batch_state, batch_actions)
     compiled_v = lowered_v.compile()
     hlo_v = compiled_v.as_text()
     v_ops = sum(1 for line in hlo_v.split("\n") if line.strip().startswith("%"))
@@ -360,9 +360,9 @@ def hlo_top_ops(hlo_text, label="CoGrid", top_n=15):
 def profile_per_feature():
     """Profile each individual feature function: HLO ops and throughput."""
     from cogrid.core.component_registry import get_feature_types
-    from cogrid.core.step_pipeline import envstate_to_dict
+    from cogrid.core.pipeline.step import envstate_to_dict
 
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
@@ -443,34 +443,39 @@ def profile_per_feature():
 
 def profile_interaction_detail():
     """Profile interaction sub-costs."""
-    env, key, actions, n_agents = _setup_cogrid()
+    env, key, actions, actions_dict, n_agents = _setup_cogrid()
     jit_reset = jax.jit(env.jax_reset)
     _, state, _ = jit_reset(key)
     state.agent_pos.block_until_ready()
 
     scope_config = env._scope_config
-    interaction_fn = scope_config.get("interaction_fn")
 
-    from cogrid.backend import xp
+    from cogrid.core.agent import get_dir_vec_table
 
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    dir_vec_table = get_dir_vec_table()
 
-    # Profile just the overcooked interaction for 1 agent
-    if interaction_fn is not None:
+    # Profile just the interaction pipeline
+    interactions = scope_config.get("interactions")
+    if interactions is not None:
+        from cogrid.core.pipeline.interactions import process_interactions as _pi
+
+        action_pickup_drop_idx = env._action_pickup_drop_idx
+        action_toggle_idx = env._action_toggle_idx
+        lookup_tables = env._lookup_tables
+        interact_actions = jnp.full((n_agents,), 6, dtype=jnp.int32)
 
         @jax.jit
         def jit_single_interact(state):
-            H, W = state.object_type_map.shape
-            fwd_pos = state.agent_pos + dir_vec_table[state.agent_dir]
-            fwd_r = jnp.clip(fwd_pos[:, 0], 0, H - 1)
-            fwd_c = jnp.clip(fwd_pos[:, 1], 0, W - 1)
-            is_interact = jnp.ones(n_agents, dtype=jnp.bool_)
-            fwd_rc = jnp.stack([fwd_r, fwd_c], axis=1)
-            fwd_matches_pos = jnp.all(fwd_rc[:, None, :] == state.agent_pos[None, :, :], axis=2)
-            not_self = ~jnp.eye(n_agents, dtype=jnp.bool_)
-            agent_ahead = jnp.any(fwd_matches_pos & not_self, axis=1)
-            base_ok = is_interact & ~agent_ahead
-            return interaction_fn(state, 0, fwd_r[0], fwd_c[0], base_ok[0], scope_config)
+            return _pi(
+                state,
+                interact_actions,
+                interactions,
+                lookup_tables,
+                scope_config,
+                dir_vec_table,
+                action_pickup_drop_idx,
+                action_toggle_idx,
+            )
 
         lowered = jit_single_interact.lower(state)
         hlo = lowered.compile().as_text()
@@ -489,11 +494,7 @@ def profile_interaction_detail():
         print("Interaction detail")
         print("=" * 65)
         print()
-        print(f"  Single-agent interaction:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
-        print(
-            f"  Full interaction (x2):     ~{ops * 2:>5,d} HLO ops,"
-            f" {10631:>12,d} calls/sec (from phase profile)"
-        )
+        print(f"  Interaction pipeline:  {ops:>6,d} HLO ops, {rate:>12,.0f} calls/sec")
         print()
 
 

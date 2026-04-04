@@ -1,8 +1,9 @@
 """Search-and-rescue grid object types (items, obstacles, victims)."""
 
-from cogrid.core import constants, grid_object
-from cogrid.core.grid_object_registry import register_object_type
-from cogrid.core.when import when
+from cogrid.core import constants
+from cogrid.core import objects as grid_object
+from cogrid.core.objects.registry import register_object_type
+from cogrid.core.objects.when import when
 from cogrid.visualization.rendering import (
     fill_coords,
     point_in_circle,
@@ -75,10 +76,6 @@ class Rubble(grid_object.GridObj):
     def __init__(self, state=0):
         """Initialize with default state."""
         super().__init__(state=state)
-
-    def see_behind(self) -> bool:
-        """Return False; rubble blocks visibility."""
-        return False
 
     def render(self, tile_img):
         """Draw three brown circles representing rubble pile."""

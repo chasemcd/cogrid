@@ -467,7 +467,7 @@ class OvercookedInventory(Feature):
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
         """Build the inventory feature function for the given scope."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         if env_config is not None and "pickupable_types" in env_config:
             pickupable_names = sorted(env_config["pickupable_types"])
@@ -499,7 +499,7 @@ class NextToCounter(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the counter adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         counter_type_id = object_to_idx("counter", scope=scope)
 
@@ -524,7 +524,7 @@ class NextToPot(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the pot adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         pot_type_id = object_to_idx("pot", scope=scope)
 
@@ -555,7 +555,7 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
         @classmethod
         def build_feature_fn(cls, scope):
-            from cogrid.core.grid_object import object_to_idx
+            from cogrid.core.objects import object_to_idx
 
             target_type_id = object_to_idx(_obj, scope=scope)
 
@@ -602,7 +602,7 @@ class ClosestObjects(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build closest-object feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         type_ids_and_ns = [
             (object_to_idx(name, scope=scope), n) for name, n in _CLOSEST_SPECS_SORTED
@@ -672,7 +672,7 @@ class ObjectTypeMasks(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build object-type mask feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
 
@@ -696,7 +696,7 @@ class OrderedPotFeatures(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the ordered pot feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
         tomato_id = object_to_idx("tomato", scope=scope)
@@ -767,7 +767,7 @@ class EnvironmentLayout(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the environment layout feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
         layout_type_ids = [object_to_idx(name, scope=scope) for name in layout_type_names]
@@ -807,7 +807,7 @@ class OvercookedLocalView(LocalView):
     @classmethod
     def build_extra_channel_fn(cls, scope, env_config=None):
         """Build a function that encodes pot state into extra channels."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
         tomato_id = object_to_idx("tomato", scope=scope)

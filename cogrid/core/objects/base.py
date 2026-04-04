@@ -11,12 +11,16 @@ handling direction-based rendering and inventory display.
 from __future__ import annotations
 
 import math
-import uuid
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from cogrid.constants import GridConstants
+
+if TYPE_CHECKING:
+    from cogrid.core.typing import ArrayLike
+
 from cogrid.core.directions import Directions
 from cogrid.visualization.rendering import (
     fill_coords,
@@ -33,30 +37,18 @@ class GridObj:
     color: str | tuple = None
     char: str = None
 
-    def __init__(self, state: int = 0):
+    def __init__(self, state: int = 0) -> None:
         """Initialize grid object with state."""
-        self.uuid: str = str(uuid.uuid4())
-
         self.state: int = state
 
         # If an object can be placed on top of this one, this will hold the object that's on top.
         self.obj_placed_on: GridObj | None = None
 
-        # position info
-        self.init_pos: tuple[int, int] | None = None
         self.pos: tuple[int, int] | None = None
 
-    def see_behind(self, agent: GridAgent) -> bool:
-        """Can the agent see through this object?"""
-        return True
-
-    def visible(self) -> bool:
-        """Return True if this object is visible to agents."""
-        return True
-
-    def encode(self, encode_char=True, scope: str = "global"):
+    def encode(self, encode_char: bool = True, scope: str = "global") -> tuple[str | int, int, int]:
         """Encode this object as a (char/idx, extra, state) tuple."""
-        from cogrid.core.grid_object_registry import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         return (
             self.char if encode_char else object_to_idx(self, scope=scope),
@@ -64,14 +56,14 @@ class GridObj:
             int(self.state),
         )
 
-    def render(self, tile_img):
+    def render(self, tile_img: ArrayLike) -> None:
         """By default, everything will be rendered as a square with the specified color."""
         fill_coords(tile_img, point_in_rect(0, 1, 0, 1), color=self.color)
 
     @staticmethod
-    def decode(char_or_idx: str | int, state: int, scope: str = "global"):
+    def decode(char_or_idx: str | int, state: int, scope: str = "global") -> GridObj | None:
         """Decode a char/idx and state into a GridObj instance."""
-        from cogrid.core.grid_object_registry import get_object_id_from_char, make_object
+        from cogrid.core.objects.registry import get_object_id_from_char, make_object
 
         if char_or_idx in [
             None,
@@ -92,21 +84,13 @@ class GridObj:
 
         return make_object(object_id, state=state, scope=scope)
 
-    def rotate_left(self):
-        """Rotate this object counter-clockwise (overridden by agents)."""
-        pass
 
-    def tick(self):
-        """Advance time-dependent state (overridden by objects like pots)."""
-        pass
-
-
-def _is_str(chk):
+def _is_str(chk: Any) -> bool:
     """Check if value is a string type (including numpy str)."""
     return isinstance(chk, str) or isinstance(chk, np.str)
 
 
-def _is_int(chk):
+def _is_int(chk: Any) -> bool:
     """Check if value is an integer type (including numpy int)."""
     return isinstance(chk, int) or isinstance(chk, np.int)
 
@@ -114,9 +98,9 @@ def _is_int(chk):
 class GridAgent(GridObj):
     """Grid wrapper for an Agent, handling direction rendering and inventory."""
 
-    def __init__(self, agent, n_agents: int, scope: str = "global"):
+    def __init__(self, agent: Any, n_agents: int, scope: str = "global") -> None:
         """Initialize from an Agent, encoding direction as char and inventory as state."""
-        from cogrid.core.grid_object_registry import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         self.char = {
             Directions.Up: "^",
@@ -149,15 +133,7 @@ class GridAgent(GridObj):
         rgb_color = self._hsv_to_rgb(hue, 0.35, 0.99)
         self.color = rgb_color
 
-    def rotate_left(self):
-        """Rotate the agent's direction counter-clockwise."""
-        self.char = {"^": "<", "<": "v", "v": ">", ">": "^"}[self.char]
-        self.object_id = f"agent_{self.char}"
-        self.dir -= 1
-        if self.dir < 0:
-            self.dir += 4
-
-    def render(self, tile_img):
+    def render(self, tile_img: ArrayLike) -> None:
         """Draw agent as a directional triangle with inventory items."""
         tri_fn = point_in_triangle(
             (0.12, 0.19),
@@ -195,9 +171,9 @@ class GridAgent(GridObj):
             tile_subset[nonzero_entries] = inventory_tile[nonzero_entries]
 
     @staticmethod
-    def decode(char_or_idx: str | int, state: int, scope: str = "global"):
+    def decode(char_or_idx: str | int, state: int, scope: str = "global") -> GridObj | None:
         """Decode a char/idx and state into a GridAgent-compatible object."""
-        from cogrid.core.grid_object_registry import (
+        from cogrid.core.objects.registry import (
             get_object_id_from_char,
             get_object_names,
             make_object,

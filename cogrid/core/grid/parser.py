@@ -13,7 +13,7 @@ are converted to JAX arrays when the JAX backend is active.
 
 Usage::
 
-    from cogrid.core.layout_parser import register_symbols, parse_layout
+    from cogrid.core.grid.parser import register_symbols, parse_layout
     from cogrid.core.autowire import build_scope_config_from_components
 
     register_symbols("overcooked", {
@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from cogrid.core.grid_object import object_to_idx
+from cogrid.core.objects import object_to_idx
 
 if TYPE_CHECKING:
     from cogrid.backend.env_state import EnvState

@@ -7,6 +7,8 @@ ENVIRONMENT_REGISTRY: dict[str, cogrid_env.CoGridEnv] = {}
 
 def make(environment_id: str, environment_scope: str = "global", **kwargs) -> cogrid_env.CoGridEnv:
     """Create an environment instance by registered name."""
+    if not ENVIRONMENT_REGISTRY:
+        import cogrid.envs  # noqa: F401 -- registers layouts & env factories
     if environment_id not in ENVIRONMENT_REGISTRY:
         raise ValueError(
             f"Environment ID {environment_id} is not registered. "

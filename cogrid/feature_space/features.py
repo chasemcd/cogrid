@@ -158,7 +158,7 @@ class CanMoveDirection(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the can-move-direction feature function."""
-        from cogrid.core.grid_object import build_lookup_tables
+        from cogrid.core.objects import build_lookup_tables
 
         tables = build_lookup_tables(scope=scope)
         can_overlap_table = xp.array(tables["CAN_OVERLAP"], dtype=xp.int32)
@@ -197,6 +197,11 @@ class Inventory(Feature):
 # ---------------------------------------------------------------------------
 
 
-def get_all_agent_obs(feature_fn, state, n_agents):
-    """Stack per-agent observations into (n_agents, obs_dim) array."""
-    return xp.stack([feature_fn(state, i) for i in range(n_agents)])
+def get_all_agent_obs(feature_fn, state, agent_ids):
+    """Build per-agent observations as ``dict[AgentID, (obs_dim,)]``.
+
+    Feature functions receive numeric index ``i`` (0, 1, ...) because
+    they index into stacked arrays in EnvState. ``agent_ids`` maps
+    position to ID.
+    """
+    return {aid: feature_fn(state, i) for i, aid in enumerate(agent_ids)}

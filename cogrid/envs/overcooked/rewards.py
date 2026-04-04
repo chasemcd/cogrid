@@ -24,7 +24,7 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.rewards import (
+from cogrid.core.pipeline.rewards import (
     InteractionReward,
     Reward,
     _compute_fwd_positions,
@@ -140,10 +140,19 @@ class OrderDeliveryReward(DeliveryReward):
     Falls back to base DeliveryReward behavior (no gating, no tip) when
     order_recipe is not present in state (orders disabled).
 
-    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
-        - ``coefficient``: Reward scaling factor (default 1.0).
-        - ``common_reward``: If True, all agents receive the reward (default True).
+    Parameters
+    ----------
+    order_time_limit : int or None
+        Maximum lifetime of an order (used for tip calculation).
+    **kwargs
+        Forwarded to ``DeliveryReward.__init__`` (``coefficient``,
+        ``common_reward``, etc.).
     """
+
+    def __init__(self, *, order_time_limit=None, **kwargs):
+        """Initialize with optional order time limit for tip calculation."""
+        super().__init__(**kwargs)
+        self.order_time_limit = order_time_limit
 
     def compute(self, prev_state, state, actions, reward_config):
         """Compute delivery rewards gated on order consumption with tip bonus."""
@@ -168,17 +177,15 @@ class OrderDeliveryReward(DeliveryReward):
 
         # Tip bonus: proportional to remaining time on the consumed order
         # tip = (remaining_time / time_limit) * tip_coefficient
-        static_tables = reward_config.get("static_tables", {})
         tip_coefficient = reward_config.get("tip_coefficient", 0.0)
-        order_time_limit = static_tables.get("order_time_limit", None)
-        if order_time_limit is not None and tip_coefficient > 0.0:
+        if self.order_time_limit is not None and tip_coefficient > 0.0:
             # Use the timer of the first consumed order slot
             consumed_idx = xp.argmax(consumed)
             remaining_time = prev_state.order_timer[consumed_idx]
             tip = xp.where(
                 any_consumed,
                 remaining_time.astype(xp.float32)
-                / xp.float32(order_time_limit)
+                / xp.float32(self.order_time_limit)
                 * xp.float32(tip_coefficient),
                 xp.float32(0.0),
             )

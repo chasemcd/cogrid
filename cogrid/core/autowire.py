@@ -29,8 +29,6 @@ def build_feature_config_from_components(
     ``compose_feature_fns``, and ``obs_dim_for_features`` so that features
     can read their dimensions from the config instead of the global registry.
     """
-    # Ensure global Feature subclasses are registered
-    import cogrid.feature_space.features  # noqa: F401
     from cogrid.core.component_registry import get_pre_compose_hook
     from cogrid.core.features import compose_feature_fns, obs_dim_for_features
 
@@ -92,18 +90,17 @@ def build_scope_config_from_components(
         get_container_components,
         get_tickable_components,
     )
-    from cogrid.core.containers import (
-        build_container_extra_state_builder,
-        build_container_extra_state_schema,
-        build_container_render_sync,
-        build_container_static_tables,
-        build_container_tick_fn,
-    )
-    from cogrid.core.grid_object import (
+    from cogrid.core.objects import (
         build_guard_tables,
         build_lookup_tables,
         get_object_names,
         object_to_idx,
+    )
+    from cogrid.core.objects.containers import (
+        build_container_extra_state_builder,
+        build_container_extra_state_schema,
+        build_container_render_sync,
+        build_container_tick_fn,
     )
 
     # -- Collect all components for this scope (reused below) --
@@ -179,9 +176,11 @@ def build_scope_config_from_components(
         if "extra_state_builder" in meta.methods:
             continue  # already added above
         cm = meta.container_meta
+        recipes = cm.get("recipes", [])
+        default_timer = max((r.cook_time for r in recipes), default=0) if recipes else 0
         builder_fns.append(
             build_container_extra_state_builder(
-                meta.object_id, cm["container"], cm["recipes"], scope
+                meta.object_id, cm["container"], scope, default_timer=default_timer
             )
         )
 
@@ -203,15 +202,11 @@ def build_scope_config_from_components(
             extra_tables = meta.methods["build_static_tables"]()
             static_tables.update(extra_tables)
 
-    # Auto-generate static_tables from container metadata
+    # Auto-generate container type ID in static_tables
     for meta in container_components:
         if meta.has_static_tables:
             continue  # already merged above
-        cm = meta.container_meta
-        extra_tables = build_container_static_tables(
-            meta.object_id, cm["container"], cm["recipes"], scope
-        )
-        static_tables.update(extra_tables)
+        static_tables[f"{meta.object_id}_id"] = object_to_idx(meta.object_id, scope)
 
     # -- Build 2D guard tables for pickup_from / place_on conditions --
     guard_tables = build_guard_tables(scope=scope)
@@ -246,10 +241,11 @@ def build_scope_config_from_components(
 
         render_sync = _composed_render_sync
 
-    # -- Auto-generate interaction_fn from container + consume components --
-    interaction_fn = None
+    # -- Auto-generate interactions from container + consume components --
+    autowire_extras_fn = None
+    autowire_interactions = None
     if container_components or consume_components:
-        from cogrid.core.interactions import compose_interaction_fn
+        from cogrid.core.pipeline.interactions import compose_interactions
 
         container_specs = []
         for meta in container_components:
@@ -264,7 +260,9 @@ def build_scope_config_from_components(
 
         consume_type_ids = [object_to_idx(m.object_id, scope=scope) for m in consume_components]
 
-        interaction_fn = compose_interaction_fn(container_specs, consume_type_ids, scope)
+        autowire_extras_fn, autowire_interactions = compose_interactions(
+            container_specs, consume_type_ids, scope
+        )
 
     return {
         "scope": scope,
@@ -277,7 +275,8 @@ def build_scope_config_from_components(
         "extra_state_schema": extra_state_schema,
         "extra_state_builder": extra_state_builder,
         "render_sync": render_sync,
-        "interaction_fn": interaction_fn,
+        "autowire_extras_fn": autowire_extras_fn,
+        "autowire_interactions": autowire_interactions,
     }
 
 

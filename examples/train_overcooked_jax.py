@@ -23,7 +23,6 @@ from flax.linen.initializers import constant, orthogonal
 from typing import NamedTuple
 from flax.training.train_state import TrainState
 
-import cogrid.envs  # noqa: F401 -- register layouts & grid objects
 import cogrid
 
 
@@ -96,8 +95,10 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
     Args:
         config: Hyperparameter dict.
-        step_fn: CoGrid step -- (state, actions) -> (obs, state, rewards, terms, truncs, infos).
-        reset_fn: CoGrid reset -- (rng) -> (obs, state, infos).
+        step_fn: CoGrid step function with signature
+            ``(key, state, actions_dict) -> (obs, state, rew, term, trunc, info)``.
+        reset_fn: CoGrid reset function with signature
+            ``(rng) -> (obs_dict, state, infos_dict)``.
         n_agents: Number of agents per env.
         n_actions: Number of discrete actions.
         obs_dim: Flat observation size per agent.
@@ -138,7 +139,8 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
         # ---- Init envs (vmapped) ----
         rng, reset_rng = jax.random.split(rng)
-        obs, env_state, _ = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
+        obs_dict, env_state, _ = jax.vmap(reset_fn)(jax.random.split(reset_rng, num_envs))
+        obs = jnp.stack([obs_dict[i] for i in range(n_agents)], axis=1)
         # obs: (NUM_ENVS, n_agents, obs_dim)
 
         # Episode return tracking per env (summed across agents)
@@ -160,11 +162,18 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                 # Unbatchify actions: (num_actors,) -> (NUM_ENVS, n_agents)
                 env_actions = action.reshape(num_envs, n_agents)
+                env_actions_dict = {i: env_actions[:, i] for i in range(n_agents)}
 
                 # Step all envs in parallel
-                new_obs, new_state, rewards, terms, truncs, _ = jax.vmap(step_fn)(
-                    env_state, env_actions
-                )
+                rng, step_rng = jax.random.split(rng)
+                step_keys = jax.random.split(step_rng, num_envs)
+                new_obs_dict, new_state, rewards_dict, terms_dict, truncs_dict, _ = jax.vmap(
+                    step_fn
+                )(step_keys, env_state, env_actions_dict)
+                new_obs = jnp.stack([new_obs_dict[i] for i in range(n_agents)], axis=1)
+                rewards = jnp.stack([rewards_dict[i] for i in range(n_agents)], axis=1)
+                terms = jnp.stack([terms_dict[i] for i in range(n_agents)], axis=1)
+                truncs = jnp.stack([truncs_dict[i] for i in range(n_agents)], axis=1)
 
                 done = terms | truncs  # (NUM_ENVS, n_agents)
                 any_done = jnp.any(done, axis=-1)  # (NUM_ENVS,)
@@ -177,9 +186,10 @@ def make_train(config, step_fn, reset_fn, n_agents, n_actions, obs_dim):
 
                 # Auto-reset done envs
                 rng, reset_rng = jax.random.split(rng)
-                reset_obs, reset_state, _ = jax.vmap(reset_fn)(
+                reset_obs_dict, reset_state, _ = jax.vmap(reset_fn)(
                     jax.random.split(reset_rng, num_envs)
                 )
+                reset_obs = jnp.stack([reset_obs_dict[i] for i in range(n_agents)], axis=1)
 
                 def _select(reset_val, step_val):
                     shape = (num_envs,) + (1,) * (reset_val.ndim - 1)
@@ -539,7 +549,7 @@ if __name__ == "__main__":
     # Observation features are auto-discovered from Feature subclasses
     # registered to the scope via autowire.
     test_obs, _, _ = reset_fn(jax.random.key(0))
-    obs_dim = test_obs.shape[-1]
+    obs_dim = test_obs[0].shape[-1]
     print(f"Training IPPO: {n_agents} agents, {n_actions} actions, obs_dim={obs_dim}")
     print(f"  {config['NUM_ENVS']} parallel envs, {config['TOTAL_TIMESTEPS']:.0f} total timesteps")
 

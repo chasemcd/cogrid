@@ -18,8 +18,8 @@ from cogrid.core.component_registry import (
     get_components_with_extra_state,
     get_tickable_components,
 )
-from cogrid.core.grid_object import GridObj, register_object_type
-from cogrid.core.rewards import Reward
+from cogrid.core.objects import GridObj, register_object_type
+from cogrid.core.pipeline.rewards import Reward
 
 # ---------------------------------------------------------------------------
 # 1. ComponentMetadata dataclass
@@ -313,10 +313,7 @@ def test_reward_base_class():
 
 def test_existing_objects_backward_compat():
     """Wall, Counter (global) and Pot (overcooked) have ComponentMetadata."""
-    from cogrid.core.grid_object import Counter, Wall
-
-    # Ensure overcooked objects are imported / registered
-    from cogrid.envs.overcooked import overcooked_grid_objects  # noqa: F401
+    from cogrid.core.objects import Counter, Wall
 
     wall_meta = get_component_metadata("wall", scope="global")
     assert wall_meta is not None
@@ -325,6 +322,8 @@ def test_existing_objects_backward_compat():
     counter_meta = get_component_metadata("counter", scope="global")
     assert counter_meta is not None
     assert counter_meta.cls is Counter
+
+    from cogrid.envs.overcooked import overcooked_grid_objects
 
     pot_meta = get_component_metadata("pot", scope="overcooked")
     assert pot_meta is not None
@@ -338,8 +337,6 @@ def test_existing_objects_backward_compat():
 
 def test_search_rescue_objects_have_metadata():
     """Search rescue objects registered via @register_object_type have metadata."""
-    from cogrid.envs.search_rescue import search_rescue_grid_objects  # noqa: F401
-
     meta = get_component_metadata("medkit", scope="search_rescue")
     assert meta is not None, "medkit should have ComponentMetadata"
     assert meta.properties.get("can_pickup")

@@ -7,9 +7,8 @@ arrays from When descriptors on grid object classes.
 import numpy as np
 import pytest
 
-import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
-from cogrid.core.grid_object import build_guard_tables, get_object_names, object_to_idx
-from cogrid.core.when import when
+from cogrid.core.objects import build_guard_tables, get_object_names, object_to_idx
+from cogrid.core.objects.when import when
 
 # -----------------------------------------------------------------------
 # when() descriptor tests

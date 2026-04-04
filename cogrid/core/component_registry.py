@@ -4,13 +4,14 @@ Stores metadata about GridObject subclasses (discovered classmethods, static
 properties) and Feature subclasses. Populated at import time by the
 ``@register_object_type`` and ``@register_feature_type`` decorators.
 
-This module must NOT import from ``cogrid.core.grid_object`` at module level
-to avoid circular imports. The decorator in grid_object.py uses a lazy import
-to call into this module.
+This module must NOT import from ``cogrid.core.objects`` at module level
+to avoid circular imports. The decorator in objects/registry.py uses a lazy
+import to call into this module.
 """
 
 from __future__ import annotations
 
+import importlib
 import inspect
 from dataclasses import dataclass, field
 from typing import Any
@@ -77,6 +78,44 @@ _COMPONENT_METADATA: dict[tuple[str, str], ComponentMetadata] = {}
 _FEATURE_TYPE_REGISTRY: dict[tuple[str, str], FeatureMetadata] = {}
 _PRE_COMPOSE_HOOKS: dict[str, callable] = {}
 _LAYOUT_INDEX_REGISTRY: dict[str, dict[str, int]] = {}
+
+# ---------------------------------------------------------------------------
+# Scope-based lazy loading
+# ---------------------------------------------------------------------------
+
+_SCOPE_MODULES: dict[str, list[str]] = {
+    "global": [
+        "cogrid.core.objects.builtins",
+        "cogrid.feature_space.features",
+    ],
+    "overcooked": [
+        "cogrid.envs.overcooked.overcooked_grid_objects",
+        "cogrid.envs.overcooked.features",
+    ],
+    "search_rescue": [
+        "cogrid.envs.search_rescue.search_rescue_grid_objects",
+    ],
+}
+
+_loaded_scopes: set[str] = set()
+
+
+def _ensure_scope_loaded(scope: str) -> None:
+    """Import modules that define components for *scope* (and global)."""
+    for s in ("global", scope):
+        if s in _loaded_scopes:
+            continue
+        modules = _SCOPE_MODULES.get(s)
+        if modules is None:
+            continue  # unknown scope (e.g. inline test registrations)
+        _loaded_scopes.add(s)  # mark BEFORE importing to prevent re-entrancy
+        for mod_path in modules:
+            importlib.import_module(mod_path)
+
+
+def register_scope_modules(scope: str, modules: list[str]) -> None:
+    """Register the modules that define components for a custom scope."""
+    _SCOPE_MODULES[scope] = modules
 
 
 # ---------------------------------------------------------------------------
@@ -221,11 +260,13 @@ def register_feature_type(feature_id: str, scope: str = "global"):
 
 def get_component_metadata(object_id: str, scope: str = "global") -> ComponentMetadata | None:
     """Look up component metadata by (scope, object_id). Returns None if not found."""
+    _ensure_scope_loaded(scope)
     return _COMPONENT_METADATA.get((scope, object_id))
 
 
 def get_all_components(scope: str = "global") -> list[ComponentMetadata]:
     """Return all ComponentMetadata entries for *scope*, sorted by object_id."""
+    _ensure_scope_loaded(scope)
     return sorted(
         [m for m in _COMPONENT_METADATA.values() if m.scope == scope],
         key=lambda m: m.object_id,
@@ -234,6 +275,7 @@ def get_all_components(scope: str = "global") -> list[ComponentMetadata]:
 
 def get_feature_types(scope: str = "global") -> list[FeatureMetadata]:
     """Return all FeatureMetadata entries for *scope*, sorted by feature_id."""
+    _ensure_scope_loaded(scope)
     return sorted(
         [m for m in _FEATURE_TYPE_REGISTRY.values() if m.scope == scope],
         key=lambda m: m.feature_id,
@@ -242,16 +284,19 @@ def get_feature_types(scope: str = "global") -> list[FeatureMetadata]:
 
 def get_tickable_components(scope: str = "global") -> list[ComponentMetadata]:
     """Return components that have a ``build_tick_fn`` classmethod."""
+    _ensure_scope_loaded(scope)
     return [m for m in get_all_components(scope) if m.has_tick]
 
 
 def get_components_with_extra_state(scope: str = "global") -> list[ComponentMetadata]:
     """Return components that have an ``extra_state_schema`` classmethod."""
+    _ensure_scope_loaded(scope)
     return [m for m in get_all_components(scope) if m.has_extra_state]
 
 
 def get_container_components(scope: str = "global") -> list[ComponentMetadata]:
     """Return components that declare a ``Container`` descriptor."""
+    _ensure_scope_loaded(scope)
     return [m for m in get_all_components(scope) if m.has_container]
 
 
@@ -270,6 +315,7 @@ def register_pre_compose_hook(scope: str, hook: callable) -> None:
 
 def get_pre_compose_hook(scope: str) -> callable | None:
     """Return the registered pre-compose hook for *scope*, or None."""
+    _ensure_scope_loaded(scope)
     return _PRE_COMPOSE_HOOKS.get(scope)
 
 
@@ -289,6 +335,7 @@ def get_layout_index(scope: str, layout_id: str | None) -> int:
     Returns 0 if *layout_id* is None, *scope* has no registered mapping,
     or *layout_id* is not found in the mapping.
     """
+    _ensure_scope_loaded(scope)
     if layout_id is None:
         return 0
     mapping = _LAYOUT_INDEX_REGISTRY.get(scope)

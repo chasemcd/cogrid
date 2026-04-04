@@ -39,7 +39,7 @@ def _discover_type_names(scope, env_config=None):
     if env_config is not None and "local_view_type_names" in env_config:
         return sorted(env_config["local_view_type_names"])
 
-    from cogrid.core.grid_object import get_object_names
+    from cogrid.core.objects.registry import get_object_names
 
     all_names = get_object_names(scope)
     excluded = {None, "free_space"}
@@ -212,7 +212,7 @@ class LocalView(Feature):
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
         """Build a feature function that extracts a local view around an agent."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects.registry import object_to_idx
 
         r = env_config.get("observable_radius", 3) if env_config else 3
         n_agents = env_config.get("n_agents", 2) if env_config else 2

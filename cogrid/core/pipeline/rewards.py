@@ -11,13 +11,24 @@ Environment-specific reward functions live in their respective envs/ modules:
 - Overcooked: ``cogrid.envs.overcooked.rewards``
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from cogrid.backend import xp
 
+if TYPE_CHECKING:
+    from cogrid.core.typing import ArrayLike
 
-def _compute_fwd_positions(prev_state):
+
+def _compute_fwd_positions(
+    prev_state: Any,
+) -> tuple[ArrayLike, ArrayLike, ArrayLike, ArrayLike, ArrayLike]:
     """Compute forward positions, clipped indices, bounds mask, and forward type IDs."""
     # Direction vector table: Right=0, Down=1, Left=2, Up=3
-    dir_vec_table = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    dir_vec_table = get_dir_vec_table()
 
     fwd_pos = prev_state.agent_pos + dir_vec_table[prev_state.agent_dir]  # (n_agents, 2)
     H, W = prev_state.object_type_map.shape
@@ -54,11 +65,17 @@ class Reward:
         }
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Store config kwargs for use in compute()."""
         self.config = kwargs
 
-    def compute(self, prev_state, state, actions, reward_config):
+    def compute(
+        self,
+        prev_state: Any,
+        state: Any,
+        actions: ArrayLike,
+        reward_config: dict[str, Any],
+    ) -> ArrayLike:
         """Compute and return (n_agents,) float32 reward array.
 
         Subclasses must override.
@@ -109,14 +126,27 @@ class InteractionReward(Reward):
     overlaps = None  # type name agent stands on
     direction = None  # direction agent must face (0-3)
 
-    def extra_condition(self, mask, prev_state, fwd_r, fwd_c, reward_config):
+    def extra_condition(
+        self,
+        mask: ArrayLike,
+        prev_state: Any,
+        fwd_r: ArrayLike | None,
+        fwd_c: ArrayLike | None,
+        reward_config: dict[str, Any],
+    ) -> ArrayLike:
         """Override to add conditions beyond the declarative attributes.
 
         Return narrowed boolean mask.
         """
         return mask
 
-    def compute(self, prev_state, state, actions, reward_config):
+    def compute(
+        self,
+        prev_state: Any,
+        state: Any,
+        actions: ArrayLike,
+        reward_config: dict[str, Any],
+    ) -> ArrayLike:
         """Compute (n_agents,) float32 rewards from declarative conditions."""
         if self.action is _UNSET:
             raise TypeError(

@@ -10,7 +10,7 @@ resolution order), keeping this module free of backend-specific RNG logic.
 
 Usage::
 
-    from cogrid.core.movement import move_agents
+    from cogrid.core.pipeline.movement import move_agents
 
     new_pos, new_dir = move_agents(
         agent_pos,
@@ -56,7 +56,9 @@ def _compute_proposed_positions(
     H, W = wall_map.shape
 
     # Direction vectors and position offset
-    DIR_VEC_TABLE = xp.array([[0, 1], [1, 0], [0, -1], [-1, 0]], dtype=xp.int32)
+    from cogrid.core.agent import get_dir_vec_table
+
+    DIR_VEC_TABLE = get_dir_vec_table()
     dir_vecs = DIR_VEC_TABLE[new_dir]  # (n_agents, 2)
     proposed = agent_pos + dir_vecs * is_mover[:, None].astype(xp.int32)
 

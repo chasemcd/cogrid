@@ -226,7 +226,7 @@ def test_order_observation_no_orders():
 
 def test_inventory_config_driven_matches_defaults():
     """Config-driven OvercookedInventory uses default types and encodes onion correctly."""
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         _DEFAULT_PICKUPABLE_TYPES,
         OvercookedInventory,
@@ -247,7 +247,7 @@ def test_inventory_config_driven_matches_defaults():
 
 def test_inventory_config_driven_all_types():
     """Config-driven OvercookedInventory: correct one-hot for each standard pickupable type."""
-    from cogrid.core.grid_object import object_to_idx
+    from cogrid.core.objects import object_to_idx
     from cogrid.envs.overcooked.features import (
         _DEFAULT_PICKUPABLE_TYPES,
         OvercookedInventory,

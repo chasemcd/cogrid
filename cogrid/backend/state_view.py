@@ -1,7 +1,7 @@
 """Dot-accessible view of environment state arrays.
 
 :class:`StateView` is a frozen dataclass that replaces the plain ``dict``
-returned by :func:`~cogrid.core.step_pipeline.envstate_to_dict`.  It
+returned by :func:`~cogrid.core.pipeline.step.envstate_to_dict`.  It
 provides IDE-friendly dot access for the six core fields that every
 feature / reward / termination function uses, plus ``__getattr__``
 fallthrough to an ``extra`` dict for scope-specific arrays (e.g.

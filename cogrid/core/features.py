@@ -11,7 +11,14 @@ Feature composition is handled by ``compose_feature_fns()`` in this module.
 Environment-specific features live in their respective envs/ modules.
 """
 
+from __future__ import annotations
+
 import inspect
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cogrid.core.typing import ArrayLike
 
 # Re-export for convenience (decorator lives in component_registry)
 from cogrid.backend import xp
@@ -55,7 +62,7 @@ class Feature:
     obs_dim: int
 
     @classmethod
-    def compute_obs_dim(cls, scope, env_config=None):
+    def compute_obs_dim(cls, scope: str, env_config: dict[str, Any] | None = None) -> int:
         """Compute observation dimension, optionally using env_config.
 
         Subclasses may override to return a config-dependent dimension.
@@ -64,7 +71,7 @@ class Feature:
         return cls.obs_dim
 
     @classmethod
-    def build_feature_fn(cls, scope):
+    def build_feature_fn(cls, scope: str) -> Callable[..., ArrayLike]:
         """Build and return the feature extraction function.
 
         Must return ``fn(state, agent_idx) -> ndarray`` for per-agent
@@ -84,7 +91,9 @@ class Feature:
 # ---------------------------------------------------------------------------
 
 
-def _call_build_feature_fn(cls, scope, env_config):
+def _call_build_feature_fn(
+    cls: type[Feature], scope: str, env_config: dict[str, Any] | None
+) -> Callable[..., ArrayLike]:
     """Call cls.build_feature_fn, passing env_config if the method accepts it."""
     sig = inspect.signature(cls.build_feature_fn)
     if "env_config" in sig.parameters:
@@ -92,7 +101,9 @@ def _call_build_feature_fn(cls, scope, env_config):
     return cls.build_feature_fn(scope)
 
 
-def _resolve_feature_metas(feature_names, scope, scopes=None):
+def _resolve_feature_metas(
+    feature_names: list[str], scope: str, scopes: list[str] | None = None
+) -> dict[str, Any]:
     """Look up FeatureMetadata for each name, raising on missing entries.
 
     When *scopes* is provided, metadata is merged from all listed scopes.
@@ -100,7 +111,7 @@ def _resolve_feature_metas(feature_names, scope, scopes=None):
     from cogrid.core.component_registry import get_feature_types
 
     if scopes is not None:
-        all_metas = []
+        all_metas: list[Any] = []
         for s in scopes:
             all_metas.extend(get_feature_types(s))
     else:
@@ -113,7 +124,13 @@ def _resolve_feature_metas(feature_names, scope, scopes=None):
     return meta_by_id
 
 
-def obs_dim_for_features(feature_names, scope, n_agents, scopes=None, env_config=None):
+def obs_dim_for_features(
+    feature_names: list[str],
+    scope: str,
+    n_agents: int,
+    scopes: list[str] | None = None,
+    env_config: dict[str, Any] | None = None,
+) -> int:
     """Compute total observation dimension for a list of feature names.
 
     Per-agent features contribute ``obs_dim * n_agents`` (one block per
@@ -139,8 +156,13 @@ def obs_dim_for_features(feature_names, scope, n_agents, scopes=None, env_config
 
 
 def compose_feature_fns(
-    feature_names, scope, n_agents, scopes=None, preserve_order=False, env_config=None
-):
+    feature_names: list[str],
+    scope: str,
+    n_agents: int,
+    scopes: list[str] | None = None,
+    preserve_order: bool = False,
+    env_config: dict[str, Any] | None = None,
+) -> Callable[[Any, int], ArrayLike]:
     """Compose registered features into a single ego-centric observation function.
 
     Concatenation order:
@@ -183,18 +205,18 @@ def compose_feature_fns(
     ]
 
     # Build feature functions once at compose time (not per call)
-    regular_pa_fns = [
+    regular_pa_fns: list[Callable[..., ArrayLike]] = [
         _call_build_feature_fn(meta_by_id[name].cls, scope, env_config) for name in regular_pa_names
     ]
-    focal_only_fns = [
+    focal_only_fns: list[Callable[..., ArrayLike]] = [
         _call_build_feature_fn(meta_by_id[name].cls, scope, env_config) for name in focal_only_names
     ]
-    global_fns = [
+    global_fns: list[Callable[..., ArrayLike]] = [
         _call_build_feature_fn(meta_by_id[name].cls, scope, env_config) for name in global_names
     ]
 
-    def composed_fn(state, agent_idx):
-        parts = []
+    def composed_fn(state: Any, agent_idx: int) -> ArrayLike:
+        parts: list[ArrayLike] = []
 
         # Apply masking for partial observability
         if observable_radius is not None:
