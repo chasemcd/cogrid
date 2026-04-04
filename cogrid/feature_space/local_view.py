@@ -198,6 +198,7 @@ class LocalView(Feature):
 
     @classmethod
     def compute_obs_dim(cls, scope, env_config=None):
+        """Compute the flat observation dimension for a local view."""
         r = env_config.get("observable_radius", 3) if env_config else 3
         n_agents = env_config.get("n_agents", 2) if env_config else 2
         type_names = _discover_type_names(scope, env_config)
@@ -210,6 +211,7 @@ class LocalView(Feature):
 
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
+        """Build a feature function that extracts a local view around an agent."""
         from cogrid.core.grid_object import object_to_idx
 
         r = env_config.get("observable_radius", 3) if env_config else 3

@@ -272,7 +272,6 @@ def mask_state_for_agent(state, agent_idx, radius):
     masked_wm = xp.where(visible, state.wall_map, 0)
 
     # Mask other agents' positions
-    n_agents = state.agent_pos.shape[0]
     agent_dists = xp.abs(state.agent_pos[:, 0] - pos[0]) + xp.abs(state.agent_pos[:, 1] - pos[1])
     agent_visible = agent_dists <= radius
     masked_agent_pos = xp.where(agent_visible[:, None], state.agent_pos, -1)

@@ -801,10 +801,12 @@ class OvercookedLocalView(LocalView):
 
     @classmethod
     def extra_n_channels(cls, scope, env_config=None):
+        """Return the number of extra pot-state channels."""
         return _N_POT_CHANNELS
 
     @classmethod
     def build_extra_channel_fn(cls, scope, env_config=None):
+        """Build a function that encodes pot state into extra channels."""
         from cogrid.core.grid_object import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
