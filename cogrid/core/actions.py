@@ -58,7 +58,7 @@ _ACTION_NAME_TO_FIELD = {
 }
 
 
-def build_action_id(action_set):
+def build_action_id(action_set: tuple[str, ...]) -> ActionID:
     """Build an :class:`ActionID` from an action set tuple.
 
     Maps each action name in *action_set* to its positional index.

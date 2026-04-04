@@ -78,7 +78,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._init_vectorized_infrastructure()
         self._init_jax_arrays()
 
-    def _init_rendering(self, render_mode, kwargs):
+    def _init_rendering(self, render_mode: str | None, kwargs: dict) -> None:
         """Set up rendering attributes and optional EnvRenderer."""
         self.render_mode = render_mode
         self.render_message = kwargs.get("render_message") or self.metadata["render_message"]
@@ -95,7 +95,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
         self.visualizer = None
 
-    def _init_grid(self, config):
+    def _init_grid(self, config: dict) -> None:
         """Initialize grid, spawn points, and shape from config."""
         self.scope: str = config.get("scope", "global")
         self.grid: grid.Grid | None = None
@@ -104,7 +104,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self._gen_grid()
         self.shape = (self.grid.height, self.grid.width)
 
-    def _init_agents(self, config):
+    def _init_agents(self, config: dict) -> None:
         """Initialize agent bookkeeping: IDs, env_agents dict, rewards."""
         self.possible_agents = [i for i in range(config["num_agents"])]
         self.agents = copy.copy(self.possible_agents)
@@ -114,7 +114,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.per_component_reward: dict[str, dict[typing.AgentID, float]] = {}
         self.reward_this_step = self.get_empty_reward_dict()
 
-    def _init_action_space(self, config):
+    def _init_action_space(self, config: dict) -> None:
         """Parse action set from config and build per-agent action spaces."""
         action_str = config.get("action_set")
         if action_str == "rotation_actions":
@@ -297,7 +297,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Return the action space for the given agent."""
         return self.action_spaces[agent]
 
-    def set_terminated_fn(self, fn):
+    def set_terminated_fn(self, fn: typing.Any) -> None:
         """Set a per-agent termination function.
 
         Must be called before the first ``reset()`` so the function
@@ -696,7 +696,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             raise RuntimeError("Must call reset() before accessing jax_reset")
         return self._reset_fn
 
-    def setup_agents(self):
+    def setup_agents(self) -> None:
         """Set up agents using the default agent factory."""
         self._setup_agents()
 
@@ -787,7 +787,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                     spawns.append((r, c))
         return spawns
 
-    def put_obj(self, obj: grid_object.GridObj, row: int, col: int):
+    def put_obj(self, obj: grid_object.GridObj, row: int, col: int) -> None:
         """Place an object at (row, col)."""
         self.grid.set(row=row, col=col, obj=obj)
         obj.pos = (row, col)
@@ -862,26 +862,26 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 out[y : y + bar_height, :fill_w] = color
         return out
 
-    def close(self):
+    def close(self) -> None:
         """Close the renderer if active."""
         if self._renderer is not None:
             self._renderer.close()
 
-    def get_action_mask(self, agent_id):
+    def get_action_mask(self, agent_id: typing.AgentID) -> None:
         """Return action mask for the given agent (not implemented)."""
         raise NotImplementedError
 
     @property
-    def agent_ids(self) -> list:
+    def agent_ids(self) -> list[typing.AgentID]:
         """Return list of active agent IDs."""
         return list(self.env_agents.keys())
 
     @property
-    def agent_pos(self) -> list:
+    def agent_pos(self) -> list[tuple[int, int]]:
         """Return list of agent positions."""
         return [tuple(agent.pos) for agent in self.env_agents.values() if agent is not None]
 
-    def id_to_numeric(self, agent_id) -> str:
+    def id_to_numeric(self, agent_id: typing.AgentID) -> str:
         """Convert agent id to its numeric string representation.
 
         For example, agent-0 -> 1, agent-1 -> 2, etc.

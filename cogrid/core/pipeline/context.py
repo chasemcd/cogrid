@@ -30,6 +30,8 @@ from cogrid.backend import xp
 from cogrid.backend.array_ops import set_at, set_at_2d
 
 if TYPE_CHECKING:
+    from cogrid.backend.env_state import EnvState
+    from cogrid.core.actions import ActionID
     from cogrid.core.typing import ArrayLike
 
 _interaction_context_pytree_registered: bool = False
@@ -100,7 +102,17 @@ class InteractionContext:
         )
 
 
-def build_context(state, agent_idx, fwd_r, fwd_c, base_ok, scope_config, *, action, action_id):
+def build_context(
+    state: EnvState,
+    agent_idx: ArrayLike,
+    fwd_r: ArrayLike,
+    fwd_c: ArrayLike,
+    base_ok: ArrayLike,
+    scope_config: dict,
+    *,
+    action: ArrayLike,
+    action_id: ActionID,
+) -> InteractionContext:
     """Build an InteractionContext from state and per-agent scalars.
 
     Standard fields are derived automatically.  ``type_ids`` comes from
@@ -143,17 +155,17 @@ def register_interaction_context_pytree() -> None:
 # ---------------------------------------------------------------------------
 
 
-def clear_facing_cell(ctx):
+def clear_facing_cell(ctx: InteractionContext) -> ArrayLike:
     """Return ``object_type_map`` with the faced cell set to empty (0)."""
     return set_at_2d(ctx.object_type_map, ctx.facing_row, ctx.facing_col, 0)
 
 
-def set_facing_cell(ctx, type_id):
+def set_facing_cell(ctx: InteractionContext, type_id: ArrayLike) -> ArrayLike:
     """Return ``object_type_map`` with the faced cell set to *type_id*."""
     return set_at_2d(ctx.object_type_map, ctx.facing_row, ctx.facing_col, type_id)
 
 
-def pickup_from_facing_cell(ctx):
+def pickup_from_facing_cell(ctx: InteractionContext) -> tuple[ArrayLike, ArrayLike]:
     """Pick up the faced object.
 
     Returns ``(object_type_map, agent_inv)`` with the cell cleared and
@@ -164,7 +176,7 @@ def pickup_from_facing_cell(ctx):
     return new_otm, new_inv
 
 
-def place_in_facing_cell(ctx):
+def place_in_facing_cell(ctx: InteractionContext) -> tuple[ArrayLike, ArrayLike]:
     """Place the held item in the faced cell.
 
     Returns ``(object_type_map, agent_inv)`` with the item on the grid
@@ -175,17 +187,17 @@ def place_in_facing_cell(ctx):
     return new_otm, new_inv
 
 
-def give_item(ctx, type_id):
+def give_item(ctx: InteractionContext, type_id: ArrayLike) -> ArrayLike:
     """Return ``agent_inv`` with this agent holding *type_id*."""
     return set_at(ctx.agent_inv, (ctx.agent_index, 0), type_id)
 
 
-def empty_hands(ctx):
+def empty_hands(ctx: InteractionContext) -> ArrayLike:
     """Return ``agent_inv`` with this agent holding nothing."""
     return set_at(ctx.agent_inv, (ctx.agent_index, 0), -1)
 
 
-def increment(array, index):
+def increment(array: ArrayLike, index: int) -> ArrayLike:
     """Return *array* with ``array[index] += 1``.
 
     Works on both JAX arrays (``.at[].add``) and numpy arrays.
@@ -199,7 +211,11 @@ def increment(array, index):
     return out
 
 
-def find_facing_instance(positions: ArrayLike, facing_row: int, facing_col: int) -> tuple:
+def find_facing_instance(
+    positions: ArrayLike,
+    facing_row: int,
+    facing_col: int,
+) -> tuple[ArrayLike, ArrayLike]:
     """Find which instance of a multi-position object the agent faces.
 
     Args:

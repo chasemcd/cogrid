@@ -4,6 +4,10 @@ This module contains the OBJECT_REGISTRY, type property metadata, and all
 functions for registering, looking up, encoding, and decoding grid objects.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
+
 import numpy as np
 
 from cogrid.backend import xp
@@ -30,7 +34,7 @@ _COMPONENT_METHODS = frozenset(
 )
 
 
-def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridObj:
+def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridObj | None:
     """Create a GridObj instance by object_id, checking global then scope."""
     from cogrid.core.component_registry import _ensure_scope_loaded
 
@@ -56,7 +60,7 @@ def make_object(object_id: str | None, scope: str = "global", **kwargs) -> GridO
     return OBJECT_REGISTRY[scope][object_id](**kwargs)
 
 
-def get_object_class(object_id: str, scope: str = "global") -> GridObj:
+def get_object_class(object_id: str, scope: str = "global") -> type[GridObj]:
     """Return the class registered for the given object_id."""
     return OBJECT_REGISTRY[scope][object_id]
 
@@ -91,7 +95,7 @@ _CAPABILITY_ATTRS = frozenset(
 def register_object_type(
     object_id: str,
     scope: str = "global",
-):
+) -> Callable[[type[GridObj]], type[GridObj]]:
     """Register a GridObj subclass with static property metadata.
 
     Stores boolean properties for ``build_lookup_tables()`` and
@@ -387,7 +391,7 @@ def get_object_id_from_char(object_char: str, scope: str = "global") -> str:
     raise ValueError(f"No registered object with char `{object_char}` in scope `{scope}`.")
 
 
-def get_object_names(scope: str = "global") -> list[str]:
+def get_object_names(scope: str = "global") -> list[str | None]:
     """Return all registered object IDs in stable encoding order.
 
     Order: [None, "free_space", sorted globals, sorted scope, agent directions].
@@ -437,7 +441,7 @@ def object_to_idx(object: GridObj | str | None, scope: str = "global") -> int:
     return get_object_names(scope=scope).index(object_id)
 
 
-def idx_to_object(idx: int, scope: str = "global") -> str:
+def idx_to_object(idx: int, scope: str = "global") -> str | None:
     """Convert an integer index back to its object_id."""
     from cogrid.core.component_registry import _ensure_scope_loaded
 
