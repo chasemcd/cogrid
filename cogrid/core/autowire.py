@@ -350,7 +350,20 @@ def build_reward_config(
     Composes a single ``compute_fn`` that sums all reward instances.
     Each reward's ``compute()`` returns final (n_agents,) float32 values --
     the composition layer just sums them.
+
+    Assigns ``_reward_index`` to each instance and builds an
+    ``initial_reward_coefficients`` array.  The env stores this array in
+    ``EnvState.extra_state["reward_coefficients"]`` so that coefficients
+    are dynamic (modifiable without re-JIT on the JAX backend).
     """
+    # Assign indices and collect initial coefficients
+    coefficients = []
+    for i, inst in enumerate(reward_instances):
+        inst._reward_index = i
+        coefficients.append(inst.coefficient)
+    initial_coefficients = (
+        xp.array(coefficients, dtype=xp.float32) if coefficients else xp.zeros(0, dtype=xp.float32)
+    )
 
     def compute_fn(prev_state, state, actions, reward_config):
         """Composed reward function that sums all reward instances."""
@@ -361,6 +374,7 @@ def build_reward_config(
 
     result = {
         "compute_fn": compute_fn,
+        "initial_reward_coefficients": initial_coefficients,
         "type_ids": type_ids,
         "n_agents": n_agents,
         "action_pickup_drop_idx": action_pickup_drop_idx,
