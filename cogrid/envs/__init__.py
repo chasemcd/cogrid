@@ -23,6 +23,8 @@ from cogrid.envs.overcooked.rewards import (
     OrderGatedIngredientInPotReward,
     SoupInDishReward,
     TargetRecipeDeliveryReward,
+    TargetRecipeIngredientInPotReward,
+    TargetRecipeSoupInDishReward,
 )
 from cogrid.envs.overcooked.rewards import (
     ExpiredOrderPenalty as ExpiredOrderPenalty,
@@ -76,6 +78,7 @@ layouts.register_layout(
         "O+C U",
         "O C C",
         "= C+C",
+        "CCC@C",
     ],
 )
 
@@ -106,9 +109,9 @@ cramped_room_config = {
         "can_move_direction",
     ],
     "rewards": [
-        DeliveryReward(coefficient=1.0, common_reward=True),
-        OnionInPotReward(coefficient=0.1, common_reward=False),
-        SoupInDishReward(coefficient=0.3, common_reward=False),
+        DeliveryReward(coefficient=20.0, common_reward=True),
+        OnionInPotReward(coefficient=3, common_reward=True),
+        SoupInDishReward(coefficient=5, common_reward=True),
     ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
@@ -181,7 +184,7 @@ partial_obs_cramped_room_config = {
     "name": "overcooked",
     "num_agents": 2,
     "n_agents": 2,
-    "observable_radius": 1,
+    "local_view_radius": 1,
     "action_set": "cardinal_actions",
     "features": [
         "local_view",
@@ -213,23 +216,60 @@ registry.register(
     ),
 )
 
+# CrampedRoom with LocalView encoding and full observability.
+# local_view_radius is omitted (None) so the observation covers the full
+# 4×5 grid — useful for validating CNN-based policies against the MLP
+# baseline (~50 reward).
+cramped_room_local_view_config = {
+    "name": "overcooked",
+    "num_agents": 2,
+    "n_agents": 2,
+    "grid_height": 4,
+    "grid_width": 5,
+    "action_set": "cardinal_actions",
+    "features": ["local_view"],
+    "rewards": [
+        DeliveryReward(coefficient=1.0, common_reward=True),
+        OnionInPotReward(coefficient=0.1, common_reward=False),
+        SoupInDishReward(coefficient=0.3, common_reward=False),
+    ],
+    "grid": {"layout": "overcooked_cramped_room_v0"},
+    "max_steps": 1000,
+    "scope": "overcooked",
+    "pickupable_types": [
+        "onion",
+        "onion_soup",
+        "plate",
+        "tomato",
+        "tomato_soup",
+    ],
+}
+
+registry.register(
+    "Overcooked-CrampedRoom-LocalView-V0",
+    functools.partial(
+        CoGridEnv,
+        config=cramped_room_local_view_config,
+        agent_class=OvercookedAgent,
+    ),
+)
+
 layouts.register_layout(
-    "overcooked_mixed_kitchen_v0",
+    "overcooked_cramped_mixed_kitchen_v0",
     [
-        "CUCCCUC",
-        "O+ C +T",
-        "=  C  =",
-        "C  C  C",
-        "CCCCC@C",
+        "CCUCC",
+        "O+ +T",
+        "C   C",
+        "C=@CC",
     ],
 )
 
-_order_cfg = {
+_mixed_kitchen_order_cfg = {
     "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},
     "max_active": 3,
     "time_limit": 100,
 }
-mixed_kitchen_config = {
+cramped_mixed_kitchen_config = {
     "name": "overcooked",
     "num_agents": 2,
     "action_set": "cardinal_actions",
@@ -247,13 +287,14 @@ mixed_kitchen_config = {
     ],
     "rewards": [
         OrderDeliveryReward(
-            coefficient=1.0, common_reward=True, order_time_limit=_order_cfg["time_limit"]
+            coefficient=1.0,
+            common_reward=True,
+            order_time_limit=_mixed_kitchen_order_cfg["time_limit"],
         ),
         OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
-        # OrderGatedSoupInDishReward(coefficient=0.3, common_reward=False),
-        ExpiredOrderPenalty(penalty=-0.75),
+        ExpiredOrderPenalty(coefficient=-0.75),
     ],
-    "grid": {"layout": "overcooked_mixed_kitchen_v0"},
+    "grid": {"layout": "overcooked_cramped_mixed_kitchen_v0"},
     "max_steps": 4000,
     "scope": "overcooked",
     "pickupable_types": [
@@ -263,29 +304,14 @@ mixed_kitchen_config = {
         "tomato",
         "tomato_soup",
     ],
-    "orders": _order_cfg,
-    "tick_fn": build_order_tick(_order_cfg, recipe_results=["onion_soup", "tomato_soup"]),
-    "extra_state_init_fn": functools.partial(build_order_extra_state, _order_cfg),
-    "render_hud_fn": build_order_hud_fn(_order_cfg),
+    "orders": _mixed_kitchen_order_cfg,
+    "tick_fn": build_order_tick(
+        _mixed_kitchen_order_cfg,
+        recipe_results=["onion_soup", "tomato_soup"],
+    ),
+    "extra_state_init_fn": functools.partial(build_order_extra_state, _mixed_kitchen_order_cfg),
+    "render_hud_fn": build_order_hud_fn(_mixed_kitchen_order_cfg),
 }
-
-registry.register(
-    "Overcooked-MixedKitchen-V0",
-    functools.partial(CoGridEnv, config=mixed_kitchen_config, agent_class=OvercookedAgent),
-)
-
-layouts.register_layout(
-    "overcooked_cramped_mixed_kitchen_v0",
-    [
-        "CCUCC",
-        "O+ +T",
-        "=   =",
-        "C   C",
-        "CC@CC",
-    ],
-)
-cramped_mixed_kitchen_config = mixed_kitchen_config.copy()
-cramped_mixed_kitchen_config["grid"] = {"layout": "overcooked_cramped_mixed_kitchen_v0"}
 registry.register(
     "Overcooked-CrampedMixedKitchen-V0",
     functools.partial(
@@ -293,54 +319,6 @@ registry.register(
         config=cramped_mixed_kitchen_config,
         agent_class=OvercookedAgent,
     ),
-)
-
-layouts.register_layout(
-    "overcooked_order_delivery_v0",
-    [
-        "CCCCC",
-        "C1 2C",
-        "C + C",
-        "C @ C",
-        "CCCCC",
-    ],
-)
-
-_od_order_cfg = {
-    "spawn_probs": {"onion_soup": 0.017, "tomato_soup": 0.017},
-    "max_active": 2,
-    "time_limit": 200,
-}
-order_delivery_config = {
-    "name": "overcooked",
-    "num_agents": 1,
-    "action_set": "cardinal_actions",
-    "features": [
-        "agent_dir",
-        "overcooked_inventory",
-        "agent_position",
-        "can_move_direction",
-        "order_observation",
-    ],
-    "rewards": [
-        OrderDeliveryReward(
-            coefficient=1.0, common_reward=True, order_time_limit=_od_order_cfg["time_limit"]
-        ),
-        ExpiredOrderPenalty(penalty=-0.5),
-    ],
-    "grid": {"layout": "overcooked_order_delivery_v0"},
-    "max_steps": 1000,
-    "scope": "overcooked",
-    "pickupable_types": ["onion_soup", "tomato_soup"],
-    "orders": _od_order_cfg,
-    "tick_fn": build_order_tick(_od_order_cfg, recipe_results=["onion_soup", "tomato_soup"]),
-    "extra_state_init_fn": functools.partial(build_order_extra_state, _od_order_cfg),
-    "render_hud_fn": build_order_hud_fn(_od_order_cfg),
-}
-
-registry.register(
-    "Overcooked-OrderDelivery-V0",
-    functools.partial(CoGridEnv, config=order_delivery_config, agent_class=OvercookedAgent),
 )
 
 
@@ -375,7 +353,7 @@ layouts.register_layout(
         "C       C",
         "C CCLCC C",
         "B O   = B",
-        "R+X+u + R",
+        "R+X+u X R",
         "B T   = B",
         "C CCLCC C",
         "C       C",
@@ -410,11 +388,11 @@ layouts.register_layout(
 layouts.register_layout(
     "overcooked_v2_demo_cook_simple",
     [
-        "CCCCCRBCoCC",
+        "CCCCCRBCOCC",
         "O      C  =",
         "C     +u+ X",
         "T      C  =",
-        "CCCCCRBCtCC",
+        "CCCCCRBCTCC",
     ],
 )
 
@@ -429,6 +407,7 @@ layouts.register_layout(
         "CTCCCCCCCTC",
     ],
 )
+
 
 # -- Shared V2 base config --
 # V2 types are registered lazily: the first call to registry.make() for
@@ -480,7 +459,7 @@ _v2_base_config = {
     "num_agents": 2,
     "n_agents": 2,
     "action_set": "cardinal_actions",
-    "observable_radius": 2,
+    "local_view_radius": 2,
     "max_steps": 400,
     "scope": "overcooked",
     "features": ["local_view"],
@@ -490,11 +469,77 @@ _v2_base_config = {
         "broccoli",
         "mushroom",
         "plate",
-        *_V2_SOUP_NAMES,
+        "onion_soup",
+        "tomato_soup",
     ],
     "target_recipes": ["onion_soup", "tomato_soup"],
     "resample_on_delivery": True,
 }
+
+# -- Cramped Room with recipe indicator (V2: OpenPot + OpenDeliveryZone) --
+
+layouts.register_layout(
+    "overcooked_v2_cramped_room_indicator",
+    [
+        "CCuCC",
+        "O   T",
+        "=   R",
+        "CCCXC",
+    ],
+)
+
+_cri_config = copy.deepcopy(_v2_base_config)
+_cri_config["grid"] = {"layout": "overcooked_v2_cramped_room_indicator"}
+_cri_config["interactions"] = [build_branch_flag_delivery()]
+_cri_config["grid_height"] = 4
+_cri_config["grid_width"] = 5
+_cri_config.pop("local_view_radius", None)
+_cri_config["pickupable_types"] = [
+    "onion",
+    "onion_soup",
+    "plate",
+    "tomato",
+    "tomato_soup",
+]
+_cri_config["rewards"] = [
+    TargetRecipeDeliveryReward(
+        coefficient=20.0,
+        common_reward=True,
+        penalize_incorrect=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+    TargetRecipeIngredientInPotReward(
+        coefficient=3.0,
+        common_reward=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+    TargetRecipeSoupInDishReward(
+        coefficient=5.0,
+        common_reward=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+]
+_cri_config["tick_fn"] = build_target_recipe_tick(_cri_config)
+_cri_config["extra_state_init_fn"] = build_target_recipe_extra_state(_cri_config)
+
+registry.register(
+    "OvercookedV2-CrampedRoomIndicator-V0",
+    functools.partial(_make_v2_env, config=_cri_config),
+)
+
+
+_v2_shaping_rewards = [
+    TargetRecipeIngredientInPotReward(
+        coefficient=3,
+        common_reward=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+    TargetRecipeSoupInDishReward(
+        coefficient=5.0,
+        common_reward=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+]
 
 # -- Grounded Coordination: R + L (button costs -5), incorrect = -20 --
 
@@ -505,14 +550,16 @@ _gc_simple_config["interactions"] = [
     build_branch_flag_delivery(),
 ]
 _gc_simple_config["rewards"] = [
-    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=True),
-    ButtonActivationCost(cost=5.0),
-]
+    TargetRecipeDeliveryReward(
+        coefficient=20.0,
+        common_reward=True,
+        penalize_incorrect=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+    ButtonActivationCost(coefficient=-5.0),
+] + _v2_shaping_rewards
 _gc_simple_config["tick_fn"] = build_target_recipe_tick(_gc_simple_config)
-_gc_simple_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _gc_simple_config,
-)
+_gc_simple_config["extra_state_init_fn"] = build_target_recipe_extra_state(_gc_simple_config)
 
 registry.register(
     "OvercookedV2-GroundedCoordSimple-V0",
@@ -522,10 +569,7 @@ registry.register(
 _gc_ring_config = copy.deepcopy(_gc_simple_config)
 _gc_ring_config["grid"] = {"layout": "overcooked_v2_grounded_coord_ring"}
 _gc_ring_config["tick_fn"] = build_target_recipe_tick(_gc_ring_config)
-_gc_ring_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _gc_ring_config,
-)
+_gc_ring_config["extra_state_init_fn"] = build_target_recipe_extra_state(_gc_ring_config)
 
 registry.register(
     "OvercookedV2-GroundedCoordRing-V0",
@@ -538,13 +582,15 @@ _ttp_simple_config = copy.deepcopy(_v2_base_config)
 _ttp_simple_config["grid"] = {"layout": "overcooked_v2_test_time_simple"}
 _ttp_simple_config["interactions"] = [build_branch_flag_delivery()]
 _ttp_simple_config["rewards"] = [
-    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=True),
-]
+    TargetRecipeDeliveryReward(
+        coefficient=20.0,
+        common_reward=True,
+        penalize_incorrect=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+] + _v2_shaping_rewards
 _ttp_simple_config["tick_fn"] = build_target_recipe_tick(_ttp_simple_config)
-_ttp_simple_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _ttp_simple_config,
-)
+_ttp_simple_config["extra_state_init_fn"] = build_target_recipe_extra_state(_ttp_simple_config)
 
 registry.register(
     "OvercookedV2-TestTimeSimple-V0",
@@ -554,10 +600,7 @@ registry.register(
 _ttp_wide_config = copy.deepcopy(_ttp_simple_config)
 _ttp_wide_config["grid"] = {"layout": "overcooked_v2_test_time_wide"}
 _ttp_wide_config["tick_fn"] = build_target_recipe_tick(_ttp_wide_config)
-_ttp_wide_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _ttp_wide_config,
-)
+_ttp_wide_config["extra_state_init_fn"] = build_target_recipe_extra_state(_ttp_wide_config)
 
 registry.register(
     "OvercookedV2-TestTimeWide-V0",
@@ -570,13 +613,15 @@ _dc_simple_config = copy.deepcopy(_v2_base_config)
 _dc_simple_config["grid"] = {"layout": "overcooked_v2_demo_cook_simple"}
 _dc_simple_config["interactions"] = [build_branch_flag_delivery()]
 _dc_simple_config["rewards"] = [
-    TargetRecipeDeliveryReward(coefficient=20.0, common_reward=True, penalize_incorrect=False),
-]
+    TargetRecipeDeliveryReward(
+        coefficient=20.0,
+        common_reward=True,
+        penalize_incorrect=True,
+        target_recipes=["onion_soup", "tomato_soup"],
+    ),
+] + _v2_shaping_rewards
 _dc_simple_config["tick_fn"] = build_target_recipe_tick(_dc_simple_config)
-_dc_simple_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _dc_simple_config,
-)
+_dc_simple_config["extra_state_init_fn"] = build_target_recipe_extra_state(_dc_simple_config)
 
 registry.register(
     "OvercookedV2-DemoCookSimple-V0",
@@ -586,10 +631,7 @@ registry.register(
 _dc_wide_config = copy.deepcopy(_dc_simple_config)
 _dc_wide_config["grid"] = {"layout": "overcooked_v2_demo_cook_wide"}
 _dc_wide_config["tick_fn"] = build_target_recipe_tick(_dc_wide_config)
-_dc_wide_config["extra_state_init_fn"] = functools.partial(
-    build_target_recipe_extra_state,
-    _dc_wide_config,
-)
+_dc_wide_config["extra_state_init_fn"] = build_target_recipe_extra_state(_dc_wide_config)
 
 registry.register(
     "OvercookedV2-DemoCookWide-V0",

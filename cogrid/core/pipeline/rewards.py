@@ -49,13 +49,20 @@ class Reward:
     (n_agents,) float32 reward arrays. The returned values are the final
     rewards -- apply any scaling or broadcasting inside compute().
 
-    Parameters are passed via __init__ kwargs and stored in self.config.
+    Every reward has a ``coefficient`` that controls its magnitude.
+    At runtime, coefficients are stored as a dynamic array in
+    ``EnvState.extra_state["reward_coefficients"]`` (accessible as
+    ``state.reward_coefficients`` in compute).  This allows coefficient
+    updates without re-JIT on the JAX backend.
+
+    ``_reward_index`` is assigned by ``build_reward_config()`` and maps
+    this instance to its position in the coefficients array.
 
     Usage::
 
         class DeliveryReward(Reward):
             def compute(self, prev_state, state, actions, reward_config):
-                coefficient = self.config.get("coefficient", 1.0)
+                coefficient = state.reward_coefficients[self._reward_index]
                 ...
                 return rewards  # (n_agents,) float32
 
@@ -65,9 +72,24 @@ class Reward:
         }
     """
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, coefficient: float = 1.0, **kwargs: Any) -> None:
         """Store config kwargs for use in compute()."""
+        self.coefficient = coefficient
+        self._reward_index: int | None = None
         self.config = kwargs
+
+    def get_coefficient(self, state: Any) -> float:
+        """Read the dynamic coefficient from state, falling back to ``self.coefficient``.
+
+        The coefficients array lives in ``state.reward_coefficients``
+        (populated from ``EnvState.extra_state``).  If absent (e.g. in
+        unit tests that build states manually), falls back to the value
+        set at init time.
+        """
+        rc = getattr(state, "reward_coefficients", None)
+        if rc is not None and self._reward_index is not None:
+            return rc[self._reward_index]
+        return self.coefficient
 
     def compute(
         self,
@@ -155,7 +177,7 @@ class InteractionReward(Reward):
 
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
-        coefficient = self.config.get("coefficient", 1.0)
+        coefficient = self.get_coefficient(state)
         common_reward = self.config.get("common_reward", False)
 
         mask = xp.ones(n_agents, dtype=xp.bool_)

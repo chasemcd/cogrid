@@ -1,20 +1,19 @@
-# Overcooked
+# Overcooked V2
 
-Originally proposed by Carroll et al. (2019), the Overcooked-AI environments have become a standard in cooperative multi-agent reinforcement learning and human-AI interaction. We include the 
+As a follow-up to Overcooked from Carroll et al. (2019), Rutherford et al. (2023) proposed Overcooked V2: an extended suite of environments that introduce stochasticity and partial observability into the Overcooked environments. 
 
-![Overcooked Cramped Room](../assets/images/v1_layouts.png){ width="100%" }
+![Overcooked V2 Layouts](../assets/images/v2_layouts.png){ width="100%" }
 
 ## Variants
 
 | Environment ID | Agents | Layout | Orders |
 |----------------|--------|--------|--------|
-| `Overcooked-CrampedRoom-V0` | 2 | Cramped Room | No |
-| `Overcooked-AsymmetricAdvantages-V0` | 2 | Asymmetric Advantages | No |
-| `Overcooked-CoordinationRing-V0` | 2 | Coordination Ring | No |
-| `Overcooked-ForcedCoordination-V0` | 2 | Forced Coordination | No |
-| `Overcooked-CounterCircuit-V0` | 2 | Counter Circuit | No |
-| `Overcooked-CrampedRoom-SingleAgent-V0` | 1 | Cramped Room | No |
-| `Overcooked-CrampedMixedKitchen-V0` | 2 | Cramped Mixed Kitchen | Yes |
+| `OvercookedV2-GroundedCoordSimple-V0` | 2 | [Grounded Coord Simple](#grounded-coordination-simple) | Target recipe |
+| `OvercookedV2-GroundedCoordRing-V0` | 2 | [Grounded Coord Ring](#grounded-coordination-ring) | Target recipe |
+| `OvercookedV2-TestTimeSimple-V0` | 2 | [Test-Time Simple](#test-time-protocol-simple) | Target recipe |
+| `OvercookedV2-TestTimeWide-V0` | 2 | [Test-Time Wide](#test-time-protocol-wide) | Target recipe |
+| `OvercookedV2-DemoCookSimple-V0` | 2 | [Demo Cook Simple](#demo-cook-simple) | Target recipe |
+| `OvercookedV2-DemoCookWide-V0` | 2 | [Demo Cook Wide](#demo-cook-wide) | Target recipe |
 
 ## Objects
 

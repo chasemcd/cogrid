@@ -153,7 +153,8 @@ def branch_place_on(ctx):
 
     Items are stored in object_state_map (the surface stays in object_type_map).
     Conditions: forward cell passes PLACE_ON_GUARD for agent's held item,
-    surface is empty (state == 0).
+    surface is empty (state == 0), and the cell is NOT a container (pots use
+    branch_place_on_container instead).
     Effects: item stored in object_state_map, inventory cleared.
     """
     fwd_type = ctx.facing_type
@@ -161,12 +162,15 @@ def branch_place_on(ctx):
     counter_empty = ctx.object_state_map[ctx.facing_row, ctx.facing_col] == 0
     held_c = _held_col(inv_item)
     is_pickup_drop = ctx.action == ctx.action_id.pickup_drop
+    container_id = getattr(ctx, "container_id", -1)
+    is_container = fwd_type == container_id
     should_apply = (
         ctx.can_interact
         & is_pickup_drop
         & (fwd_type > 0)
         & (ctx.PLACE_ON_GUARD[fwd_type, held_c] == 1)
         & counter_empty
+        & ~is_container
     )
     osm = set_at_2d(ctx.object_state_map, ctx.facing_row, ctx.facing_col, inv_item)
     inv = empty_hands(ctx)
@@ -231,10 +235,14 @@ def branch_pickup_from_container(ctx):
     sort_buf = xp.where(raw == -1, _SORT_HIGH, raw)
     sorted_contents = xp.where(xp.sort(sort_buf) == _SORT_HIGH, xp.int32(-1), xp.sort(sort_buf))
     matches = xp.all(sorted_contents[None, :] == ctx.recipe_ingredients, axis=1)
-    matched_idx = xp.argmax(matches)
-    has_recipe_match = xp.any(matches)
+    if matches.shape[0] == 0:
+        matched_idx = xp.int32(0)
+        has_recipe_match = xp.bool_(False)
+    else:
+        matched_idx = xp.argmax(matches)
+        has_recipe_match = xp.any(matches)
 
-    result_type = ctx.recipe_result[matched_idx]
+    result_type = ctx.recipe_result[matched_idx] if ctx.recipe_result.shape[0] > 0 else xp.int32(-1)
 
     held_c = _held_col(ctx.held_item)
     guard_ok = ctx.PICKUP_FROM_GUARD[ctx.facing_type, held_c] == 1
@@ -314,8 +322,13 @@ def branch_place_on_container(ctx):
     # If this fills the container, set cook time from matched recipe
     is_now_full = n_would_be == max_ingredients
     full_matches = xp.all(sorted_would_be[None, :] == recipe_ingredients, axis=1)
-    full_match_idx = xp.argmax(full_matches)
-    new_cook_time = recipe_cooking_time[full_match_idx]
+    if full_matches.shape[0] == 0:
+        full_match_idx = xp.int32(0)
+    else:
+        full_match_idx = xp.argmax(full_matches)
+    new_cook_time = (
+        recipe_cooking_time[full_match_idx] if recipe_cooking_time.shape[0] > 0 else xp.int32(0)
+    )
     pt = xp.where(
         should_apply & is_now_full,
         set_at(ctx.pot_timer, pot_idx, new_cook_time),
@@ -424,19 +437,31 @@ def compose_interactions(container_specs, consume_type_ids, scope):
             if pot_positions.shape[0] > 0:
                 extras["pot_contents"] = pot_contents
                 extras["pot_timer"] = pot_timer
+                extras["_container_object_id"] = oid
+                # Map generic short keys back to the correct scoped keys
+                # so the write-back goes to e.g. "overcooked.open_pot_contents"
+                # instead of "overcooked.pot_contents".
+                extras["_key_remap"] = {
+                    "pot_contents": f"{oid}_contents",
+                    "pot_timer": f"{oid}_timer",
+                }
 
                 extras["container_id"] = static_tables.get(f"{oid}_id", -1)
-                extras["cooking_time"] = static_tables.get("cooking_time", 0)
-                extras["recipe_ingredients"] = static_tables.get(
+
+                # Prefer namespaced keys (e.g. "open_pot_recipe_ingredients")
+                # so that multiple container types don't overwrite each other.
+                def _get(key, default):
+                    return static_tables.get(f"{oid}_{key}", static_tables.get(key, default))
+
+                extras["cooking_time"] = _get("cooking_time", 0)
+                extras["recipe_ingredients"] = _get(
                     "recipe_ingredients", xp.zeros((0, 1), dtype=xp.int32)
                 )
-                extras["recipe_result"] = static_tables.get(
-                    "recipe_result", xp.zeros((0,), dtype=xp.int32)
-                )
-                extras["recipe_cooking_time"] = static_tables.get(
+                extras["recipe_result"] = _get("recipe_result", xp.zeros((0,), dtype=xp.int32))
+                extras["recipe_cooking_time"] = _get(
                     "recipe_cooking_time", xp.zeros((0,), dtype=xp.int32)
                 )
-                extras["max_ingredients"] = static_tables.get("max_ingredients", 0)
+                extras["max_ingredients"] = _get("max_ingredients", 0)
             else:
                 # Dummy arrays so pot_idx=0 is always valid;
                 # has_pot_match=False ensures no branch fires.
@@ -575,21 +600,23 @@ def _run_interactions(
     # Find facing instance for containers (pot_idx, has_pot_match)
     if "pot_contents" in extra and scope:
         spec_prefix = f"{scope}."
-        # Look for positions array
-        for key, val in state.extra_state.items():
-            if key.startswith(spec_prefix) and key.endswith("_positions"):
-                positions = val
-                if positions.shape[0] > 0:
-                    pot_idx, has_pot_match = find_facing_instance(positions, fwd_r, fwd_c)
-                else:
-                    pot_idx = xp.int32(0)
-                    has_pot_match = xp.bool_(False)
-                extra["pot_idx"] = pot_idx
-                extra["has_pot_match"] = has_pot_match
-                break
+        # Use the container object_id stored by extras_fn to find the
+        # correct positions array (e.g. "overcooked.open_pot_positions").
+        container_oid = extra.get("_container_object_id")
+        positions_key = f"{spec_prefix}{container_oid}_positions" if container_oid else None
+
+        if positions_key and positions_key in state.extra_state:
+            positions = state.extra_state[positions_key]
         else:
-            extra["pot_idx"] = xp.int32(0)
-            extra["has_pot_match"] = xp.bool_(False)
+            positions = None
+
+        if positions is not None and positions.shape[0] > 0:
+            pot_idx, has_pot_match = find_facing_instance(positions, fwd_r, fwd_c)
+        else:
+            pot_idx = xp.int32(0)
+            has_pot_match = xp.bool_(False)
+        extra["pot_idx"] = pot_idx
+        extra["has_pot_match"] = has_pot_match
 
     # Rebuild ctx with populated extra
     ctx = InteractionContext(
@@ -643,9 +670,11 @@ def _run_interactions(
     # Apply extra_state fields
     new_extra = dict(state.extra_state)
     prefix = f"{scope}." if scope else ""
+    key_remap = extra.get("_key_remap", {})
     for key in merged:
         if key not in _STD_KEYS:
-            new_extra[f"{prefix}{key}"] = merged[key]
+            remapped = key_remap.get(key, key)
+            new_extra[f"{prefix}{remapped}"] = merged[key]
 
     state_updates["extra_state"] = new_extra
     state = dataclasses.replace(state, **state_updates)

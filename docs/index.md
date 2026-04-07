@@ -112,11 +112,6 @@ All components are declared in a config dict and autowired by the engine. No man
 - **[Observations](concepts/observations.md)** -- Composable feature extractors, per-agent vs global, built-in features.
 - **[Rewards](concepts/rewards.md)** -- `Reward` and `InteractionReward` base classes, composition, coefficients.
 
-## Environments
-
-- **[Overcooked](environments/overcooked.md)** -- Cooperative cooking with 9 layout variants, recipes, and an optional order queue.
-- **[Goal Seeking](environments/goal-seeking.md)** -- Navigation to valued goal cells.
-
 ## Citation
 
 If you use CoGrid in your research, please cite the following paper:

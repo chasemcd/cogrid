@@ -839,6 +839,9 @@ def test_mixed_recipe_end_to_end():
     scope_cfg = build_scope_config_from_components(scope)
     recipe_tables = compile_recipes(custom_recipes, scope=scope)
     scope_cfg["static_tables"].update(recipe_tables)
+    for key, val in recipe_tables.items():
+        scope_cfg["static_tables"][f"pot_{key}"] = val
+        scope_cfg["static_tables"][f"open_pot_{key}"] = val
 
     tick_handler = scope_cfg["tick_handler"]
     tables = build_lookup_tables(scope=scope)
@@ -994,10 +997,15 @@ def test_per_recipe_cook_time():
         Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=50, reward=20.0),
     ]
 
-    # Build scope_config and overlay custom recipe tables
+    # Build scope_config and overlay custom recipe tables.
+    # Write both un-namespaced and namespaced keys so the extras_fn
+    # picks them up regardless of which container is active.
     scope_cfg = build_scope_config_from_components(scope)
     recipe_tables = compile_recipes(custom_recipes, scope=scope)
     scope_cfg["static_tables"].update(recipe_tables)
+    for key, val in recipe_tables.items():
+        scope_cfg["static_tables"][f"pot_{key}"] = val
+        scope_cfg["static_tables"][f"open_pot_{key}"] = val
 
     tick_handler = scope_cfg["tick_handler"]
     tables = build_lookup_tables(scope=scope)
@@ -1986,7 +1994,7 @@ def test_expired_order_penalty():
     curr_sv = _sv_from_dict({"order_n_expired": np.int32(2)}, n_agents=n_agents)
     actions = np.array([6, 6], dtype=np.int32)  # Noop
 
-    penalty = ExpiredOrderPenalty(penalty=-5.0)
+    penalty = ExpiredOrderPenalty(coefficient=-5.0)
     r = penalty.compute(prev_sv, curr_sv, actions, reward_config)
     expected = 2 * (-5.0)
     assert float(r[0]) == expected, f"Expected {expected}, got {float(r[0])}"

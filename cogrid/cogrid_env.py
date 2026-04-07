@@ -141,7 +141,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             build_reward_config,
             build_scope_config_from_components,
         )
-        from cogrid.core.component_registry import get_layout_index, get_pre_compose_hook
+        from cogrid.core.component_registry import (
+            get_layout_index,
+            get_pre_compose_hook,
+        )
 
         # Run pre-compose hook before scope config (e.g. to set layout index).
         pre_hook = get_pre_compose_hook(self.scope)
@@ -176,7 +179,10 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 merged = {}
                 if _base is not None:
                     merged.update(_base(parsed_state, scope))
-                merged.update(_fn())
+                try:
+                    merged.update(_fn(parsed_state, scope))
+                except TypeError:
+                    merged.update(_fn())
                 return merged
 
             self._scope_config["extra_state_builder"] = _composed_builder
@@ -413,6 +419,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         )
         self._feature_fn = feature_config["feature_fn"]
 
+        # Inject reward coefficients so they enter extra_state as dynamic arrays
+        layout_arrays["reward_coefficients"] = self._reward_config["initial_reward_coefficients"]
+
         self._reset_fn = build_reset_fn(
             layout_arrays,
             spawn_positions,
@@ -484,9 +493,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             key = int(self.np_random.integers(2**31))
 
         # Delegate to the dict-based step pipeline
-        obs_dict, self._env_state, rewards_dict, terminateds_dict, truncateds_dict, infos = (
-            self._step_fn(key, self._env_state, actions)
-        )
+        (
+            obs_dict,
+            self._env_state,
+            rewards_dict,
+            terminateds_dict,
+            truncateds_dict,
+            infos,
+        ) = self._step_fn(key, self._env_state, actions)
 
         # Convert to numpy for PettingZoo compatibility
         obs = {aid: np.array(obs_dict[aid]) for aid in self._agent_id_order}
@@ -514,6 +528,65 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         return obs, rewards, terminateds, truncateds, infos
 
+    def set_reward_coefficients(self, env_state, coefficients):
+        """Return a new state with updated reward coefficients.
+
+        Pure functional interface: takes a state and a full coefficients
+        array, returns the updated state.  Safe inside ``jax.jit`` and
+        ``jax.lax.scan`` — no Python side-effects.
+
+        If the state is vmapped (batched), the coefficients are
+        broadcast to match the batch dimension automatically.
+
+        Parameters
+        ----------
+        env_state : EnvState
+            The environment state to update (may be vmapped).
+        coefficients : array-like
+            Replacement coefficients array, shape ``(n_rewards,)`` or
+            ``(batch, n_rewards)``.
+
+        Returns:
+        -------
+        EnvState
+            A new state with the updated coefficients.
+        """
+        import dataclasses
+
+        from cogrid.backend import xp
+
+        key = f"{self.scope}.reward_coefficients"
+        old = env_state.extra_state[key]
+        coefficients = xp.broadcast_to(xp.asarray(coefficients, dtype=xp.float32), old.shape)
+        new_extra = {**env_state.extra_state, key: coefficients}
+        return dataclasses.replace(env_state, extra_state=new_extra)
+
+    def update_reward_coefficients(self, updates: dict) -> None:
+        """Update reward coefficients on the stored environment state.
+
+        Convenience wrapper for the numpy backend.  Modifies
+        ``self._env_state`` in place from a dict of per-instance updates.
+
+        Parameters
+        ----------
+        updates : dict[Reward, float]
+            Maps ``Reward`` instances (from ``self.config["rewards"]``) to
+            their new coefficient values.
+        """
+        from cogrid.backend import xp
+
+        key = f"{self.scope}.reward_coefficients"
+        coeffs = xp.array(self._env_state.extra_state[key], dtype=xp.float32)
+        for reward_inst, new_coef in updates.items():
+            idx = reward_inst._reward_index
+            if hasattr(coeffs, "at"):
+                coeffs = coeffs.at[idx].set(new_coef)
+            else:
+                coeffs[idx] = new_coef
+            reward_inst.coefficient = new_coef
+
+        self._env_state = self.set_reward_coefficients(self._env_state, coeffs)
+
     def get_state(self) -> dict:
         """Export a JSON-serializable snapshot of the full environment state.
 
@@ -532,7 +605,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             "object_type_map": np.array(state.object_type_map).tolist(),
             "object_state_map": np.array(state.object_state_map).tolist(),
             "extra_state": {k: np.array(v).tolist() for k, v in state.extra_state.items()},
-            "rng_key": np.array(state.rng_key).tolist() if state.rng_key is not None else None,
+            "rng_key": (np.array(state.rng_key).tolist() if state.rng_key is not None else None),
             "time": int(state.time),
             "done": np.array(state.done).tolist(),
             "n_agents": state.n_agents,
@@ -833,22 +906,25 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         if render_hud_fn is not None and self._env_state is not None:
             hud_bars = render_hud_fn(self._env_state, self._scope_config)
 
-        # Draw observable radius overlay when partial observability is configured
-        obs_radius = self.config.get("observable_radius")
-        if obs_radius is not None and self._env_state is not None:
-            img = self._draw_obs_radius_overlay(img, obs_radius)
+        # Draw local-view radius overlay when partial observability is configured
+        lv_radius = self.config.get("local_view_radius")
+        if lv_radius is not None and self._env_state is not None:
+            img = self._draw_local_view_overlay(img, lv_radius)
 
         if self.render_mode == "human":
             self._renderer.render_human(
-                img, self.cumulative_score, self.render_message, hud_bars=hud_bars
+                img,
+                self.cumulative_score,
+                self.render_message,
+                hud_bars=hud_bars,
             )
         elif self.render_mode == "rgb_array":
             if hud_bars:
                 img = self._composite_hud_bars(img, hud_bars)
             return img
 
-    def _draw_obs_radius_overlay(self, img: np.ndarray, radius: int) -> np.ndarray:
-        """Draw a colored rectangle per agent showing their observable radius."""
+    def _draw_local_view_overlay(self, img: np.ndarray, radius: int) -> np.ndarray:
+        """Draw a colored rectangle per agent showing their local-view radius."""
         import colorsys
 
         agent_pos = np.array(self._env_state.agent_pos)
@@ -858,7 +934,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         thickness = 2
 
         for i in range(n_agents):
-            # Match the renderer's HSV color scheme
             hue = (i * (360 / n_agents)) / 360.0
             r, g, b = colorsys.hsv_to_rgb(hue, 0.35, 0.99)
             color = (int(r * 255), int(g * 255), int(b * 255))
@@ -869,6 +944,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             x0 = max(0, (col - radius) * ts)
             x1 = min(W, (col + radius + 1) * ts)
 
+            # Light interior fill (alpha blend at ~12% opacity)
+            alpha = 0.12
+            region = img[y0:y1, x0:x1].astype(np.float32)
+            tint = np.array(color, dtype=np.float32)
+            img[y0:y1, x0:x1] = (region * (1 - alpha) + tint * alpha).astype(np.uint8)
+
+            # Border outline
             t = thickness
             img[y0 : y0 + t, x0:x1] = color
             img[y1 - t : y1, x0:x1] = color
@@ -890,8 +972,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             y = bar_gap + i * (bar_height + bar_gap)
             progress = bar.get("progress", 0)
             color = np.array(bar.get("color", (80, 80, 80)), dtype=np.uint8)
-            bg_color = np.array(bar.get("bg_color", (50, 50, 50)), dtype=np.uint8)
-            out[y : y + bar_height, :] = bg_color
+            background_color = np.array(bar.get("background_color", (50, 50, 50)), dtype=np.uint8)
+            out[y : y + bar_height, :] = background_color
             if progress > 0:
                 fill_w = max(1, int(progress * w))
                 out[y : y + bar_height, :fill_w] = color

@@ -155,7 +155,7 @@ _RECIPE_COLORS = [
     (220, 50, 50),  # recipe 1 (tomato soup) – red
 ]
 _EMPTY_COLOR = (80, 80, 80)
-_BG_COLOR = (50, 50, 50)
+_background_color = (50, 50, 50)
 _URGENT_COLOR = (255, 80, 80)
 
 
@@ -167,7 +167,7 @@ def build_order_hud_fn(order_config):
         hud_fn(env_state, scope_config) -> list[dict] | None
 
     Each dict has keys ``progress`` (0-1 float), ``color`` (RGB tuple),
-    and ``bg_color`` (RGB tuple).
+    and ``background_color`` (RGB tuple).
     """
     time_limit = order_config.get("time_limit", 200)
 
@@ -185,13 +185,25 @@ def build_order_hud_fn(order_config):
             recipe_idx = int(_np.array(order_recipe[i]))
             timer = int(_np.array(order_timer[i]))
             if recipe_idx < 0:
-                bars.append({"progress": 0, "color": _EMPTY_COLOR, "bg_color": _BG_COLOR})
+                bars.append(
+                    {
+                        "progress": 0,
+                        "color": _EMPTY_COLOR,
+                        "background_color": _background_color,
+                    }
+                )
             else:
                 progress = timer / time_limit
                 color = _RECIPE_COLORS[recipe_idx % len(_RECIPE_COLORS)]
                 if progress < 0.2:
                     color = _URGENT_COLOR
-                bars.append({"progress": progress, "color": color, "bg_color": _BG_COLOR})
+                bars.append(
+                    {
+                        "progress": progress,
+                        "color": color,
+                        "background_color": _background_color,
+                    }
+                )
         return bars
 
     return hud_fn
@@ -223,13 +235,33 @@ def build_target_recipe_extra_state(config):
 
     target_recipes = config["target_recipes"]
 
-    def init_fn(parsed_arrays, scope):
-        # Find R (RecipeIndicator) and L (ButtonIndicator) positions
-        indicator_rows, indicator_cols = _np.where(parsed_arrays == "R")
-        indicator_positions = _np.stack([indicator_rows, indicator_cols], axis=1).astype(_np.int32)
+    def init_fn(state, scope):
+        from cogrid.core.objects.registry import object_to_idx
 
-        button_rows, button_cols = _np.where(parsed_arrays == "L")
-        button_positions = _np.stack([button_rows, button_cols], axis=1).astype(_np.int32)
+        otm = _np.array(state["object_type_map"])
+
+        # Find RecipeIndicator and ButtonIndicator positions by type ID
+        ri_id = object_to_idx("recipe_indicator", scope=scope)
+        indicator_rows, indicator_cols = _np.where(otm == ri_id)
+        indicator_positions = (
+            _np.stack(
+                [indicator_rows, indicator_cols],
+                axis=1,
+            ).astype(_np.int32)
+            if len(indicator_rows) > 0
+            else _np.zeros((0, 2), dtype=_np.int32)
+        )
+
+        bi_id = object_to_idx("button_indicator", scope=scope)
+        button_rows, button_cols = _np.where(otm == bi_id)
+        button_positions = (
+            _np.stack(
+                [button_rows, button_cols],
+                axis=1,
+            ).astype(_np.int32)
+            if len(button_rows) > 0
+            else _np.zeros((0, 2), dtype=_np.int32)
+        )
 
         n_buttons = button_positions.shape[0]
 
@@ -391,15 +423,23 @@ def build_branch_flag_delivery():
     change any grid state — it only sets a flag in extra_state so the
     tick function can detect that a delivery occurred and resample the
     target recipe.
+
+    Only fires when the agent holds a deliverable item (passes the
+    ``PLACE_ON_GUARD`` for the delivery zone), not any arbitrary item.
     """
 
     def branch(ctx):
         dz_id = ctx.type_ids.get("open_delivery_zone", -1)
         is_pickup_drop = ctx.action == ctx.action_id.pickup_drop
         faces_dz = ctx.facing_type == dz_id
-        has_item = ctx.held_item != -1
 
-        should_apply = ctx.can_interact & is_pickup_drop & faces_dz & has_item
+        # Check the held item passes the PLACE_ON guard for the delivery zone
+        held = ctx.held_item
+        held_col = xp.where(held == -1, xp.int32(0), held + 1)
+        guard_ok = ctx.PLACE_ON_GUARD[dz_id, held_col] == 1
+        has_deliverable = (held != -1) & guard_ok
+
+        should_apply = ctx.can_interact & is_pickup_drop & faces_dz & has_deliverable
         new_flag = xp.where(should_apply, xp.int32(1), ctx.delivery_occurred)
 
         return should_apply, {"delivery_occurred": new_flag}

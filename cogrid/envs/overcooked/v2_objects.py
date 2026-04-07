@@ -15,7 +15,6 @@ from cogrid.core.objects.containers import Container
 from cogrid.core.objects.when import when
 from cogrid.envs.overcooked.overcooked_grid_objects import (
     Plate,
-    Tomato,
     make_ingredient_and_stack,
 )
 from cogrid.envs.overcooked.recipes import Recipe
@@ -23,6 +22,7 @@ from cogrid.visualization.rendering import (
     add_text_to_image,
     fill_coords,
     point_in_circle,
+    point_in_rect,
 )
 
 # ---------------------------------------------------------------------------
@@ -152,6 +152,7 @@ class OpenPot(grid_object.GridObj):
     """
 
     color = constants.Colors.Grey
+    background_color = constants.Colors.LightBrown
     char = "u"
     container = Container(capacity=3, pickup_requires="plate")
     recipes = OPEN_POT_RECIPES
@@ -185,20 +186,45 @@ class OpenPot(grid_object.GridObj):
             add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
 
     def encode(self, encode_char: bool = True, scope: str = "global"):
-        """Allow encoding to account for the type of soup in the pot."""
+        """Encode pot state including contents and timer for tile cache."""
         char, _, state = super().encode(encode_char=encode_char, scope=scope)
-        extra_state_encoding = int(any(isinstance(obj, Tomato) for obj in self.objects_in_pot))
-        return (char, extra_state_encoding, state)
+        # Capture number of items, their types, and timer so the tile cache
+        # invalidates when pot contents change.
+        content_ids = tuple(sorted(getattr(obj, "object_id", "") for obj in self.objects_in_pot))
+        extra = (len(self.objects_in_pot), content_ids, self.cooking_timer)
+        return (char, extra, state)
 
 
 # ---------------------------------------------------------------------------
 # Recipe and button indicators
 # ---------------------------------------------------------------------------
 
+# Recipe state encoding: state = recipe_index + 1 (0 = inactive/unknown).
+# Colors for the recipe dot shown on indicators.
+_RECIPE_DOT_COLORS = [
+    constants.Colors.Yellow,  # index 0 → onion_soup
+    constants.Colors.Red,  # index 1 → tomato_soup
+    (34, 139, 34),  # index 2 → broccoli-based
+    (139, 90, 43),  # index 3 → mushroom-based
+]
+
+
+def _recipe_dot_color(state_val):
+    """Return the dot color for a recipe state value (1-indexed), or None."""
+    if state_val <= 0:
+        return None
+    idx = state_val - 1
+    if idx < len(_RECIPE_DOT_COLORS):
+        return _RECIPE_DOT_COLORS[idx]
+    return (180, 180, 180)
+
 
 @register_object_type("recipe_indicator", scope="overcooked")
 class RecipeIndicator(grid_object.GridObj):
-    """Displays the current target recipe. Visible within agent view radius."""
+    """Displays the current target recipe. Visible within agent view radius.
+
+    Renders as a blue wall tile with a colored dot indicating the active recipe.
+    """
 
     color = (100, 100, 255)
     char = "R"
@@ -208,21 +234,46 @@ class RecipeIndicator(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
+    def render(self, tile_img):
+        """Draw indicator tile with recipe-colored dot."""
+        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), self.color)
+        dot_color = _recipe_dot_color(self.state)
+        if dot_color is not None:
+            fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.3), dot_color)
+
 
 @register_object_type("button_indicator", scope="overcooked")
 class ButtonIndicator(grid_object.GridObj):
     """Button that reveals the target recipe when activated via Toggle.
 
     Activation costs reward and lasts for a fixed number of timesteps.
+    Renders dark when inactive, lit with a recipe dot when active.
     """
 
     color = (200, 100, 255)
     char = "L"
     is_wall = True
 
+    _inactive_color = (80, 50, 100)
+
     def __init__(self, *args, **kwargs):
         """Initialize with default state."""
         super().__init__(state=0)
+
+    def render(self, tile_img):
+        """Draw button tile, lit when active."""
+        active = self.state > 0
+        bg = self.color if active else self._inactive_color
+        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), bg)
+        # Small button circle in center
+        btn_ring_color = (255, 255, 255) if active else (140, 100, 160)
+        fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.25), btn_ring_color)
+        if active:
+            dot_color = _recipe_dot_color(self.state)
+            if dot_color is not None:
+                fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.18), dot_color)
+        else:
+            fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.18), self._inactive_color)
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ class GridObj:
 
     object_id: str = None
     color: str | tuple = None
+    background_color: tuple | None = None
     char: str = None
 
     def __init__(self, state: int = 0) -> None:
@@ -63,7 +64,10 @@ class GridObj:
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global") -> GridObj | None:
         """Decode a char/idx and state into a GridObj instance."""
-        from cogrid.core.objects.registry import get_object_id_from_char, make_object
+        from cogrid.core.objects.registry import (
+            get_object_id_from_char,
+            make_object,
+        )
 
         if char_or_idx in [
             None,

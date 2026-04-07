@@ -246,6 +246,10 @@ class Grid:
         fill_coords(tile_img, point_in_rect(0, 0.031, 0, 1), (100, 100, 100))
         fill_coords(tile_img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
 
+        # Fill background color if the object specifies one (covers grid lines)
+        if obj is not None and obj.background_color is not None:
+            fill_coords(tile_img, point_in_rect(0, 1, 0, 1), obj.background_color)
+
         # Render the object itself onto the tile
         if obj is not None:
             obj.render(tile_img)

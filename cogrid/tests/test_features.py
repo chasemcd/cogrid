@@ -1022,16 +1022,17 @@ def test_generic_local_view_registered_global():
 
 
 def test_generic_local_view_overcooked_channel_count():
-    """Overcooked local_view still produces 39 channels via the subclass.
+    """Overcooked local_view produces 35 channels via the subclass (compact encoding).
 
-    10 types + 2 pos + 8 dir + 10 inv + 1 osm + 8 pot = 39 channels.
-    With radius=1, window=3: 3*3*39 = 351.
+    8 core + 4 pot state + 4 pot ingredients + 12 inventory decomp
+    + 6 recipe indicator + 1 delivery indicator = 35 channels.
+    With radius=1, window=3: 3*3*35 = 315.
     """
     import cogrid.envs  # noqa: F401
     from cogrid.envs.overcooked.features import OvercookedLocalView
 
     env_config = {
-        "observable_radius": 1,
+        "local_view_radius": 1,
         "n_agents": 2,
         "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
         "local_view_type_names": [
@@ -1048,8 +1049,8 @@ def test_generic_local_view_overcooked_channel_count():
         ],
     }
     dim = OvercookedLocalView.compute_obs_dim("overcooked", env_config)
-    # 39 channels * 3*3 window = 351
-    assert dim == 351, f"Expected 351, got {dim}"
+    # 35 channels * 3*3 window = 315
+    assert dim == 315, f"Expected 315, got {dim}"
 
 
 def test_generic_local_view_search_rescue():
@@ -1082,12 +1083,10 @@ def test_generic_local_view_search_rescue():
     assert "key" in holdable_names
 
     # compute_obs_dim should work without errors
-    env_config = {"observable_radius": 2, "n_agents": 2}
+    env_config = {"local_view_radius": 2, "n_agents": 2}
     dim = LocalView.compute_obs_dim("search_rescue", env_config)
-    n_types = len(type_names)
-    n_holdable = len(holdable_names)
-    # No extra providers for search_rescue
-    n_ch = n_types + 2 + 8 + n_holdable * 2 + 1  # T + A + 4A + H*A + 1
+    # No extra providers for search_rescue (compact encoding)
+    n_ch = 1 + 2 + 2 + 2 + 1  # type_id + pos*A + dir*A + inv*A + osm
     window = 5  # 2*2+1
     assert dim == window * window * n_ch, f"Expected {window * window * n_ch}, got {dim}"
 
@@ -1099,21 +1098,9 @@ def test_generic_local_view_output_shape():
     from cogrid.envs.overcooked.features import OvercookedLocalView
 
     env_config = {
-        "observable_radius": 1,
+        "local_view_radius": 1,
         "n_agents": 2,
         "pickupable_types": ["onion", "onion_soup", "plate", "tomato", "tomato_soup"],
-        "local_view_type_names": [
-            "counter",
-            "delivery_zone",
-            "onion",
-            "onion_soup",
-            "onion_stack",
-            "plate",
-            "plate_stack",
-            "tomato",
-            "tomato_soup",
-            "tomato_stack",
-        ],
     }
 
     pot_type_id = object_to_idx("pot", scope="overcooked")

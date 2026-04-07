@@ -134,10 +134,22 @@ def build_recipe_static_tables(
     tables = {}
 
     tables[f"{object_id}_id"] = object_to_idx(object_id, scope=scope)
-    tables["cooking_time"] = max((r.cook_time for r in recipes), default=0)
 
     if recipes:
         recipe_tables = compile_recipes(recipes, scope=scope)
+        cook_time = max((r.cook_time for r in recipes), default=0)
+
+        # Namespaced keys so multiple container types don't overwrite each other
+        tables[f"{object_id}_cooking_time"] = cook_time
+        tables[f"{object_id}_recipe_ingredients"] = recipe_tables["recipe_ingredients"]
+        tables[f"{object_id}_recipe_result"] = recipe_tables["recipe_result"]
+        tables[f"{object_id}_recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]
+        tables[f"{object_id}_recipe_reward"] = recipe_tables["recipe_reward"]
+        tables[f"{object_id}_max_ingredients"] = recipe_tables["max_ingredients"]
+
+        # Backwards-compat: also write un-prefixed keys (last writer wins,
+        # but callers should prefer the prefixed versions).
+        tables["cooking_time"] = cook_time
         tables["recipe_ingredients"] = recipe_tables["recipe_ingredients"]
         tables["recipe_result"] = recipe_tables["recipe_result"]
         tables["recipe_cooking_time"] = recipe_tables["recipe_cooking_time"]

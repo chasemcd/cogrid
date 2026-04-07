@@ -86,7 +86,9 @@ nav:
     - Observations: concepts/observations.md
     - Rewards: concepts/rewards.md
   - Environments:
-    - Overcooked: environments/overcooked.md
+    - Overcooked: environments/overcooked.md    
+    - Overcooked V2: environments/overcooked_v2.md
+
     - Goal Seeking: environments/goal-seeking.md
   - Guides:
     - Custom Environment: custom-environment.md

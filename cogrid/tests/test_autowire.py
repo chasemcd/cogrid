@@ -263,6 +263,7 @@ def test_reward_config_has_required_keys():
     config = build_reward_config([], n_agents=2, type_ids={}, action_pickup_drop_idx=4)
     required_keys = {
         "compute_fn",
+        "initial_reward_coefficients",
         "type_ids",
         "n_agents",
         "action_pickup_drop_idx",
