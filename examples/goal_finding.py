@@ -22,8 +22,9 @@ import numpy as np
 # (for ASCII layouts), a color (for rendering), and boolean properties
 # that control how agents interact with it.
 
-from cogrid.core.grid_object import GridObj, register_object_type, when
+from cogrid.core.objects import GridObj, register_object_type, when
 from cogrid.core.constants import Colors
+from cogrid.core.pipeline.context import clear_facing_cell
 
 
 @register_object_type("goal")
@@ -43,7 +44,7 @@ class Goal(GridObj):
 # Layouts are ASCII strings. Special characters:
 #   '#' = wall    '+' = spawn point    ' ' = empty    'g' = goal (ours)
 
-from cogrid.core import layouts
+from cogrid.core.grid import layouts
 
 layouts.register_layout(
     "goal_simple_v0",
@@ -65,7 +66,7 @@ layouts.register_layout(
 # layer just sums all reward instances -- coefficient weighting and
 # broadcasting are the reward's responsibility.
 
-from cogrid.core.rewards import InteractionReward
+from cogrid.core.pipeline.rewards import InteractionReward
 
 
 class GoalReward(InteractionReward):
@@ -90,7 +91,25 @@ def goal_terminated(prev_state, state, reward_config):
     return otm[rows, cols] == goal_id
 
 
-# -- 5. Register the environment using CoGridEnv directly ---------------------
+# -- 5. Interaction function ---------------------------------------------------
+#
+# Interaction functions have signature (ctx) -> (should_apply, changes).
+# ctx is an InteractionContext with standard fields (facing_type, can_interact,
+# agent_index, type_ids, etc.) plus any extra_state arrays declared by components.
+
+
+def collect_goal(ctx):
+    """Remove a goal when the agent interacts with it."""
+    goal_id = ctx.type_ids["goal"]
+    is_pickup = ctx.action == ctx.action_id.pickup_drop
+    should_apply = ctx.can_interact & is_pickup & (ctx.facing_type == goal_id)
+    changes = {
+        "object_type_map": clear_facing_cell(ctx),
+    }
+    return should_apply, changes
+
+
+# -- 6. Register the environment using CoGridEnv directly ---------------------
 #
 # No env subclass needed -- the component API (registered GoalReward +
 # auto-wiring) handles everything. The registry entry points to CoGridEnv.
@@ -109,6 +128,7 @@ goal_config = {
     "max_steps": 50,
     "scope": "global",
     "terminated_fn": goal_terminated,
+    "interactions": [collect_goal],
 }
 
 registry.register(
@@ -117,7 +137,7 @@ registry.register(
 )
 
 
-# -- 6. Run on numpy ----------------------------------------------------------
+# -- 7. Run on numpy ----------------------------------------------------------
 
 
 def run_numpy():
@@ -148,7 +168,7 @@ def run_numpy():
     print()
 
 
-# -- 7. Run on JAX ------------------------------------------------------------
+# -- 8. Run on JAX ------------------------------------------------------------
 
 
 def run_jax():
@@ -183,9 +203,12 @@ def run_jax():
 
     key = jax.random.key(0)
     obs, state, _ = reset_fn(key)
-    actions = jnp.array([0, 3], dtype=jnp.int32)  # Agent 0: Up, Agent 1: Right
-    obs, state, rew, terminateds_arr, truncateds_arr, _ = step_fn(state, actions)
-    print(f"Functional API -- reward: {rew}, terms: {terminateds_arr}, truncs: {truncateds_arr}")
+    actions = {0: jnp.int32(0), 1: jnp.int32(3)}  # Agent 0: Up, Agent 1: Right
+    key, step_key = jax.random.split(key)
+    obs, state, rew, terminateds_d, truncateds_d, _ = step_fn(step_key, state, actions)
+    print(
+        f"Functional API -- reward: {rew[0]}, terms: {terminateds_d[0]}, truncs: {truncateds_d[0]}"
+    )
     print()
 
     # --- Batched rollouts with vmap ---
@@ -196,7 +219,7 @@ def run_jax():
     batched_step = jax.jit(jax.vmap(step_fn))
 
     batched_obs, batched_state, _ = batched_reset(keys)
-    print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs.shape}")
+    print(f"vmap reset -- {n_envs} envs, obs shape: {batched_obs[0].shape}")
 
     # Run 50 steps across all 1024 envs with random cardinal actions
     n_steps = 50
@@ -204,9 +227,14 @@ def run_jax():
     total_reward = jnp.float32(0.0)
     for _ in range(n_steps):
         action_key, subkey = jax.random.split(action_key)
-        batched_actions = jax.random.randint(subkey, (n_envs, 2), 0, 4)
-        batched_obs, batched_state, batched_rew, *_ = batched_step(batched_state, batched_actions)
-        total_reward += batched_rew.sum()
+        arr = jax.random.randint(subkey, (n_envs, 2), 0, 4)
+        batched_actions = {0: arr[:, 0], 1: arr[:, 1]}
+        subkey, step_subkey = jax.random.split(subkey)
+        step_keys = jax.random.split(step_subkey, n_envs)
+        batched_obs, batched_state, batched_rew, *_ = batched_step(
+            step_keys, batched_state, batched_actions
+        )
+        total_reward += sum(v.sum() for v in batched_rew.values())
 
     total_reward /= n_envs
     print(f"vmap step x{n_steps} -- total reward across batch: {float(total_reward):.1f}")

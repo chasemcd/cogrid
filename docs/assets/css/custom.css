@@ -1,100 +1,21 @@
-/* Tabbed content (pymdownx.tabbed alternate_style) */
-.tabbed-set {
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  margin: 1em 0;
+/* API reference admonition style */
+.md-typeset .admonition.api,
+.md-typeset details.api {
+  border-color: #7c4dff;
 }
 
-.tabbed-set > input {
-  display: none;
+.md-typeset .api > .admonition-title,
+.md-typeset .api > summary {
+  background-color: rgba(124, 77, 255, 0.1);
 }
 
-.tabbed-labels {
-  border-bottom: 1px solid #e0e0e0;
+.md-typeset .api > .admonition-title::before,
+.md-typeset .api > summary::before {
+  background-color: #7c4dff;
+  -webkit-mask-image: var(--md-admonition-icon--api);
+  mask-image: var(--md-admonition-icon--api);
 }
 
-.tabbed-labels > label {
-  display: inline-block;
-  padding: 0.6em 1em;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 0.9em;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: #666;
-}
-
-.tabbed-labels > label:hover {
-  color: #333;
-}
-
-.tabbed-content {
-  padding: 0.5em 1em;
-}
-
-.tabbed-content > .tabbed-block {
-  display: none;
-}
-
-/* Show active tab label and content panel */
-.tabbed-set > input:nth-child(1):checked ~ .tabbed-labels > :nth-child(1),
-.tabbed-set > input:nth-child(2):checked ~ .tabbed-labels > :nth-child(2),
-.tabbed-set > input:nth-child(3):checked ~ .tabbed-labels > :nth-child(3),
-.tabbed-set > input:nth-child(4):checked ~ .tabbed-labels > :nth-child(4) {
-  color: #2980b9;
-  border-bottom-color: #2980b9;
-}
-
-.tabbed-set > input:nth-child(1):checked ~ .tabbed-content > :nth-child(1),
-.tabbed-set > input:nth-child(2):checked ~ .tabbed-content > :nth-child(2),
-.tabbed-set > input:nth-child(3):checked ~ .tabbed-content > :nth-child(3),
-.tabbed-set > input:nth-child(4):checked ~ .tabbed-content > :nth-child(4) {
-  display: block;
-}
-
-/* Navigation card grid */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1em;
-  margin: 1em 0;
-}
-
-.card-grid a {
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-}
-
-.card-grid .card {
-  flex: 1;
-}
-
-.card-grid .card {
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 1em 1.2em;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.card-grid .card:hover {
-  border-color: #2980b9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.card-grid .card h3 {
-  margin: 0 0 0.4em;
-  font-size: 1.05em;
-}
-
-.card-grid .card p {
-  margin: 0;
-  color: #666;
-  font-size: 0.9em;
-}
-
-@media (max-width: 768px) {
-  .card-grid {
-    grid-template-columns: 1fr;
-  }
+:root {
+  --md-admonition-icon--api: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 5h10v2h2V3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v4h2V5zm8.41 11.59L20 12l-4.59-4.59L14 8.83 17.17 12 14 15.17l1.41 1.42zM10 15.17 6.83 12 10 8.83 8.59 7.41 4 12l4.59 4.59L10 15.17zM17 19H7v-2H5v4c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-4h-2v2z"/></svg>');
 }

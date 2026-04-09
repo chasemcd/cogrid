@@ -1,13 +1,18 @@
 """Overcooked grid object types (food, pots, plates, delivery zones)."""
 
-from cogrid.core import constants, grid_object
-from cogrid.core.containers import Container, Recipe
-from cogrid.core.grid_object import register_object_type
-from cogrid.core.when import when
+import math
+
+from cogrid.core import constants
+from cogrid.core import objects as grid_object
+from cogrid.core.objects import register_object_type
+from cogrid.core.objects.containers import Container
+from cogrid.core.objects.when import when
+from cogrid.envs.overcooked.recipes import Recipe
 from cogrid.visualization.rendering import (
-    add_text_to_image,
     fill_coords,
     point_in_circle,
+    point_in_rect,
+    rotate_fn,
 )
 
 
@@ -54,6 +59,7 @@ class _BaseStack(grid_object.GridObj):
 
     produces: str = None
     scope: str = "overcooked"
+    background_color = constants.Colors.LightBrown
     can_pickup_from = when()
 
     def render(self, tile_img):
@@ -91,15 +97,33 @@ class Pot(grid_object.GridObj):
     """
 
     color = constants.Colors.Grey
+    background_color = constants.Colors.LightBrown
     char = "U"
 
     container = Container(capacity=3, pickup_requires="plate")
     recipes = [
-        Recipe(["onion", "onion", "onion"], result="onion_soup", cook_time=30, reward=1.0),
-        Recipe(["tomato", "tomato", "tomato"], result="tomato_soup", cook_time=30, reward=1.0),
+        Recipe(
+            ["onion", "onion", "onion"],
+            result="onion_soup",
+            cook_time=30,
+            reward=1.0,
+        ),
+        Recipe(
+            ["tomato", "tomato", "tomato"],
+            result="tomato_soup",
+            cook_time=30,
+            reward=1.0,
+        ),
     ]
 
     capacity: int = 3  # backward compat alias for container.capacity
+
+    @classmethod
+    def build_static_tables(cls):
+        """Build recipe lookup tables for the interaction and reward systems."""
+        from cogrid.envs.overcooked.recipes import build_recipe_static_tables
+
+        return build_recipe_static_tables("pot", cls.recipes, scope="overcooked")
 
     def __init__(self, state: int = 0, **kwargs):
         """Initialize pot with empty contents and default timer."""
@@ -108,24 +132,56 @@ class Pot(grid_object.GridObj):
         self.cooking_timer: int = 30
 
     def render(self, tile_img):
-        """Draw pot circle with ingredient dots and timer text."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
+        """Draw pot with lid, ingredient dots, and progress bar.
 
+        This rendering function is adapted from JaxMARL using
+        the Minigrid rendering primitives.
+        """
+        is_full = len(self.objects_in_pot) == self.capacity
+        is_cooking = is_full and self.cooking_timer > 0
+        is_cooked = is_full and self.cooking_timer == 0
+        has_ingredients = len(self.objects_in_pot) > 0
+        pot_open = not is_cooking and not is_cooked and has_ingredients
+
+        # Ingredient circles above pot
+        coords = [(0.23, 0.33), (0.77, 0.33), (0.50, 0.33)]
         for i, grid_obj in enumerate(self.objects_in_pot):
             fill_coords(
                 tile_img,
-                point_in_circle(cx=0.25 * (i + 1), cy=0.2, r=0.2),
+                point_in_circle(*coords[i], 0.13),
                 grid_obj.color,
             )
 
-        if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
+        # Pot body
+        fill_coords(tile_img, point_in_rect(0.1, 0.9, 0.33, 0.9), (0, 0, 0))
+
+        # Lid and handle
+        lid_fn = point_in_rect(0.1, 0.9, 0.21, 0.25)
+        handle_fn = point_in_rect(0.4, 0.6, 0.16, 0.21)
+
+        if pot_open:
+            lid_fn = rotate_fn(lid_fn, cx=0.1, cy=0.25, theta=-0.1 * math.pi)
+            handle_fn = rotate_fn(handle_fn, cx=0.1, cy=0.25, theta=-0.1 * math.pi)
+
+        fill_coords(tile_img, lid_fn, (0, 0, 0))
+        fill_coords(tile_img, handle_fn, (0, 0, 0))
+
+        # Progress bar while cooking or after cooked
+        if is_cooking or is_cooked:
+            cook_time = self.recipes[0].cook_time if self.recipes else 30
+            progress = 0.1 + (0.9 - 0.1) * (1 - self.cooking_timer / cook_time)
+            fill_coords(
+                tile_img,
+                point_in_rect(0.1, progress, 0.83, 0.88),
+                constants.Colors.Green,
+            )
 
     def encode(self, encode_char: bool = True, scope: str = "global"):
-        """Allow encoding to account for the type of soup in the pot."""
+        """Encode pot state including contents and timer for tile cache."""
         char, _, state = super().encode(encode_char=encode_char, scope=scope)
-        extra_state_encoding = int(any(isinstance(obj, Tomato) for obj in self.objects_in_pot))
-        return (char, extra_state_encoding, state)
+        content_ids = tuple(sorted(getattr(obj, "object_id", "") for obj in self.objects_in_pot))
+        extra = (len(self.objects_in_pot), content_ids, self.cooking_timer)
+        return (char, extra, state)
 
 
 @register_object_type("onion_soup_stack", scope="overcooked")

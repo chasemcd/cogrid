@@ -18,8 +18,6 @@ Satisfies TEST-01: cross-backend parity for unified reward functions.
 import numpy as np
 import pytest
 
-# Trigger Overcooked object registration before building scope config
-import cogrid.envs.overcooked.overcooked_grid_objects  # noqa: F401
 from cogrid.backend.state_view import StateView
 
 # Build type_ids once before any backend switching (pure Python dict, no array ops)
@@ -410,7 +408,7 @@ def test_interaction_reward_no_conditions():
     """InteractionReward with action=None, no holds/faces/overlaps fires for all agents."""
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.rewards import InteractionReward
+    from cogrid.core.pipeline.rewards import InteractionReward
 
     _reset_backend_for_testing()
     set_backend("numpy")
@@ -444,7 +442,7 @@ def test_interaction_reward_overlaps():
     """InteractionReward with overlaps fires only when agent stands on that type."""
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.rewards import InteractionReward
+    from cogrid.core.pipeline.rewards import InteractionReward
 
     _reset_backend_for_testing()
     set_backend("numpy")
@@ -492,7 +490,7 @@ def test_interaction_reward_extra_condition():
     """extra_condition() hook correctly narrows the mask."""
     from cogrid.backend import set_backend
     from cogrid.backend._dispatch import _reset_backend_for_testing
-    from cogrid.core.rewards import InteractionReward
+    from cogrid.core.pipeline.rewards import InteractionReward
 
     _reset_backend_for_testing()
     set_backend("numpy")

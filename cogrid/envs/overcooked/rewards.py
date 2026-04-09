@@ -24,7 +24,7 @@ int() casts.
 """
 
 from cogrid.backend import xp
-from cogrid.core.rewards import (
+from cogrid.core.pipeline.rewards import (
     InteractionReward,
     Reward,
     _compute_fwd_positions,
@@ -74,7 +74,7 @@ class DeliveryReward(Reward):
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
         action_pickup_drop_idx = reward_config["action_pickup_drop_idx"]
-        coefficient = self.config.get("coefficient", 1.0)
+        coefficient = self.get_coefficient(state)
         common_reward = self.config.get("common_reward", True)
 
         # Step 1: compute each agent's forward cell position and type
@@ -109,7 +109,7 @@ class DeliveryReward(Reward):
             # Match each agent's held type to a recipe result
             match = delivered_type[:, None] == recipe_result[None, :]  # (n_agents, n_recipes)
             recipe_idx = xp.argmax(match, axis=1)  # (n_agents,)
-            per_agent_reward = recipe_reward_arr[recipe_idx]  # (n_agents,) float32
+            per_agent_reward = recipe_reward_arr[recipe_idx] * coefficient  # (n_agents,) float32
         else:
             # No recipe tables: use uniform coefficient
             per_agent_reward = xp.full(n_agents, coefficient, dtype=xp.float32)
@@ -136,14 +136,28 @@ class OrderDeliveryReward(DeliveryReward):
     1. Only firing when a matching active order was consumed this step
        (detected via prev_state.order_recipe vs state.order_recipe diff).
     2. Adding a time-based tip bonus proportional to remaining order time.
+    3. Optionally penalizing deliveries that don't match any active order.
 
     Falls back to base DeliveryReward behavior (no gating, no tip) when
     order_recipe is not present in state (orders disabled).
 
-    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
-        - ``coefficient``: Reward scaling factor (default 1.0).
-        - ``common_reward``: If True, all agents receive the reward (default True).
+    Parameters
+    ----------
+    order_time_limit : int or None
+        Maximum lifetime of an order (used for tip calculation).
+    penalize_incorrect : bool
+        If True, delivering a soup that doesn't match any active order
+        incurs ``-coefficient`` penalty (default False).
+    **kwargs
+        Forwarded to ``DeliveryReward.__init__`` (``coefficient``,
+        ``common_reward``, etc.).
     """
+
+    def __init__(self, *, order_time_limit=None, penalize_incorrect=False, **kwargs):
+        """Initialize with optional order time limit and incorrect penalty."""
+        super().__init__(**kwargs)
+        self.order_time_limit = order_time_limit
+        self.penalize_incorrect = penalize_incorrect
 
     def compute(self, prev_state, state, actions, reward_config):
         """Compute delivery rewards gated on order consumption with tip bonus."""
@@ -163,31 +177,40 @@ class OrderDeliveryReward(DeliveryReward):
         consumed = was_active & now_inactive
         any_consumed = xp.any(consumed)
 
+        # Detect if a delivery happened (base_rewards > 0 for any agent)
+        any_delivery = xp.any(base_rewards > 0)
+
         # Gate: only reward if at least one order was consumed
         order_mask = xp.where(any_consumed, xp.float32(1.0), xp.float32(0.0))
 
         # Tip bonus: proportional to remaining time on the consumed order
         # tip = (remaining_time / time_limit) * tip_coefficient
-        static_tables = reward_config.get("static_tables", {})
         tip_coefficient = reward_config.get("tip_coefficient", 0.0)
-        order_time_limit = static_tables.get("order_time_limit", None)
-        if order_time_limit is not None and tip_coefficient > 0.0:
+        if self.order_time_limit is not None and tip_coefficient > 0.0:
             # Use the timer of the first consumed order slot
             consumed_idx = xp.argmax(consumed)
             remaining_time = prev_state.order_timer[consumed_idx]
             tip = xp.where(
                 any_consumed,
                 remaining_time.astype(xp.float32)
-                / xp.float32(order_time_limit)
+                / xp.float32(self.order_time_limit)
                 * xp.float32(tip_coefficient),
                 xp.float32(0.0),
             )
         else:
             tip = xp.float32(0.0)
 
-        # Apply order gate and add tip to every agent's reward
         n_agents = reward_config["n_agents"]
-        return base_rewards * order_mask + xp.full(n_agents, tip, dtype=xp.float32)
+        coefficient = self.get_coefficient(state)
+        rewards = base_rewards * order_mask + xp.full(n_agents, tip, dtype=xp.float32)
+
+        # Penalty for incorrect delivery (delivery happened but no order consumed)
+        if self.penalize_incorrect:
+            incorrect = any_delivery & ~any_consumed
+            penalty = xp.where(incorrect, -coefficient, xp.float32(0.0))
+            rewards = rewards + xp.full(n_agents, penalty, dtype=xp.float32)
+
+        return rewards
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +240,10 @@ class OnionInPotReward(InteractionReward):
 
         # Match each agent's forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pos_match = xp.all(
+            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :],
+            axis=2,
+        )
         pot_idx = xp.argmax(pos_match, axis=1)
 
         # Check pot has room (fewer than 3 non-empty slots)
@@ -254,7 +280,10 @@ class SoupInDishReward(InteractionReward):
         """Narrow mask to pots that are done cooking."""
         # Match each agent's forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pos_match = xp.all(
+            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :],
+            axis=2,
+        )
         pot_idx = xp.argmax(pos_match, axis=1)
 
         # Check pot is done cooking (timer == 0 means ready to serve)
@@ -284,7 +313,7 @@ class OrderGatedIngredientInPotReward(Reward):
         """Compute order-gated ingredient-in-pot reward."""
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
-        coefficient = self.config.get("coefficient", 0.1)
+        coefficient = self.get_coefficient(state)
         common_reward = self.config.get("common_reward", False)
 
         # Action check
@@ -303,7 +332,10 @@ class OrderGatedIngredientInPotReward(Reward):
 
         # Match forward position to a pot index
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pos_match = xp.all(
+            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :],
+            axis=2,
+        )
         pot_idx = xp.argmax(pos_match, axis=1)
         pot_row = prev_state.pot_contents[pot_idx]
 
@@ -361,7 +393,7 @@ class OrderGatedSoupInDishReward(Reward):
         """Compute order-gated soup-in-dish reward."""
         type_ids = reward_config["type_ids"]
         n_agents = reward_config["n_agents"]
-        coefficient = self.config.get("coefficient", 0.3)
+        coefficient = self.get_coefficient(state)
         common_reward = self.config.get("common_reward", False)
 
         # Action + holds plate + faces pot
@@ -374,7 +406,10 @@ class OrderGatedSoupInDishReward(Reward):
 
         # Match forward position to a pot and check readiness
         agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
-        pos_match = xp.all(prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pos_match = xp.all(
+            prev_state.pot_positions[None, :, :] == agent_fwd[:, None, :],
+            axis=2,
+        )
         pot_idx = xp.argmax(pos_match, axis=1)
         pot_ready = prev_state.pot_timer[pot_idx] == 0
 
@@ -390,7 +425,8 @@ class OrderGatedSoupInDishReward(Reward):
                 pot_row = prev_state.pot_contents[pot_idx]  # (n_agents, max_ing)
                 sorted_pot = xp.sort(pot_row, axis=1)
                 matches = xp.all(
-                    sorted_pot[:, None, :] == recipe_ingredients[None, :, :], axis=2
+                    sorted_pot[:, None, :] == recipe_ingredients[None, :, :],
+                    axis=2,
                 )  # (n_agents, n_recipes)
                 pot_recipe = xp.argmax(matches.astype(xp.int32), axis=1)
 
@@ -416,8 +452,10 @@ class ExpiredOrderPenalty(Reward):
     vs state.order_n_expired. Returns zero when orders are disabled
     (no order_n_expired in state).
 
-    Config keys (passed via ``__init__(**kwargs)``, stored in ``self.config``):
-        - ``penalty``: Penalty value per expired order (default -5.0).
+    Parameters
+    ----------
+    coefficient : float
+        Penalty value per expired order (default -5.0).  Should be negative.
     """
 
     def compute(self, prev_state, state, actions, reward_config):
@@ -432,7 +470,373 @@ class ExpiredOrderPenalty(Reward):
         newly_expired = curr_expired - prev_expired  # scalar int32
 
         n_agents = reward_config["n_agents"]
-        penalty = self.config.get("penalty", -5.0)
+        coefficient = self.get_coefficient(state)
 
         # Broadcast penalty to all agents (shared responsibility)
-        return xp.full(n_agents, newly_expired.astype(xp.float32) * penalty, dtype=xp.float32)
+        return xp.full(
+            n_agents,
+            newly_expired.astype(xp.float32) * coefficient,
+            dtype=xp.float32,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Target recipe delivery reward
+# ---------------------------------------------------------------------------
+
+
+class TargetRecipeDeliveryReward(DeliveryReward):
+    """Delivery reward gated on the current target recipe.
+
+    Extends DeliveryReward by comparing the delivered item against the
+    active target recipe. Correct deliveries earn ``+coefficient``;
+    incorrect deliveries earn ``-coefficient`` when ``penalize_incorrect``
+    is True, otherwise 0. Both cases use common reward (all agents).
+
+    Parameters
+    ----------
+    penalize_incorrect : bool
+        Whether incorrect deliveries incur a negative reward.
+    target_recipes : list[str] or None
+        Ordered recipe result names. Falls back to
+        ``reward_config["target_recipes"]`` if not provided.
+    **kwargs
+        Forwarded to ``DeliveryReward.__init__``.
+    """
+
+    def __init__(self, *, penalize_incorrect: bool = True, **kwargs):
+        """Initialize with incorrect-delivery penalty flag."""
+        self.target_recipes = kwargs.pop("target_recipes", None)
+        super().__init__(**kwargs)
+        self.penalize_incorrect = penalize_incorrect
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute target-recipe-gated delivery reward."""
+        type_ids = reward_config["type_ids"]
+        n_agents = reward_config["n_agents"]
+        action_pickup_drop_idx = reward_config["action_pickup_drop_idx"]
+        coefficient = self.get_coefficient(state)
+
+        # Step 1: compute delivery mask (same as base DeliveryReward)
+        fwd_pos, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+        is_interact = actions == action_pickup_drop_idx
+
+        static_tables = reward_config.get("static_tables", {})
+        is_deliverable_table = static_tables.get("IS_DELIVERABLE", None)
+        if is_deliverable_table is not None:
+            holds_deliverable = is_deliverable_table[prev_state.agent_inv[:, 0]] == 1
+        else:
+            holds_deliverable = prev_state.agent_inv[:, 0] == type_ids["onion_soup"]
+
+        faces_delivery = fwd_types == type_ids["delivery_zone"]
+        if "open_delivery_zone" in type_ids:
+            faces_delivery = faces_delivery | (fwd_types == type_ids["open_delivery_zone"])
+        earns_delivery = is_interact & holds_deliverable & faces_delivery & in_bounds
+
+        # Step 2: read target recipe index
+        target_recipe_idx = getattr(prev_state, "target_recipe", None)
+        if target_recipe_idx is None:
+            # Target recipe system not active -- fall back to base
+            return super().compute(prev_state, state, actions, reward_config)
+
+        # Step 3: map target recipe index to type_id
+        target_recipes = self.target_recipes
+        if target_recipes is None:
+            target_recipes = reward_config.get("target_recipes")
+
+        # Build type_id array for all target recipes
+        target_type_ids = xp.array([type_ids[name] for name in target_recipes], dtype=xp.int32)
+        target_type_id = target_type_ids[target_recipe_idx]
+
+        # Step 4: compare delivered item against target
+        delivered_type = prev_state.agent_inv[:, 0]  # (n_agents,)
+        is_correct = delivered_type == target_type_id  # (n_agents,)
+
+        # Step 5/6/7: compute rewards
+        correct_delivery = earns_delivery & is_correct
+        incorrect_delivery = earns_delivery & ~is_correct
+
+        correct_total = xp.sum(correct_delivery.astype(xp.float32)) * coefficient
+        if self.penalize_incorrect:
+            incorrect_total = xp.sum(incorrect_delivery.astype(xp.float32)) * (-coefficient)
+        else:
+            incorrect_total = xp.float32(0.0)
+
+        total = correct_total + incorrect_total
+        return xp.full(n_agents, total, dtype=xp.float32)
+
+
+# ---------------------------------------------------------------------------
+# Button activation cost
+# ---------------------------------------------------------------------------
+
+
+class ButtonActivationCost(Reward):
+    """Penalty applied when a button is activated.
+
+    Detects button presses by comparing ``prev_state.button_timer`` vs
+    ``state.button_timer``: a slot that went from 0 to > 0 indicates a
+    press. Returns ``coefficient`` (should be negative) per press as
+    common reward to all agents.
+
+    Parameters
+    ----------
+    coefficient : float
+        Penalty per button activation (default -5.0).  Should be negative.
+    """
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute button activation penalty."""
+        n_agents = reward_config["n_agents"]
+
+        prev_timer = getattr(prev_state, "button_timer", None)
+        if prev_timer is None:
+            return xp.zeros(n_agents, dtype=xp.float32)
+
+        curr_timer = state.button_timer
+
+        # Detect newly activated buttons: was 0, now > 0
+        newly_pressed = (prev_timer == 0) & (curr_timer > 0)
+        n_presses = xp.sum(newly_pressed.astype(xp.float32))
+
+        coefficient = self.get_coefficient(state)
+        return xp.full(n_agents, coefficient * n_presses, dtype=xp.float32)
+
+
+# ---------------------------------------------------------------------------
+# Target-recipe-gated shaping rewards (V2)
+# ---------------------------------------------------------------------------
+
+
+class TargetRecipeIngredientInPotReward(Reward):
+    """Shaped reward for placing an ingredient that matches the target recipe.
+
+    Fires when an agent places an ingredient into an open pot, but only if
+    the ingredient brings the pot contents closer to the target recipe.
+    Compares the ingredient counts in the pot against the target recipe's
+    ingredient requirements.
+
+    Parameters
+    ----------
+    coefficient : float
+        Reward magnitude (default 0.1).
+    common_reward : bool
+        If True, all agents receive the reward (default False).
+    target_recipes : list[str]
+        Ordered recipe result names (e.g. ``["onion_soup", "tomato_soup"]``).
+    """
+
+    def __init__(self, *, target_recipes=None, **kwargs):
+        """Initialize with target recipe list."""
+        super().__init__(**kwargs)
+        self.target_recipes = target_recipes
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute shaped ingredient-in-pot reward with target recipe gating."""
+        type_ids = reward_config["type_ids"]
+        n_agents = reward_config["n_agents"]
+        coefficient = self.get_coefficient(state)
+        common_reward = self.config.get("common_reward", False)
+        static_tables = reward_config.get("static_tables", {})
+
+        # Action check
+        is_interact = actions == reward_config["action_pickup_drop_idx"]
+
+        # Held ingredient type
+        held = prev_state.agent_inv[:, 0]
+        has_ingredient = held > 0
+
+        # Forward cell check — support both pot and open_pot
+        _, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+        pot_id = type_ids.get("pot", -1)
+        open_pot_id = type_ids.get("open_pot", -1)
+        faces_pot = (fwd_types == pot_id) | (fwd_types == open_pot_id)
+
+        mask = is_interact & has_ingredient & faces_pot & in_bounds
+
+        # Find which pot the agent faces (check both pot types)
+        agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
+
+        # Try open_pot first, fall back to pot
+        pot_positions = getattr(prev_state, "open_pot_positions", None)
+        pot_contents = getattr(prev_state, "open_pot_contents", None)
+        if pot_positions is None or pot_positions.shape[0] == 0:
+            pot_positions = getattr(prev_state, "pot_positions", None)
+            pot_contents = getattr(prev_state, "pot_contents", None)
+
+        if pot_positions is None or pot_positions.shape[0] == 0:
+            return xp.zeros(n_agents, dtype=xp.float32)
+
+        pos_match = xp.all(pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pot_idx = xp.argmax(pos_match, axis=1)
+        pot_row = pot_contents[pot_idx]  # (n_agents, capacity)
+
+        # Pot has capacity
+        has_capacity = xp.sum(pot_row != -1, axis=1) < 3
+
+        # Target recipe gating
+        target_recipe_idx = getattr(prev_state, "target_recipe", None)
+        if target_recipe_idx is None:
+            # No target recipe system — fall back to ungated (no penalty)
+            correct = mask & xp.any(pos_match, axis=1) & has_capacity
+            incorrect = xp.zeros(n_agents, dtype=xp.bool_)
+        else:
+            target_recipes = self.target_recipes
+            if target_recipes is None:
+                target_recipes = reward_config.get("target_recipes")
+
+            # Get the recipe ingredients for the target recipe.
+            # Look up from namespaced static tables.
+            ri_key = None
+            for prefix in ("open_pot_", "pot_", ""):
+                if f"{prefix}recipe_ingredients" in static_tables:
+                    ri_key = f"{prefix}recipe_ingredients"
+                    rr_key = f"{prefix}recipe_result"
+                    break
+
+            if ri_key is None:
+                return xp.zeros(n_agents, dtype=xp.float32)
+
+            recipe_ingredients = static_tables[ri_key]  # (n_recipes, capacity)
+            recipe_result = static_tables[rr_key]  # (n_recipes,)
+
+            # Find which recipe row corresponds to the target
+            target_type_ids = xp.array([type_ids[name] for name in target_recipes], dtype=xp.int32)
+            target_type_id = target_type_ids[target_recipe_idx]
+            target_recipe_row_idx = xp.argmax((recipe_result == target_type_id).astype(xp.int32))
+            target_ingredients = recipe_ingredients[target_recipe_row_idx]  # (capacity,)
+
+            # Count how many of the held ingredient the target recipe needs
+            target_count = xp.sum(target_ingredients == held[:, None], axis=1)
+            # Count how many of the held ingredient are already in the pot
+            current_count = xp.sum(pot_row == held[:, None], axis=1)
+            # Placement is useful if pot has fewer of this ingredient than needed
+            is_useful = current_count < target_count
+
+            placed = mask & xp.any(pos_match, axis=1) & has_capacity
+            correct = placed & is_useful
+            incorrect = placed & ~is_useful
+
+        if common_reward:
+            n_correct = xp.sum(correct.astype(xp.float32))
+            n_incorrect = xp.sum(incorrect.astype(xp.float32))
+            total = (n_correct - n_incorrect) * coefficient
+            return xp.full(n_agents, total, dtype=xp.float32)
+        return (correct.astype(xp.float32) - incorrect.astype(xp.float32)) * coefficient
+
+
+class TargetRecipeSoupInDishReward(Reward):
+    """Shaped reward for plating soup that matches the target recipe.
+
+    Fires when an agent picks up a completed soup from a pot with a plate,
+    but only if the soup matches the current target recipe.
+
+    Parameters
+    ----------
+    coefficient : float
+        Reward magnitude (default 0.3).
+    common_reward : bool
+        If True, all agents receive the reward (default False).
+    target_recipes : list[str]
+        Ordered recipe result names (e.g. ``["onion_soup", "tomato_soup"]``).
+    """
+
+    def __init__(self, *, target_recipes=None, **kwargs):
+        """Initialize with target recipe list."""
+        super().__init__(**kwargs)
+        self.target_recipes = target_recipes
+
+    def compute(self, prev_state, state, actions, reward_config):
+        """Compute shaped soup-in-dish reward with target recipe gating."""
+        type_ids = reward_config["type_ids"]
+        n_agents = reward_config["n_agents"]
+        coefficient = self.get_coefficient(state)
+        common_reward = self.config.get("common_reward", False)
+        static_tables = reward_config.get("static_tables", {})
+
+        # Action check: agent does pickup_drop while holding plate
+        is_interact = actions == reward_config["action_pickup_drop_idx"]
+        held = prev_state.agent_inv[:, 0]
+        holds_plate = held == type_ids["plate"]
+
+        # Forward cell check — support both pot and open_pot
+        _, fwd_r, fwd_c, in_bounds, fwd_types = _compute_fwd_positions(prev_state)
+        pot_id = type_ids.get("pot", -1)
+        open_pot_id = type_ids.get("open_pot", -1)
+        faces_pot = (fwd_types == pot_id) | (fwd_types == open_pot_id)
+
+        mask = is_interact & holds_plate & faces_pot & in_bounds
+
+        # Find which pot the agent faces
+        agent_fwd = xp.stack([fwd_r, fwd_c], axis=1)
+
+        pot_positions = getattr(prev_state, "open_pot_positions", None)
+        pot_contents = getattr(prev_state, "open_pot_contents", None)
+        pot_timer = getattr(prev_state, "open_pot_timer", None)
+        if pot_positions is None or pot_positions.shape[0] == 0:
+            pot_positions = getattr(prev_state, "pot_positions", None)
+            pot_contents = getattr(prev_state, "pot_contents", None)
+            pot_timer = getattr(prev_state, "pot_timer", None)
+
+        if pot_positions is None or pot_positions.shape[0] == 0:
+            return xp.zeros(n_agents, dtype=xp.float32)
+
+        pos_match = xp.all(pot_positions[None, :, :] == agent_fwd[:, None, :], axis=2)
+        pot_idx = xp.argmax(pos_match, axis=1)
+
+        # Pot must be done cooking (timer == 0, full)
+        pot_ready = pot_timer[pot_idx] == 0
+        pot_full = xp.sum(pot_contents[pot_idx] != -1, axis=1) == 3
+
+        mask = mask & xp.any(pos_match, axis=1) & pot_ready & pot_full
+
+        # Target recipe gating: check if the soup matches the target
+        target_recipe_idx = getattr(prev_state, "target_recipe", None)
+        if target_recipe_idx is not None:
+            target_recipes = self.target_recipes
+            if target_recipes is None:
+                target_recipes = reward_config.get("target_recipes")
+
+            # Find recipe tables
+            ri_key = None
+            for prefix in ("open_pot_", "pot_", ""):
+                if f"{prefix}recipe_ingredients" in static_tables:
+                    ri_key = f"{prefix}recipe_ingredients"
+                    rr_key = f"{prefix}recipe_result"
+                    break
+
+            if ri_key is not None:
+                recipe_ingredients = static_tables[ri_key]
+                recipe_result = static_tables[rr_key]
+
+                target_type_ids = xp.array(
+                    [type_ids[name] for name in target_recipes], dtype=xp.int32
+                )
+                target_type_id = target_type_ids[target_recipe_idx]
+                target_recipe_row_idx = xp.argmax(
+                    (recipe_result == target_type_id).astype(xp.int32)
+                )
+                target_ings = recipe_ingredients[target_recipe_row_idx]
+
+                # Sort pot contents and target ingredients for comparison
+                _HIGH = xp.int32(2147483647)
+                pot_sorted = xp.sort(
+                    xp.where(pot_contents[pot_idx] == -1, _HIGH, pot_contents[pot_idx]),
+                    axis=1,
+                )
+                target_sorted = xp.sort(xp.where(target_ings == -1, _HIGH, target_ings))
+                soup_matches = xp.all(pot_sorted == target_sorted[None, :], axis=1)
+                correct = mask & soup_matches
+                incorrect = mask & ~soup_matches
+
+                if common_reward:
+                    n_correct = xp.sum(correct.astype(xp.float32))
+                    n_incorrect = xp.sum(incorrect.astype(xp.float32))
+                    total = (n_correct - n_incorrect) * coefficient
+                    return xp.full(n_agents, total, dtype=xp.float32)
+                return (correct.astype(xp.float32) - incorrect.astype(xp.float32)) * coefficient
+
+        if common_reward:
+            total = xp.sum(mask.astype(xp.float32)) * coefficient
+            return xp.full(n_agents, total, dtype=xp.float32)
+        return mask.astype(xp.float32) * coefficient

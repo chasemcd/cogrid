@@ -3,8 +3,8 @@
 Verifies that:
 1. jax.vmap(env.jax_reset)(keys) produces correctly shaped batched output
    at 1024 parallel environments (TEST-01 shapes).
-2. jax.vmap(env.jax_step)(batched_state, batched_actions) executes without
-   error and produces correct shapes at 1024 environments (TEST-02 shapes).
+2. jax.vmap(env.jax_step)(keys, batched_state, batched_actions_dict) executes
+   without error and produces correct shapes at 1024 environments (TEST-02 shapes).
 3. Single-env reset output matches the corresponding slice of the batched
    reset output for sampled indices (TEST-03 reset parity).
 4. Single-env step output matches the corresponding slice of the batched
@@ -80,7 +80,6 @@ def _create_jax_env(registry_id, seed=42):
 
     _reset_backend_for_testing()
 
-    import cogrid.envs  # noqa: F401 -- trigger registration
     from cogrid.envs import registry
 
     env = registry.make(registry_id, backend="jax")
@@ -154,7 +153,7 @@ def test_vmap_reset_shapes(layout):
 
     # Get obs_dim from a single-env reset
     single_obs, single_state, _ = reset_fn(jax.random.key(99))
-    obs_dim = single_obs.shape[-1]
+    obs_dim = single_obs[0].shape[-1]
 
     # Create batch of PRNG keys
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
@@ -162,11 +161,12 @@ def test_vmap_reset_shapes(layout):
     # Batched reset
     batched_obs, batched_state, _ = jax.vmap(reset_fn)(keys)
 
-    # Observation shape: (BATCH_SIZE, n_agents, obs_dim)
-    assert batched_obs.shape == (BATCH_SIZE, n_agents, obs_dim), (
-        f"Layout {layout}: expected obs shape "
-        f"({BATCH_SIZE}, {n_agents}, {obs_dim}), got {batched_obs.shape}"
-    )
+    # Observation shape: dict with per-agent arrays of shape (BATCH_SIZE, obs_dim)
+    for aid in range(n_agents):
+        assert batched_obs[aid].shape == (BATCH_SIZE, obs_dim), (
+            f"Layout {layout}: expected obs[{aid}] shape "
+            f"({BATCH_SIZE}, {obs_dim}), got {batched_obs[aid].shape}"
+        )
 
     # agent_pos shape: (BATCH_SIZE, n_agents, 2)
     assert batched_state.agent_pos.shape == (BATCH_SIZE, n_agents, 2), (
@@ -182,9 +182,10 @@ def test_vmap_reset_shapes(layout):
     )
 
     # All observations are finite (no NaN/inf)
-    assert np.all(np.isfinite(np.array(batched_obs))), (
-        f"Layout {layout}: batched obs contains non-finite values"
-    )
+    for aid in range(n_agents):
+        assert np.all(np.isfinite(np.array(batched_obs[aid]))), (
+            f"Layout {layout}: batched obs[{aid}] contains non-finite values"
+        )
 
     # Static meta field n_agents is NOT batched (scalar)
     assert batched_state.n_agents == n_agents, (
@@ -213,45 +214,53 @@ def test_vmap_step_shapes(layout):
 
     # Get obs_dim from single-env
     single_obs, single_state, _ = reset_fn(jax.random.key(99))
-    obs_dim = single_obs.shape[-1]
+    obs_dim = single_obs[0].shape[-1]
 
     # Batched reset
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
     _, batched_state, _ = jax.vmap(reset_fn)(keys)
 
-    # Batched actions: all noop (zeros)
-    batched_actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
+    # Batched actions: dict with per-agent arrays
+    batched_actions = {aid: jnp.zeros(BATCH_SIZE, dtype=jnp.int32) for aid in range(n_agents)}
+
+    # Batched step keys
+    step_keys = jax.random.split(jax.random.key(1), BATCH_SIZE)
 
     # Batched step
     obs, new_state, rew, terminateds, truncateds, infos = jax.vmap(step_fn)(
-        batched_state, batched_actions
+        step_keys, batched_state, batched_actions
     )
 
-    # obs shape: (BATCH_SIZE, n_agents, obs_dim)
-    assert obs.shape == (BATCH_SIZE, n_agents, obs_dim), (
-        f"Layout {layout}: expected obs shape "
-        f"({BATCH_SIZE}, {n_agents}, {obs_dim}), got {obs.shape}"
-    )
+    # obs shape: dict with per-agent arrays of shape (BATCH_SIZE, obs_dim)
+    for aid in range(n_agents):
+        assert obs[aid].shape == (BATCH_SIZE, obs_dim), (
+            f"Layout {layout}: expected obs[{aid}] shape "
+            f"({BATCH_SIZE}, {obs_dim}), got {obs[aid].shape}"
+        )
 
-    # rew shape: (BATCH_SIZE, n_agents)
-    assert rew.shape == (BATCH_SIZE, n_agents), (
-        f"Layout {layout}: expected rew shape ({BATCH_SIZE}, {n_agents}), got {rew.shape}"
-    )
+    # rew shape: dict with per-agent arrays of shape (BATCH_SIZE,)
+    for aid in range(n_agents):
+        assert rew[aid].shape == (BATCH_SIZE,), (
+            f"Layout {layout}: expected rew[{aid}] shape ({BATCH_SIZE},), got {rew[aid].shape}"
+        )
 
-    # terminateds shape: (BATCH_SIZE, n_agents)
-    assert terminateds.shape == (BATCH_SIZE, n_agents), (
-        f"Layout {layout}: expected terminateds shape "
-        f"({BATCH_SIZE}, {n_agents}), got {terminateds.shape}"
-    )
+    # terminateds shape: dict with per-agent arrays of shape (BATCH_SIZE,)
+    for aid in range(n_agents):
+        assert terminateds[aid].shape == (BATCH_SIZE,), (
+            f"Layout {layout}: expected terminateds[{aid}] shape "
+            f"({BATCH_SIZE},), got {terminateds[aid].shape}"
+        )
 
-    # truncateds shape: (BATCH_SIZE, n_agents)
-    assert truncateds.shape == (BATCH_SIZE, n_agents), (
-        f"Layout {layout}: expected truncateds shape "
-        f"({BATCH_SIZE}, {n_agents}), got {truncateds.shape}"
-    )
+    # truncateds shape: dict with per-agent arrays of shape (BATCH_SIZE,)
+    for aid in range(n_agents):
+        assert truncateds[aid].shape == (BATCH_SIZE,), (
+            f"Layout {layout}: expected truncateds[{aid}] shape "
+            f"({BATCH_SIZE},), got {truncateds[aid].shape}"
+        )
 
-    # infos is empty dict
-    assert infos == {}, f"Layout {layout}: expected infos={{}}, got {infos}"
+    # infos: per-agent empty dicts (empty dicts have no leaves to batch)
+    for aid in range(n_agents):
+        assert infos[aid] == {}, f"Layout {layout}: expected infos[{aid}]={{}}, got {infos[aid]}"
 
     # new_state.agent_pos shape: (BATCH_SIZE, n_agents, 2)
     assert new_state.agent_pos.shape == (BATCH_SIZE, n_agents, 2), (
@@ -278,6 +287,7 @@ def test_vmap_reset_parity(layout):
 
     env = _create_jax_env(layout)
     reset_fn = env.jax_reset
+    n_agents = env.config["num_agents"]
 
     # Create batch of PRNG keys
     keys = jax.random.split(jax.random.key(0), BATCH_SIZE)
@@ -292,12 +302,13 @@ def test_vmap_reset_parity(layout):
         # Single-env reset with the same key
         single_obs, single_state, _ = reset_fn(keys[i])
 
-        # Compare observations
-        np.testing.assert_array_equal(
-            np.array(single_obs),
-            np.array(batched_obs[i]),
-            err_msg=(f"Layout {layout}, reset parity, index {i}: obs mismatch"),
-        )
+        # Compare observations (dict-based)
+        for aid in range(n_agents):
+            np.testing.assert_array_equal(
+                np.array(single_obs[aid]),
+                np.array(batched_obs[aid][i]),
+                err_msg=(f"Layout {layout}, reset parity, index {i}: obs[{aid}] mismatch"),
+            )
 
         # Compare all dynamic state fields
         _compare_state_fields(
@@ -336,18 +347,26 @@ def test_vmap_step_parity(layout):
     # Batched reset
     _, batched_state, _ = jax.vmap(reset_fn)(keys)
 
-    # Generate N_PARITY_STEPS batches of random actions
+    # Generate N_PARITY_STEPS batches of random actions (as arrays, convert to dicts below)
     rng = np.random.default_rng(123)
-    actions_list = []
+    actions_arrays = []
     for _ in range(N_PARITY_STEPS):
         actions_np = rng.integers(0, 7, size=(BATCH_SIZE, n_agents))
-        actions_list.append(jnp.array(actions_np, dtype=jnp.int32))
+        actions_arrays.append(jnp.array(actions_np, dtype=jnp.int32))
+
+    # Generate step keys for each step
+    step_key_rng = jax.random.key(1)
+    step_keys_list = []
+    for step_i in range(N_PARITY_STEPS):
+        step_key_rng, subkey = jax.random.split(step_key_rng)
+        step_keys_list.append(jax.random.split(subkey, BATCH_SIZE))
 
     # Step through all steps with vmapped step
     vmapped_step = jax.vmap(step_fn)
     for step_i in range(N_PARITY_STEPS):
+        batched_actions_dict = {aid: actions_arrays[step_i][:, aid] for aid in range(n_agents)}
         batched_obs, batched_state, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
-            batched_state, actions_list[step_i]
+            step_keys_list[step_i], batched_state, batched_actions_dict
         )
 
     # Sample indices to spot-check
@@ -358,51 +377,55 @@ def test_vmap_step_parity(layout):
         _, single_state, _ = reset_fn(keys[i])
 
         for step_i in range(N_PARITY_STEPS):
-            single_actions = actions_list[step_i][i]
+            single_actions_dict = {aid: actions_arrays[step_i][i, aid] for aid in range(n_agents)}
             single_obs, single_state, single_rew, single_term, single_trunc, _ = step_fn(
-                single_state, single_actions
+                step_keys_list[step_i][i], single_state, single_actions_dict
             )
 
-        # Compare final observations
-        np.testing.assert_array_equal(
-            np.array(single_obs),
-            np.array(batched_obs[i]),
-            err_msg=(
-                f"Layout {layout}, step parity, index {i}: "
-                f"final obs mismatch after {N_PARITY_STEPS} steps"
-            ),
-        )
+        # Compare final observations (dict-based)
+        for aid in range(n_agents):
+            np.testing.assert_array_equal(
+                np.array(single_obs[aid]),
+                np.array(batched_obs[aid][i]),
+                err_msg=(
+                    f"Layout {layout}, step parity, index {i}: "
+                    f"final obs[{aid}] mismatch after {N_PARITY_STEPS} steps"
+                ),
+            )
 
-        # Compare final rewards
-        np.testing.assert_allclose(
-            np.array(single_rew),
-            np.array(batched_rew[i]),
-            atol=1e-7,
-            err_msg=(
-                f"Layout {layout}, step parity, index {i}: "
-                f"final rewards mismatch after {N_PARITY_STEPS} steps"
-            ),
-        )
+        # Compare final rewards (dict-based)
+        for aid in range(n_agents):
+            np.testing.assert_allclose(
+                np.array(single_rew[aid]),
+                np.array(batched_rew[aid][i]),
+                atol=1e-7,
+                err_msg=(
+                    f"Layout {layout}, step parity, index {i}: "
+                    f"final rew[{aid}] mismatch after {N_PARITY_STEPS} steps"
+                ),
+            )
 
-        # Compare final terminateds
-        np.testing.assert_array_equal(
-            np.array(single_term),
-            np.array(batched_term[i]),
-            err_msg=(
-                f"Layout {layout}, step parity, index {i}: "
-                f"final terminateds mismatch after {N_PARITY_STEPS} steps"
-            ),
-        )
+        # Compare final terminateds (dict-based)
+        for aid in range(n_agents):
+            np.testing.assert_array_equal(
+                np.array(single_term[aid]),
+                np.array(batched_term[aid][i]),
+                err_msg=(
+                    f"Layout {layout}, step parity, index {i}: "
+                    f"final terminateds[{aid}] mismatch after {N_PARITY_STEPS} steps"
+                ),
+            )
 
-        # Compare final truncateds
-        np.testing.assert_array_equal(
-            np.array(single_trunc),
-            np.array(batched_trunc[i]),
-            err_msg=(
-                f"Layout {layout}, step parity, index {i}: "
-                f"final truncateds mismatch after {N_PARITY_STEPS} steps"
-            ),
-        )
+        # Compare final truncateds (dict-based)
+        for aid in range(n_agents):
+            np.testing.assert_array_equal(
+                np.array(single_trunc[aid]),
+                np.array(batched_trunc[aid][i]),
+                err_msg=(
+                    f"Layout {layout}, step parity, index {i}: "
+                    f"final truncateds[{aid}] mismatch after {N_PARITY_STEPS} steps"
+                ),
+            )
 
         # Compare all dynamic state fields
         _compare_state_fields(
@@ -430,6 +453,10 @@ def test_vmap_jit_composition():
     env = _create_jax_env("Overcooked-CrampedRoom-V0")
     n_agents = env.config["num_agents"]
 
+    # Get obs_dim from single-env
+    single_obs, _, _ = env.jax_reset(jax.random.key(99))
+    obs_dim = single_obs[0].shape[-1]
+
     # Wrap with jit(vmap(...)) -- the optimal pattern
     vmapped_reset = jax.jit(jax.vmap(env.jax_reset))
     vmapped_step = jax.jit(jax.vmap(env.jax_step))
@@ -439,32 +466,40 @@ def test_vmap_jit_composition():
     batched_obs, batched_state, _ = vmapped_reset(keys)
 
     # Verify shapes after reset
-    assert batched_obs.shape[0] == BATCH_SIZE, (
-        f"jit(vmap(reset)): expected batch dim {BATCH_SIZE}, got {batched_obs.shape[0]}"
-    )
+    for aid in range(n_agents):
+        assert batched_obs[aid].shape == (BATCH_SIZE, obs_dim), (
+            f"jit(vmap(reset)): expected obs[{aid}] shape "
+            f"({BATCH_SIZE}, {obs_dim}), got {batched_obs[aid].shape}"
+        )
 
     # Run 3 steps
+    step_key_rng = jax.random.key(1)
     for step_i in range(3):
-        actions = jnp.zeros((BATCH_SIZE, n_agents), dtype=jnp.int32)
+        step_key_rng, subkey = jax.random.split(step_key_rng)
+        step_keys = jax.random.split(subkey, BATCH_SIZE)
+        actions = {aid: jnp.zeros(BATCH_SIZE, dtype=jnp.int32) for aid in range(n_agents)}
         batched_obs, batched_state, batched_rew, batched_term, batched_trunc, _ = vmapped_step(
-            batched_state, actions
+            step_keys, batched_state, actions
         )
 
     # Verify shapes after steps
-    assert batched_obs.shape[0] == BATCH_SIZE, (
-        f"jit(vmap(step)): expected obs batch dim {BATCH_SIZE}, got {batched_obs.shape[0]}"
-    )
-    assert batched_rew.shape == (BATCH_SIZE, n_agents), (
-        f"jit(vmap(step)): expected rew shape ({BATCH_SIZE}, {n_agents}), got {batched_rew.shape}"
-    )
-    assert batched_term.shape == (BATCH_SIZE, n_agents), (
-        f"jit(vmap(step)): expected terminateds shape "
-        f"({BATCH_SIZE}, {n_agents}), got {batched_term.shape}"
-    )
-    assert batched_trunc.shape == (BATCH_SIZE, n_agents), (
-        f"jit(vmap(step)): expected truncateds shape "
-        f"({BATCH_SIZE}, {n_agents}), got {batched_trunc.shape}"
-    )
+    for aid in range(n_agents):
+        assert batched_obs[aid].shape == (BATCH_SIZE, obs_dim), (
+            f"jit(vmap(step)): expected obs[{aid}] shape "
+            f"({BATCH_SIZE}, {obs_dim}), got {batched_obs[aid].shape}"
+        )
+        assert batched_rew[aid].shape == (BATCH_SIZE,), (
+            f"jit(vmap(step)): expected rew[{aid}] shape "
+            f"({BATCH_SIZE},), got {batched_rew[aid].shape}"
+        )
+        assert batched_term[aid].shape == (BATCH_SIZE,), (
+            f"jit(vmap(step)): expected terminateds[{aid}] shape "
+            f"({BATCH_SIZE},), got {batched_term[aid].shape}"
+        )
+        assert batched_trunc[aid].shape == (BATCH_SIZE,), (
+            f"jit(vmap(step)): expected truncateds[{aid}] shape "
+            f"({BATCH_SIZE},), got {batched_trunc[aid].shape}"
+        )
     assert batched_state.agent_pos.shape == (BATCH_SIZE, n_agents, 2), (
         f"jit(vmap(step)): expected agent_pos shape "
         f"({BATCH_SIZE}, {n_agents}, 2), "

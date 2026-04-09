@@ -1,7 +1,7 @@
 """Collision resolution edge-case tests for the unified move_agents() function.
 
 Tests verify the vectorized pairwise conflict detection, priority masking, swap
-detection, and cascade blocking in cogrid.core.movement.move_agents().
+detection, and cascade blocking in cogrid.core.pipeline.movement.move_agents().
 
 All tests use the numpy backend with direct array construction (no env needed).
 """
@@ -13,7 +13,7 @@ from cogrid.backend import set_backend
 
 set_backend("numpy")
 
-from cogrid.core.movement import move_agents  # noqa: E402
+from cogrid.core.pipeline.movement import move_agents  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

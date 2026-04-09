@@ -467,7 +467,7 @@ class OvercookedInventory(Feature):
     @classmethod
     def build_feature_fn(cls, scope, env_config=None):
         """Build the inventory feature function for the given scope."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         if env_config is not None and "pickupable_types" in env_config:
             pickupable_names = sorted(env_config["pickupable_types"])
@@ -499,7 +499,7 @@ class NextToCounter(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the counter adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         counter_type_id = object_to_idx("counter", scope=scope)
 
@@ -524,7 +524,7 @@ class NextToPot(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the pot adjacency feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         pot_type_id = object_to_idx("pot", scope=scope)
 
@@ -555,7 +555,7 @@ def _make_closest_obj_feature(obj_name, n_closest):
 
         @classmethod
         def build_feature_fn(cls, scope):
-            from cogrid.core.grid_object import object_to_idx
+            from cogrid.core.objects import object_to_idx
 
             target_type_id = object_to_idx(_obj, scope=scope)
 
@@ -602,7 +602,7 @@ class ClosestObjects(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build closest-object feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         type_ids_and_ns = [
             (object_to_idx(name, scope=scope), n) for name, n in _CLOSEST_SPECS_SORTED
@@ -672,7 +672,7 @@ class ObjectTypeMasks(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build object-type mask feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         type_ids = [object_to_idx(name, scope=scope) for name in _TYPE_MASK_NAMES]
 
@@ -696,7 +696,7 @@ class OrderedPotFeatures(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the ordered pot feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         onion_id = object_to_idx("onion", scope=scope)
         tomato_id = object_to_idx("tomato", scope=scope)
@@ -767,7 +767,7 @@ class EnvironmentLayout(Feature):
     @classmethod
     def build_feature_fn(cls, scope):
         """Build the environment layout feature function."""
-        from cogrid.core.grid_object import object_to_idx
+        from cogrid.core.objects import object_to_idx
 
         layout_type_names = ["counter", "pot", "onion", "plate", "onion_stack", "plate_stack"]
         layout_type_ids = [object_to_idx(name, scope=scope) for name in layout_type_names]
@@ -787,67 +787,311 @@ class EnvironmentLayout(Feature):
 # Overcooked local view — adds pot state channels to the generic LocalView
 # ---------------------------------------------------------------------------
 
-_N_POT_CHANNELS = 8  # empty, partial, cooking, ready, fill, timer, onion, tomato
+_N_POT_CHANNELS = 4  # cooking, ready, fill_norm, timer_norm
+_INGREDIENT_NAMES = ["onion", "tomato", "broccoli", "mushroom"]
+_N_INGREDIENTS = len(_INGREDIENT_NAMES)
+# pot ingredients (4) + inv decomp (6*2) + recipe decomp (6) + delivery (1)
+_N_V2_EXTRA_CHANNELS = _N_INGREDIENTS + 12 + 6 + 1
 
 
 @register_feature_type("local_view", scope="overcooked")
 class OvercookedLocalView(LocalView):
-    """Adds 8 pot-state channels to the generic LocalView.
+    """Adds pot-state and V2 information channels to the generic LocalView.
 
-    Inherits all core channels (object types, agent position/direction/
-    inventory, object state map) and appends pot-specific spatial channels:
-    empty, partial, cooking, ready, fill_norm, timer_norm, n_onion, n_tomato.
+    Inherits all core channels (object type ID, agent position/direction/
+    inventory, object state map) and appends:
+
+    Pot channels (4):
+        is_cooking, is_ready, fill_norm, timer_norm
+
+    Pot ingredient breakdown (4):
+        Per-ingredient normalized count at each pot position.
+
+    Decomposed inventory (12 = 6 per agent x 2):
+        [plate_bit, cooked_bit, onion, tomato, broccoli, mushroom]
+        at each agent's position.
+
+    Recipe indicator decomposition (6):
+        [plate_bit, cooked_bit, onion, tomato, broccoli, mushroom]
+        at recipe indicator and active button indicator positions.
+
+    Correct delivery indicator (1):
+        Binary flag at delivery zone positions on the delivery step.
     """
 
     @classmethod
     def extra_n_channels(cls, scope, env_config=None):
-        """Return the number of extra pot-state channels."""
-        return _N_POT_CHANNELS
+        """Return the number of extra channels."""
+        return _N_POT_CHANNELS + _N_V2_EXTRA_CHANNELS
 
     @classmethod
     def build_extra_channel_fn(cls, scope, env_config=None):
-        """Build a function that encodes pot state into extra channels."""
-        from cogrid.core.grid_object import object_to_idx
+        """Build a function that encodes pot state and V2 info into extra channels."""
+        from cogrid.core.objects.registry import object_to_idx
 
-        onion_id = object_to_idx("onion", scope=scope)
-        tomato_id = object_to_idx("tomato", scope=scope)
         capacity = 3
         cook_time = xp.float32(20.0)
 
-        def fn(state, H, W):
-            pot_pos = state.pot_positions
-            pot_contents = state.pot_contents
-            pot_timer = state.pot_timer
+        # --- Ingredient type IDs (built once at init) ---
+        ingredient_ids = []
+        for name in _INGREDIENT_NAMES:
+            try:
+                ingredient_ids.append(object_to_idx(name, scope=scope))
+            except (KeyError, ValueError):
+                ingredient_ids.append(-1)
+
+        # --- Inventory decomposition lookup table ---
+        # Maps type_id -> [plate, cooked, onion, tomato, broccoli, mushroom]
+        # Build from registered recipes to handle all soup types.
+        n_types = (
+            max(
+                object_to_idx(name, scope=scope)
+                for name in ["counter", "plate", "onion_soup", "tomato_soup"]
+            )
+            + 1
+        )
+        # Expand if V2 types push the max higher
+        for name in _INGREDIENT_NAMES + [
+            "open_pot",
+            "open_delivery_zone",
+            "recipe_indicator",
+            "button_indicator",
+        ]:
+            try:
+                n_types = max(n_types, object_to_idx(name, scope=scope) + 1)
+            except (KeyError, ValueError):
+                pass
+
+        # Scan V2 soup types only if V2 objects are already registered
+        # (importing v2_objects has side effects — it registers new types)
+        from cogrid.envs import _v2_types_loaded
+
+        if _v2_types_loaded:
+            from cogrid.envs.overcooked.v2_objects import OPEN_POT_RECIPES
+        else:
+            OPEN_POT_RECIPES = []
+        for recipe in OPEN_POT_RECIPES:
+            try:
+                n_types = max(n_types, object_to_idx(recipe.result, scope=scope) + 1)
+            except (KeyError, ValueError):
+                pass
+
+        import numpy as _np
+
+        inv_table = _np.zeros((n_types + 1, 2 + _N_INGREDIENTS), dtype=_np.float32)
+
+        # Raw ingredients: [0, 0, ..., 1 at slot, ...]
+        for i, iid in enumerate(ingredient_ids):
+            if 0 <= iid < n_types:
+                inv_table[iid, 2 + i] = 1.0
+
+        # Plate: [1, 0, 0, 0, 0, 0]
+        try:
+            plate_id = object_to_idx("plate", scope=scope)
+            inv_table[plate_id, 0] = 1.0
+        except (KeyError, ValueError):
+            pass
+
+        # Soups from recipes: [1, 1, ingredient_counts...]
+        from cogrid.envs.overcooked.overcooked_grid_objects import Pot
+
+        all_recipes = list(Pot.recipes) + list(OPEN_POT_RECIPES)
+        seen_results = set()
+        for recipe in all_recipes:
+            if recipe.result in seen_results:
+                continue
+            seen_results.add(recipe.result)
+            try:
+                soup_id = object_to_idx(recipe.result, scope=scope)
+            except (KeyError, ValueError):
+                continue
+            if soup_id >= n_types:
+                continue
+            inv_table[soup_id, 0] = 1.0  # plate
+            inv_table[soup_id, 1] = 1.0  # cooked
+            for ing_name in recipe.ingredients:
+                for j, name in enumerate(_INGREDIENT_NAMES):
+                    if ing_name == name:
+                        inv_table[soup_id, 2 + j] += 1.0
+
+        inv_table_xp = xp.array(inv_table, dtype=xp.float32)
+
+        # --- Delivery zone type IDs ---
+        dz_id = object_to_idx("delivery_zone", scope=scope)
+        try:
+            odz_id = object_to_idx("open_delivery_zone", scope=scope)
+        except (KeyError, ValueError):
+            odz_id = -1
+
+        # --- Recipe indicator / button indicator type IDs ---
+        try:
+            ri_id = object_to_idx("recipe_indicator", scope=scope)
+        except (KeyError, ValueError):
+            ri_id = -1
+        try:
+            bi_id = object_to_idx("button_indicator", scope=scope)
+        except (KeyError, ValueError):
+            bi_id = -1
+
+        # --- Recipe ingredient table for indicator decomposition ---
+        # Maps target_recipe index -> [plate, cooked, onion, tomato, broccoli, mushroom]
+        target_recipes = (env_config or {}).get("target_recipes", ["onion_soup", "tomato_soup"])
+        recipe_decomp = _np.zeros((len(target_recipes), 2 + _N_INGREDIENTS), dtype=_np.float32)
+        for ri, rname in enumerate(target_recipes):
+            recipe_decomp[ri, 0] = 1.0  # plate
+            recipe_decomp[ri, 1] = 1.0  # cooked
+            # Find the recipe with this result
+            for recipe in all_recipes:
+                if recipe.result == rname:
+                    for ing_name in recipe.ingredients:
+                        for j, name in enumerate(_INGREDIENT_NAMES):
+                            if ing_name == name:
+                                recipe_decomp[ri, 2 + j] += 1.0
+                    break
+        recipe_decomp_xp = xp.array(recipe_decomp, dtype=xp.float32)
+
+        def _set_at(ch, rows, cols, values):
+            """Set values at (rows, cols) positions in a (H, W) channel."""
+            if hasattr(ch, "at"):
+                return ch.at[rows, cols].set(values)
+            ch[rows, cols] = values
+            return ch
+
+        def _pot_layers(pot_pos, pot_contents, pot_timer, H, W):
+            """Compute the 4 pot-state channels for a set of pots."""
             pot_rows = pot_pos[:, 0]
             pot_cols = pot_pos[:, 1]
 
             n_items = xp.sum(pot_contents > 0, axis=1)
-            is_empty = (n_items == 0).astype(xp.float32)
-            is_partial = ((n_items > 0) & (n_items < capacity)).astype(xp.float32)
             is_cooking = ((n_items == capacity) & (pot_timer > 0)).astype(xp.float32)
             is_ready = ((n_items == capacity) & (pot_timer == 0)).astype(xp.float32)
             fill_norm = n_items.astype(xp.float32) / capacity
             timer_norm = pot_timer.astype(xp.float32) / cook_time
-            n_onion = xp.sum(pot_contents == onion_id, axis=1).astype(xp.float32)
-            n_tomato = xp.sum(pot_contents == tomato_id, axis=1).astype(xp.float32)
 
             layers = []
-            for values in [
-                is_empty,
-                is_partial,
-                is_cooking,
-                is_ready,
-                fill_norm,
-                timer_norm,
-                n_onion,
-                n_tomato,
-            ]:
+            for values in [is_cooking, is_ready, fill_norm, timer_norm]:
                 ch = xp.zeros((H, W), dtype=xp.float32)
-                if hasattr(ch, "at"):  # JAX
-                    ch = ch.at[pot_rows, pot_cols].set(values)
-                else:
-                    ch[pot_rows, pot_cols] = values
+                ch = _set_at(ch, pot_rows, pot_cols, values)
                 layers.append(ch)
+            return layers
+
+        def _pot_ingredient_layers(pot_pos, pot_contents, H, W):
+            """Compute per-ingredient count channels at pot positions."""
+            pot_rows = pot_pos[:, 0]
+            pot_cols = pot_pos[:, 1]
+            layers = []
+            for iid in ingredient_ids:
+                counts = xp.sum((pot_contents == iid).astype(xp.float32), axis=1) / capacity
+                ch = xp.zeros((H, W), dtype=xp.float32)
+                ch = _set_at(ch, pot_rows, pot_cols, counts)
+                layers.append(ch)
+            return layers
+
+        def fn(state, H, W, agent_idx=0):
+            layers = []
+
+            # --- (A) Pot state channels (4) ---
+            pot_state = [xp.zeros((H, W), dtype=xp.float32) for _ in range(4)]
+            if hasattr(state, "pot_positions") and state.pot_positions.shape[0] > 0:
+                for i, ch in enumerate(
+                    _pot_layers(state.pot_positions, state.pot_contents, state.pot_timer, H, W)
+                ):
+                    pot_state[i] = pot_state[i] + ch
+            if hasattr(state, "open_pot_positions") and state.open_pot_positions.shape[0] > 0:
+                for i, ch in enumerate(
+                    _pot_layers(
+                        state.open_pot_positions,
+                        state.open_pot_contents,
+                        state.open_pot_timer,
+                        H,
+                        W,
+                    )
+                ):
+                    pot_state[i] = pot_state[i] + ch
+            layers.extend(pot_state)
+
+            # --- (B) Pot ingredient breakdown (4) ---
+            pot_ings = [xp.zeros((H, W), dtype=xp.float32) for _ in range(_N_INGREDIENTS)]
+            if hasattr(state, "pot_positions") and state.pot_positions.shape[0] > 0:
+                for i, ch in enumerate(
+                    _pot_ingredient_layers(state.pot_positions, state.pot_contents, H, W)
+                ):
+                    pot_ings[i] = pot_ings[i] + ch
+            if hasattr(state, "open_pot_positions") and state.open_pot_positions.shape[0] > 0:
+                for i, ch in enumerate(
+                    _pot_ingredient_layers(state.open_pot_positions, state.open_pot_contents, H, W)
+                ):
+                    pot_ings[i] = pot_ings[i] + ch
+            layers.extend(pot_ings)
+
+            # --- (C) Decomposed inventory (6 per agent, self first) ---
+            n_agents = state.agent_pos.shape[0]
+            agent_order = [agent_idx] + [i for i in range(n_agents) if i != agent_idx]
+            for ai in agent_order:
+                a_pos = state.agent_pos[ai]
+                held = state.agent_inv[ai, 0]
+                # Clamp to valid range; -1 (empty) maps to last row (zeros)
+                safe_held = xp.clip(held, 0, inv_table_xp.shape[0] - 1)
+                is_empty = held < 0
+                decomp = inv_table_xp[safe_held]  # (6,)
+                decomp = xp.where(is_empty, xp.zeros(2 + _N_INGREDIENTS, dtype=xp.float32), decomp)
+                for ch_i in range(2 + _N_INGREDIENTS):
+                    ch = xp.zeros((H, W), dtype=xp.float32)
+                    valid = (a_pos[0] >= 0) & (a_pos[1] >= 0)
+                    val = xp.where(valid, decomp[ch_i], xp.float32(0.0))
+                    if hasattr(ch, "at"):
+                        ch = ch.at[
+                            xp.clip(a_pos[0], 0, H - 1),
+                            xp.clip(a_pos[1], 0, W - 1),
+                        ].set(val)
+                    else:
+                        r_i, c_i = int(a_pos[0]), int(a_pos[1])
+                        if 0 <= r_i < H and 0 <= c_i < W:
+                            ch[r_i, c_i] = float(val)
+                    layers.append(ch)
+
+            # --- (D) Recipe indicator decomposition (6) ---
+            target_recipe = getattr(state, "target_recipe", None)
+            if target_recipe is not None and (ri_id >= 0 or bi_id >= 0):
+                recipe_vec = recipe_decomp_xp[target_recipe]  # (6,)
+                otm = state.object_type_map
+
+                # Indicator positions: where otm == ri_id
+                ri_mask = (
+                    (otm == ri_id).astype(xp.float32)
+                    if ri_id >= 0
+                    else xp.zeros((H, W), dtype=xp.float32)
+                )
+                # Button positions: where otm == bi_id AND button is active (osm > 0)
+                if bi_id >= 0:
+                    bi_mask = ((otm == bi_id) & (state.object_state_map > 0)).astype(xp.float32)
+                else:
+                    bi_mask = xp.zeros((H, W), dtype=xp.float32)
+                combined_mask = ri_mask + bi_mask  # 1.0 at indicator positions
+
+                for ch_i in range(2 + _N_INGREDIENTS):
+                    layers.append(combined_mask * recipe_vec[ch_i])
+            else:
+                # No target recipe system — zero channels
+                for _ in range(2 + _N_INGREDIENTS):
+                    layers.append(xp.zeros((H, W), dtype=xp.float32))
+
+            # --- (E) Correct delivery indicator (1) ---
+            delivery_flag = getattr(state, "delivery_occurred", None)
+            if delivery_flag is not None:
+                otm = state.object_type_map
+                dz_mask = (otm == dz_id).astype(xp.float32)
+                if odz_id >= 0:
+                    dz_mask = dz_mask + (otm == odz_id).astype(xp.float32)
+                flag_val = (
+                    (delivery_flag > 0).astype(xp.float32)
+                    if hasattr(delivery_flag, "astype")
+                    else xp.float32(float(delivery_flag > 0))
+                )
+                layers.append(dz_mask * flag_val)
+            else:
+                layers.append(xp.zeros((H, W), dtype=xp.float32))
+
             return layers
 
         return fn
@@ -879,7 +1123,6 @@ register_layout_indices(
         "overcooked_coordination_ring_v0": 2,
         "overcooked_forced_coordination_v0": 3,
         "overcooked_counter_circuit_v0": 4,
-        "overcooked_mixed_kitchen_v0": 5,
-        "overcooked_order_delivery_v0": 6,
+        "overcooked_order_delivery_v0": 5,
     },
 )

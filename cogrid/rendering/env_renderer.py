@@ -61,7 +61,7 @@ class EnvRenderer:
         hud_bars : list[dict] or None
             Optional list of bar specs to draw at the top of the display.
             Each dict has ``progress`` (0-1 float), ``color`` (RGB tuple),
-            and ``bg_color`` (RGB tuple).
+            and ``background_color`` (RGB tuple).
         """
         if pygame is None:
             raise ImportError("Must install pygame to use interactive mode.")
@@ -110,8 +110,8 @@ class EnvRenderer:
                 y = bar_gap + i * (bar_height + bar_gap)
                 progress = bar.get("progress", 0)
                 color = bar.get("color", (80, 80, 80))
-                bg_color = bar.get("bg_color", (50, 50, 50))
-                pygame.draw.rect(bg, bg_color, (bar_x, y, bar_width, bar_height))
+                background_color = bar.get("background_color", (50, 50, 50))
+                pygame.draw.rect(bg, background_color, (bar_x, y, bar_width, bar_height))
                 if progress > 0:
                     fill_w = max(1, int(progress * bar_width))
                     pygame.draw.rect(bg, color, (bar_x, y, fill_w, bar_height))
