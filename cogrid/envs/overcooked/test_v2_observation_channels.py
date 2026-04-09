@@ -12,10 +12,11 @@ import numpy as np
 import pytest
 
 import cogrid.envs
-from cogrid.core.objects.registry import object_to_idx
-from cogrid.envs.overcooked.features import _INGREDIENT_NAMES, OvercookedLocalView
 
 cogrid.envs._ensure_v2_types()
+
+from cogrid.core.objects.registry import object_to_idx
+from cogrid.envs.overcooked.features import _INGREDIENT_NAMES, OvercookedLocalView
 
 SCOPE = "overcooked"
 H, W = 4, 5

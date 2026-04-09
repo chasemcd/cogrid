@@ -39,6 +39,7 @@ docs = [
     "mkdocs-gen-files>=0.5",
     "mkdocs-literate-nav>=0.6",
     "mkdocs-section-index>=0.3",
+    "zensical",
 ]
 dev = [
     "pytest>=7.0",
@@ -75,6 +76,7 @@ select = ["E", "F", "I", "UP", "D"]
 [tool.ruff.lint.per-file-ignores]
 "cogrid/tests/*" = ["D100", "D101", "D102", "D103", "D104", "D107"]
 "cogrid/test_*.py" = ["D100", "D101", "D102", "D103", "D104", "D107"]
+"cogrid/**/test_*.py" = ["D100", "D101", "D102", "D103", "D104", "D107", "E402"]
 "cogrid/benchmarks/*" = ["D100", "D101", "D102", "D103", "D104"]
 "examples/*" = ["D", "E402", "I001"]
 
