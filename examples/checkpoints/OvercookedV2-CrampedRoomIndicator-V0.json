@@ -1,0 +1,11 @@
+{
+  "env_id": "OvercookedV2-CrampedRoomIndicator-V0",
+  "obs_shape": [
+    4,
+    5,
+    35
+  ],
+  "gru_hidden_dim": 128,
+  "fc_dim": 128,
+  "activation": "relu"
+}
