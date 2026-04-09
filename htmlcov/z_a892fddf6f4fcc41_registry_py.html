@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Coverage for cogrid/envs/registry.py: 88%</title>
+    <title>Coverage for cogrid/envs/registry.py: 80%</title>
     <link rel="icon" sizes="32x32" href="favicon_32_cb_c827f16f.png">
     <link rel="stylesheet" href="style_cb_9ff733b0.css" type="text/css">
     <script src="coverage_html_cb_dd2e7eb5.js" defer></script>
@@ -12,7 +12,7 @@
     <div class="content">
         <h1>
             <span class="text">Coverage for </span><b>cogrid&#8201;/&#8201;envs&#8201;/&#8201;registry.py</b>:
-            <span class="pc_cov">88%</span>
+            <span class="pc_cov">80%</span>
         </h1>
         <aside id="help_panel_wrapper">
             <input id="help_panel_state" type="checkbox">
@@ -54,18 +54,18 @@
             </div>
         </aside>
         <h2>
-            <span class="text">8 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">7<span class="text"> run</span></button>
-            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">1<span class="text"> missing</span></button>
+            <span class="text">10 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">8<span class="text"> run</span></button>
+            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">2<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
         <p class="text">
-            <a id="prevFileLink" class="nav" href="z_20d542bcec0cbdf7_test_interactions_py.html">&#xab; prev</a> &nbsp; &nbsp;
+            <a id="prevFileLink" class="nav" href="z_20d542bcec0cbdf7_v2_objects_py.html">&#xab; prev</a> &nbsp; &nbsp;
             <a id="indexLink" class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a id="nextFileLink" class="nav" href="z_16d55800ca555a45_search_rescue_grid_objects_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-04 15:44 +0000
+            created at 2026-04-09 22:57 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -89,28 +89,30 @@
     <p class="pln"><span class="n"><a id="t7" href="#t7">7</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t8" href="#t8">8</a></span><span class="t"><span class="key">def</span> <span class="nam">make</span><span class="op">(</span><span class="nam">environment_id</span><span class="op">:</span> <span class="nam">str</span><span class="op">,</span> <span class="nam">environment_scope</span><span class="op">:</span> <span class="nam">str</span> <span class="op">=</span> <span class="str">"global"</span><span class="op">,</span> <span class="op">**</span><span class="nam">kwargs</span><span class="op">)</span> <span class="op">-></span> <span class="nam">cogrid_env</span><span class="op">.</span><span class="nam">CoGridEnv</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t9" href="#t9">9</a></span><span class="t">    <span class="str">"""Create an environment instance by registered name."""</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t10" href="#t10">10</a></span><span class="t">    <span class="key">if</span> <span class="nam">environment_id</span> <span class="key">not</span> <span class="key">in</span> <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t11" href="#t11">11</a></span><span class="t">        <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t12" href="#t12">12</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Environment ID </span><span class="op">{</span><span class="nam">environment_id</span><span class="op">}</span><span class="fst"> is not registered. </span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t13" href="#t13">13</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Please register it first. \n </span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Available environments: </span><span class="op">{</span><span class="nam">list</span><span class="op">(</span><span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">.</span><span class="nam">keys</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t">        <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t16" href="#t16">16</a></span><span class="t">    <span class="key">return</span> <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">[</span><span class="nam">environment_id</span><span class="op">]</span><span class="op">(</span><span class="nam">environment_scope</span><span class="op">=</span><span class="nam">environment_scope</span><span class="op">,</span> <span class="op">**</span><span class="nam">kwargs</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t"><span class="key">def</span> <span class="nam">register</span><span class="op">(</span><span class="nam">environment_id</span><span class="op">:</span> <span class="nam">str</span><span class="op">,</span> <span class="nam">env_class</span><span class="op">:</span> <span class="nam">cogrid_env</span><span class="op">.</span><span class="nam">CoGridEnv</span><span class="op">)</span> <span class="op">-></span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">    <span class="str">"""Register an environment factory by name."""</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t">    <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">[</span><span class="nam">environment_id</span><span class="op">]</span> <span class="op">=</span> <span class="nam">env_class</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t10" href="#t10">10</a></span><span class="t">    <span class="key">if</span> <span class="key">not</span> <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t11" href="#t11">11</a></span><span class="t">        <span class="key">import</span> <span class="nam">cogrid</span><span class="op">.</span><span class="nam">envs</span>  <span class="com"># noqa: F401 -- registers layouts &amp; env factories</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t12" href="#t12">12</a></span><span class="t">    <span class="key">if</span> <span class="nam">environment_id</span> <span class="key">not</span> <span class="key">in</span> <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t13" href="#t13">13</a></span><span class="t">        <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Environment ID </span><span class="op">{</span><span class="nam">environment_id</span><span class="op">}</span><span class="fst"> is not registered. </span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Please register it first. \n </span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t16" href="#t16">16</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Available environments: </span><span class="op">{</span><span class="nam">list</span><span class="op">(</span><span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">.</span><span class="nam">keys</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t">        <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t">    <span class="key">return</span> <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">[</span><span class="nam">environment_id</span><span class="op">]</span><span class="op">(</span><span class="nam">environment_scope</span><span class="op">=</span><span class="nam">environment_scope</span><span class="op">,</span> <span class="op">**</span><span class="nam">kwargs</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t"><span class="key">def</span> <span class="nam">register</span><span class="op">(</span><span class="nam">environment_id</span><span class="op">:</span> <span class="nam">str</span><span class="op">,</span> <span class="nam">env_class</span><span class="op">:</span> <span class="nam">cogrid_env</span><span class="op">.</span><span class="nam">CoGridEnv</span><span class="op">)</span> <span class="op">-></span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">    <span class="str">"""Register an environment factory by name."""</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t">    <span class="nam">ENVIRONMENT_REGISTRY</span><span class="op">[</span><span class="nam">environment_id</span><span class="op">]</span> <span class="op">=</span> <span class="nam">env_class</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
         <p>
-            <a class="nav" href="z_20d542bcec0cbdf7_test_interactions_py.html">&#xab; prev</a> &nbsp; &nbsp;
+            <a class="nav" href="z_20d542bcec0cbdf7_v2_objects_py.html">&#xab; prev</a> &nbsp; &nbsp;
             <a class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a class="nav" href="z_16d55800ca555a45_search_rescue_grid_objects_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-04 15:44 +0000
+            created at 2026-04-09 22:57 +0000
         </p>
     </div>
 </footer>

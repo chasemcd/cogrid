@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_3d7de82ab6e3d620_local_view_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-04 15:44 +0000
+            created at 2026-04-09 22:57 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -240,7 +240,7 @@
     <p class="run"><span class="n"><a id="t158" href="#t158">158</a></span><span class="t">    <span class="op">@</span><span class="nam">classmethod</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t159" href="#t159">159</a></span><span class="t">    <span class="key">def</span> <span class="nam">build_feature_fn</span><span class="op">(</span><span class="nam">cls</span><span class="op">,</span> <span class="nam">scope</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t160" href="#t160">160</a></span><span class="t">        <span class="str">"""Build the can-move-direction feature function."""</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t161" href="#t161">161</a></span><span class="t">        <span class="key">from</span> <span class="nam">cogrid</span><span class="op">.</span><span class="nam">core</span><span class="op">.</span><span class="nam">grid_object</span> <span class="key">import</span> <span class="nam">build_lookup_tables</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t161" href="#t161">161</a></span><span class="t">        <span class="key">from</span> <span class="nam">cogrid</span><span class="op">.</span><span class="nam">core</span><span class="op">.</span><span class="nam">objects</span> <span class="key">import</span> <span class="nam">build_lookup_tables</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t162" href="#t162">162</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t163" href="#t163">163</a></span><span class="t">        <span class="nam">tables</span> <span class="op">=</span> <span class="nam">build_lookup_tables</span><span class="op">(</span><span class="nam">scope</span><span class="op">=</span><span class="nam">scope</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t164" href="#t164">164</a></span><span class="t">        <span class="nam">can_overlap_table</span> <span class="op">=</span> <span class="nam">xp</span><span class="op">.</span><span class="nam">array</span><span class="op">(</span><span class="nam">tables</span><span class="op">[</span><span class="str">"CAN_OVERLAP"</span><span class="op">]</span><span class="op">,</span> <span class="nam">dtype</span><span class="op">=</span><span class="nam">xp</span><span class="op">.</span><span class="nam">int32</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -279,9 +279,14 @@
     <p class="pln"><span class="n"><a id="t197" href="#t197">197</a></span><span class="t"><span class="com"># ---------------------------------------------------------------------------</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t198" href="#t198">198</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t199" href="#t199">199</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t200" href="#t200">200</a></span><span class="t"><span class="key">def</span> <span class="nam">get_all_agent_obs</span><span class="op">(</span><span class="nam">feature_fn</span><span class="op">,</span> <span class="nam">state</span><span class="op">,</span> <span class="nam">n_agents</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t201" href="#t201">201</a></span><span class="t">    <span class="str">"""Stack per-agent observations into (n_agents, obs_dim) array."""</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t202" href="#t202">202</a></span><span class="t">    <span class="key">return</span> <span class="nam">xp</span><span class="op">.</span><span class="nam">stack</span><span class="op">(</span><span class="op">[</span><span class="nam">feature_fn</span><span class="op">(</span><span class="nam">state</span><span class="op">,</span> <span class="nam">i</span><span class="op">)</span> <span class="key">for</span> <span class="nam">i</span> <span class="key">in</span> <span class="nam">range</span><span class="op">(</span><span class="nam">n_agents</span><span class="op">)</span><span class="op">]</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t200" href="#t200">200</a></span><span class="t"><span class="key">def</span> <span class="nam">get_all_agent_obs</span><span class="op">(</span><span class="nam">feature_fn</span><span class="op">,</span> <span class="nam">state</span><span class="op">,</span> <span class="nam">agent_ids</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t201" href="#t201">201</a></span><span class="t">    <span class="str">"""Build per-agent observations as ``dict[AgentID, (obs_dim,)]``.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t202" href="#t202">202</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t203" href="#t203">203</a></span><span class="t"><span class="str">    Feature functions receive numeric index ``i`` (0, 1, ...) because</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t204" href="#t204">204</a></span><span class="t"><span class="str">    they index into stacked arrays in EnvState. ``agent_ids`` maps</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t205" href="#t205">205</a></span><span class="t"><span class="str">    position to ID.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t206" href="#t206">206</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t207" href="#t207">207</a></span><span class="t">    <span class="key">return</span> <span class="op">{</span><span class="nam">aid</span><span class="op">:</span> <span class="nam">feature_fn</span><span class="op">(</span><span class="nam">state</span><span class="op">,</span> <span class="nam">i</span><span class="op">)</span> <span class="key">for</span> <span class="nam">i</span><span class="op">,</span> <span class="nam">aid</span> <span class="key">in</span> <span class="nam">enumerate</span><span class="op">(</span><span class="nam">agent_ids</span><span class="op">)</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -291,7 +296,7 @@
             <a class="nav" href="z_3d7de82ab6e3d620_local_view_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-04 15:44 +0000
+            created at 2026-04-09 22:57 +0000
         </p>
     </div>
 </footer>
