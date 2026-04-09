@@ -100,7 +100,12 @@ jobs:
           cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: pytest --cov=cogrid --cov-report=xml --cov-report=term
-      - run: pytest cogrid/envs/overcooked/ -q
+      - name: Run overcooked tests
+        run: |
+          pytest cogrid/envs/overcooked/test_interactions.py -q
+          pytest cogrid/envs/overcooked/test_v2_system.py -q
+          pytest cogrid/envs/overcooked/test_v2_observation_channels.py -q
+          pytest cogrid/envs/overcooked/test_order_observation.py -q
       - uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ github.token }}

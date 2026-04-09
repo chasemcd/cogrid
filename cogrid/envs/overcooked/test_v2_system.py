@@ -546,7 +546,7 @@ class TestV2EndToEnd:
 
     def test_jax_backend_v2(self):
         """V2 environment works with JAX backend."""
-        import jax
+        jax = pytest.importorskip("jax")
 
         env = cogrid.make("OvercookedV2-GroundedCoordSimple-V0", backend="jax")
         env.reset(seed=42)
