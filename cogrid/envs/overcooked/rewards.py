@@ -136,6 +136,7 @@ class OrderDeliveryReward(DeliveryReward):
     1. Only firing when a matching active order was consumed this step
        (detected via prev_state.order_recipe vs state.order_recipe diff).
     2. Adding a time-based tip bonus proportional to remaining order time.
+    3. Optionally penalizing deliveries that don't match any active order.
 
     Falls back to base DeliveryReward behavior (no gating, no tip) when
     order_recipe is not present in state (orders disabled).
@@ -144,15 +145,19 @@ class OrderDeliveryReward(DeliveryReward):
     ----------
     order_time_limit : int or None
         Maximum lifetime of an order (used for tip calculation).
+    penalize_incorrect : bool
+        If True, delivering a soup that doesn't match any active order
+        incurs ``-coefficient`` penalty (default False).
     **kwargs
         Forwarded to ``DeliveryReward.__init__`` (``coefficient``,
         ``common_reward``, etc.).
     """
 
-    def __init__(self, *, order_time_limit=None, **kwargs):
-        """Initialize with optional order time limit for tip calculation."""
+    def __init__(self, *, order_time_limit=None, penalize_incorrect=False, **kwargs):
+        """Initialize with optional order time limit and incorrect penalty."""
         super().__init__(**kwargs)
         self.order_time_limit = order_time_limit
+        self.penalize_incorrect = penalize_incorrect
 
     def compute(self, prev_state, state, actions, reward_config):
         """Compute delivery rewards gated on order consumption with tip bonus."""
@@ -171,6 +176,9 @@ class OrderDeliveryReward(DeliveryReward):
         now_inactive = state.order_recipe == -1  # (max_active,)
         consumed = was_active & now_inactive
         any_consumed = xp.any(consumed)
+
+        # Detect if a delivery happened (base_rewards > 0 for any agent)
+        any_delivery = xp.any(base_rewards > 0)
 
         # Gate: only reward if at least one order was consumed
         order_mask = xp.where(any_consumed, xp.float32(1.0), xp.float32(0.0))
@@ -192,9 +200,17 @@ class OrderDeliveryReward(DeliveryReward):
         else:
             tip = xp.float32(0.0)
 
-        # Apply order gate and add tip to every agent's reward
         n_agents = reward_config["n_agents"]
-        return base_rewards * order_mask + xp.full(n_agents, tip, dtype=xp.float32)
+        coefficient = self.get_coefficient(state)
+        rewards = base_rewards * order_mask + xp.full(n_agents, tip, dtype=xp.float32)
+
+        # Penalty for incorrect delivery (delivery happened but no order consumed)
+        if self.penalize_incorrect:
+            incorrect = any_delivery & ~any_consumed
+            penalty = xp.where(incorrect, -coefficient, xp.float32(0.0))
+            rewards = rewards + xp.full(n_agents, penalty, dtype=xp.float32)
+
+        return rewards
 
 
 # ---------------------------------------------------------------------------

@@ -191,9 +191,9 @@ partial_obs_cramped_room_config = {
         "layout_id",
     ],
     "rewards": [
-        DeliveryReward(coefficient=1.0, common_reward=True),
-        OnionInPotReward(coefficient=0.1, common_reward=False),
-        SoupInDishReward(coefficient=0.3, common_reward=False),
+        DeliveryReward(coefficient=20, common_reward=True),
+        OnionInPotReward(coefficient=3, common_reward=False),
+        SoupInDishReward(coefficient=5, common_reward=False),
     ],
     "grid": {"layout": "overcooked_asymmetric_advantages_v0"},
     "max_steps": 1000,
@@ -229,9 +229,9 @@ cramped_room_local_view_config = {
     "action_set": "cardinal_actions",
     "features": ["local_view"],
     "rewards": [
-        DeliveryReward(coefficient=1.0, common_reward=True),
-        OnionInPotReward(coefficient=0.1, common_reward=False),
-        SoupInDishReward(coefficient=0.3, common_reward=False),
+        DeliveryReward(coefficient=20.0, common_reward=True),
+        OnionInPotReward(coefficient=3, common_reward=False),
+        SoupInDishReward(coefficient=5, common_reward=False),
     ],
     "grid": {"layout": "overcooked_cramped_room_v0"},
     "max_steps": 1000,
@@ -257,7 +257,7 @@ registry.register(
 layouts.register_layout(
     "overcooked_cramped_mixed_kitchen_v0",
     [
-        "CCUCC",
+        "CUCUC",
         "O+ +T",
         "C   C",
         "C=@CC",
@@ -265,8 +265,8 @@ layouts.register_layout(
 )
 
 _mixed_kitchen_order_cfg = {
-    "spawn_probs": {"onion_soup": 0.05, "tomato_soup": 0.05},
-    "max_active": 3,
+    "spawn_probs": {"onion_soup": 0.02, "tomato_soup": 0.02},
+    "max_active": 2,
     "time_limit": 100,
 }
 cramped_mixed_kitchen_config = {
@@ -287,12 +287,13 @@ cramped_mixed_kitchen_config = {
     ],
     "rewards": [
         OrderDeliveryReward(
-            coefficient=1.0,
+            coefficient=20.0,
             common_reward=True,
             order_time_limit=_mixed_kitchen_order_cfg["time_limit"],
+            penalize_incorrect=True,
         ),
-        OrderGatedIngredientInPotReward(coefficient=0.1, common_reward=False),
-        ExpiredOrderPenalty(coefficient=-0.75),
+        OrderGatedIngredientInPotReward(coefficient=3, common_reward=True),
+        ExpiredOrderPenalty(coefficient=-20),
     ],
     "grid": {"layout": "overcooked_cramped_mixed_kitchen_v0"},
     "max_steps": 4000,

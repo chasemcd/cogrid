@@ -217,6 +217,7 @@ def train_and_visualize_v1(env_id: str, config: dict, gif_dir: str) -> str:
     out = train_fn(jax.random.key(config["SEED"]))
 
     _print_results(out)
+    _save_training_curve(out, config, env_id)
 
     params = out["runner_state"][0].params
     save_params(params, env_id)
@@ -301,6 +302,7 @@ def train_and_visualize_v2(env_id: str, config: dict, gif_dir: str) -> str:
     out = train_fn(jax.random.key(config["SEED"]))
 
     _print_results(out)
+    _save_training_curve(out, config, env_id)
 
     params = out["runner_state"][0].params
     save_params(params, env_id)
@@ -422,6 +424,56 @@ def _print_results(out):
         print(f"  {len(completed)} episodes, mean return (last {tail}): {mean_ret:.2f}")
     else:
         print("  No episodes completed")
+
+
+def _save_training_curve(out, config, env_id):
+    """Save a learning curve PNG for the given training run."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+
+    ep_ret = np.array(out["metrics"]["returned_episode_returns"])
+    ep_done = np.array(out["metrics"]["returned_episode"])
+
+    num_steps = config["NUM_STEPS"]
+    num_envs = config["NUM_ENVS"]
+
+    all_steps = []
+    all_returns = []
+    for u in range(ep_ret.shape[0]):
+        for s in range(ep_ret.shape[1]):
+            env_step = (u * num_steps + s + 1) * num_envs
+            for e in range(ep_ret.shape[2]):
+                if ep_done[u, s, e] > 0:
+                    all_steps.append(env_step)
+                    all_returns.append(ep_ret[u, s, e])
+
+    if len(all_returns) < 2:
+        return
+
+    all_steps = np.array(all_steps)
+    all_returns = np.array(all_returns)
+
+    window = max(1, len(all_returns) // 50)
+    smoothed = np.convolve(all_returns, np.ones(window) / window, mode="valid")
+    smoothed_steps = all_steps[window - 1 :]
+
+    slug = env_id.lower().replace("-", "_")
+    path = os.path.join(EXAMPLES_DIR, f"{slug}_training.png")
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(smoothed_steps, smoothed, linewidth=1.5)
+    plt.xlabel("Environment Steps")
+    plt.ylabel("Mean Episode Return")
+    plt.title(env_id)
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()
+    print(f"  Saved training curve to {path}")
 
 
 def stitch_gifs(
@@ -578,6 +630,26 @@ def main():
         "SEED": args.seed,
     }
 
+    cmk_config = {
+        "LR": 1e-3,
+        "NUM_ENVS": 128,
+        "NUM_STEPS": 512,
+        "TOTAL_TIMESTEPS": args.timesteps,
+        "SHAPED_REWARD_ANNEAL_TIMESTEPS": int(args.timesteps * 0.8),
+        "UPDATE_EPOCHS": 4,
+        "NUM_MINIBATCHES": 16,
+        "GAMMA": 0.997,
+        "GAE_LAMBDA": 0.98,
+        "CLIP_EPS": 0.2,
+        "ENT_COEF": 0.1,
+        "ENT_COEF_FINAL": 0.01,
+        "VF_COEF": 0.5,
+        "MAX_GRAD_NORM": 0.5,
+        "ACTIVATION": "tanh",
+        "ANNEAL_LR": True,
+        "SEED": args.seed,
+    }
+
     v2_config = {
         "LR": 0.00025,
         "NUM_ENVS": 256,
@@ -609,7 +681,7 @@ def main():
     if not args.skip_training:
         if do_cmk:
             for env_id in CMK_ENVS:
-                train_and_visualize_v1(env_id, v1_config, GIF_DIR)
+                train_and_visualize_v1(env_id, cmk_config, GIF_DIR)
         if do_v1:
             for env_id in V1_ENVS:
                 train_and_visualize_v1(env_id, v1_config, GIF_DIR)
@@ -619,7 +691,7 @@ def main():
     else:
         if do_cmk:
             for env_id in CMK_ENVS:
-                regenerate_gif_v1(env_id, v1_config, GIF_DIR)
+                regenerate_gif_v1(env_id, cmk_config, GIF_DIR)
         if do_v1:
             for env_id in V1_ENVS:
                 regenerate_gif_v1(env_id, v1_config, GIF_DIR)
