@@ -14,7 +14,7 @@ CoGrid utilizes the parallel [PettingZoo](https://pettingzoo.farama.org/) API to
 CoGrid is designed to offer an approachable API for environment customization, compatibility with standard tooling, and pre-build benchmark environments. Full documentation is available at [cogrid.readthedocs.io](https://cogrid.readthedocs.io).
 
 <p align="center">
-  <img src="docs/assets/images/v2_layouts.png" alt="OvercookedV2 Layouts" width="60%">
+  <img src="docs/assets/images/v2_layouts.png" alt="OvercookedV2 Layouts" width="100%">
 </p>
 
 ## Installation
