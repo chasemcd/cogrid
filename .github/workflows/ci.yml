@@ -83,7 +83,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: pyproject.toml
       - run: pip install -e ".[docs]"
-      - run: mkdocs build --strict
+      - run: zensical build
 
   coverage:
     name: Coverage
