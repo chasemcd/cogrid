@@ -117,10 +117,11 @@ All components are declared in a config dict and autowired by the engine. No man
 If you use CoGrid in your research, please cite the following paper:
 
 ```bibtex
-@article{mcdonald2024cogrid,
-  author  = {McDonald, Chase and Gonzalez, Cleotilde},
-  title   = {CoGrid and Interactive Gym: A Framework for Multi-Agent Experimentation},
-  year    = {forthcoming},
+@article{mcdonald2026cogrid,
+  title={CoGrid \& the Multi-User Gymnasium: A Framework for Multi-Agent Experimentation},
+  author={McDonald, Chase and Gonzalez, Cleotilde},
+  journal={arXiv preprint arXiv:2604.15044},
+  year={2026}
 }
 ```
 
