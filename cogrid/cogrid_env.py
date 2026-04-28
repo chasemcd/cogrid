@@ -604,7 +604,14 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             "wall_map": np.array(state.wall_map).tolist(),
             "object_type_map": np.array(state.object_type_map).tolist(),
             "object_state_map": np.array(state.object_state_map).tolist(),
-            "extra_state": {k: np.array(v).tolist() for k, v in state.extra_state.items()},
+            "extra_state": {
+                k: {
+                    "data": np.asarray(v).tolist(),
+                    "shape": list(np.asarray(v).shape),
+                    "dtype": str(np.asarray(v).dtype),
+                }
+                for k, v in state.extra_state.items()
+            },
             "rng_key": (np.array(state.rng_key).tolist() if state.rng_key is not None else None),
             "time": int(state.time),
             "done": np.array(state.done).tolist(),
@@ -635,7 +642,11 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         else:
             xp = np
 
-        extra_state = {k: xp.array(v, dtype=xp.int32) for k, v in snapshot["extra_state"].items()}
+        extra_state = {}
+        for k, entry in snapshot["extra_state"].items():
+            arr = np.asarray(entry["data"], dtype=np.dtype(entry["dtype"]))
+            arr = arr.reshape(entry["shape"])
+            extra_state[k] = xp.asarray(arr)
 
         rng_key = snapshot["rng_key"]
         if rng_key is not None:
