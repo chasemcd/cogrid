@@ -27,6 +27,7 @@ dependencies = [
     "numpy>=1.26,<3.0",
     "gymnasium>=0.29",
     "pettingzoo>=1.24",
+    "multi_user_gymnasium==0.1.2",
 ]
 
 [project.optional-dependencies]

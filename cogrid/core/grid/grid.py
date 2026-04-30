@@ -6,21 +6,21 @@ See https://github.com/Farama-Foundation/Minigrid/minigrid/core/grid.py
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from cogrid.constants import GridConstants
 from cogrid.core.constants import CoreConstants
 from cogrid.core.objects import GridAgent, GridObj, Wall, object_to_idx
-from cogrid.visualization.rendering import (
-    downsample,
-    fill_coords,
-    highlight_img,
-    point_in_rect,
-)
+
+if TYPE_CHECKING:
+    from mug.rendering import Surface
 
 CHANNEL_FIRST = False
+
+_GRID_LINE_COLOR = (100, 100, 100)
+_GRID_LINE_FRAC = 0.031
 
 
 def get_grid_agent_at_position(
@@ -50,8 +50,6 @@ class Grid:
     :param width: Width of the grid.
     :type width: int
     """
-
-    tile_cache: dict[tuple[Any], Any] = {}
 
     def __init__(self, height: int, width: int):
         """Generator method for Grid class."""
@@ -201,115 +199,74 @@ class Grid:
         self.vert_wall(row=row, col=col, length=h, obj_type=grid_obj)
         self.vert_wall(row=row + w - 1, col=col, length=h, obj_type=grid_obj)
 
-    def render_tile(
+    def draw_to_surface(
         self,
-        obj: GridObj | None,
-        highlight: bool = False,
-        position: tuple[int, int] | None = None,
+        surface: Surface,
         tile_size: int = CoreConstants.TilePixels,
-        subdivs: int = 3,
-    ) -> np.ndarray:
-        """Render a tile and cache the result.
+        *,
+        x_offset: float = 0,
+        y_offset: float = 0,
+    ) -> None:
+        """Draw the grid onto a ``mug.Surface`` in canvas pixel space.
 
-        :param obj: The GridObj to render on the tile, defaults to None.
-        :type obj: GridObj | None
-        :param highlight: If the cell should be highlighted, defaults to False
-        :type highlight: bool, optional
-        :param position: Position of the GridObj (useful for retrieving GridAgent), defaults to None
-        :type position: tuple[int, int] | None, optional
-        :param tile_size: Rendered size of the tile, defaults to CoreConstants.TilePixels
-        :type tile_size: int, optional
-        :param subdivs: Number of sub-divisions of the tile, defaults to 3
-        :type subdivs: int, optional
-        :return: An RGB image of the rendered tile.
-        :rtype: np.ndarray
+        Each cell is drawn into a ``TileSurface`` view that exposes 0-1
+        cell-local coordinates to ``GridObj.render``. Grid lines are drawn
+        per-cell (top and left edges) so cells share borders. Agents are
+        drawn after their cell's object.
+
+        :param surface: Frame-wide ``mug.Surface`` to draw onto.
+        :param tile_size: Pixel size of each grid cell.
+        :param x_offset: Canvas-pixel x of the grid's top-left corner.
+        :param y_offset: Canvas-pixel y of the grid's top-left corner.
         """
-        grid_agent = get_grid_agent_at_position(grid=self, position=position)
-        agent_dir = grid_agent.dir if grid_agent else None
-        agent_color = grid_agent.agent_id if grid_agent else None
-        agent_inventory_names = (
-            tuple([obj.object_id for obj in grid_agent.inventory]) if grid_agent else None
-        )
-        key: tuple[Any, ...] = (
-            (agent_dir, agent_color, agent_inventory_names),
-            highlight,
-            tile_size,
-        )
-        key = obj.encode() + key if obj else key
+        from cogrid.rendering.tile_surface import TileSurface
 
-        if key in self.__class__.tile_cache:
-            return self.__class__.tile_cache[key]
+        for row in range(self.height):
+            for col in range(self.width):
+                ts = TileSurface(
+                    surface,
+                    x_offset=col * tile_size + x_offset,
+                    y_offset=row * tile_size + y_offset,
+                    width=tile_size,
+                    height=tile_size,
+                    id_prefix=f"{row}-{col}-",
+                )
+                ts.rect(x=0, y=0, w=_GRID_LINE_FRAC, h=1, color=_GRID_LINE_COLOR)
+                ts.rect(x=0, y=0, w=1, h=_GRID_LINE_FRAC, color=_GRID_LINE_COLOR)
 
-        tile_img = np.zeros(shape=(tile_size * subdivs, tile_size * subdivs, 3), dtype=np.uint8)
+                cell = self.get(row=row, col=col)
+                if cell is not None and cell.background_color is not None:
+                    ts.rect(x=0, y=0, w=1, h=1, color=cell.background_color)
+                if cell is not None:
+                    cell.render(ts)
 
-        # Draw grid lines (separating each tile)
-        fill_coords(tile_img, point_in_rect(0, 0.031, 0, 1), (100, 100, 100))
-        fill_coords(tile_img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
-
-        # Fill background color if the object specifies one (covers grid lines)
-        if obj is not None and obj.background_color is not None:
-            fill_coords(tile_img, point_in_rect(0, 1, 0, 1), obj.background_color)
-
-        # Render the object itself onto the tile
-        if obj is not None:
-            obj.render(tile_img)
-
-        if grid_agent is not None:
-            grid_agent.render(tile_img)
-
-        if highlight:
-            highlight_img(tile_img)
-
-        tile_img = downsample(tile_img, subdivs)
-
-        # Cache the rendered tile
-        self.__class__.tile_cache[key] = tile_img
-
-        return tile_img
+                grid_agent = get_grid_agent_at_position(grid=self, position=(row, col))
+                if grid_agent is not None:
+                    grid_agent.render(ts)
 
     def render(
         self,
         tile_size: int,
-        highlight_mask: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Render a tile and cache the result.
+        """Render the full grid to an RGB ``np.ndarray``.
 
-        :param tile_size: The size of the tile (pixels).
-        :type tile_size: int
-        :param highlight_mask: Array mask to indicate which cells are highlighted, defaults to None
-        :type highlight_mask: np.ndarray | None, optional
-        :return: An RGB image of the rendered grid.
-        :rtype: np.ndarray
+        Builds a fresh ``mug.Surface`` and a ``PygameRenderer`` for each
+        call. For repeated rendering or for MUG mode, hold a long-lived
+        ``Surface`` and call :meth:`draw_to_surface` directly.
         """
-        if highlight_mask is None:
-            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=bool)
+        from mug.rendering import Surface
 
-        # Compute total size
+        from cogrid.rendering.raster import PygameRenderer
+
         width_px = self.width * tile_size
         height_px = self.height * tile_size
 
-        img = np.zeros(shape=(height_px, width_px, 3), dtype=np.uint8)
+        surface = Surface(width=width_px, height=height_px)
+        self.draw_to_surface(surface, tile_size=tile_size)
 
-        # render the grid
-        assert highlight_mask is not None
-        for row in range(self.height):
-            for col in range(self.width):
-                cell = self.get(row=row, col=col)
-
-                tile_img = self.render_tile(
-                    cell,
-                    highlight=highlight_mask.T[row, col],
-                    position=(row, col),
-                    tile_size=tile_size,
-                )
-                ymin = row * tile_size
-                ymax = (row + 1) * tile_size
-                xmin = col * tile_size
-                xmax = (col + 1) * tile_size
-
-                img[ymin:ymax, xmin:xmax, :] = tile_img
-
-        return img
+        renderer = PygameRenderer(width=width_px, height=height_px)
+        renderer.apply(surface.commit().to_dict())
+        return renderer.to_array()
 
     def encode(
         self,

@@ -4,12 +4,7 @@ from cogrid.core import constants
 from cogrid.core import objects as grid_object
 from cogrid.core.objects.registry import register_object_type
 from cogrid.core.objects.when import when
-from cogrid.visualization.rendering import (
-    fill_coords,
-    point_in_circle,
-    point_in_rect,
-    point_in_triangle,
-)
+from cogrid.rendering.tile_surface import TileSurface
 
 
 @register_object_type("medkit", scope="search_rescue")
@@ -24,12 +19,11 @@ class MedKit(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a red cross icon."""
-        # red background with white cross
-        fill_coords(tile_img, point_in_rect(0.1, 0.9, 0.1, 0.9), (255, 0, 0))
-        fill_coords(tile_img, point_in_rect(0.4, 0.6, 0.2, 0.8), (255, 255, 255))
-        fill_coords(tile_img, point_in_rect(0.2, 0.8, 0.4, 0.6), (255, 255, 255))
+        surface.rect(x=0.1, y=0.1, w=0.8, h=0.8, color=(255, 0, 0))
+        surface.rect(x=0.4, y=0.2, w=0.2, h=0.6, color=(255, 255, 255))
+        surface.rect(x=0.2, y=0.4, w=0.6, h=0.2, color=(255, 255, 255))
 
 
 @register_object_type("pickaxe", scope="search_rescue")
@@ -44,26 +38,17 @@ class Pickaxe(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a pickaxe with brown handle and grey head."""
-        # Brown Handle
-        fill_coords(tile_img, point_in_rect(0.45, 0.55, 0.15, 0.9), constants.Colors.Brown)
-
-        # Use two triangles to make the pickaxe head
-        # These are of the specified color
-        tri_fn = point_in_triangle(
-            (0.5, 0.1),
-            (0.5, 0.3),
-            (0.9, 0.35),
+        surface.rect(x=0.45, y=0.15, w=0.10, h=0.75, color=constants.Colors.Brown)
+        surface.polygon(
+            points=[(0.5, 0.1), (0.5, 0.3), (0.9, 0.35)],
+            color=self.color,
         )
-        fill_coords(tile_img, tri_fn, self.color)
-
-        tri_fn = point_in_triangle(
-            (0.5, 0.1),
-            (0.5, 0.3),
-            (0.1, 0.35),
+        surface.polygon(
+            points=[(0.5, 0.1), (0.5, 0.3), (0.1, 0.35)],
+            color=self.color,
         )
-        fill_coords(tile_img, tri_fn, self.color)
 
 
 @register_object_type("rubble", scope="search_rescue")
@@ -77,11 +62,11 @@ class Rubble(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw three brown circles representing rubble pile."""
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+        surface.circle(x=0.25, y=0.3, radius=0.2, color=self.color)
+        surface.circle(x=0.75, y=0.3, radius=0.2, color=self.color)
+        surface.circle(x=0.50, y=0.7, radius=0.2, color=self.color)
 
 
 @register_object_type("green_victim", scope="search_rescue")
@@ -95,9 +80,9 @@ class GreenVictim(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a green circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
+        surface.circle(x=0.5, y=0.47, radius=0.4, color=self.color)
 
 
 @register_object_type("purple_victim", scope="search_rescue")
@@ -111,9 +96,9 @@ class PurpleVictim(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a purple circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
+        surface.circle(x=0.5, y=0.47, radius=0.4, color=self.color)
 
 
 @register_object_type("yellow_victim", scope="search_rescue")
@@ -127,9 +112,9 @@ class YellowVictim(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a yellow circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
+        surface.circle(x=0.5, y=0.47, radius=0.4, color=self.color)
 
 
 @register_object_type("red_victim", scope="search_rescue")
@@ -143,6 +128,6 @@ class RedVictim(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a red circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.47, r=0.4), self.color)
+        surface.circle(x=0.5, y=0.47, radius=0.4, color=self.color)
