@@ -17,17 +17,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from cogrid.constants import GridConstants
+from cogrid.core.directions import Directions
 
 if TYPE_CHECKING:
-    from cogrid.core.typing import ArrayLike
-
-from cogrid.core.directions import Directions
-from cogrid.visualization.rendering import (
-    fill_coords,
-    point_in_rect,
-    point_in_triangle,
-    rotate_fn,
-)
+    from cogrid.rendering.tile_surface import TileSurface
 
 
 class GridObj:
@@ -57,9 +50,9 @@ class GridObj:
             int(self.state),
         )
 
-    def render(self, tile_img: ArrayLike) -> None:
+    def render(self, surface: TileSurface) -> None:
         """By default, everything will be rendered as a square with the specified color."""
-        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), color=self.color)
+        surface.rect(x=0, y=0, w=1, h=1, color=self.color)
 
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global") -> GridObj | None:
@@ -137,42 +130,38 @@ class GridAgent(GridObj):
         rgb_color = self._hsv_to_rgb(hue, 0.35, 0.99)
         self.color = rgb_color
 
-    def render(self, tile_img: ArrayLike) -> None:
+    def render(self, surface: TileSurface) -> None:
         """Draw agent as a directional triangle with inventory items."""
-        tri_fn = point_in_triangle(
-            (0.12, 0.19),
-            (0.87, 0.50),
-            (0.12, 0.81),
-        )
-
-        # Rotate the triangle based on agent direction
         assert self.dir is not None
-        tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * self.dir)
-        fill_coords(tile_img, tri_fn, self.color)
-
-        # add any item in the inventory to the corner
-        inv_tile_rows, inv_tile_cols = (
-            tile_img.shape[0] // 3,
-            tile_img.shape[1] // 3,
-        )
         assert len(self.inventory) <= 3, (
-            "We're rendering inventory items at 1/3 size, so can't do more than 3!"
+            "Inventory items are rendered at 1/3 size; cannot fit more than 3."
         )
 
-        offset = 4  # offset so we still see grid lines
-        for i, obj in enumerate(self.inventory):
-            inventory_tile = np.zeros(shape=(inv_tile_rows, inv_tile_cols, 3))
-            obj.render(inventory_tile)
+        # Triangle pointing right at dir=0; rotated +90° per direction step.
+        base_pts = [(0.12, 0.19), (0.87, 0.50), (0.12, 0.81)]
+        theta = 0.5 * math.pi * self.dir
+        cos_t, sin_t = math.cos(theta), math.sin(theta)
+        rotated = [
+            (
+                0.5 + (px - 0.5) * cos_t - (py - 0.5) * sin_t,
+                0.5 + (px - 0.5) * sin_t + (py - 0.5) * cos_t,
+            )
+            for px, py in base_pts
+        ]
+        surface.polygon(points=rotated, color=self.color)
 
-            # Take the subset of the image that we'll fill, then only
-            # fill where the image is non-zero (transparent background).
-            tile_subset = tile_img[
-                i * inv_tile_rows + offset : (i + 1) * inv_tile_rows + offset,
-                offset : inv_tile_cols + offset,
-                :,
-            ]
-            nonzero_entries = np.nonzero(inventory_tile)
-            tile_subset[nonzero_entries] = inventory_tile[nonzero_entries]
+        # Inventory column down the left edge of the cell.
+        inv_size = 0.30
+        inv_offset = 0.04
+        for i, obj in enumerate(self.inventory):
+            sub = surface.subregion(
+                x=inv_offset,
+                y=inv_offset + i * inv_size,
+                w=inv_size,
+                h=inv_size,
+                id_prefix=f"inv-{i}-",
+            )
+            obj.render(sub)
 
     @staticmethod
     def decode(char_or_idx: str | int, state: int, scope: str = "global") -> GridObj | None:
@@ -225,4 +214,4 @@ class GridAgent(GridObj):
         else:
             r, g, b = c, 0, x
 
-        return ((r + m) * 255.0, (g + m) * 255.0, (b + m) * 255.0)
+        return (int((r + m) * 255), int((g + m) * 255), int((b + m) * 255))

@@ -18,12 +18,7 @@ from cogrid.envs.overcooked.overcooked_grid_objects import (
     make_ingredient_and_stack,
 )
 from cogrid.envs.overcooked.recipes import Recipe
-from cogrid.visualization.rendering import (
-    add_text_to_image,
-    fill_coords,
-    point_in_circle,
-    point_in_rect,
-)
+from cogrid.rendering.tile_surface import TileSurface
 
 # ---------------------------------------------------------------------------
 # Soup type generation
@@ -57,9 +52,9 @@ def make_soup(
     def _soup_init(self, *args, **kwargs):
         grid_object.GridObj.__init__(self, state=0)
 
-    def _soup_render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
+    def _soup_render(self, surface: TileSurface) -> None:
+        surface.circle(x=0.5, y=0.5, radius=0.5, color=Plate.color)
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)
 
     SoupCls.__init__ = _soup_init
     SoupCls.render = _soup_render
@@ -171,19 +166,15 @@ class OpenPot(grid_object.GridObj):
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.cooking_timer: int = 20
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw pot circle with ingredient dots and timer text."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
+        surface.circle(x=0.5, y=0.5, radius=0.5, color=self.color)
 
         for i, grid_obj in enumerate(self.objects_in_pot):
-            fill_coords(
-                tile_img,
-                point_in_circle(cx=0.25 * (i + 1), cy=0.2, r=0.2),
-                grid_obj.color,
-            )
+            surface.circle(x=0.25 * (i + 1), y=0.2, radius=0.2, color=grid_obj.color)
 
         if len(self.objects_in_pot) == self.capacity:
-            add_text_to_image(tile_img, text=str(self.cooking_timer), position=(50, 75))
+            surface.text(text=str(self.cooking_timer), x=0.52, y=0.78, size=14, color="white")
 
     def encode(self, encode_char: bool = True, scope: str = "global"):
         """Encode pot state including contents and timer for tile cache."""
@@ -234,12 +225,12 @@ class RecipeIndicator(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw indicator tile with recipe-colored dot."""
-        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), self.color)
+        surface.rect(x=0, y=0, w=1, h=1, color=self.color)
         dot_color = _recipe_dot_color(self.state)
         if dot_color is not None:
-            fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.3), dot_color)
+            surface.circle(x=0.5, y=0.5, radius=0.3, color=dot_color)
 
 
 @register_object_type("button_indicator", scope="overcooked")
@@ -260,20 +251,19 @@ class ButtonIndicator(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw button tile, lit when active."""
         active = self.state > 0
         bg = self.color if active else self._inactive_color
-        fill_coords(tile_img, point_in_rect(0, 1, 0, 1), bg)
-        # Small button circle in center
+        surface.rect(x=0, y=0, w=1, h=1, color=bg)
         btn_ring_color = (255, 255, 255) if active else (140, 100, 160)
-        fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.25), btn_ring_color)
+        surface.circle(x=0.5, y=0.5, radius=0.25, color=btn_ring_color)
         if active:
             dot_color = _recipe_dot_color(self.state)
             if dot_color is not None:
-                fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.18), dot_color)
+                surface.circle(x=0.5, y=0.5, radius=0.18, color=dot_color)
         else:
-            fill_coords(tile_img, point_in_circle(0.5, 0.5, 0.18), self._inactive_color)
+            surface.circle(x=0.5, y=0.5, radius=0.18, color=self._inactive_color)
 
 
 # ---------------------------------------------------------------------------

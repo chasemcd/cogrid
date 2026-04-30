@@ -4,8 +4,6 @@ Contains the built-in object types (Wall, Floor, Counter, Key, Door) that are
 registered in the global scope via @register_object_type.
 """
 
-import numpy as np
-
 from cogrid.constants import GridConstants
 from cogrid.core import constants
 from cogrid.core.objects.base import GridObj
@@ -15,11 +13,7 @@ from cogrid.core.objects.registry import (
     register_object_type,
 )
 from cogrid.core.objects.when import when
-from cogrid.visualization.rendering import (
-    fill_coords,
-    point_in_circle,
-    point_in_rect,
-)
+from cogrid.rendering.tile_surface import TileSurface
 
 
 @register_object_type("wall")
@@ -65,12 +59,12 @@ class Counter(GridObj):
             state=state,
         )
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw counter and any object placed on it."""
-        super().render(tile_img)
+        super().render(surface)
 
         if self.obj_placed_on is not None:
-            self.obj_placed_on.render(tile_img)
+            self.obj_placed_on.render(surface)
 
     @classmethod
     def build_render_sync_fn(cls):
@@ -108,18 +102,13 @@ class Key(GridObj):
         """Initialize key with given state."""
         super().__init__(state=state)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw key icon with ring and teeth."""
-        # Vertical quad
-        fill_coords(tile_img, point_in_rect(0.50, 0.63, 0.31, 0.88), self.color)
-
-        # Teeth
-        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.59, 0.66), self.color)
-        fill_coords(tile_img, point_in_rect(0.38, 0.50, 0.81, 0.88), self.color)
-
-        # Ring
-        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.190), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.56, cy=0.28, r=0.064), (0, 0, 0))
+        surface.rect(x=0.50, y=0.31, w=0.13, h=0.57, color=self.color)
+        surface.rect(x=0.38, y=0.59, w=0.12, h=0.07, color=self.color)
+        surface.rect(x=0.38, y=0.81, w=0.12, h=0.07, color=self.color)
+        surface.circle(x=0.56, y=0.28, radius=0.190, color=self.color)
+        surface.circle(x=0.56, y=0.28, radius=0.064, color=(0, 0, 0))
 
 
 @register_object_type("door")
@@ -152,29 +141,21 @@ class Door(GridObj):
 
         return super().encode(encode_char=encode_char)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw the door based on its state (open, closed, or locked)."""
         if self.state == 2:
-            fill_coords(tile_img, point_in_rect(0.88, 1.00, 0.00, 1.00), self.color)
-            fill_coords(tile_img, point_in_rect(0.92, 0.96, 0.04, 0.96), (0, 0, 0))
+            surface.rect(x=0.88, y=0.00, w=0.12, h=1.00, color=self.color)
+            surface.rect(x=0.92, y=0.04, w=0.04, h=0.92, color=(0, 0, 0))
             return
 
-        # Door frame and door
         if self.state == 0:
-            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color)
-            fill_coords(
-                tile_img,
-                point_in_rect(0.06, 0.94, 0.06, 0.94),
-                0.45 * np.array(self.color),
-            )
-
-            # Draw key slot
-            fill_coords(tile_img, point_in_rect(0.52, 0.75, 0.50, 0.56), self.color)
+            darker = tuple(int(c * 0.45) for c in self.color)
+            surface.rect(x=0.00, y=0.00, w=1.00, h=1.00, color=self.color)
+            surface.rect(x=0.06, y=0.06, w=0.88, h=0.88, color=darker)
+            surface.rect(x=0.52, y=0.50, w=0.23, h=0.06, color=self.color)
         else:
-            fill_coords(tile_img, point_in_rect(0.00, 1.00, 0.00, 1.00), self.color)
-            fill_coords(tile_img, point_in_rect(0.04, 0.96, 0.04, 0.96), (0, 0, 0))
-            fill_coords(tile_img, point_in_rect(0.08, 0.92, 0.08, 0.92), self.color)
-            fill_coords(tile_img, point_in_rect(0.12, 0.88, 0.12, 0.88), (0, 0, 0))
-
-            # Draw door handle
-            fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.50, r=0.08), self.color)
+            surface.rect(x=0.00, y=0.00, w=1.00, h=1.00, color=self.color)
+            surface.rect(x=0.04, y=0.04, w=0.92, h=0.92, color=(0, 0, 0))
+            surface.rect(x=0.08, y=0.08, w=0.84, h=0.84, color=self.color)
+            surface.rect(x=0.12, y=0.12, w=0.76, h=0.76, color=(0, 0, 0))
+            surface.circle(x=0.75, y=0.50, radius=0.08, color=self.color)

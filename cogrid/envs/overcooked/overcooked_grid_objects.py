@@ -8,12 +8,16 @@ from cogrid.core.objects import register_object_type
 from cogrid.core.objects.containers import Container
 from cogrid.core.objects.when import when
 from cogrid.envs.overcooked.recipes import Recipe
-from cogrid.visualization.rendering import (
-    fill_coords,
-    point_in_circle,
-    point_in_rect,
-    rotate_fn,
-)
+from cogrid.rendering.tile_surface import TileSurface
+
+
+def _rotate_around(px: float, py: float, cx: float, cy: float, theta: float) -> tuple[float, float]:
+    """Rotate (px, py) by theta radians around (cx, cy)."""
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+    return (
+        cx + (px - cx) * cos_t - (py - cy) * sin_t,
+        cy + (px - cx) * sin_t + (py - cy) * cos_t,
+    )
 
 
 @register_object_type("onion", scope="overcooked")
@@ -28,9 +32,9 @@ class Onion(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a yellow circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)
 
 
 @register_object_type("tomato", scope="overcooked")
@@ -45,9 +49,9 @@ class Tomato(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a red circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)
 
 
 class _BaseStack(grid_object.GridObj):
@@ -62,11 +66,11 @@ class _BaseStack(grid_object.GridObj):
     background_color = constants.Colors.LightBrown
     can_pickup_from = when()
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw three stacked circles using self.color."""
-        fill_coords(tile_img, point_in_circle(cx=0.25, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.75, cy=0.3, r=0.2), self.color)
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.7, r=0.2), self.color)
+        surface.circle(x=0.25, y=0.3, radius=0.2, color=self.color)
+        surface.circle(x=0.75, y=0.3, radius=0.2, color=self.color)
+        surface.circle(x=0.50, y=0.7, radius=0.2, color=self.color)
 
 
 @register_object_type("onion_stack", scope="overcooked")
@@ -131,12 +135,8 @@ class Pot(grid_object.GridObj):
         self.objects_in_pot: list[grid_object.GridObj] = []
         self.cooking_timer: int = 30
 
-    def render(self, tile_img):
-        """Draw pot with lid, ingredient dots, and progress bar.
-
-        This rendering function is adapted from JaxMARL using
-        the Minigrid rendering primitives.
-        """
+    def render(self, surface: TileSurface) -> None:
+        """Draw pot with lid, ingredient dots, and progress bar."""
         is_full = len(self.objects_in_pot) == self.capacity
         is_cooking = is_full and self.cooking_timer > 0
         is_cooked = is_full and self.cooking_timer == 0
@@ -146,34 +146,32 @@ class Pot(grid_object.GridObj):
         # Ingredient circles above pot
         coords = [(0.23, 0.33), (0.77, 0.33), (0.50, 0.33)]
         for i, grid_obj in enumerate(self.objects_in_pot):
-            fill_coords(
-                tile_img,
-                point_in_circle(*coords[i], 0.13),
-                grid_obj.color,
-            )
+            cx, cy = coords[i]
+            surface.circle(x=cx, y=cy, radius=0.13, color=grid_obj.color)
 
         # Pot body
-        fill_coords(tile_img, point_in_rect(0.1, 0.9, 0.33, 0.9), (0, 0, 0))
+        surface.rect(x=0.10, y=0.33, w=0.80, h=0.57, color=(0, 0, 0))
 
-        # Lid and handle
-        lid_fn = point_in_rect(0.1, 0.9, 0.21, 0.25)
-        handle_fn = point_in_rect(0.4, 0.6, 0.16, 0.21)
-
+        # Lid and handle as polygon rects so we can rotate when the pot is open
+        lid_pts = [(0.1, 0.21), (0.9, 0.21), (0.9, 0.25), (0.1, 0.25)]
+        handle_pts = [(0.4, 0.16), (0.6, 0.16), (0.6, 0.21), (0.4, 0.21)]
         if pot_open:
-            lid_fn = rotate_fn(lid_fn, cx=0.1, cy=0.25, theta=-0.1 * math.pi)
-            handle_fn = rotate_fn(handle_fn, cx=0.1, cy=0.25, theta=-0.1 * math.pi)
-
-        fill_coords(tile_img, lid_fn, (0, 0, 0))
-        fill_coords(tile_img, handle_fn, (0, 0, 0))
+            theta = -0.1 * math.pi
+            lid_pts = [_rotate_around(px, py, 0.1, 0.25, theta) for px, py in lid_pts]
+            handle_pts = [_rotate_around(px, py, 0.1, 0.25, theta) for px, py in handle_pts]
+        surface.polygon(points=lid_pts, color=(0, 0, 0))
+        surface.polygon(points=handle_pts, color=(0, 0, 0))
 
         # Progress bar while cooking or after cooked
         if is_cooking or is_cooked:
             cook_time = self.recipes[0].cook_time if self.recipes else 30
             progress = 0.1 + (0.9 - 0.1) * (1 - self.cooking_timer / cook_time)
-            fill_coords(
-                tile_img,
-                point_in_rect(0.1, progress, 0.83, 0.88),
-                constants.Colors.Green,
+            surface.rect(
+                x=0.10,
+                y=0.83,
+                w=progress - 0.10,
+                h=0.05,
+                color=constants.Colors.Green,
             )
 
     def encode(self, encode_char: bool = True, scope: str = "global"):
@@ -259,8 +257,8 @@ def make_ingredient_and_stack(
     def _ingredient_init(self, *args, **kwargs):
         grid_object.GridObj.__init__(self, state=0)
 
-    def _ingredient_render(self, tile_img):
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.3), self.color)
+    def _ingredient_render(self, surface: TileSurface) -> None:
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)
 
     IngredientCls.__init__ = _ingredient_init
     IngredientCls.render = _ingredient_render
@@ -295,9 +293,9 @@ class Plate(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a white circle."""
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), self.color)
+        surface.circle(x=0.5, y=0.5, radius=0.5, color=self.color)
 
 
 @register_object_type("delivery_zone", scope="overcooked")
@@ -326,17 +324,10 @@ class OnionSoup(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a plate with soup inside."""
-        # Draw plate
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
-
-        # draw soup inside plate
-        fill_coords(
-            tile_img,
-            point_in_circle(cx=0.5, cy=0.5, r=0.3),
-            self.color,
-        )
+        surface.circle(x=0.5, y=0.5, radius=0.5, color=Plate.color)
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)
 
 
 @register_object_type("tomato_soup", scope="overcooked")
@@ -351,14 +342,7 @@ class TomatoSoup(grid_object.GridObj):
         """Initialize with default state."""
         super().__init__(state=0)
 
-    def render(self, tile_img):
+    def render(self, surface: TileSurface) -> None:
         """Draw a plate with soup inside."""
-        # Draw plate
-        fill_coords(tile_img, point_in_circle(cx=0.5, cy=0.5, r=0.5), Plate.color)
-
-        # draw soup inside plate
-        fill_coords(
-            tile_img,
-            point_in_circle(cx=0.5, cy=0.5, r=0.3),
-            self.color,
-        )
+        surface.circle(x=0.5, y=0.5, radius=0.5, color=Plate.color)
+        surface.circle(x=0.5, y=0.5, radius=0.3, color=self.color)

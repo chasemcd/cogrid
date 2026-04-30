@@ -23,6 +23,17 @@ from cogrid.rendering import EnvRenderer
 
 RNG = RandomNumberGenerator = np.random.Generator
 
+_HUD_BAR_HEIGHT = 4
+_HUD_BAR_GAP = 2
+_HUD_BG_COLOR = (255, 255, 255)
+
+
+def _hud_pixel_height(hud_bars: list[dict] | None) -> int:
+    """Return the pixel-height of the HUD strip for a given bar list."""
+    if not hud_bars:
+        return 0
+    return len(hud_bars) * (_HUD_BAR_HEIGHT + _HUD_BAR_GAP) + _HUD_BAR_GAP
+
 
 class CoGridEnv(pettingzoo.ParallelEnv):
     """Thin stateful wrapper around the functional step/reset pipeline.
@@ -31,7 +42,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
     """
 
     metadata = {
-        "render_modes": ["human", "rgb_array"],
+        "render_modes": ["human", "rgb_array", "mug"],
         "render_fps": 35,
         "screen_size": 480,
         "render_message": "",
@@ -90,9 +101,19 @@ class CoGridEnv(pettingzoo.ParallelEnv):
                 screen_size=self.screen_size,
                 render_fps=self.metadata["render_fps"],
             )
-            if render_mode
+            if render_mode == "human"
             else None
         )
+        # Long-lived env-level mug.Surface composing HUD + grid; shared by
+        # every render mode. Lazily created on first render() once the grid
+        # dims and HUD bar count are known.
+        from mug.rendering import Surface
+
+        from cogrid.rendering.raster import PygameRenderer
+
+        self.surface: Surface | None = None
+        self._raster: PygameRenderer | None = None
+        self._needs_surface_reset: bool = False
         self.visualizer = None
 
     def _init_grid(self, config: dict) -> None:
@@ -351,6 +372,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         self.t = 0
         self.on_reset()
         self.update_grid_agents()
+        # Tell the next mug-mode render to drop persistents from the
+        # previous episode. Local raster modes are stateless.
+        self._needs_surface_reset = True
 
     def _build_state(self):
         """Build array state from grid layout, extra state, and agent arrays."""
@@ -887,8 +911,13 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         """Return RGB image of the full environment."""
         return self.get_full_render(tile_size=tile_size)
 
-    def render(self) -> None | np.ndarray:
-        """Render the environment (human window or rgb_array return)."""
+    def render(self) -> None | np.ndarray | dict:
+        """Render the environment.
+
+        All render modes share a single ``mug.Surface`` that composes the
+        HUD strip on top of the grid; ``mug`` mode commits the wire packet
+        while ``human`` and ``rgb_array`` rasterize via ``PygameRenderer``.
+        """
         if self.visualizer is not None:
             orientations = {
                 self.id_to_numeric(a_id): agent.orientation
@@ -907,35 +936,154 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             )
 
         if self.render_mode is None:
-            return
+            return None
 
-        img = self.get_frame(tile_size=self.tile_size)
-
-        # Build HUD bar data from config hook (e.g., order queue bars)
         hud_bars = None
         render_hud_fn = self.config.get("render_hud_fn")
         if render_hud_fn is not None and self._env_state is not None:
             hud_bars = render_hud_fn(self._env_state, self._scope_config)
 
-        # Draw local-view radius overlay when partial observability is configured
+        self._compose_scene(hud_bars)
+
+        if self.render_mode == "mug":
+            return self.surface.commit().to_dict()
+
+        img = self._rasterize()
+
         lv_radius = self.config.get("local_view_radius")
         if lv_radius is not None and self._env_state is not None:
-            img = self._draw_local_view_overlay(img, lv_radius)
+            img = self._draw_local_view_overlay(img, lv_radius, hud_bars=hud_bars)
 
         if self.render_mode == "human":
-            self._renderer.render_human(
-                img,
-                self.cumulative_score,
-                self.render_message,
-                hud_bars=hud_bars,
-            )
+            self._renderer.render_human(img, overlays=self._build_human_overlays())
         elif self.render_mode == "rgb_array":
-            if hud_bars:
-                img = self._composite_hud_bars(img, hud_bars)
             return img
+        return None
 
-    def _draw_local_view_overlay(self, img: np.ndarray, radius: int) -> np.ndarray:
-        """Draw a colored rectangle per agent showing their local-view radius."""
+    def _build_human_overlays(self) -> list[dict]:
+        """Build the post-scale overlay list for ``render_mode='human'``.
+
+        Subclasses can override or extend this to add their own overlays
+        (e.g. progress text, agent labels, debug HUD). Coordinates are in
+        screen-pixel space (0..``self.screen_size`` on each axis).
+        """
+        text = f"Score: {np.round(self.cumulative_score, 2)}{self.render_message}"
+        return [
+            {
+                "type": "text",
+                "text": text,
+                "x": self.screen_size // 2,
+                "y": self.screen_size - 33,
+                "size": 22,
+                "color": (255, 255, 255),
+                "anchor": "center",
+            }
+        ]
+
+    def _compose_scene(self, hud_bars: list[dict] | None) -> None:
+        """Build (or update) the env-level Surface with HUD + grid.
+
+        Recreates the Surface when canvas dimensions change (e.g. HUD bar
+        count differs from prior frame). Resets persistents at episode
+        boundaries via :attr:`_needs_surface_reset`.
+        """
+        from mug.rendering import Surface
+
+        canvas_width = self.grid.width * self.tile_size
+        hud_height = _hud_pixel_height(hud_bars)
+        canvas_height = self.grid.height * self.tile_size + hud_height
+
+        if (
+            self.surface is None
+            or self.surface.width != canvas_width
+            or self.surface.height != canvas_height
+        ):
+            self.surface = Surface(width=canvas_width, height=canvas_height)
+            self._needs_surface_reset = False
+        elif self._needs_surface_reset:
+            self.surface.reset()
+            self._needs_surface_reset = False
+
+        if hud_height > 0:
+            self._draw_hud_bars(hud_bars, canvas_width, hud_height)
+
+        self.grid.draw_to_surface(
+            self.surface,
+            tile_size=self.tile_size,
+            y_offset=hud_height,
+        )
+
+    def _draw_hud_bars(
+        self,
+        hud_bars: list[dict],
+        canvas_width: int,
+        hud_height: int,
+    ) -> None:
+        """Draw the HUD bar strip across the top of :attr:`self.surface`."""
+        self.surface.rect(
+            x=0,
+            y=0,
+            w=canvas_width,
+            h=hud_height,
+            color=_HUD_BG_COLOR,
+            id="hud-bg",
+            persistent=True,
+            relative=False,
+            depth=-1,
+        )
+        for i, bar in enumerate(hud_bars):
+            y = _HUD_BAR_GAP + i * (_HUD_BAR_HEIGHT + _HUD_BAR_GAP)
+            progress = bar.get("progress", 0)
+            color = bar.get("color", (80, 80, 80))
+            background_color = bar.get("background_color", (50, 50, 50))
+            self.surface.rect(
+                x=0,
+                y=y,
+                w=canvas_width,
+                h=_HUD_BAR_HEIGHT,
+                color=background_color,
+                id=f"hud-bg-{i}",
+                persistent=True,
+                relative=False,
+            )
+            if progress > 0:
+                fill_w = max(1, int(progress * canvas_width))
+                self.surface.rect(
+                    x=0,
+                    y=y,
+                    w=fill_w,
+                    h=_HUD_BAR_HEIGHT,
+                    color=color,
+                    id=f"hud-fill-{i}",
+                    persistent=True,
+                    relative=False,
+                )
+
+    def _rasterize(self) -> np.ndarray:
+        """Rasterize the env's Surface to an RGB ``np.ndarray``."""
+        from cogrid.rendering.raster import PygameRenderer
+
+        if (
+            self._raster is None
+            or self._raster.width != self.surface.width
+            or self._raster.height != self.surface.height
+        ):
+            self._raster = PygameRenderer(width=self.surface.width, height=self.surface.height)
+        self._raster.apply(self.surface.commit().to_dict())
+        return self._raster.to_array()
+
+    def _draw_local_view_overlay(
+        self,
+        img: np.ndarray,
+        radius: int,
+        hud_bars: list[dict] | None = None,
+    ) -> np.ndarray:
+        """Draw a colored rectangle per agent showing their local-view radius.
+
+        ``img`` may include a HUD strip at the top (when ``hud_bars`` is set);
+        this offset is applied to the agent rectangles so they align with the
+        grid below the HUD.
+        """
         import colorsys
 
         agent_pos = np.array(self._env_state.agent_pos)
@@ -943,6 +1091,7 @@ class CoGridEnv(pettingzoo.ParallelEnv):
         ts = self.tile_size
         H, W = img.shape[:2]
         thickness = 2
+        hud_offset = _hud_pixel_height(hud_bars)
 
         for i in range(n_agents):
             hue = (i * (360 / n_agents)) / 360.0
@@ -950,8 +1099,8 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             color = (int(r * 255), int(g * 255), int(b * 255))
 
             row, col = int(agent_pos[i, 0]), int(agent_pos[i, 1])
-            y0 = max(0, (row - radius) * ts)
-            y1 = min(H, (row + radius + 1) * ts)
+            y0 = max(hud_offset, (row - radius) * ts + hud_offset)
+            y1 = min(H, (row + radius + 1) * ts + hud_offset)
             x0 = max(0, (col - radius) * ts)
             x1 = min(W, (col + radius + 1) * ts)
 
@@ -969,26 +1118,6 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             img[y0:y1, x1 - t : x1] = color
 
         return img
-
-    @staticmethod
-    def _composite_hud_bars(img: np.ndarray, hud_bars: list[dict]) -> np.ndarray:
-        """Draw HUD bars above the grid image and return the composited array."""
-        bar_height = 4
-        bar_gap = 2
-        bar_area_h = len(hud_bars) * (bar_height + bar_gap) + bar_gap
-        h, w, c = img.shape
-        out = np.full((h + bar_area_h, w, c), 255, dtype=np.uint8)
-        out[bar_area_h:] = img
-        for i, bar in enumerate(hud_bars):
-            y = bar_gap + i * (bar_height + bar_gap)
-            progress = bar.get("progress", 0)
-            color = np.array(bar.get("color", (80, 80, 80)), dtype=np.uint8)
-            background_color = np.array(bar.get("background_color", (50, 50, 50)), dtype=np.uint8)
-            out[y : y + bar_height, :] = background_color
-            if progress > 0:
-                fill_w = max(1, int(progress * w))
-                out[y : y + bar_height, :fill_w] = color
-        return out
 
     def close(self) -> None:
         """Close the renderer if active."""
