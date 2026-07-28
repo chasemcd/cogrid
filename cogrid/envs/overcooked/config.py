@@ -119,11 +119,11 @@ def build_order_tick(order_config, recipe_results):
             key, subkey = jax.random.split(state.rng_key)
             rolls = jax.random.uniform(subkey, shape=(max_active,))
         else:
-            rolls = xp.array(
-                _np.random.default_rng().uniform(size=(max_active,)),
-                dtype=xp.float32,
-            )
-            key = state.rng_key
+            # Derive from the key and advance it, mirroring the JAX branch.
+            seed = 42 if state.rng_key is None else int(state.rng_key)
+            rng = _np.random.default_rng(seed)
+            key = int(rng.integers(0, 2**63 - 1))
+            rolls = xp.array(rng.uniform(size=(max_active,)), dtype=xp.float32)
 
         # hit[i, r] = True if slot i's roll falls in recipe r's CDF bucket
         hit = rolls[:, None] < cdf[None, :]  # (max_active, n_recipes)

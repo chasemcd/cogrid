@@ -621,6 +621,9 @@ class CoGridEnv(pettingzoo.ParallelEnv):
             "action_set": state.action_set,
             "t": self.t,
             "cumulative_score": float(self.cumulative_score),
+            # step() draws each step's RNG key from this generator, so the
+            # snapshot's rng_key alone is not enough to resume the stream.
+            "np_random_state": self.np_random.bit_generator.state,
         }
         return snapshot
 
@@ -676,6 +679,12 @@ class CoGridEnv(pettingzoo.ParallelEnv):
 
         self.t = snapshot["t"]
         self.cumulative_score = snapshot["cumulative_score"]
+
+        # Restore the generator step() draws keys from. Absent in snapshots
+        # taken before this field existed; those resume on the current stream.
+        np_random_state = snapshot.get("np_random_state")
+        if np_random_state is not None:
+            self.np_random.bit_generator.state = np_random_state
 
         if self.render_mode is not None:
             self._sync_objects_from_state()

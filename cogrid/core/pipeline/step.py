@@ -59,13 +59,14 @@ def _backend_rng(rng_key, mode, n_agents):
     else:
         import numpy as _np
 
+        # Mirror the JAX branch: derive from the key, then return it advanced.
+        seed = 42 if rng_key is None else int(rng_key)
+        rng = _np.random.default_rng(seed)
+        next_key = int(rng.integers(0, 2**63 - 1))
         if mode == "permutation":
-            return rng_key, _np.random.default_rng().permutation(n_agents).astype(_np.int32)
+            return next_key, rng.permutation(n_agents).astype(_np.int32)
         else:
-            seed = rng_key if isinstance(rng_key, int) else None
-            return None, _np.random.default_rng(seed).integers(0, 4, size=(n_agents,)).astype(
-                _np.int32
-            )
+            return next_key, rng.integers(0, 4, size=(n_agents,)).astype(_np.int32)
 
 
 def _maybe_stop_gradient(*arrays):
